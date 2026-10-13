@@ -817,7 +817,7 @@ async function loadDevices() {
     }
     renderDevices();
     update();
-    if (r.busy && !busy) startPolling();
+    if (r.busy && !busy) startPolling(true);
   } catch (e) {
     $("devs").textContent = "";
     $("devs").appendChild(el("div", "empty", "Verbindung zur PS5 fehlgeschlagen: " + e.message));
@@ -841,8 +841,11 @@ function setProgress(st) {
   $("cancel").hidden = !(st.busy !== false && cancellable(st.step));
 }
 
-function startPolling() {
+let foreignJob = false;   /* Auftrag wurde in einem anderen Browser gestartet (z. B. an der PS5, angezeigt am PC) */
+
+function startPolling(foreign) {
   busy = true;
+  foreignJob = !!foreign;
   update();
   renderDevices();
   clearInterval(pollTimer);
@@ -856,11 +859,23 @@ function startPolling() {
       $("progress").hidden = true;
       const d = currentDevice() || devices.find(x => x.name === st.device);
       await loadDevices();
-      finished(st, d);
+      /* fremder Auftrag: nur das Ergebnis zeigen - Rückfragen (z. B. "nur echten Bereich formatieren") gehören
+         dem Browser, der ihn gestartet hat */
+      if (foreignJob) { showMsg(st.message, st.ok); renderTabs(); }
+      else finished(st, d);
       loadLibrary(true);
     }
   }, 500);
 }
+
+/* Aufträge aus anderen Browsern erkennen: alle 3 Sekunden nachsehen, solange hier keiner läuft */
+setInterval(async () => {
+  if (busy) return;
+  try {
+    const st = await api("/api/status");
+    if (st.busy && !busy) { showMsg("", true); setProgress(st); startPolling(true); }
+  } catch (e) {}
+}, 3000);
 
 /* Ergebnis eines Auftrags zeigen */
 function finished(st, d) {
