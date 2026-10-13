@@ -14,5 +14,6 @@ usb_list/*.elf
 windows/build/
 windows/dist/
 windows/*.spec
+windows/usbfmt_win.exe
 **/__pycache__/
 *.pyc

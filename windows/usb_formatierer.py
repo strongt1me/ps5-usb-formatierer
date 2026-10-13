@@ -3,12 +3,15 @@
 Findet die PS5 im Netz (ps5_discovery) und spricht mit dem usb_format-Payload (HTTP-API,
 Port 8090). Laeuft der Payload noch nicht, wird er an den ELF-Loader der PS5 (Port 9021) geschickt.
 """
+import ctypes
 import json
 import os
 import queue
 import re
 import socket
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
@@ -128,6 +131,124 @@ class Api:
                                           "replug": replug})
 
 
+# ---------------------------------------------------------------------- PC-Modus: USB-Datenträger an diesem PC
+
+def find_helper():
+    for p in (resource_path("usbfmt_win.exe"), os.path.join(os.path.dirname(os.path.abspath(__file__)), "usbfmt_win.exe")):
+        if os.path.isfile(p):
+            return os.path.abspath(p)
+    return None
+
+
+def pc_list():
+    """USB-Datenträger am PC (ohne Administratorrechte). Die Systemplatte meldet der Helfer nie."""
+    exe = find_helper()
+    if not exe:
+        raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
+    r = subprocess.run([exe, "list"], capture_output=True, timeout=30,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return json.loads(r.stdout.decode("utf-8") or "[]")
+
+
+def pc_used(d):
+    return sum(v["total"] - v["free"] for v in d["volumes"] if v["total"])
+
+
+def pc_dev_text(d):
+    parts = []
+    for v in d["volumes"]:
+        t = v["letters"] or "ohne Buchstaben"
+        if v["label"]:
+            t += f" „{v['label']}“"
+        if v["fs"]:
+            t += f" {v['fs']}"
+        parts.append(t)
+    vols = ", ".join(parts) if parts else "ohne Partition"
+    return f"{d['model'] or 'USB-Datenträger'} – {fmt_size(d['size'])} – {vols}"
+
+
+class _ShellExecuteInfo(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_ulong), ("fMask", ctypes.c_ulong), ("hwnd", ctypes.c_void_p),
+                ("lpVerb", ctypes.c_wchar_p), ("lpFile", ctypes.c_wchar_p), ("lpParameters", ctypes.c_wchar_p),
+                ("lpDirectory", ctypes.c_wchar_p), ("nShow", ctypes.c_int), ("hInstApp", ctypes.c_void_p),
+                ("lpIDList", ctypes.c_void_p), ("lpClass", ctypes.c_wchar_p), ("hkeyClass", ctypes.c_void_p),
+                ("dwHotKey", ctypes.c_ulong), ("hIconOrMonitor", ctypes.c_void_p), ("hProcess", ctypes.c_void_p)]
+
+
+class PcJob:
+    """Startet den Helfer mit Administratorrechten (UAC-Abfrage von Windows) und liest seine Ausgabedatei mit"""
+    def __init__(self, args):
+        exe = find_helper()
+        if not exe:
+            raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
+        tmp = os.path.join(tempfile.gettempdir(), APP_NAME)
+        os.makedirs(tmp, exist_ok=True)
+        stamp = f"{os.getpid()}-{int(time.time() * 1000)}"
+        self.out = os.path.join(tmp, f"auftrag-{stamp}.txt")
+        self.cancel_file = os.path.join(tmp, f"abbruch-{stamp}")
+        sei = _ShellExecuteInfo()
+        sei.cbSize = ctypes.sizeof(sei)
+        sei.fMask = 0x40 | 0x400          # SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI
+        sei.lpVerb = "runas"
+        sei.lpFile = exe
+        sei.lpParameters = subprocess.list2cmdline(["--out", self.out, "--cancel", self.cancel_file] + args)
+        sei.nShow = 0                     # SW_HIDE
+        shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+        if not shell32.ShellExecuteExW(ctypes.byref(sei)):
+            code = ctypes.get_last_error()
+            if code == 1223:   # ERROR_CANCELLED: Benutzer hat die UAC-Abfrage abgelehnt
+                raise PermissionError("Ohne Administratorrechte lässt Windows keine Datenträger bearbeiten.")
+            raise OSError(f"Helfer konnte nicht gestartet werden (Windows-Fehler {code}).")
+        self.proc = sei.hProcess
+
+    def cancel(self):
+        try:
+            open(self.cancel_file, "w").close()
+        except OSError:
+            pass
+
+    def running(self):
+        return ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 0) != 0
+
+    def follow(self, on_progress):
+        """Bis zum Ende mitlesen; liefert (ok, meldung, json)"""
+        pos, result = 0, None
+        try:
+            while result is None:
+                alive = self.running()
+                try:
+                    with open(self.out, "rb") as f:
+                        f.seek(pos)
+                        data = f.read()
+                except OSError:
+                    data = b""
+                end = data.rfind(b"\n") + 1
+                pos += end
+                for line in data[:end].decode("utf-8", "replace").splitlines():
+                    parts = line.split("\t")
+                    if parts[0] == "P" and len(parts) >= 3:
+                        on_progress(int(parts[1]), parts[2])
+                    elif parts[0] == "R" and len(parts) >= 4:
+                        try:
+                            info = json.loads(parts[3])
+                        except ValueError:
+                            info = {}
+                        result = (parts[1] == "1", parts[2], info)
+                if result is None and not alive:
+                    result = (False, "Der Helfer wurde unerwartet beendet.", {})
+                elif result is None:
+                    time.sleep(0.3)
+        finally:
+            ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 5000)   # Datei freigeben lassen
+            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self.proc))
+            for p in (self.out, self.cancel_file):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+        return result
+
+
 def send_payload(host, path):
     with open(path, "rb") as f:
         data = f.read()
@@ -171,7 +292,12 @@ class App(tk.Tk):
         self.formatting = False
         self.watching = False      # Abfrage nach fremden Aufträgen unterwegs
         self.consoles = {}         # Anzeigetext -> Fund aus ps5_discovery
+        self.ps5_devices = []      # zuletzt gelesene Liste der PS5 (bleibt beim Umschalten erhalten)
+        self.pc_job = None         # laufender Auftrag des Windows-Helfers
 
+        self.mode_var = tk.StringVar(value="pc" if self.settings.get("mode") == "pc" else "ps5")
+        self.verify_var = tk.BooleanVar(value=self.settings.get("verify", False))
+        self.folders_var = tk.BooleanVar(value=self.settings.get("folders", True))
         self.host_var = tk.StringVar(value=self.settings.get("host", ""))
         self.dev_var = tk.StringVar()
         self.fs_var = tk.StringVar(value="exFAT")
@@ -187,7 +313,7 @@ class App(tk.Tk):
         self.geometry(f"+{(self.winfo_screenwidth() - w) // 2}+{(self.winfo_screenheight() - h) // 3}")
         self.deiconify()
         self._poll_id = self.after(50, self._poll)
-        self.after(200, self._search)
+        self._mode_changed(initial=True)
         self._watch_id = self.after(3000, self._watch)
 
     # ------------------------------------------------------------------ UI
@@ -200,10 +326,24 @@ class App(tk.Tk):
 
         def caption(text):
             nonlocal row
-            ttk.Label(frm, text=text).grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 2))
+            lbl = ttk.Label(frm, text=text)
+            lbl.grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 2))
             row += 1
+            return lbl
 
-        caption("PS5:")
+        # Schalter: Stick an der PS5 (über das Netzwerk) oder direkt an diesem PC
+        modes = ttk.Frame(frm)
+        modes.grid(row=row, column=0, columnspan=2, sticky="ew")
+        modes.columnconfigure((0, 1), weight=1, uniform="mode")
+        self.mode_btns = []
+        for col, (val, text) in enumerate((("ps5", "USB an der PS5"), ("pc", "USB an diesem PC"))):
+            b = ttk.Radiobutton(modes, text=text, value=val, variable=self.mode_var, style="Toolbutton",
+                                command=self._mode_changed)
+            b.grid(row=0, column=col, sticky="ew", padx=(0, 3) if col == 0 else (3, 0), ipady=3)
+            self.mode_btns.append(b)
+        row += 1
+
+        self.ps5_caption = caption("PS5:")
         self.host_entry = ttk.Combobox(frm, textvariable=self.host_var, width=34)
         self.host_entry.grid(row=row, column=0, sticky="ew")
         self.host_entry.bind("<Return>", lambda e: self._connect())
@@ -240,6 +380,17 @@ class App(tk.Tk):
         self.label_hint.grid(row=row, column=0, columnspan=2, sticky="w")
         row += 1
 
+        # nur am PC: dieselben Zusatzoptionen wie in der Weboberfläche der PS5
+        self.pc_opts = ttk.Frame(frm)
+        self.pc_opts.grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        self.verify_chk = ttk.Checkbutton(self.pc_opts, variable=self.verify_var,
+                                          text="Vorher Echtheit prüfen (Fake-Test, einige Minuten)")
+        self.verify_chk.pack(anchor="w")
+        self.folders_chk = ttk.Checkbutton(self.pc_opts, variable=self.folders_var,
+                                           text="Ordner homebrew, etaHEN/games und pkg anlegen")
+        self.folders_chk.pack(anchor="w", pady=(2, 0))
+        row += 1
+
         self.pbar = ttk.Progressbar(frm, maximum=100)
         self.pbar.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(14, 4))
         row += 1
@@ -248,10 +399,17 @@ class App(tk.Tk):
         row += 1
 
         btns = ttk.Frame(frm)
-        btns.grid(row=row, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        self.tools = ttk.Frame(btns)   # nur am PC
+        self.tools.pack(side="left")
+        self.speed_btn = ttk.Button(self.tools, text="Tempo messen", command=self._pc_speed)
+        self.speed_btn.pack(side="left")
+        self.rename_btn = ttk.Button(self.tools, text="Umbenennen", command=self._pc_rename)
+        self.rename_btn.pack(side="left", padx=(6, 0))
+        ttk.Button(btns, text="Schließen", command=self._on_close).pack(side="right", padx=(6, 0))
         self.start_btn = ttk.Button(btns, text="Starten", command=self._start)
-        self.start_btn.pack(side="left")
-        ttk.Button(btns, text="Schließen", command=self._on_close).pack(side="left", padx=(6, 0))
+        self.start_btn.pack(side="right")
+        self.cancel_btn = ttk.Button(btns, text="Abbrechen", command=self._pc_cancel)
 
     def _selected_device(self):
         i = self.dev_combo.current()
@@ -267,16 +425,79 @@ class App(tk.Tk):
             self.label_hint.configure(text="Bis zu 11 Zeichen, wird bei FAT32 großgeschrieben")
 
         idle = not self.busy
-        for w in (self.host_entry, self.label_entry):
-            w.state(["!disabled"] if idle else ["disabled"])
-        self.search_btn.state(["!disabled"] if idle else ["disabled"])
-        self.reload_btn.state(["!disabled"] if idle and self.api else ["disabled"])
-        self.dev_combo.state(["readonly", "!disabled"] if idle and self.devices else ["disabled"])
-        self.fs_combo.state(["readonly", "!disabled"] if idle else ["disabled"])
-        self.start_btn.state(["!disabled"] if idle and dev and formattable(dev) else ["disabled"])
+        pc = self.mode_var.get() == "pc"
+
+        def enable(w, on, *extra):
+            w.state(list(extra) + (["!disabled"] if on else ["disabled"]))
+
+        for w in (self.host_entry, self.label_entry, self.search_btn, self.verify_chk, self.folders_chk,
+                  *self.mode_btns):
+            enable(w, idle)
+        enable(self.reload_btn, idle and (pc or self.api))
+        enable(self.dev_combo, idle and self.devices, "readonly")
+        enable(self.fs_combo, idle, "readonly")
+        enable(self.start_btn, idle and dev and (pc or formattable(dev)))
+        enable(self.speed_btn, idle and dev)
+        enable(self.rename_btn, idle and dev and any(v["fs"] in ("exFAT", "FAT32") for v in dev.get("volumes", [])))
+        # Abbrechen nur während Echtheitsprüfung oder Tempomessung am PC (Formatieren selbst dauert Sekunden)
+        if self.pc_job and getattr(self.pc_job, "cancellable", False):
+            if not self.cancel_btn.winfo_ismapped():
+                self.cancel_btn.pack(side="right", padx=(0, 6))
+        elif self.cancel_btn.winfo_ismapped():
+            self.cancel_btn.pack_forget()
+
+    def _mode_changed(self, initial=False):
+        pc = self.mode_var.get() == "pc"
+        if not initial:
+            self.settings["mode"] = self.mode_var.get()
+            save_settings(self.settings)
+        for w in (self.ps5_caption, self.host_entry, self.search_btn):
+            w.grid_remove() if pc else w.grid()
+        if pc:
+            self.pc_opts.grid()
+            self.tools.pack(side="left", before=self.start_btn)
+        else:
+            self.pc_opts.grid_remove()
+            self.tools.pack_forget()
+        self.pbar["value"] = 0
+        if pc:
+            self.devices = []
+            self.dev_combo.configure(values=[])
+            self.dev_var.set("")
+            self._pc_reload()
+        else:
+            self._fill_devices(self.ps5_devices)
+            if self.api:
+                self.status_var.set(f"Verbunden mit {self.host_var.get().strip()}")
+            elif initial or not self.consoles:
+                self.after(200 if initial else 0, self._search)
+            else:
+                self.status_var.set("Nicht verbunden")
+        self._update()
+
+    def _fill_pc_devices(self, devices):
+        prev = self._selected_device()
+        self.devices = devices
+        self.dev_combo.configure(values=[pc_dev_text(d) for d in devices])
+        # am PC wird nie vorausgewählt: dort hängen oft Platten mit Daten (Spiele-Sicherung, Backups)
+        idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
+                    and d["size"] == prev.get("size")), -1)
+        if idx >= 0:
+            self.dev_combo.current(idx)
+        else:
+            self.dev_var.set("")
+        if not devices:
+            self.status_var.set("Kein USB-Datenträger am PC gefunden. Stick einstecken und „Aktualisieren“ klicken.")
+        else:
+            self.status_var.set(f"{len(devices)} USB-Datenträger am PC gefunden – bitte oben auswählen.")
 
     def _fill_devices(self, devices):
+        self.ps5_devices = devices
+        if self.mode_var.get() == "pc":
+            return
         prev = self._selected_device()
+        if prev and "disk" in prev:
+            prev = None
         self.devices = devices
         names = []
         for d in devices:
@@ -412,6 +633,9 @@ class App(tk.Tk):
         self._run(work)
 
     def _reload(self):
+        if self.mode_var.get() == "pc":
+            self._pc_reload()
+            return
         if self.busy or not self.api:
             return
         api = self.api
@@ -427,6 +651,9 @@ class App(tk.Tk):
     def _start(self):
         dev = self._selected_device()
         if self.busy or not dev:
+            return
+        if self.mode_var.get() == "pc":
+            self._pc_format(dev)
             return
         label = self.label_var.get()
         fs = "exfat" if self.fs_var.get() == "exFAT" else "fat32"
@@ -488,7 +715,7 @@ class App(tk.Tk):
 
     def _watch(self):
         """Alle 3 Sekunden nachsehen, ob auf der PS5 ein Auftrag läuft, den jemand anderes gestartet hat"""
-        if self.api and not self.busy and not self.watching:
+        if self.api and not self.busy and not self.watching and self.mode_var.get() == "ps5":
             api = self.api
             self.watching = True
 
@@ -502,6 +729,131 @@ class App(tk.Tk):
 
             threading.Thread(target=self._guard(check), daemon=True).start()
         self._watch_id = self.after(3000, self._watch)
+
+    # ------------------------------------------------------------------ PC-Modus
+
+    def _pc_reload(self):
+        if self.busy:
+            return
+
+        def work():
+            self.q.put(("status", "Suche USB-Datenträger am PC …"))
+            try:
+                self.q.put(("pcdevices", pc_list()))
+            except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as e:
+                self.q.put(("error", f"USB-Datenträger konnten nicht gelesen werden: {e}"))
+
+        self._run(work)
+
+    def _pc_run(self, op, args, cancellable=False, after=None):
+        """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread"""
+        def work():
+            try:
+                job = PcJob(args)
+            except (OSError, RuntimeError) as e:
+                self.q.put(("error", str(e)))
+                return
+            job.cancellable = cancellable
+            self.pc_job = job
+            self.q.put(("formatting", False))
+            ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step)))
+            try:
+                devices = pc_list()
+            except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
+                devices = None
+            self.q.put(("pcdone", op, ok, msg, info, devices, after))
+
+        self.pbar["value"] = 0
+        self.status_var.set("Windows fragt nach Administratorrechten …")
+        self._run(work)
+
+    def _pc_volumes_text(self, dev):
+        lines = []
+        for v in dev["volumes"]:
+            used = v["total"] - v["free"] if v["total"] else 0
+            t = f"Laufwerk {v['letters'] or '(ohne Buchstaben)'}"
+            if v["label"]:
+                t += f" „{v['label']}“"
+            if v["fs"]:
+                t += f", {v['fs']}"
+            if v["total"]:
+                t += f", {fmt_size(used)} belegt"
+            lines.append(t)
+        return "\n".join(lines)
+
+    def _pc_format(self, dev, limit=0):
+        label = self.label_var.get()
+        fs = "exfat" if self.fs_var.get() == "exFAT" else "fat32"
+        fs_text = "exFAT mit 64 KB Zuordnungseinheiten" if fs == "exfat" else "FAT32"
+        if not limit:
+            vols = self._pc_volumes_text(dev)
+            used = pc_used(dev)
+            data_warn = (f"\n\nAuf dem Datenträger liegen {fmt_size(used)} Daten – sie sind danach weg."
+                         if used > 64 * 1024 * 1024 else "")
+            if not messagebox.askokcancel(
+                    "USB-Datenträger am PC formatieren",
+                    f"WARNUNG: Durch das Formatieren werden ALLE Daten auf diesem Datenträger gelöscht.\n\n"
+                    f"{dev['model'] or 'USB-Datenträger'} ({fmt_size(dev['size'])})\n"
+                    f"{vols + chr(10) if vols else ''}"
+                    f"\nwird als {fs_text} für die PS5 formatiert.{data_warn}\n\n"
+                    f"Windows fragt anschließend nach Administratorrechten.",
+                    icon="warning", default="cancel", parent=self):
+                return
+        self.settings.update(label=label, verify=self.verify_var.get(), folders=self.folders_var.get())
+        save_settings(self.settings)
+        args = ["format", str(dev["disk"]), str(dev["size"]), fs, label]
+        if self.verify_var.get() and not limit:
+            args.append("verify")
+        if self.folders_var.get():
+            args.append("folders")
+        if limit:
+            args.append(f"limit={limit}")
+
+        def after(ok, msg, info):
+            if ok:
+                messagebox.showinfo("USB-Datenträger am PC", "Datenträger erfolgreich formatiert.\n\n" + msg, parent=self)
+            elif info.get("fake") and info.get("real", 0) >= 64 * 1024 * 1024:
+                real = info["real"] // (1024 * 1024) * 1024 * 1024
+                if messagebox.askyesno(
+                        "Gefälschte Größe", f"{msg}\n\nNur den echten Bereich ({fmt_size(real)}) formatieren? "
+                        "Dann gehen keine Daten verloren, die über diese Grenze hinaus geschrieben würden.",
+                        icon="warning", parent=self):
+                    self._pc_format(dev, limit=real)
+            else:
+                messagebox.showerror("USB-Datenträger am PC", msg, parent=self)
+
+        self._pc_run("format", args, cancellable=bool(self.verify_var.get()) and not limit, after=after)
+
+    def _pc_speed(self):
+        dev = self._selected_device()
+        if self.busy or not dev:
+            return
+
+        def after(ok, msg, info):
+            (messagebox.showinfo if ok else messagebox.showerror)("Tempo messen", msg, parent=self)
+
+        self._pc_run("speed", ["speed", str(dev["disk"]), str(dev["size"])], cancellable=True, after=after)
+
+    def _pc_rename(self):
+        dev = self._selected_device()
+        if self.busy or not dev:
+            return
+        label = self.label_var.get()
+        target = f"„{label}“" if label else "keine Bezeichnung"
+        if not messagebox.askokcancel(
+                "Umbenennen", f"{pc_dev_text(dev)}\n\nNeue Bezeichnung: {target}\n\nDie Daten bleiben erhalten. Das "
+                "Laufwerk wird dafür kurz abgemeldet – geöffnete Dateien darauf vorher schließen.", parent=self):
+            return
+
+        def after(ok, msg, info):
+            (messagebox.showinfo if ok else messagebox.showerror)("Umbenennen", msg, parent=self)
+
+        self._pc_run("label", ["label", str(dev["disk"]), str(dev["size"]), label], after=after)
+
+    def _pc_cancel(self):
+        if self.pc_job:
+            self.pc_job.cancel()
+            self.status_var.set("Wird abgebrochen …")
 
     # ------------------------------------------------------------------ Ereignisse aus Threads
 
@@ -560,6 +912,23 @@ class App(tk.Tk):
                         self.pbar["value"] = 0
                         if not foreign:
                             messagebox.showerror("PS5-USB formatieren", msg[2], parent=self)
+                elif kind == "pcdevices":
+                    self.busy = False
+                    if self.mode_var.get() == "pc":
+                        self._fill_pc_devices(msg[1])
+                elif kind == "pcdone":
+                    _, op, ok, text, info, devices, after = msg
+                    self.pc_job = None
+                    self.formatting = self.busy = False
+                    self.pbar.stop()
+                    self.pbar.configure(mode="determinate")
+                    self.pbar["value"] = 100 if ok else 0
+                    if devices is not None and self.mode_var.get() == "pc":
+                        self._fill_pc_devices(devices)
+                    self.status_var.set(text)
+                    self._update()
+                    if after:
+                        after(ok, text, info)
                 elif kind == "error":
                     self.busy = self.formatting = False
                     self.status_var.set(msg[1])
@@ -571,7 +940,8 @@ class App(tk.Tk):
 
     def _on_close(self):
         if self.formatting and not messagebox.askyesno(
-                self.title(), "Die Formatierung läuft auf der PS5 weiter. Fenster trotzdem schließen?",
+                self.title(), ("Der Auftrag läuft am PC im Hintergrund weiter." if self.pc_job else
+                               "Die Formatierung läuft auf der PS5 weiter.") + " Fenster trotzdem schließen?",
                 icon="warning", parent=self):
             return
         self.after_cancel(self._poll_id)

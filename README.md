@@ -28,7 +28,7 @@ Vom [Release](../../releases) laden:
 | --- | --- |
 | `PPSA86920.zip` | App-Kachel: Ordner nach `/data/homebrew/` auf die PS5 kopieren (ShadowMountPlus meldet ihn an) |
 | `usb_format.elf` | der Formatierer als Payload (ELF-Loader, Port 9021) |
-| `PS5-USB-Formatierer.exe` | Windows-Programm: findet die PS5 im Netz und formatiert über sie |
+| `PS5-USB-Formatierer.exe` | Windows-Programm: findet die PS5 im Netz und formatiert über sie – oder (Schalter „USB an diesem PC“) formatiert Sticks direkt am PC mit demselben PS5-Layout, inkl. FAT32 über 32 GB, Fake-Test, Tempo messen und Umbenennen |
 
 Die Weboberfläche ist danach unter `http://<PS5-IP>:8090` erreichbar.
 
@@ -37,7 +37,8 @@ Die Weboberfläche ist danach unter `http://<PS5-IP>:8090` erreichbar.
 - Payload und App (WSL/Linux, [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk)):
   `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` braucht `ps5-native-tool`, siehe `usb_format/app/build_title.sh`)
 - App-Ordner: `usb_format/dump/build.ps1` (.NET 10)
-- Windows-Programm: `windows/build_exe.bat` (Python, PyInstaller)
+- Windows-Programm: `windows/build_exe.bat` (Python, PyInstaller; der PC-Helfer `usbfmt_win.exe` aus
+  `usb_format/src/win` wird mit `pip install ziglang` gebaut)
 - Tests (Linux/WSL): `usb_format/test/*.sh`
 
 ## Fremdcode und Lizenzen
