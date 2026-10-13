@@ -1,0 +1,10 @@
+# Quellen und Skripte mit LF (bash in WSL verträgt kein CRLF); Windows-Stapeldateien mit CRLF
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.dds binary
+*.ico binary
+*.elf binary
+*.prx binary
+*.dll binary

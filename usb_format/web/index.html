@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>USB-Formatierer</title>
+<script>
+try { var t0 = localStorage.getItem("usbfmt-theme"); if (t0 === "light" || t0 === "dark") document.documentElement.dataset.theme = t0; } catch (e) {}
+/* Größe: im PS5-Browser (Fernseher) größer; zuletzt gespeicherter Wert sofort, damit nichts springt */
+var tv0 = /PlayStation/i.test(navigator.userAgent), z0 = tv0 ? 160 : 100;
+if (tv0) document.documentElement.className += " tv";
+try { var s0 = parseInt(localStorage.getItem(tv0 ? "usbfmt-scale_tv" : "usbfmt-scale_pc"), 10); if (s0 >= 50 && s0 <= 250) z0 = s0; } catch (e) {}
+document.documentElement.style.setProperty("--ui-zoom", String(z0 / 100));
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #b6c2d6; --card: #ffffff; --text: #1f1e1c; --muted: #45474d; --border: #aeb6c4;
+  --accent: #185fa5; --accent-bg: rgba(24, 95, 165, 0.16); --danger: #a32d2d; --danger-bg: #fcebeb;
+  --ok: #3b6d11; --ok-bg: #eaf3de; --bar: rgba(0, 0, 0, 0.12); --warn: #854f0b; --warn-bg: #faeeda;
+  --veil: linear-gradient(rgba(226, 232, 242, 0.84) 25%, rgba(226, 232, 242, 0.64) 62%, rgba(226, 232, 242, 0.64) 82%, rgba(226, 232, 242, 0.8) 96%); --pane: rgba(255, 255, 255, 0.36);
+  --bg-filter: saturate(0.8) brightness(1.1);
+  --field: rgba(255, 255, 255, 0.55); --page: url("/page-light.jpg"); --tile: rgba(255, 255, 255, 0.4);
+  --shadow: 0 10px 34px rgba(28, 48, 88, 0.22), 0 2px 6px rgba(28, 48, 88, 0.12);
+}
+/* Design: data-theme="light"|"dark" ist fest gewählt (auf der PS5 gespeichert, überall gleich),
+   ohne Angabe bzw. "auto" folgt es der Einstellung des jeweiligen Geräts. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #05080f; --card: #1c2230; --text: #ecebe6; --muted: #a6acb8; --border: #2e3a50;
+    --accent: #85b7eb; --accent-bg: #0c2c4c; --danger: #f09595; --danger-bg: #4a1818;
+    --ok: #97c459; --ok-bg: #20330c; --bar: #3c3b38; --warn: #fac775; --warn-bg: #412402;
+    --veil: rgba(6, 10, 20, 0.5); --pane: rgba(255, 255, 255, 0.05); --bg-filter: saturate(0.85);
+    --field: rgba(38, 38, 36, 0.45); --page: url("/page-dark.jpg"); --tile: rgba(255, 255, 255, 0.04);
+    --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #05080f; --card: #1c2230; --text: #ecebe6; --muted: #a6acb8; --border: #2e3a50;
+  --accent: #85b7eb; --accent-bg: #0c2c4c; --danger: #f09595; --danger-bg: #4a1818;
+  --ok: #97c459; --ok-bg: #20330c; --bar: #3c3b38; --warn: #fac775; --warn-bg: #412402;
+  --veil: rgba(6, 10, 20, 0.5); --pane: rgba(255, 255, 255, 0.05); --bg-filter: saturate(0.85);
+  --field: rgba(38, 38, 36, 0.45); --page: url("/page-dark.jpg"); --tile: rgba(255, 255, 255, 0.04);
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, "Segoe UI", sans-serif; }
+/* Größe (Regler): skaliert werden Inhalt und Dialog, nicht die Regler-Leiste selbst */
+main, .dialog { zoom: var(--ui-zoom, 1); }
+/* Der PS5-Browser ist WebKit: Abstände über margin statt "gap", top/right/bottom/left statt "inset" */
+body::before { content: ""; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1;
+               background: var(--page) center / cover no-repeat; }
+main { max-width: 540px; margin: 0 auto; padding: 24px 16px 40px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+/* Eigene Zeichenebene für die Bildschichten: "z-index: 0", denn der PS5-Browser kennt "isolation" nicht */
+.card.hero { padding: 14px; position: relative; z-index: 0; isolation: isolate; overflow: hidden; box-shadow: var(--shadow); }
+.card.hero::before, .card.hero::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; }
+.card.hero::before { background: url("/bg.jpg") center bottom / cover no-repeat; filter: var(--bg-filter); }
+.card.hero::after { background: var(--veil); }
+.pane { padding: 14px 16px; border-radius: 11px; background: var(--pane); }
+.pane + .pane { margin-top: 12px; }
+.pane[hidden], [hidden] { display: none !important; }
+h1 { font-size: 19px; font-weight: 600; margin: 0; }
+.sub { color: var(--muted); font-size: 13px; }
+.head { display: flex; justify-content: space-between; align-items: center; }
+/* Abschnittsüberschrift: klein, gesperrt, ruhig */
+.sec { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; letter-spacing: .09em;
+       text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.sec button { text-transform: none; letter-spacing: 0; }
+label.f { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 4px; }
+select, input[type=text] {
+  width: 100%; font: inherit; color: var(--text); background: var(--field);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+}
+option { background: var(--card); color: var(--text); }
+select:disabled { opacity: .7; }
+
+/* Laufwerke */
+.dev { display: flex; align-items: flex-start; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px;
+       cursor: pointer; background: var(--tile); }
+.dev + .dev { margin-top: 8px; }
+.dev.sel { background: var(--accent-bg); border-color: var(--accent); }
+.dev.locked { cursor: not-allowed; opacity: .55; }
+/* Auswahlkreise und Haken selbst gezeichnet: der PS5-Browser drückte die eingebauten zusammen */
+input[type=radio], input[type=checkbox] {
+  -webkit-appearance: none; appearance: none; flex: none; width: 18px; height: 18px; margin: 0;
+  border: 2px solid var(--muted); background: var(--field); cursor: pointer;
+}
+input[type=radio] { border-radius: 50%; }
+input[type=checkbox] { border-radius: 5px; }
+input[type=radio]:checked { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 4px, transparent 5px), var(--field); }
+input[type=checkbox]:checked { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--card); }
+input:disabled { cursor: not-allowed; opacity: .5; }
+.dev input[type=radio] { margin: 3px 12px 0 0; }
+.dev .body { flex: 1; min-width: 0; }
+.dev .row { display: flex; justify-content: space-between; align-items: baseline; }
+.dev .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.dev .sz { font-weight: 600; white-space: nowrap; margin-left: 10px; }
+.dev .m { color: var(--muted); font-size: 13px; margin-top: 1px; }
+.chip { display: inline-block; font-size: 11.5px; line-height: 1.5; padding: 0 8px; border-radius: 20px; margin: 2px 0 0 6px;
+        border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.chip.fs { color: var(--accent); border-color: var(--accent); }
+.chip.on { color: var(--ok); border-color: var(--ok); }
+.usage { height: 6px; border-radius: 4px; background: var(--bar); margin: 8px 0 4px; overflow: hidden; }
+.usage div { height: 100%; background: var(--accent); border-radius: 4px; }
+.utext { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.utext b { color: var(--text); font-weight: 600; }
+.empty { padding: 12px 4px; color: var(--muted); font-size: 14px; }
+
+/* Reiter */
+.tabs { display: flex; padding: 4px; border-radius: 11px; background: var(--tile); border: 1px solid var(--border); margin-bottom: 14px; }
+.tab { flex: 1; padding: 7px 4px; border: 0; border-radius: 8px; color: var(--muted); font-size: 14px; background: transparent; }
+.tab + .tab { margin-left: 4px; }
+.tab.on { background: var(--accent-bg); color: var(--text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--accent); }
+.tab .cnt { font-size: 11px; color: var(--warn); margin-left: 4px; }
+
+/* Kennzahlen, Listen, Hinweise */
+.stats { display: flex; flex-wrap: wrap; margin: 0 -4px 10px; }
+.stat { flex: 1; min-width: 110px; margin: 0 4px 8px; padding: 9px 11px; border-radius: 9px; background: var(--tile); border: 1px solid var(--border); }
+.stat b { display: block; font-size: 19px; font-weight: 600; }
+.stat span { font-size: 12px; color: var(--muted); }
+.stat b.good { color: var(--ok); } .stat b.mid { color: var(--warn); } .stat b.slow { color: var(--danger); }
+.games { font-size: 13.5px; max-height: 260px; overflow-y: auto; }
+.game { display: flex; justify-content: space-between; padding: 5px 0; border-top: 1px solid var(--border); }
+.game:first-child { border-top: 0; }
+.game span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game i { font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; margin-left: 10px; }
+.note { margin-top: 10px; padding: 10px 12px; border-radius: 9px; font-size: 13px; border: 1px solid; }
+.note b { display: block; }
+.note.warn { background: var(--warn-bg); color: var(--warn); }
+.note.bad { background: var(--danger-bg); color: var(--danger); }
+.note.ok { background: var(--ok-bg); color: var(--ok); }
+.note.info { background: var(--tile); color: var(--muted); border-color: var(--border); }
+.note .path { font-size: 12px; opacity: .9; word-break: break-all; }
+
+/* Knöpfe */
+button {
+  font: inherit; border-radius: 9px; padding: 8px 16px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--field); color: var(--text);
+}
+button:disabled { opacity: .5; cursor: default; }
+button.link { border: 0; background: transparent; padding: 4px 6px; color: var(--accent); font-size: 13px; }
+button.tool { display: inline-flex; align-items: center; font-size: 13.5px; padding: 7px 13px; margin: 0 8px 8px 0; }
+button.tool svg { width: 16px; height: 16px; stroke: var(--accent); fill: none; stroke-width: 2; margin-right: 7px; flex: none; }
+.tools { display: flex; flex-wrap: wrap; margin-top: 12px; }
+button.danger.solid { background: var(--danger); border-color: var(--danger); color: var(--card); font-weight: 600; }
+button.solid.primary { background: var(--accent); border-color: var(--accent); color: var(--card); font-weight: 600; }
+/* Formatieren-Knopf: blau mit roter Schrift (helles Blau, damit Rot lesbar bleibt), in beiden Designs gleich */
+button.format { background: linear-gradient(#d4e6fc, #a9cbf3); border: 2px solid #185fa5; color: #c0121b;
+                font-weight: 700; padding: 7px 20px; }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; margin-top: 16px; }
+.actions > * + * { margin-left: 8px; }
+
+/* Formular */
+.hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.err { font-size: 13px; color: var(--danger); margin-top: 4px; }
+.opts { margin-top: 4px; }
+.chk { display: flex; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--border); font-size: 14px; cursor: pointer; }
+.chk:first-child { border-top: 0; }
+.chk input { margin: 2px 10px 0 0; }
+.chk small { display: block; color: var(--muted); font-size: 12.5px; }
+.chk.off { opacity: .5; }
+.tag { font-size: 11px; color: var(--ok); border: 1px solid var(--ok); border-radius: 10px; padding: 0 6px; margin-left: 6px; }
+.warnbox { margin-top: 8px; padding: 10px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+.inline { display: flex; margin-top: 10px; }
+.inline input { flex: 1; }
+.inline button { margin-left: 8px; }
+
+/* Fortschritt */
+.bar { height: 8px; background: var(--bar); border-radius: 4px; overflow: hidden; margin: 2px 0 8px; }
+.bar div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.status { font-size: 13px; color: var(--muted); min-height: 20px; }
+.status.wait { font-size: 17px; font-weight: 600; color: var(--accent); }
+.msg { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+.msg.ok { background: var(--ok-bg); color: var(--ok); }
+.msg.bad { background: var(--danger-bg); color: var(--danger); }
+
+/* Dialoge */
+.overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.5); display: flex;
+           align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+.dialog { background: var(--card); border-radius: 14px; padding: 20px 22px; max-width: 460px; width: 100%;
+          border: 1px solid var(--border); box-shadow: var(--shadow); max-height: 92vh; overflow-y: auto; }
+.dialog h2 { font-size: 18px; margin: 0 0 8px; color: var(--danger); }
+.dialog h2.good { color: var(--ok); } .dialog h2.amber { color: var(--warn); } .dialog h2.plain { color: var(--text); }
+.dialog p { margin: 0 0 8px; font-size: 14px; }
+.dlist { font-size: 13px; padding: 9px 12px; border-radius: 9px; background: var(--danger-bg); color: var(--danger);
+         border: 1px solid var(--danger); margin: 10px 0; }
+.dlist b { display: block; margin-bottom: 2px; }
+.dialog .stats { margin-top: 10px; }
+.dialog .chk { border-top: 0; }
+
+.foot { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 8px; }
+.foot > * { margin: 6px 9px 0; }
+.theme { display: flex; align-items: center; font-size: 13px; color: var(--muted); }
+.theme select { width: auto; padding: 4px 8px; font-size: 13px; margin-left: 8px; }
+/* Größenregler: feste Leiste, außerhalb der skalierten Seite */
+.zoombar { position: fixed; right: 12px; bottom: 12px; z-index: 5; display: flex; align-items: center;
+           padding: 6px 10px; border-radius: 10px; font-size: 13px; color: var(--muted);
+           background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.zoombar .zhead, .zoombar .zrow { display: flex; align-items: center; }
+.zoombar .zhead { margin-right: 8px; }
+.zoombar .zhead output { margin-left: 6px; min-width: 3.2em; color: var(--text); }
+.zoombar .zrow > * + * { margin-left: 6px; }
+.zoombar input[type=range] { -webkit-appearance: auto; appearance: auto; width: 120px; height: auto; border: 0; background: none; accent-color: var(--accent); }
+.zoombar .step { padding: 2px 10px; font-size: 15px; line-height: 1.2; }
+html.tv .zoombar { top: 16px; right: 16px; bottom: auto; flex-direction: column; padding: 8px 12px; font-size: 18px; }
+html.tv .zoombar .zhead { margin: 0 0 6px; }
+html.tv .zoombar .zrow > * + * { margin-left: 10px; }
+html.tv .zoombar input[type=range] { width: 140px; }
+html.tv .zoombar .step { padding: 2px 14px; font-size: 22px; }
+@media (max-width: 1000px) {
+  html:not(.tv) .zoombar { position: static; justify-content: center; margin: 0 16px 24px;
+                           background: none; border: 0; box-shadow: none; }
+}
+.lan { display: flex; align-items: center; font-size: 13px; color: var(--muted);
+       margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+.lan b { display: block; color: var(--text); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.lan svg { flex: none; width: 116px; height: 116px; border-radius: 4px; margin-right: 14px; }
+@media (max-width: 400px) { .lan { flex-direction: column; text-align: center; } .lan svg { margin: 0 0 14px; } }
+html.tv main { padding-top: 32px; }
+button:focus-visible, select:focus-visible, input:focus-visible, .dev:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* PS5-Browser kennt :focus-visible nicht - dort zeigt :focus, wo der Controller gerade steht */
+html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card hero">
+   <div class="pane">
+    <div class="head">
+      <div><h1>USB-Formatierer</h1><div class="sub" id="host"></div></div>
+      <button class="tool" id="reload" type="button" style="margin:0"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>Aktualisieren</button>
+    </div>
+    <div class="lan" id="lan" hidden></div>
+   </div>
+
+   <div class="pane">
+    <div class="sec">Laufwerk</div>
+    <div id="devs"><div class="empty">Suche USB-Geräte …</div></div>
+   </div>
+
+   <div class="pane">
+    <div class="tabs" role="tablist">
+      <button class="tab on" type="button" data-tab="format">Formatieren</button>
+      <button class="tab" type="button" data-tab="content">Inhalt<span class="cnt" id="dupcnt"></span></button>
+      <button class="tab" type="button" data-tab="check">Prüfen</button>
+    </div>
+
+    <!-- Formatieren -->
+    <div id="tab-format">
+      <label class="f" for="fs" style="margin-top:0">Dateisystem</label>
+      <select id="fs"></select>
+      <label class="chk" style="border:0;padding-bottom:0"><input type="checkbox" id="other"><div>Andere Dateisysteme (nicht für die PS5)</div></label>
+      <div class="warnbox" id="otherwarn" hidden>
+        <b>Nicht für die PS5 gedacht.</b> Diese Formate sind für PC, Mac, Linux, Kameras und Co.
+        NTFS und ext4 erkennt die PS5 gar nicht; exFAT und FAT32 mit anderer Zuordnungseinheit liest sie zwar,
+        für Spiele ist aber exFAT mit 64 KB (ohne Haken) die richtige Wahl.
+      </div>
+      <label class="f" for="cluster" id="clusterlbl">Größe der Zuordnungseinheiten</label>
+      <select id="cluster"></select>
+      <div id="schemebox" hidden>
+        <label class="f" for="scheme">Partitionstabelle</label>
+        <select id="scheme">
+          <option value="auto">Automatisch (MBR, ab 2 TB GPT)</option>
+          <option value="mbr">MBR</option>
+          <option value="gpt">GPT</option>
+        </select>
+      </div>
+      <label class="f" for="label">Volumebezeichnung</label>
+      <input type="text" id="label" maxlength="11" placeholder="PS5USB" autocomplete="off" spellcheck="false">
+      <div class="hint" id="labelhint">Bis zu 11 Zeichen: A–Z, 0–9, Leerzeichen, - und _</div>
+      <div class="err" id="labelerr"></div>
+      <label class="f">Optionen</label>
+      <div class="opts">
+        <label class="chk" id="optfolders"><input type="checkbox" id="folders" checked><div>Ordner für Spiele anlegen
+          <small>homebrew, etaHEN/games und pkg – sofort bereit für ShadowMountPlus</small></div></label>
+        <label class="chk" id="optverify"><input type="checkbox" id="verify"><div>Vorher Echtheit und Tempo prüfen<span class="tag" id="verifytag" hidden>empfohlen</span>
+          <small>Schnelltest mit Stichproben · ca. 1–2 Minuten</small></div></label>
+        <label class="chk" id="optfull"><input type="checkbox" id="full"><div>Vollständig formatieren
+          <small id="fullhint">jede Stelle beschreiben und prüfen · dauert lange</small></div></label>
+      </div>
+      <div class="actions"><button class="format" id="start" type="button" disabled>Formatieren</button></div>
+    </div>
+
+    <!-- Inhalt -->
+    <div id="tab-content" hidden>
+      <div class="sec">Inhalt <button class="link" id="rescan" type="button">Neu durchsuchen</button></div>
+      <div id="content"></div>
+    </div>
+
+    <!-- Prüfen -->
+    <div id="tab-check" hidden>
+      <div id="checkinfo"></div>
+      <div class="tools">
+        <button class="tool" id="bspeed" type="button"><svg viewBox="0 0 24 24"><path d="M12 13l4-4"/><path d="M3.5 17a9 9 0 1 1 17 0"/></svg>Tempo messen</button>
+        <button class="tool" id="bcheck" type="button"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Prüfen</button>
+        <button class="tool" id="brepair" type="button"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.6-.4-.4-2.6z"/></svg>Reparieren</button>
+        <button class="tool" id="brename" type="button"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Umbenennen</button>
+      </div>
+      <div class="inline" id="renamebox" hidden>
+        <input type="text" id="newlabel" maxlength="11" placeholder="Neue Bezeichnung" autocomplete="off" spellcheck="false">
+        <button class="solid primary" id="brenameok" type="button">Übernehmen</button>
+      </div>
+      <div class="hint" id="checkhint"></div>
+    </div>
+   </div>
+
+   <div class="pane" id="progress" hidden>
+    <div class="bar" id="bar"><div></div></div>
+    <div class="status" id="status"></div>
+    <div class="actions" style="margin-top:8px"><button id="cancel" type="button" hidden>Abbrechen</button></div>
+   </div>
+   <div class="msg" id="msg" hidden></div>
+  </div>
+  <div class="foot">
+    <label class="theme" for="theme">Design
+      <select id="theme">
+        <option value="auto">Automatisch</option>
+        <option value="light">Hell</option>
+        <option value="dark">Dunkel</option>
+      </select>
+    </label>
+    <button class="link" id="quit" type="button">Formatierer auf der PS5 beenden</button>
+  </div>
+</main>
+
+<!-- Größe: außerhalb der skalierten Seite, damit der Regler beim Verstellen unter dem Zeiger bleibt -->
+<div class="zoombar">
+  <div class="zhead"><label for="scale">Größe</label><output id="scaleVal" for="scale">100 %</output></div>
+  <div class="zrow">
+    <button class="step" id="scaleDown" type="button" aria-label="Kleiner">−</button>
+    <input type="range" id="scale" min="50" max="250" step="10" value="100">
+    <button class="step" id="scaleUp" type="button" aria-label="Größer">+</button>
+  </div>
+</div>
+
+<div class="overlay" id="dlg" hidden>
+  <div class="dialog" role="alertdialog" aria-labelledby="dtitle">
+    <h2 id="dtitle"></h2>
+    <p id="dtext"></p>
+    <div id="dextra"></div>
+    <p id="dtext2" class="sub"></p>
+    <label class="chk" id="dack" hidden><input type="checkbox" id="dackbox"><div id="dacktext"></div></label>
+    <div class="actions">
+      <button id="dno" type="button">Abbrechen</button>
+      <button id="dalt" type="button" hidden></button>
+      <button id="dyes" type="button"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* QR-Code (ISO/IEC 18004), Byte-Modus, Fehlerkorrektur M, Version 1-3, Maske 0.
+   Reicht fuer URLs bis 42 Zeichen. Aufbau nach Project Nayuki (MIT). */
+function qrMatrix(text) {
+  const bytes = Array.from(new TextEncoder().encode(text));
+  const VER = [null, { data: 16, ecc: 10, align: [] }, { data: 28, ecc: 16, align: [6, 18] }, { data: 44, ecc: 26, align: [6, 22] }];
+  let v = 1;
+  while (v < 3 && bytes.length + 2 > VER[v].data) v++;
+  if (bytes.length + 2 > VER[v].data) throw new Error("Text zu lang für QR");
+  const { data: nData, ecc: nEcc, align } = VER[v];
+  const size = 17 + 4 * v;
+
+  const bits = [];
+  const put = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+  put(4, 4);
+  put(bytes.length, 8);
+  bytes.forEach(b => put(b, 8));
+  put(0, Math.min(4, nData * 8 - bits.length));
+  while (bits.length % 8) bits.push(0);
+  const cw = [];
+  for (let i = 0; i < bits.length; i += 8) cw.push(parseInt(bits.slice(i, i + 8).join(""), 2));
+  for (let pad = 0xEC; cw.length < nData; pad ^= 0xEC ^ 0x11) cw.push(pad);
+
+  const mul = (x, y) => {
+    let z = 0;
+    for (let i = 7; i >= 0; i--) { z = (z << 1) ^ ((z >>> 7) * 0x11D); z ^= ((y >>> i) & 1) * x; }
+    return z;
+  };
+  const div = new Array(nEcc).fill(0);
+  div[nEcc - 1] = 1;
+  for (let i = 0, root = 1; i < nEcc; i++, root = mul(root, 2))
+    for (let j = 0; j < nEcc; j++) { div[j] = mul(div[j], root); if (j + 1 < nEcc) div[j] ^= div[j + 1]; }
+  const rem = new Array(nEcc).fill(0);
+  for (const b of cw) {
+    const f = b ^ rem.shift();
+    rem.push(0);
+    div.forEach((c, i) => { rem[i] ^= mul(c, f); });
+  }
+  const all = cw.concat(rem);
+
+  const mod = Array.from({ length: size }, () => new Array(size).fill(false));
+  const fn = Array.from({ length: size }, () => new Array(size).fill(false));
+  const set = (x, y, dark) => { mod[y][x] = dark; fn[y][x] = true; };
+  for (let i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+  for (const [cx, cy] of [[3, 3], [size - 4, 3], [3, size - 4]])
+    for (let dy = -4; dy <= 4; dy++)
+      for (let dx = -4; dx <= 4; dx++) {
+        const x = cx + dx, y = cy + dy, d = Math.max(Math.abs(dx), Math.abs(dy));
+        if (x >= 0 && x < size && y >= 0 && y < size) set(x, y, d !== 2 && d !== 4);
+      }
+  if (align.length) {
+    const c = align[1];
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) set(c + dx, c + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+  }
+  let fmt = 0;  /* ECC M = 00, Maske 0 = 000 */
+  let r = fmt;
+  for (let i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537);
+  fmt = ((fmt << 10) | r) ^ 0x5412;
+  const fb = i => ((fmt >>> i) & 1) === 1;
+  for (let i = 0; i <= 5; i++) set(8, i, fb(i));
+  set(8, 7, fb(6)); set(8, 8, fb(7)); set(7, 8, fb(8));
+  for (let i = 9; i < 15; i++) set(14 - i, 8, fb(i));
+  for (let i = 0; i < 8; i++) set(size - 1 - i, 8, fb(i));
+  for (let i = 8; i < 15; i++) set(8, size - 15 + i, fb(i));
+  set(8, size - 8, true);
+
+  let i = 0;
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let vert = 0; vert < size; vert++)
+      for (let j = 0; j < 2; j++) {
+        const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - vert : vert;
+        if (fn[y][x]) continue;
+        let dark = i < all.length * 8 && ((all[i >>> 3] >>> (7 - (i & 7))) & 1) === 1;
+        i++;
+        if ((x + y) % 2 === 0) dark = !dark;
+        mod[y][x] = dark;
+      }
+  }
+  return mod;
+}
+
+function qrSvg(text) {
+  const m = qrMatrix(text), q = 4, n = m.length + 2 * q, NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 " + n + " " + n);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "QR-Code für " + text);
+  svg.setAttribute("shape-rendering", "crispEdges");
+  let d = "";
+  m.forEach((row, y) => row.forEach((dark, x) => { if (dark) d += "M" + (x + q) + " " + (y + q) + "h1v1h-1z"; }));
+  const bg = document.createElementNS(NS, "rect");
+  bg.setAttribute("width", n); bg.setAttribute("height", n); bg.setAttribute("fill", "#fff");
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("d", d); path.setAttribute("fill", "#000");
+  svg.append(bg, path);
+  return svg;
+}
+
+const $ = id => document.getElementById(id);
+/* kleines Hilfsmittel: Element mit Klasse und Text */
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+let devices = [], selected = null, busy = false, pollTimer = null, tab = "format";
+let lib = { titles: [], roots: [], duplicates: [], scanning: false };
+const speedOf = {}, checkOf = {};   /* letzte Messung / Prüfung je Laufwerk (Name + Größe) */
+const KB = 1024, MB = 1024 * KB, GB = 1024 * MB, TB = 1024 * GB;
+
+function fmtSize(b) {
+  const u = ["Bytes", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return b.toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " " + u[i];
+}
+const mbps = v => Math.round(v).toLocaleString("de-DE") + " MB/s";
+const devKey = d => d.name + ":" + d.size;
+
+/* Laufwerksname laut Geraet; bei SSD-Gehaeusen meldet sich nur der USB-Brueckenchip */
+function devTitle(d) { return d.model || "USB-Laufwerk"; }
+function isBridge(model) { return /RTL92\d\d|JMS5\d\d|ASM\d{4}|ASMT|JMicron|NVME|to SATA/i.test(model || ""); }
+/* Platzhalter billiger Controller, z. B. "VendorCo ProductCode" oder "Generic Flash Disk" */
+function isGeneric(model) { return !model || /VendorCo|ProductCode|^Generic\b|Mass Storage|Flash Disk$/i.test(model); }
+
+function fat32Cluster(size) {
+  return size <= 8 * GB ? 4 : size <= 16 * GB ? 8 : size <= 32 * GB ? 16 : 32;
+}
+
+/* Dateisysteme: PS5 (ohne Haken) bzw. "andere" (mit Haken, nicht für die PS5) */
+const FS_LIST = {
+  ps5:   [["exfat", "exFAT"], ["fat32", "FAT32"]],
+  other: [["exfat", "exFAT – freie Zuordnungseinheit"], ["fat32", "FAT32 – freie Zuordnungseinheit"],
+          ["ntfs", "NTFS (Windows)"], ["ext4", "ext4 (Linux)"]],
+};
+const FS_NAME = { exfat: "exFAT", fat32: "FAT32", ntfs: "NTFS", ext4: "ext4" };
+const LABEL_MAX = { exfat: 11, fat32: 11, ntfs: 32, ext4: 16 };
+
+function unitText(b) {
+  if (b >= MB) return (b / MB) + (b === MB ? " Megabyte" : " Megabytes");
+  if (b >= KB) return (b / KB) + (b === KB ? " Kilobyte" : " Kilobytes");
+  return b + " Bytes";
+}
+
+function pow2(from, to) { const r = []; for (let v = from; v <= to; v *= 2) r.push(v); return r; }
+
+/* Auswahl der Zuordnungseinheit: [[Bytes (0 = Standard des Werkzeugs), Text, gesperrt], ...] */
+function clusterOptions(fs, other, d) {
+  const size = d ? d.size : 0, ss = d ? d.sector : 512;
+  if (!other) return fs === "exfat" ? [[0, "64 Kilobytes"]]
+    : [[0, d ? fat32Cluster(size) + " Kilobytes (Standard)" : "Standardgröße"]];
+  if (fs === "exfat") {
+    const std = size <= 256 * MB ? 4 * KB : size <= 32 * GB ? 32 * KB : 128 * KB;   /* Windows-Standard */
+    return pow2(512, 32 * MB).map(v => [v, unitText(v) + (v === std ? " (Standard)" : ""), v < ss]);
+  }
+  if (fs === "fat32") { /* FAT32 braucht 65.525 bis 268.435.444 Cluster */
+    const std = d ? fat32Cluster(size) * KB : 0;
+    return [[0, (d ? unitText(std) : "Windows-Größe") + " (Standard)"]].concat(
+      pow2(512, 64 * KB).filter(v => v !== std)
+        .map(v => [v, unitText(v), v < ss || (size && (size / v < 66000 || size / v > 268000000))]));
+  }
+  if (fs === "ntfs")
+    return [[0, "4 Kilobytes (Standard)"]].concat(pow2(512, 64 * KB).filter(v => v !== 4 * KB)
+      .map(v => [v, unitText(v), v < ss]));
+  return [[0, "Automatisch (Standard: 4 Kilobytes)"]].concat(pow2(KB, 4 * KB).map(v => [v, unitText(v), v < ss]));
+}
+
+function renderFs() {
+  const other = $("other").checked, sel = $("fs"), prev = sel.value;
+  sel.textContent = "";
+  for (const [v, t] of FS_LIST[other ? "other" : "ps5"]) sel.add(new Option(t, v));
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+  $("otherwarn").hidden = !other;
+}
+
+let clusterFor = "";   /* Dateisystem, für das die Auswahl zuletzt galt */
+
+function renderClusters() {
+  const fs = $("fs").value, other = $("other").checked, sel = $("cluster");
+  const key = fs + (other ? "/andere" : "/ps5");
+  const prev = key === clusterFor ? sel.value : null, opts = clusterOptions(fs, other, currentDevice());
+  clusterFor = key;
+  sel.textContent = "";
+  for (const [v, t, off] of opts) { const o = new Option(t, v); o.disabled = !!off; sel.add(o); }
+  const std = opts.find(o => /Standard/.test(o[1]) && !o[2]);
+  if ([...sel.options].some(o => o.value === prev && !o.disabled)) sel.value = prev;
+  else if (std) sel.value = String(std[0]);
+  sel.disabled = busy || !other;
+  $("clusterlbl").textContent = fs === "ext4" ? "Blockgröße" : "Größe der Zuordnungseinheiten";
+}
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  };
+  const r = await fetch(path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  return data;
+}
+
+let msgTimer = null;
+
+function showMsg(text, ok) {
+  const m = $("msg");
+  m.hidden = !text;
+  m.textContent = text || "";
+  m.className = "msg " + (ok ? "ok" : "bad");
+  /* Erfolgsmeldungen verschwinden nach 5 Sekunden, Fehler bleiben stehen */
+  clearTimeout(msgTimer);
+  if (text && ok) msgTimer = setTimeout(() => { m.hidden = true; }, 5000);
+}
+
+/* aktuelles Dateisystem laut Server (fs_probe) */
+function fmtFormat(f) {
+  if (!f) return "";
+  if (f === "leer") return "leer";
+  if (f === "keine Partition") return "ohne Partition";
+  if (f === "unbekannt") return "Format unbekannt";
+  return f;
+}
+
+/* ---------------------------------------------------------------- Spielebibliothek je Laufwerk */
+
+function titlesOf(d) { return lib.titles.filter(t => t.device === d.name); }
+function rootsOf(d) { return lib.roots.filter(r => r.device === d.name); }
+function dupsOf(d) {
+  const mine = new Set(titlesOf(d).map(t => t.path));
+  return lib.duplicates.filter(x => x.paths.some(p => mine.has(p)));
+}
+function pkgsOf(d) { return rootsOf(d).reduce((n, r) => n + r.pkgs, 0); }
+function usageOf(d) {
+  const m = d.mounts.find(m => m.total);
+  return m ? { used: m.total - m.free, total: m.total, free: m.free } : null;
+}
+function countText(n, one, many) { return n + " " + (n === 1 ? one : many); }
+/* Pfad ohne Einhängepunkt: /mnt/usb1/homebrew/x.ffpkg -> homebrew/x.ffpkg */
+function shortPath(p) { return p.replace(/^\/mnt\/(usb|ext)\d+\//, "").replace(/^\/data\//, "intern: "); }
+
+async function loadLibrary(refresh) {
+  try {
+    lib = await api("/api/library" + (refresh ? "?refresh=1" : ""));
+  } catch (e) { return; }
+  renderDevices();
+  renderTabs();
+  if (lib.scanning) setTimeout(() => loadLibrary(false), 1500);
+}
+
+/* ---------------------------------------------------------------- Laufwerksliste */
+
+function renderDevices() {
+  const box = $("devs");
+  box.textContent = "";
+  if (!devices.length) {
+    box.appendChild(el("div", "empty", "Kein USB-Stick gefunden. Stick einstecken und „Aktualisieren“ wählen."));
+  }
+  for (const d of devices) {
+    const blocked = !formattable(d);
+    const row = el("div", "dev" + (blocked ? " locked" : "") + (selected === d.name ? " sel" : ""));
+    row.tabIndex = blocked ? -1 : 0;
+    const radio = el("input");
+    radio.type = "radio";
+    radio.name = "dev";
+    radio.tabIndex = -1;
+    radio.disabled = blocked || busy;
+    radio.checked = selected === d.name;
+    radio.setAttribute("aria-label", devTitle(d) + ", " + d.name + ", " + fmtSize(d.size));
+    const body = el("div", "body");
+    const top = el("div", "row");
+    top.append(el("span", "n", devTitle(d)), el("span", "sz", fmtSize(d.size)));
+    const meta = el("div", "m");
+    const parts = [d.name];
+    if (isBridge(d.model)) parts.push("SSD im USB-Gehäuse");
+    else if (d.model && isGeneric(d.model)) parts.push("No-Name-Stick");
+    meta.appendChild(document.createTextNode(parts.join(" · ")));
+    if (d.format) meta.appendChild(el("span", "chip fs", fmtFormat(d.format)));
+    if (d.label) meta.appendChild(el("span", "chip", "„" + d.label + "“"));
+    if (d.locked) meta.appendChild(el("span", "chip", "vom System gesperrt"));
+    else if (d.mounts.length) meta.appendChild(el("span", "chip on", "eingebunden"));
+    body.append(top, meta);
+    const u = usageOf(d);
+    if (u) {
+      const bar = el("div", "usage"), fill = el("div");
+      fill.style.width = Math.min(100, u.used / u.total * 100).toFixed(1) + "%";
+      bar.appendChild(fill);
+      const t = el("div", "utext");
+      t.appendChild(el("b", "", fmtSize(u.used)));
+      const games = titlesOf(d).length, pkgs = pkgsOf(d);
+      let tail = " von " + fmtSize(u.total) + " belegt";
+      if (games || pkgs) tail += " · " + [games ? countText(games, "Spiel", "Spiele") : "", pkgs ? pkgs + " PKG" : ""].filter(Boolean).join(", ");
+      t.appendChild(document.createTextNode(tail));
+      body.append(bar, t);
+    } else if (!d.locked) {
+      body.appendChild(el("div", "utext", d.mounts.length ? "von der PS5 eingebunden" : "frei – bereit zum Formatieren"));
+    }
+    row.append(radio, body);
+    const pick = () => { if (!busy && !blocked) { selected = d.name; renderDevices(); update(); renderTabs(); } };
+    row.addEventListener("click", pick);
+    row.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+    box.appendChild(row);
+  }
+}
+
+function currentDevice() { return devices.find(d => d.name === selected); }
+
+/* Eingebundene Sticks werden nicht selbst ausgehängt (das brachte die PS5 aus dem Tritt, CE-108255-1): Der
+   Formatierer meldet sie per Software neu an und übernimmt sie vor der PS5 ("replug") */
+function formattable(d) { return !d.locked; }
+
+/* ---------------------------------------------------------------- Reiter */
+
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  $("tab-format").hidden = t !== "format";
+  $("tab-content").hidden = t !== "content";
+  $("tab-check").hidden = t !== "check";
+  renderTabs();
+}
+
+function stat(value, label, cls) {
+  const s = el("div", "stat"), b = el("b", cls || "", value);
+  s.append(b, el("span", "", label));
+  return s;
+}
+
+function note(cls, title, text) {
+  const n = el("div", "note " + cls);
+  if (title) n.appendChild(el("b", "", title));
+  if (text) n.appendChild(document.createTextNode(text));
+  return n;
+}
+
+function renderContent() {
+  const box = $("content"), d = currentDevice();
+  box.textContent = "";
+  if (!d) { box.appendChild(note("info", "", "Oben ein Laufwerk wählen.")); return; }
+  if (!d.mounts.length) {
+    box.appendChild(note("info", "Inhalt nicht sichtbar",
+      "Die PS5 hat dieses Laufwerk nicht eingebunden (" + fmtFormat(d.format) + ") – seinen Inhalt kann der Formatierer nur bei eingebundenen Laufwerken zeigen."));
+    return;
+  }
+  const titles = titlesOf(d), u = usageOf(d), stats = el("div", "stats");
+  stats.append(stat(String(titles.length), titles.length === 1 ? "Spiel" : "Spiele"), stat(String(pkgsOf(d)), "PKG-Dateien"));
+  if (u) stats.appendChild(stat(fmtSize(u.free), "frei"));
+  box.appendChild(stats);
+  if (lib.scanning && !titles.length) box.appendChild(note("info", "", "Laufwerk wird durchsucht …"));
+  if (titles.length) {
+    const list = el("div", "games");
+    for (const t of titles.slice().sort((a, b) => a.name.localeCompare(b.name, "de"))) {
+      const g = el("div", "game");
+      g.append(el("span", "", t.name), el("i", "", (t.id || "Titel-ID unbekannt") + " · " + (t.kind === "Ordner" ? "Ordner" : "Abbild " + t.kind)));
+      g.title = t.path;
+      list.appendChild(g);
+    }
+    box.appendChild(list);
+  }
+  for (const x of dupsOf(d)) {
+    const n = note("warn", "Doppelt: " + x.name + " (" + x.id + ")",
+      "ShadowMountPlus wechselt ständig zwischen diesen Fundorten – einen davon entfernen:");
+    for (const p of x.paths) n.appendChild(el("div", "path", shortPath(p)));
+    box.appendChild(n);
+  }
+  const folders = rootsOf(d).map(r => r.folders).filter(Boolean).join("/").split("/").filter(Boolean);
+  if (folders.length) box.appendChild(el("div", "hint", "Ordner: " + folders.join(", ")));
+}
+
+function renderCheck() {
+  const box = $("checkinfo"), d = currentDevice();
+  box.textContent = "";
+  const exfat = d && d.format === "exFAT", named = d && (d.format === "exFAT" || d.format === "FAT32");
+  $("bspeed").disabled = busy || !d;
+  $("bcheck").disabled = $("brepair").disabled = busy || !exfat;
+  $("brename").disabled = busy || !named;
+  if (!d) { box.appendChild(note("info", "", "Oben ein Laufwerk wählen.")); $("checkhint").textContent = ""; return; }
+  const sp = speedOf[devKey(d)], ck = checkOf[devKey(d)], stats = el("div", "stats");
+  if (sp) {
+    const cls = sp.read >= 100 ? "good" : sp.read >= 40 ? "mid" : "slow";
+    stats.appendChild(stat(mbps(sp.read), "Lesen · " + (sp.read >= 100 ? "schnell genug für Spiele" : sp.read >= 40 ? "ausreichend" : "langsam"), cls));
+    if (sp.write) stats.appendChild(stat(mbps(sp.write), "Schreiben"));
+  } else {
+    stats.append(stat("–", "Lesetempo"), stat("–", "Schreibtempo"));
+  }
+  box.appendChild(stats);
+  if (ck) box.appendChild(note(ck.code === 0 || ck.code === 1 ? "ok" : ck.code === 4 ? "warn" : "bad", ck.title, ck.text));
+  const hints = [];
+  if (!exfat) hints.push("Prüfen und Reparieren gibt es für exFAT.");
+  if (!named) hints.push("Umbenennen geht bei exFAT und FAT32.");
+  if (d.mounts.length) hints.push("Prüfen, Reparieren und Umbenennen melden das Laufwerk kurz ab; das Tempo wird nur gelesen.");
+  $("checkhint").textContent = hints.join(" ");
+}
+
+function renderTabs() {
+  const d = currentDevice(), dups = d ? dupsOf(d).length : 0;
+  $("dupcnt").textContent = dups ? "●" : "";
+  if (tab === "content") renderContent();
+  if (tab === "check") renderCheck();
+}
+
+/* ---------------------------------------------------------------- Formular */
+
+function labelValid() {
+  const max = LABEL_MAX[$("fs").value] || 11;
+  const ok = new RegExp("^[A-Za-z0-9 _-]{0," + max + "}$").test($("label").value);
+  $("labelerr").textContent = ok ? "" : "Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (max. " + max + " Zeichen).";
+  return ok;
+}
+
+let verifyFor = null;   /* Laufwerk, für das der Haken "Prüfen" zuletzt automatisch gesetzt wurde */
+
+function update() {
+  const fs = $("fs").value, d = currentDevice(), max = LABEL_MAX[fs], other = $("other").checked;
+  renderClusters();
+  $("label").maxLength = max;
+  $("labelhint").textContent = "Bis zu " + max + " Zeichen: A–Z, 0–9, Leerzeichen, - und _" +
+    (fs === "fat32" ? " – wird bei FAT32 großgeschrieben" : "");
+  /* Ordner-Vorlage nur, wo die PS5 sie nutzen kann */
+  const native = fs === "exfat" || fs === "fat32";
+  $("folders").disabled = busy || !native;
+  $("optfolders").classList.toggle("off", !native);
+  /* No-Name-Sticks: Prüfung vorschlagen (einmal je Laufwerk, danach entscheidet der Benutzer) */
+  const generic = d && isGeneric(d.model);
+  $("verifytag").hidden = !generic;
+  if (d && verifyFor !== devKey(d)) { verifyFor = devKey(d); $("verify").checked = !!generic && !$("full").checked; }
+  /* vollständig schließt den Schnelltest ein */
+  $("verify").disabled = busy || $("full").checked;
+  $("optverify").classList.toggle("off", $("full").checked);
+  $("full").disabled = busy;
+  if (d) {
+    const min = Math.max(1, Math.round(d.size / 25e6 * 2 / 60));   /* ca. 25 MB/s beschreiben und lesen */
+    $("fullhint").textContent = "jede Stelle beschreiben und prüfen · ca. " +
+      (min >= 90 ? Math.round(min / 60) + " Stunden" : min + " Minuten");
+  }
+  $("schemebox").hidden = !(other || (d && d.size > 2 * TB));
+  $("scheme").disabled = busy;
+  $("start").disabled = busy || !d || !labelValid();
+  $("fs").disabled = $("label").disabled = $("other").disabled = busy;
+  $("reload").disabled = busy;
+  renderTabs();
+}
+
+async function loadDevices() {
+  try {
+    const r = await api("/api/devices");
+    devices = r.devices;
+    if (!devices.some(d => d.name === selected && formattable(d))) {
+      /* vorausgewählt wird nur ein freier Stick, nie ein eingebundener (z. B. die Spiele-SSD) */
+      const free = devices.filter(d => formattable(d) && !d.mounts.length);
+      selected = free.length === 1 ? free[0].name : null;
+    }
+    renderDevices();
+    update();
+    if (r.busy && !busy) startPolling();
+  } catch (e) {
+    $("devs").textContent = "";
+    $("devs").appendChild(el("div", "empty", "Verbindung zur PS5 fehlgeschlagen: " + e.message));
+  }
+}
+
+/* ---------------------------------------------------------------- Aufträge und Fortschritt */
+
+/* Warten auf (Software-)Abziehen/Einstecken: Aufforderung groß zeigen */
+const isReplugStep = step => /abziehen|einstecken|neu angemeldet/.test(step || "");
+/* abbrechen lässt sich das Warten, Prüfen, Beschreiben und Messen - das Formatieren selbst nicht */
+const cancellable = step => isReplugStep(step) || /Echtheit|tempo|Beschreiben|Prüfen –|Prüfen$/i.test(step || "");
+
+function setProgress(st) {
+  const wait = isReplugStep(st.step);
+  $("progress").hidden = false;
+  $("bar").hidden = wait;
+  $("bar").firstElementChild.style.width = Math.round(st.percent) + "%";
+  $("status").classList.toggle("wait", wait);
+  $("status").textContent = !st.step ? "" : wait ? st.step + " …" : st.step + " … " + Math.round(st.percent) + " %";
+  $("cancel").hidden = !(st.busy !== false && cancellable(st.step));
+}
+
+function startPolling() {
+  busy = true;
+  update();
+  renderDevices();
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    let st;
+    try { st = await api("/api/status"); } catch (e) { return; }
+    setProgress(st);
+    if (!st.busy) {
+      clearInterval(pollTimer);
+      busy = false;
+      $("progress").hidden = true;
+      const d = currentDevice() || devices.find(x => x.name === st.device);
+      await loadDevices();
+      finished(st, d);
+      loadLibrary(true);
+    }
+  }, 500);
+}
+
+/* Ergebnis eines Auftrags zeigen */
+function finished(st, d) {
+  const r = st.result || {};
+  const key = d ? devKey(d) : "";
+  if (r.read && d) speedOf[devKey(currentDevice() || d)] = { read: r.read, write: r.write || (speedOf[key] || {}).write };
+  if (st.kind === "format") {
+    if (st.ok) { showMsg(st.message, true); return showResult("Datenträger erfolgreich formatiert", st.message, true); }
+    if (r.fake) return fakeDialog(st, r, d);
+    if (r.bad) return badDialog(st, d);
+    showMsg(st.message, false);
+    return showResult(/Abgebrochen/.test(st.message) ? "Formatieren abgebrochen" : "Formatieren fehlgeschlagen", st.message, false);
+  }
+  if (st.kind === "check" && st.ok && r.code !== undefined) {
+    const title = r.code === 0 ? "exFAT geprüft: keine Fehler" : r.code === 1 ? "Fehler gefunden und behoben"
+      : r.repair ? "Fehler ließen sich nicht beheben" : "Fehler gefunden";
+    if (d) checkOf[devKey(currentDevice() || d)] = { code: r.code, title, text: st.message.replace(/^[^:]*: /, "") };
+    setTab("check");
+    if (r.code === 4 && !r.repair) return askRepair(st);
+    return showMsg(st.message, true);
+  }
+  if (st.kind === "check" && !st.ok && d) {
+    checkOf[devKey(currentDevice() || d)] = { code: 8, title: "Prüfen nicht möglich", text: st.message.replace(/^[^:]*: /, "") };
+  }
+  if (st.kind === "speed" || st.kind === "check") setTab("check");
+  showMsg(st.message, st.ok);
+}
+
+async function runJob(path, body) {
+  showMsg("", true);
+  try {
+    await api(path, body);
+    setProgress({ percent: 0, step: "Startet" });
+    startPolling();
+  } catch (e) {
+    showMsg(e.message, false);
+  }
+}
+
+/* ---------------------------------------------------------------- Dialoge */
+
+let dlgResolve = null;
+
+/* o: {title, cls, text, text2, extra (Element), ack (Text), yes, yesCls, no, alt, altCls} -> "yes" | "alt" | false */
+function dialog(o) {
+  $("dtitle").textContent = o.title;
+  $("dtitle").className = o.cls || "";
+  $("dtext").textContent = o.text || "";
+  $("dtext2").textContent = o.text2 || "";
+  $("dextra").textContent = "";
+  if (o.extra) $("dextra").appendChild(o.extra);
+  $("dack").hidden = !o.ack;
+  $("dackbox").checked = false;
+  $("dacktext").textContent = o.ack || "";
+  $("dyes").textContent = o.yes || "OK";
+  $("dyes").className = o.yesCls || "solid primary";
+  $("dyes").disabled = !!o.ack;
+  $("dno").hidden = o.no === false;
+  $("dno").textContent = o.no || "Abbrechen";
+  $("dalt").hidden = !o.alt;
+  $("dalt").textContent = o.alt || "";
+  $("dalt").className = o.altCls || "";
+  $("dlg").hidden = false;
+  (o.no === false ? $("dyes") : $("dno")).focus();
+  return new Promise(resolve => { dlgResolve = resolve; });
+}
+
+function closeDialog(result) {
+  $("dlg").hidden = true;
+  if (dlgResolve) { dlgResolve(result); dlgResolve = null; }
+}
+$("dno").addEventListener("click", () => closeDialog(false));
+$("dyes").addEventListener("click", () => closeDialog("yes"));
+$("dalt").addEventListener("click", () => closeDialog("alt"));
+$("dackbox").addEventListener("change", () => { $("dyes").disabled = !$("dackbox").checked; });
+
+function showResult(title, text, ok) {
+  return dialog({ title, cls: ok ? "good" : "", text, yes: "OK", yesCls: ok ? "solid primary" : "danger solid", no: false });
+}
+
+/* Gefälschter Speicher: nur den echten Bereich formatieren */
+async function fakeDialog(st, r, d) {
+  const stats = el("div", "stats");
+  stats.append(stat(fmtSize(r.reported), "gemeldet"), stat(fmtSize(r.real), "echt", "good"));
+  if (r.read) stats.appendChild(stat(mbps(r.read), "lesen · " + (r.rating || "")));
+  const name = d ? "„" + devTitle(d) + "“" : "Der Stick";
+  const ok = await dialog({
+    title: "Gefälschter Speicher erkannt", cls: "amber",
+    text: name + " meldet " + fmtSize(r.reported) + ", hat aber nur etwa " + fmtSize(r.real) +
+          " echten Speicher. Was darüber hinaus gespeichert wird, geht verloren – Spiele würden unbemerkt beschädigt.",
+    extra: stats, text2: "Es wurde nichts formatiert. Der echte Bereich lässt sich sicher nutzen.",
+    no: "Schließen", yes: "Nur echte " + fmtSize(r.real) + " formatieren", yesCls: "solid primary"
+  });
+  const cur = d && devices.find(x => x.name === d.name && x.size === d.size);
+  if (ok === "yes" && cur && r.real >= 64 * MB)
+    runJob("/api/format", formatBody(cur, { verify: false, full: false, limit: r.real }));
+}
+
+async function badDialog(st, d) {
+  const ok = await dialog({
+    title: "Fehlerhafte Bereiche gefunden", text: st.message,
+    text2: "Auf diesem Datenträger können Daten verloren gehen. Besser einen anderen verwenden.",
+    no: "Schließen", yes: "Trotzdem formatieren", yesCls: "danger solid"
+  });
+  const cur = d && devices.find(x => x.name === d.name && x.size === d.size);
+  if (ok === "yes" && cur) runJob("/api/format", formatBody(cur, { verify: false, full: false }));
+}
+
+async function askRepair(st) {
+  const d = currentDevice();
+  const ok = await dialog({ title: "Fehler gefunden", cls: "amber", text: st.message,
+    text2: "Reparieren behebt die Fehler im Dateisystem. Beschädigte Dateien können dabei entfernt werden.",
+    no: "Später", yes: "Jetzt reparieren" });
+  if (ok === "yes" && d) runJob("/api/check", { device: d.name, size: d.size, repair: true, replug: d.mounts.length > 0 });
+}
+
+/* ---------------------------------------------------------------- Formatieren */
+
+function formatBody(d, over) {
+  const fs = $("fs").value, other = $("other").checked;
+  return Object.assign({
+    device: d.name, fs, label: $("label").value, size: d.size,
+    cluster: other ? Number($("cluster").value) : 0, replug: d.mounts.length > 0,
+    verify: $("verify").checked && !$("full").checked, full: $("full").checked,
+    folders: $("folders").checked && (fs === "exfat" || fs === "fat32"),
+    scheme: $("schemebox").hidden ? "auto" : $("scheme").value
+  }, over || {});
+}
+
+$("start").addEventListener("click", async () => {
+  const d = currentDevice();
+  if (!d || !labelValid()) return;
+  const fs = $("fs").value, other = $("other").checked;
+  const cl = $("cluster").options[$("cluster").selectedIndex];
+  const fsName = FS_NAME[fs] + " (" + cl.text.replace(/ \(Standard\)$/, "") + ")";
+  const now = d.format && d.format !== "unbekannt" && d.format !== "leer"
+    ? ", derzeit " + fmtFormat(d.format) + (d.label ? " „" + d.label + "“" : "") : "";
+  const titles = titlesOf(d), pkgs = pkgsOf(d), u = usageOf(d);
+  /* Spiele darauf: deutlich zeigen und erst nach ausdrücklicher Bestätigung formatieren */
+  let extra = null, ack = null;
+  if (titles.length || pkgs) {
+    extra = el("div", "dlist");
+    extra.appendChild(el("b", "", "Darauf liegen " + [titles.length ? countText(titles.length, "Spiel", "Spiele") : "",
+      pkgs ? countText(pkgs, "PKG-Datei", "PKG-Dateien") : ""].filter(Boolean).join(" und ") +
+      (u ? " (" + fmtSize(u.used) + " belegt)" : "") + ":"));
+    const names = titles.map(t => t.name).sort((a, b) => a.localeCompare(b, "de"));
+    if (names.length) extra.appendChild(el("div", "", names.slice(0, 6).join(" · ")));
+    if (names.length > 6) extra.appendChild(el("div", "", "… und " + (names.length - 6) + " weitere"));
+    ack = titles.length ? "Ich weiß, dass diese Spiele unwiderruflich gelöscht werden" : "Ich weiß, dass diese Dateien gelöscht werden";
+  }
+  const notes = [];
+  if (d.mounts.length) notes.push("Die PS5 nutzt das Laufwerk gerade – der Formatierer meldet es kurz per Software ab (klappt das nicht, bittet er, es abzuziehen und wieder einzustecken).");
+  if ($("full").checked) notes.push("Vollständig: jede Stelle wird beschrieben und geprüft – " + $("fullhint").textContent.replace(/^.*· /, "") + ".");
+  else if ($("verify").checked) notes.push("Vorher werden Echtheit und Tempo geprüft.");
+  if (other) notes.push("Dieses Format ist nicht für die Nutzung an der PS5 gedacht.");
+  notes.push("Das lässt sich nicht rückgängig machen.");
+  const ok = await dialog({
+    title: "Alle Daten werden gelöscht",
+    text: "„" + devTitle(d) + "“ (" + d.name + ", " + fmtSize(d.size) + now + ") wird als " + fsName + " formatiert.",
+    extra, ack, text2: notes.join(" "), yes: "Formatieren", yesCls: "danger solid"
+  });
+  if (ok === "yes") runJob("/api/format", formatBody(d));
+});
+
+/* ---------------------------------------------------------------- Prüfen-Reiter */
+
+$("bspeed").addEventListener("click", () => {
+  const d = currentDevice();
+  if (d) runJob("/api/speed", { device: d.name, size: d.size });
+});
+
+async function check(repair) {
+  const d = currentDevice();
+  if (!d) return;
+  if (d.mounts.length) {
+    const ok = await dialog({ title: repair ? "Reparieren" : "Prüfen", cls: "plain",
+      text: "„" + devTitle(d) + "“ wird dafür kurz abgemeldet und danach von der PS5 wieder eingebunden.",
+      text2: "Spiele und Apps, die von diesem Laufwerk laufen, vorher beenden.", yes: repair ? "Reparieren" : "Prüfen" });
+    if (ok !== "yes") return;
+  }
+  runJob("/api/check", { device: d.name, size: d.size, repair, replug: d.mounts.length > 0 });
+}
+$("bcheck").addEventListener("click", () => check(false));
+$("brepair").addEventListener("click", () => check(true));
+
+$("brename").addEventListener("click", () => {
+  const d = currentDevice();
+  $("renamebox").hidden = !$("renamebox").hidden;
+  if (!$("renamebox").hidden) { $("newlabel").value = d ? d.label : ""; $("newlabel").focus(); }
+});
+$("brenameok").addEventListener("click", async () => {
+  const d = currentDevice(), label = $("newlabel").value;
+  if (!d) return;
+  if (!/^[A-Za-z0-9 _-]{0,11}$/.test(label)) { showMsg("Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (max. 11 Zeichen).", false); return; }
+  if (d.mounts.length) {
+    const ok = await dialog({ title: "Umbenennen", cls: "plain",
+      text: "„" + devTitle(d) + "“ wird dafür kurz abgemeldet und danach von der PS5 wieder eingebunden.", yes: "Umbenennen" });
+    if (ok !== "yes") return;
+  }
+  $("renamebox").hidden = true;
+  runJob("/api/label", { device: d.name, size: d.size, label, replug: d.mounts.length > 0 });
+});
+
+$("cancel").addEventListener("click", async () => {
+  try { await api("/api/cancel", {}); } catch (e) { showMsg(e.message, false); }
+});
+
+$("quit").addEventListener("click", async () => {
+  const ok = await dialog({ title: "Formatierer beenden?", text: "Der Formatierer läuft danach nicht mehr auf der PS5.",
+    text2: "Zum erneuten Benutzen einfach die App „USB-Formatierer“ starten.", yes: "Beenden", yesCls: "danger solid" });
+  if (ok !== "yes") return;
+  try {
+    await api("/api/quit", {});
+    document.querySelector("main").innerHTML = '<div class="card">Der Formatierer wurde beendet. Diese Seite kann geschlossen werden.</div>';
+  } catch (e) {
+    showMsg(e.message, false);
+  }
+});
+
+/* ---------------------------------------------------------------- Design und Größe */
+
+/* Design: auf der PS5 gespeichert, damit PC- und PS5-Browser dasselbe zeigen */
+function applyTheme(t) {
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  $("theme").value = t === "light" || t === "dark" ? t : "auto";
+  try { localStorage.setItem("usbfmt-theme", $("theme").value); } catch (e) {}
+}
+
+/* Größe: auf der PS5 gespeichert, getrennt für den PS5-Browser (Fernseher) und andere Browser */
+const isTv = document.documentElement.classList.contains("tv");
+const SCALE_KEY = isTv ? "scale_tv" : "scale_pc";
+let scaleChangedAt = 0, scaleTimer = null;
+
+function applyScale(v) {
+  v = Math.max(50, Math.min(250, Math.round(Number(v) / 10) * 10 || (isTv ? 160 : 100)));
+  document.documentElement.style.setProperty("--ui-zoom", String(v / 100));
+  $("scale").value = v;
+  $("scaleVal").textContent = v + " %";
+  try { localStorage.setItem("usbfmt-" + SCALE_KEY, String(v)); } catch (e) {}
+  return v;
+}
+
+function setScale(v) {
+  v = applyScale(v);
+  scaleChangedAt = Date.now();
+  clearTimeout(scaleTimer);   /* beim Ziehen nicht jeden Zwischenwert speichern */
+  scaleTimer = setTimeout(() => {
+    const body = {};
+    body[SCALE_KEY] = v;
+    api("/api/settings", body).catch(e => showMsg(e.message, false));
+  }, 400);
+}
+
+async function syncSettings() {
+  try {
+    const s = await api("/api/settings");
+    if (document.activeElement !== $("theme")) applyTheme(s.theme);
+    if (Date.now() - scaleChangedAt > 3000 && document.activeElement !== $("scale") && s[SCALE_KEY])
+      applyScale(s[SCALE_KEY]);
+  } catch (e) {}
+}
+
+$("theme").addEventListener("change", async () => {
+  const t = $("theme").value;
+  applyTheme(t);
+  try { await api("/api/settings", { theme: t }); } catch (e) { showMsg(e.message, false); }
+});
+$("scale").addEventListener("input", () => setScale($("scale").value));
+$("scaleDown").addEventListener("click", () => setScale(Number($("scale").value) - 10));
+$("scaleUp").addEventListener("click", () => setScale(Number($("scale").value) + 10));
+applyScale(parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ui-zoom")) * 100);
+setInterval(syncSettings, 5000);
+
+/* Diagnose: was der Browser von CSS und Bildern hält (vor allem für den PS5-Browser), an /api/diag */
+function diagReport() {
+  const out = ["ua=" + navigator.userAgent];
+  const sup = (p, v) => (window.CSS && CSS.supports) ? CSS.supports(p, v) : "?";
+  out.push("supports: inset=" + sup("inset", "0") + " isolation=" + sup("isolation", "isolate") +
+           " gap=" + sup("gap", "1px") + " appearance=" + sup("-webkit-appearance", "none") + " zoom=" + sup("zoom", "1"));
+  const card = document.querySelector(".card.hero");
+  out.push("card: bg=" + (card ? getComputedStyle(card, "::before").backgroundImage.slice(0, 60) : "fehlt"));
+  const zb = document.querySelector(".zoombar"), mn = document.querySelector("main");
+  out.push("fenster=" + innerWidth + "x" + innerHeight + "; zoombar=" + (zb ? JSON.stringify(zb.getBoundingClientRect()) : "") +
+           "; main=" + (mn ? JSON.stringify(mn.getBoundingClientRect()) : ""));
+  const box = document.querySelector("input[type=checkbox]");
+  if (box) { const r = box.getBoundingClientRect(); out.push("haken=" + r.width.toFixed(1) + "x" + r.height.toFixed(1)); }
+  api("/api/diag", { report: out.join(" || ") }).catch(() => {});
+}
+setTimeout(diagReport, 3000);
+
+/* ---------------------------------------------------------------- Start */
+
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+$("fs").addEventListener("change", update);
+$("cluster").addEventListener("change", update);
+$("other").addEventListener("change", () => { renderFs(); update(); });
+$("full").addEventListener("change", update);
+$("label").addEventListener("input", update);
+$("reload").addEventListener("click", () => { showMsg("", true); loadDevices(); loadLibrary(true); });
+$("rescan").addEventListener("click", () => loadLibrary(true));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("dlg").hidden) closeDialog(false); });
+
+const onConsole = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+$("host").textContent = onConsole ? "Auf dieser PS5" : "PS5 · " + location.host;
+if (onConsole) {
+  api("/api/info").then(info => {
+    if (!info.ip || info.ip.startsWith("127.")) return;
+    const url = "http://" + info.ip + ":" + info.port;
+    const lan = $("lan");
+    lan.textContent = "";
+    const text = el("div", "", "Mit dem Handy scannen oder im Browser am PC öffnen:");
+    text.appendChild(el("b", "", url));
+    lan.append(qrSvg(url), text);
+    lan.hidden = false;
+  }).catch(() => {});
+}
+renderFs();
+update();
+syncSettings();
+loadDevices().then(() => loadLibrary(false));
+</script>
+</body>
+</html>

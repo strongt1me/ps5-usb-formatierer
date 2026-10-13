@@ -1,0 +1,415 @@
+exfatprogs 1.4.3 - released 2026-08-14
+======================================
+
+CHANGES :
+ * exfatprogs: honor the user's full locale for diagnostic messages
+   and date formatting.
+ * mkfs.exfat: report final fsync errors and suppress completion
+   messages with "-q".
+ * fsck.exfat: increase scan speed when scanning large unused
+   directory tails.
+
+BUG FIXES :
+ * exfatprogs: fix building DOS attribute utilities with non-Bash shells.
+ * dump.exfat and fsck.exfat: ignore reserved allocation-bitmap bits
+   when counting clusters.
+ * fsck.exfat: reject invalid sector sizes without crashing.
+ * mkfs.exfat: notify the kernel after creating partition tables.
+ * mkfs.exfat: generate GUIDs with correct version and variant fields.
+ * mkfs.exfat and tune.exfat: use standard GUID byte order for GUID
+   input and output.
+ * libexfat: fix directory iterator alignment for large offsets.
+ * exfatprogs: prevent allocation bitmap size overflow near the
+   maximum cluster count.
+
+exfatprogs 1.4.2 - released 2026-06-15
+======================================
+
+CHANGES :
+ * exfatprogs: install lsdosattr and chdosattr in /bin instead of
+   /sbin.
+
+BUG FIXES :
+ * dump.exfat: prevent heap buffer overflow in name parsing.
+
+exfatprogs 1.4.1 - released 2026-05-28
+======================================
+
+BUG FIXES :
+ * exfatprogs: include missing DOS attribute headers and
+   upcase helper files in release tarballs.
+
+exfatprogs 1.4.0 - released 2026-05-26
+======================================
+
+NEW FEATURES :
+ * mkfs.exfat: add partition table creation support so
+   newly formatted devices are recognized by Windows.
+ * fsck.exfat: add "--put-mbr" and "--clear-mbr"
+   options to add or remove partition table entries for
+   Windows compatibility on existing volumes.
+ * mkfs.exfat: add the "--upcase" option to format with
+   a user-supplied upcase table.
+ * exfatprogs: add example upcase tables and a helper
+   script to generate upcase table binaries for testing.
+ * exfatprogs: add chdosattr and lsdosattr utilities to
+   view and modify DOS file attributes.
+
+CHANGES :
+ * mkfs.exfat: detect foreign filesystems and partition
+   tables before formatting, requiring "-F" for
+   interactive overwrite of non-exFAT volumes.
+ * mkfs.exfat: always clear the first 0x10000 bytes and
+   improve zero-out I/O, verification, and progress logs
+   during formatting.
+ * mkfs.exfat: reduce memory usage when formatting very
+   large devices.
+ * exfatprogs: include the release date in version output.
+ * mkfs.exfat: print the volume UUID after formatting,
+   warn when the "-s" option is used, and default to
+   512-byte clusters on very small devices.
+ * exfatprogs: recover from short read/write completions
+   during I/O operations.
+ * exfatprogs: refuse to run on pre-2.6 Linux kernels.
+
+BUG FIXES :
+ * fsck.exfat: fix bitmap bit counting sign extension and
+   handle progress bar overflow on corrupted bitmaps.
+ * mkfs.exfat: fix 32-bit overflow issues that could
+   select a wrong cluster size or fail with "-f".
+ * mkfs.exfat: reject invalid zero or overflowing size
+   arguments and correct the total cluster limit for
+   edge-case large volumes.
+ * mkfs.exfat: fix incorrect volume UUID printing and
+   use safer direct I/O for write verification.
+ * exfatprogs: fix 64-bit LBA sector I/O, integer
+   signedness issues, and memory errors reported by
+   valgrind in several utilities.
+
+exfatprogs 1.3.2 - release 2026-03-09
+===================================
+
+NEW FEATURES :
+ * fsck.exfat: add an option to show a progress bar
+   while checking a filesystem.
+
+CHANGES :
+ * mkfs.exfat: discard blocks prior to write outs by
+   default.
+ * mkfs.exfat: add a read-after-write verification for
+   the volume boot record.
+ * exfatprogs: adjust utility exit codes and add log
+   messages for malloc() failures.
+
+BUG FIXES :
+ * dump.exfat: handle paths including '.', '..', and
+   repeated '/'.
+ * fsck.exfat: convert 0x80 entries into deleted file
+   entries to avoid bogus dentry errors.
+ * fsck.exfat: fix an uninitialized variable warning.
+
+exfatprogs 1.3.1 - released 2025-12-15
+=====================================
+
+NEW FEATURES :
+ * fsck.exfat: support repairing the allocation bitmap size.
+
+CHANGES :
+ * exfatprogs: temporarily disable building defrag.exfat due to reported
+   data loss.
+
+BUG FIXES :
+ * libexfat: fix a NULL pointer dereference in read_file_dentry_set().
+
+exfatprogs 1.3.0 - released 2025-10-15
+======================================
+
+NEW FEATURES :
+ * defrag.exfat: add a tool to defragment an exFAT
+   filesystem or assess its fragmentation status.
+   See a man page.
+
+CHANGES :
+ * mkfs.exfat: minimize zero-out initialization work
+   in quick format mode to reduce I/O time.
+ * fsck.exfat: set the entry after an unused entry as unused.
+
+BUG FIXES :
+ * mkfs.exfat: fix incorrect FAT byte length calculation.
+ * mkfs.exfat: avoid setting physical sector size into sector_size field.
+ * fsck.exfat: fix a memory leaks in an error path.
+
+exfatprogs 1.2.9 - released 2025-05-12
+======================================
+
+NEW FEATURES :
+ * dump.exfat: support dumping directory entry sets,
+   which prints all fields of directory entries and
+   cluster chains. See a man page.
+
+CHANGES :
+ * exfatprogs: update the Github action for build test
+   with Debain + clang + lld.
+
+exfatprogs 1.2.8 - released 2025-03-04
+======================================
+
+BUG FIXES :
+ * dump.exfat: fix an incorrect output of an entry
+   position in 32-bit system.
+ * mkfs.exfat: fill an oem sector with zero instead
+   of one.
+ * exfatprogs: fix compilation on musl based systems
+   due to loff_t type. And update the Github action
+   to validate builds on the system.
+
+exfatprogs 1.2.7 - released 2025-02-03
+======================================
+
+NEW FEATURES :
+ * fsck.exfat: support repairing the upcase table.
+
+CHANGES :
+ * exfatprogs: make sure to load the tbl preprocessor
+   for man pages.
+
+BUG FIXES :
+ * exfatprogs: fix a double free memory error.
+ * dump.exfat: fix a constraint that volume label, bitmap,
+   upcase table must be located at the beginning of a root
+   directory.
+
+exfatprogs 1.2.6 - released 2024-11-20
+======================================
+
+CHANGES :
+ * exfatprogs: replace obsolete autoconf and libtool
+   macros.
+ * mkfs.exfat: prefer the physical block size over
+   the logical block size for the exFAT sector size.
+ * mkfs.exfat: add notes about the format of the volume
+   GUID to the man page.
+ * mkfs.exfat: fix an incorrect calculation of the number
+   of used clusters.
+
+BUG FIXES :
+ * exfatlabel: fix an user input error when setting
+   a volume serial or label.
+
+exfatprogs 1.2.5 - released 2024-08-06
+======================================
+
+CHANGES :
+ * exfatprogs: remove the limitation that the device
+   path length cannot exceed 254 bytes.
+ * exfatprogs: include the test images in the release
+   package.
+
+NEW FEATURES :
+ * fsck.exfat: check and repair the filename which has
+   invalid characters.
+
+BUG FIXES :
+ * tune.exfat: check whether the volume has invalid
+   characters correctly.
+ * fsck.exfat: check whether the filename and volume
+   has invalid characters correctly.
+ * fsck.exfat: fix endianess issues which happen
+   in the big-endian system.
+
+exfatprogs 1.2.4 - released 2024-06-17
+======================================
+
+BUG FIXES :
+ * tune.exfat: Fix "invalid serial number" error when
+   setting an serial number.
+ * fsck.exfat: Fix memory leak in an error path
+
+exfatprogs 1.2.3 - released 2024-05-23
+======================================
+
+CHANGES :
+ * dump.exfat: Report sector size in bytes and cluster size in
+   terms of sectors.
+ * fsck.exfat: Show checksum value if the SetChecksum of File
+   directory entry is invalid.
+ * mkfs.exfat: Improve FAT length calculation to reduce
+   the FAT size.
+
+NEW FEATURES :
+ * mkfs.exfat: Add the option "--sector-size".
+ * fsck.exfat: Support checking and repairing VendorAllcation and
+   VendorExtension directory entries.
+
+BUG FIXES :
+ * exfatprogs: Remove unnecessary memory allocations.
+ * fsck.exfat: Fix corruption that can occur if the cluster size
+   is 512-byte.
+ * fsck.exfat: Fix the SecondaryCount of File directory entry
+   when the count of Name directory entries is 17 or higher.
+ * tune.exfat: Fix an error that accepts invalid serial numbers.
+
+exfatprogs 1.2.2 - released 2023-10-26
+======================================
+
+CHANGES :
+ * exfat2img: Allow dumps for read-only devices.
+ * fsck.exfat: Revert Repairing zero size directory.
+
+NEW FEATURES :
+ * fsck.exfat: Repair duplicated filename.
+ * mkfs.exfat: Add the option "q" to print only error messages.
+ * mkfs.exfat: Add the option "U" to set volume GUID.
+ * tune.exfat: Add the option "U" / "-u" to set or print volume GUID.
+
+BUG FIXES:
+ * fsck.exfat: Fix some out-of-bounds memory accesses.
+ * fsck.exfat: Change not to delete volume GUID directory entry.
+
+exfatprogs 1.2.1 - released 2023-05-17
+======================================
+
+CHANGES :
+ * fsck.exfat: Repair zero size directory.
+ * fsck.exfat: Four small clean-ups.
+
+exfatprogs 1.2.0 - released 2022-10-28
+======================================
+
+CHANGES :
+ * fsck.exfat: Keep traveling files even if there is a corrupted
+directory entry set.
+ * fsck.exfat: Introduce the option "b" to recover a boot sector even
+if an exFAT filesystem is not found.
+ * fsck.exfat: Introduce the option "s" to create files in
+"/LOST+FOUND", which have clusters allocated but was not belonged to
+any files.
+ * fsck.exfat: Rename '.' and '..' entry name to the one user want.
+
+NEW FEATURES :
+ * fsck.exfat: Repair corruptions of an exFAT filesystem. Please refer
+to fsck.exfat manpage to see what kind of corruptions can be repaired.
+ * exfat2img: Dump metadata of an exFAT filesystem. Please refer to
+exfat2img manpage to see how to use it.
+
+BUG FIXES:
+ * fsck.exfat: Fix an infinite loop while traveling files.
+ * tune.exfat: Fix bitmap entry corruption when adding new volume lablel.
+
+exfatprogs 1.1.3 - released 2021-11-11
+======================================
+
+CHANGES :
+ * mkfs.exfat: ensure that the cluster size is greater than or
+   equal than the sector size.
+ * mkfs.exfat: replace lseek() + write() with pwrite().
+
+BUG FIXES :
+ * mkfs.exfat: prevent an integer overflow when computing the FAT
+   length.
+ * fsck.exfat: fix a double free memory error.
+
+exfatprogs 1.1.2 - released 2021-05-20
+======================================
+
+CHANGES :
+ * mkfs.exfat: set 0x80 to DriveSelect of the boot sector
+
+BUG FIXES :
+ * Fix issues on 4KB logical sector devices
+ * Fix issues when the sector size of of a file system is different from
+   that of a block device.
+
+exfatprogs 1.1.1 - released 2021-04-21
+======================================
+
+CHANGES :
+ * mkfs.exfat: adjust the boundary alignment calculations to compensate
+   for the volume offset.
+
+NEW FEATURES :
+ * mkfs.exfat: add the "--pack-bitmap" option to relocate the allocation
+   bitmap to allow the FAT and the bitmap to share the same allocation
+   unit on flash media.
+
+BUG FIXES :
+ * Fix wrong bit operations on 64-bit big.
+ * Fix memory leaks in error paths.
+
+exfatprogs 1.1.0 - released 2021-02-09
+======================================
+
+CHANGES :
+ * fsck.exfat: recover corrupted boot region.
+
+NEW FEATURES :
+ * exfatlabel: Print or Set volume label and serial.
+ * dump.exfat: Show the on-disk metadata information and the statistics.
+
+BUG FIXES :
+ * set _FILE_OFFSET_BITS=64 for Android build.
+
+exfatprogs 1.0.4 - released 2020-07-31
+======================================
+
+CHANGES :
+ * fsck.exfat: display sector, cluster, and volume sizes in the human
+   readable format.
+ * fsck.exfat: reduce the elapsed time using read-ahead.
+
+NEW FEATURES :
+ * mkfs.exfat: generate pseudo unique serials while creating filesystems.
+ * mkfs.exfat: add the "-b" option to align the start offset of FAT and
+   data clusters.
+ * fsck.exfat: repair zero-byte files which have the NoFatChain attribute.
+
+BUG FIXES :
+ * Fix memory leaks on error handling paths.
+ * fsck.exfat: fix the bug that cannot access space beyond 2TB.
+
+exfatprogs 1.0.3 - released 2020-05-12
+======================================
+
+CHANGES :
+ * Rename label.exfat to tune.exfat.
+ * tune.exfat: change argument style(-l option for print level,
+   -L option for setting label)
+ * mkfs.exfat: harmonize set volume label option with tune.exfat.
+
+NEW FEATURES :
+ * Add man page.
+
+BUG FIXES :
+ * Fix the reported build warnings/errors.
+ * Add memset to clean garbage in allocation.
+ * Fix wrong volume label array size.
+ * Open a device using O_EXCL to avoid formatting it while it is mounted.
+ * Fix incomplete "make dist" generated tarball.
+
+
+exfatprogs 1.0.2 - released 2020-04-23
+======================================
+
+CHANGES :
+ * Rename project name to exfatprogs.
+ * Replace iconv library by standard C functions mbstowcs() and wcrtomb().
+
+NEW FEATURES :
+ * Add support for Android build system.
+ * label.exfat: Add support for label.exfat to set/get exfat volume label.
+
+BUG FIXES :
+ * Fix the build warnings/errors and add warning options.
+ * Fix several bugs(memory leak, wrong endian conversion, zero out beyond
+   end of file) and cleanup codes
+ * Fix issues on big endian system and on 32bit system.
+
+
+exfatprogs 1.0.1 - released 2020-04-09
+======================================
+
+NEW FEATURES :
+ * mkfs.exfat: quick/full format support
+ * mkfs.exfat: specify cluster size
+ * mkfs.exfat: set volume label
+ * fsck.exfat: consistency check support

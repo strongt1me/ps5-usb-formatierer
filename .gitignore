@@ -1,0 +1,18 @@
+# PS5-SDK (ps5-payload-sdk) liegt lokal, wird nicht mitversioniert
+sdk/
+.claude/
+
+# Build-Ausgaben (fertige Dateien hängen am GitHub-Release)
+usb_format/build/
+usb_format/app/build/
+usb_format/usb_format.elf
+usb_format/app/eboot.bin
+usb_format/dump/bin/
+usb_format/dump/obj/
+usb_format/dump/out/
+usb_list/*.elf
+windows/build/
+windows/dist/
+windows/*.spec
+**/__pycache__/
+*.pyc
