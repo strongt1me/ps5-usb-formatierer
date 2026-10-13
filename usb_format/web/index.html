@@ -202,9 +202,11 @@ button.format { background: linear-gradient(#d4e6fc, #a9cbf3); border: 2px solid
 
 /* Dialoge */
 .overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.5); display: flex;
-           align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+           align-items: center; justify-content: center; padding: 16px; z-index: 10; overflow-y: auto; }
+/* zoom vergrößert auch max-height - daher durch die Größe teilen, sonst ragt der Dialog auf der PS5 aus dem Bild */
 .dialog { background: var(--card); border-radius: 14px; padding: 20px 22px; max-width: 460px; width: 100%;
-          border: 1px solid var(--border); box-shadow: var(--shadow); max-height: 92vh; overflow-y: auto; }
+          border: 1px solid var(--border); box-shadow: var(--shadow); max-height: calc(92vh / var(--ui-zoom, 1));
+          overflow-y: auto; }
 .dialog h2 { font-size: 18px; margin: 0 0 8px; color: var(--danger); }
 .dialog h2.good { color: var(--ok); } .dialog h2.amber { color: var(--warn); } .dialog h2.plain { color: var(--text); }
 .dialog p { margin: 0 0 8px; font-size: 14px; }
@@ -476,6 +478,7 @@ function el(tag, cls, text) {
 
 let devices = [], selected = null, busy = false, pollTimer = null, showAll = false;
 let pickMode = false;          /* Spiele zum Löschen auswählen */
+const MAX_DELETE = 256;        /* so viele nimmt /api/delete auf einmal an */
 const picked = new Set();      /* Schlüssel (key aus /api/library) der ausgewählten Spiele */
 let lib = { titles: [], roots: [], duplicates: [], scanning: false };
 const speedOf = {}, checkOf = {};   /* letzte Messung / Prüfung je Laufwerk (Name + Größe) */
@@ -611,13 +614,17 @@ function countText(n, one, many) { return n + " " + (n === 1 ? one : many); }
 /* Pfad ohne Einhängepunkt: /mnt/usb1/homebrew/x.ffpkg -> homebrew/x.ffpkg */
 function shortPath(p) { return p.replace(/^\/mnt\/(usb|ext)\d+\//, "").replace(/^\/data\//, "intern: "); }
 
+let libTimer = null, libFailed = true;   /* libFailed: Inhalt unbekannt (noch nicht geladen oder Fehler) */
+
 async function loadLibrary(refresh) {
+  clearTimeout(libTimer);   /* nur eine Nachfrage-Kette, auch wenn mehrmals aufgerufen */
   try {
     lib = await api("/api/library" + (refresh ? "?refresh=1" : ""));
-  } catch (e) { return; }
+    libFailed = false;
+  } catch (e) { libFailed = true; return; }
   renderDevices();
   renderTabs();
-  if (lib.scanning) setTimeout(() => loadLibrary(false), 1500);
+  if (lib.scanning) libTimer = setTimeout(() => loadLibrary(false), 1500);
 }
 
 /* ---------------------------------------------------------------- Laufwerksliste */
@@ -704,6 +711,9 @@ function note(cls, title, text) {
 
 function renderContent() {
   const box = $("content"), d = currentDevice();
+  /* beim Neuzeichnen (z. B. während der Suche) Scroll-Position und gewähltes Häkchen behalten */
+  const oldList = box.querySelector(".games"), keepScroll = oldList ? oldList.scrollTop : 0;
+  const ae = document.activeElement, focusKey = ae && box.contains(ae) && ae.dataset ? ae.dataset.key : null;
   box.textContent = "";
   $("more").hidden = true;
   $("pick").hidden = true;
@@ -727,15 +737,32 @@ function renderContent() {
       $("more").hidden = false;
       $("more").textContent = showAll ? "Weniger anzeigen ▴" : "Alle " + sorted.length + " Spiele anzeigen ▾";
     }
+    /* Auswahlleiste: wird beim Anhaken nur aktualisiert, die Liste bleibt stehen (Fokus und Scrollen auf der PS5) */
+    const cntText = el("span", ""), all = el("button", "link"), del = el("button", "danger solid");
+    const boxes = [];
+    const refreshBar = () => {
+      cntText.textContent = picked.size ? picked.size + " ausgewählt" : "Spiele zum Löschen antippen";
+      all.textContent = picked.size === titles.length ? "Keine" : "Alle";
+      del.textContent = picked.size > 1 ? picked.size + " Spiele löschen" : "Löschen";
+      del.disabled = !picked.size || busy || picked.size > MAX_DELETE;
+    };
+    let focusBox = null;
     for (const t of showAll || pickMode ? sorted : sorted.slice(0, 3)) {
       const info = el("i", "", (t.id || "Titel-ID unbekannt") + " · " + (t.kind === "Ordner" ? "Ordner" : "Abbild " + t.kind));
       let g;
       if (pickMode) {   /* Häkchen vor jedem Spiel; die ganze Zeile schaltet um */
         g = el("label", "game pick" + (picked.has(t.key) ? " on" : ""));
-        const cb = el("input");
+        const cb = el("input"), row = g;
         cb.type = "checkbox";
         cb.checked = picked.has(t.key);
-        cb.addEventListener("change", () => { cb.checked ? picked.add(t.key) : picked.delete(t.key); renderContent(); });
+        cb.dataset.key = t.key;
+        cb.addEventListener("change", () => {
+          cb.checked ? picked.add(t.key) : picked.delete(t.key);
+          row.classList.toggle("on", cb.checked);
+          refreshBar();
+        });
+        boxes.push({ cb, row, key: t.key });
+        if (t.key === focusKey) focusBox = cb;
         g.append(cb, el("span", "", t.name), info);
       } else {
         g = el("div", "game");
@@ -745,21 +772,24 @@ function renderContent() {
       list.appendChild(g);
     }
     box.appendChild(list);
+    list.scrollTop = keepScroll;
+    if (focusBox) focusBox.focus();
     if (pickMode) {
-      const bar = el("div", "pickbar"), cnt = el("span", "cnt", picked.size ? picked.size + " ausgewählt" : "Spiele zum Löschen antippen");
-      const all = el("button", "link", picked.size === titles.length ? "Keine" : "Alle");
+      const bar = el("div", "pickbar"), cnt = el("span", "cnt");
       all.type = "button";
       all.addEventListener("click", () => {
-        if (picked.size === titles.length) picked.clear(); else titles.forEach(t => picked.add(t.key));
-        renderContent();
+        const on = picked.size !== titles.length;
+        if (on) titles.forEach(t => picked.add(t.key)); else picked.clear();
+        for (const b of boxes) { b.cb.checked = on; b.row.classList.toggle("on", on); }
+        refreshBar();
       });
-      cnt.appendChild(all);
-      const del = el("button", "danger solid", picked.size > 1 ? picked.size + " Spiele löschen" : "Löschen");
+      cnt.append(cntText, all);
       del.type = "button";
-      del.disabled = !picked.size || busy;
       del.addEventListener("click", () => deleteGames(d, titles.filter(t => picked.has(t.key))));
       bar.append(cnt, del);
       box.appendChild(bar);
+      refreshBar();
+      if (titles.length > MAX_DELETE) box.appendChild(el("div", "hint", "Höchstens " + MAX_DELETE + " Spiele auf einmal."));
     }
   }
   for (const x of dupsOf(d)) {
@@ -779,6 +809,8 @@ function renderCheck() {
   $("bspeed").disabled = busy || !d;
   $("bcheck").disabled = busy || !exfat;
   $("brename").disabled = busy || !named;
+  $("brenameok").disabled = busy || !named;
+  if (!named || busy) $("renamebox").hidden = true;
   if (!d) { $("checkhint").textContent = ""; return; }
   const sp = speedOf[devKey(d)], ck = checkOf[devKey(d)];
   if (sp) {   /* letzte Messung dieses Laufwerks */
@@ -846,6 +878,7 @@ function update() {
   $("start").disabled = busy || !d || !labelValid();
   $("fs").disabled = $("label").disabled = $("other").disabled = busy;
   $("reload").disabled = busy;
+  $("quit").disabled = busy;
   renderTabs();
 }
 
@@ -892,16 +925,23 @@ function startPolling(foreign) {
   update();
   renderDevices();
   clearInterval(pollTimer);
-  pollTimer = setInterval(async () => {
+  let inFlight = false;   /* langsame Antworten: nie zwei Abfragen gleichzeitig (sonst Ergebnis doppelt) */
+  const timer = pollTimer = setInterval(async () => {
+    if (inFlight) return;
+    inFlight = true;
     let st;
-    try { st = await api("/api/status"); } catch (e) { return; }
+    try { st = await api("/api/status"); } catch (e) { return; } finally { inFlight = false; }
+    if (pollTimer !== timer) return;   /* inzwischen neu gestartet */
     setProgress(st);
     if (!st.busy) {
       clearInterval(pollTimer);
+      pollTimer = null;
       busy = false;
       $("progress").hidden = true;
-      const d = currentDevice() || devices.find(x => x.name === st.device);
+      const before = currentDevice();
       await loadDevices();
+      /* nach dem Neu-Anmelden kann der Stick anders heißen (st.device ist der aktuelle Name) */
+      const d = devices.find(x => x.name === st.device) || before;
       /* fremder Auftrag: nur das Ergebnis zeigen - Rückfragen (z. B. "nur echten Bereich formatieren") gehören
          dem Browser, der ihn gestartet hat */
       if (foreignJob) { showMsg(st.message, st.ok); renderTabs(); }
@@ -924,7 +964,7 @@ setInterval(async () => {
 function finished(st, d) {
   const r = st.result || {};
   const key = d ? devKey(d) : "";
-  if (r.read && d) speedOf[devKey(currentDevice() || d)] = { read: r.read, write: r.write || (speedOf[key] || {}).write };
+  if (r.read && d) speedOf[key] = { read: r.read, write: r.write || (speedOf[key] || {}).write };
   if (st.kind === "format") {
     if (st.ok) { showMsg(st.message, true); return showResult("Datenträger erfolgreich formatiert", st.message, true); }
     if (r.fake) return fakeDialog(st, r, d);
@@ -935,7 +975,7 @@ function finished(st, d) {
   if (st.kind === "check" && st.ok && r.code !== undefined) {
     const title = r.code === 0 ? "exFAT geprüft: keine Fehler" : r.code === 1 ? "Fehler gefunden und behoben"
       : r.repair ? "Fehler ließen sich nicht beheben" : "Fehler gefunden";
-    if (d) checkOf[devKey(currentDevice() || d)] = { code: r.code, title, text: st.message.replace(/^[^:]*: /, "") };
+    if (d) checkOf[key] = { code: r.code, title, text: st.message.replace(/^[^:]*: /, "") };
     renderTabs();
     if (r.code === 4 && !r.repair) return askRepair(st);
     return showMsg(st.message, true);
@@ -947,7 +987,7 @@ function finished(st, d) {
     return;
   }
   if (st.kind === "check" && !st.ok && d) {
-    checkOf[devKey(currentDevice() || d)] = { code: 8, title: "Prüfen nicht möglich", text: st.message.replace(/^[^:]*: /, "") };
+    checkOf[key] = { code: 8, title: "Prüfen nicht möglich", text: st.message.replace(/^[^:]*: /, "") };
   }
   renderTabs();
   showMsg(st.message, st.ok);
@@ -1015,7 +1055,7 @@ async function fakeDialog(st, r, d) {
     title: "Gefälschter Speicher erkannt", cls: "amber",
     text: name + " meldet " + fmtSize(r.reported) + ", hat aber nur etwa " + fmtSize(r.real) +
           " echten Speicher. Was darüber hinaus gespeichert wird, geht verloren – Spiele würden unbemerkt beschädigt.",
-    extra: stats, text2: "Es wurde nichts formatiert. Der echte Bereich lässt sich sicher nutzen.",
+    extra: stats, text2: "Noch nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben). Der echte Bereich lässt sich sicher nutzen.",
     no: "Schließen", yes: "Nur echte " + fmtSize(r.real) + " formatieren", yesCls: "solid primary"
   });
   const cur = d && devices.find(x => x.name === d.name && x.size === d.size);
@@ -1074,6 +1114,12 @@ $("start").addEventListener("click", async () => {
     if (names.length) extra.appendChild(el("div", "", names.slice(0, 6).join(" · ")));
     if (names.length > 6) extra.appendChild(el("div", "", "… und " + (names.length - 6) + " weitere"));
     ack = titles.length ? "Ich weiß, dass diese Spiele unwiderruflich gelöscht werden" : "Ich weiß, dass diese Dateien gelöscht werden";
+  } else if (d.mounts.length && (lib.scanning || libFailed)) {
+    /* Inhalt noch unbekannt: lieber ausdrücklich bestätigen lassen, es könnten Spiele darauf liegen */
+    extra = el("div", "dlist");
+    extra.appendChild(el("b", "", "Der Inhalt wird noch durchsucht – möglicherweise liegen Spiele darauf" +
+      (u ? " (" + fmtSize(u.used) + " belegt)" : "") + "."));
+    ack = "Ich weiß, dass alles darauf unwiderruflich gelöscht wird";
   }
   const notes = [];
   if (d.mounts.length) notes.push("Die PS5 nutzt das Laufwerk gerade – der Formatierer meldet es kurz per Software ab (klappt das nicht, bittet er, es abzuziehen und wieder einzustecken).");

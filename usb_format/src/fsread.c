@@ -114,8 +114,12 @@ static void dir_begin(dirit_t *it, const exnode_t *n) {
 static int dir_next(fsr_t *f, dirit_t *it, uint8_t e[32], uint64_t *pos) {
     if (!ex_valid(f, it->clus)) return 0;
     if (it->node.len != NO_BLOCK && it->done >= it->node.len) return 0;
+    /* exFAT erlaubt höchstens 256 MiB je Verzeichnis - schützt vor Endlos-Ketten auf kaputten Sticks */
+    if (it->done >= 256ull * 1024 * 1024) return 0;
     if (it->pos >= f->cs) {
+        uint32_t prev = it->clus;
         if (++it->steps > f->clus_count || ex_next_clus(f, it->clus, it->node.nofat, &it->clus)) return 0;
+        if (it->clus == prev) return 0;   /* Cluster zeigt auf sich selbst: kaputte FAT */
         it->pos = 0;
     }
     uint64_t off = ex_clus_off(f, it->clus) + it->pos;

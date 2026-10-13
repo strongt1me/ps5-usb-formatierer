@@ -4,6 +4,7 @@
    mit host-type/host-name - auch im Ruhemodus (Status 620).
 2. Rueckfallebene: Suche nach einem bereits laufenden usb_format-Payload (TCP 8090) im /24-Netz.
 """
+import http.client
 import json
 import socket
 import time
@@ -80,8 +81,9 @@ def is_formatter(ip, port, timeout=0.4):
         return False
     try:
         with urllib.request.urlopen(f"http://{ip}:{port}/api/devices", timeout=2) as r:
-            return "devices" in json.loads(r.read().decode("utf-8"))
-    except (OSError, ValueError):
+            data = json.loads(r.read().decode("utf-8"))
+            return isinstance(data, dict) and "devices" in data
+    except (OSError, ValueError, http.client.HTTPException):   # z. B. ein anderes Gerät, das kein HTTP spricht
         return False
 
 

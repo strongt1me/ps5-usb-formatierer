@@ -14,10 +14,16 @@ static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 static uint32_t le32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
 static uint64_t le64(const uint8_t *p) { return le32(p) | (uint64_t)le32(p + 4) << 32; }
 
-/* 4 KiB ab off (auf 4 KiB abgerundet gelesen; buf bekommt den Block, Rückgabe zeigt auf off darin) */
+/* 4 KiB ab off: buf (BUFSZ = 2 Blöcke) bekommt die Blöcke ab off auf 4 KiB abgerundet, die Rückgabe zeigt auf off
+ * darin - dahinter sind immer volle 4 KiB gültig, auch wenn off nicht auf 4 KiB liegt (Partition ab Sektor 63) */
+#define BUFSZ (2 * BLK)
 static const uint8_t *rd(int fd, uint8_t *buf, uint64_t off) {
     uint64_t start = off - off % BLK;
-    if (pread(fd, buf, BLK, (off_t)start) != BLK) return NULL;
+    ssize_t n = pread(fd, buf, BUFSZ, (off_t)start);
+    if (n < (ssize_t)(off - start + BLK)) {   /* am Geräteende: zweiter Block fehlt, Rest mit Nullen */
+        if (n < (ssize_t)(off - start + 512)) return NULL;
+        memset(buf + n, 0, (size_t)(BUFSZ - n));
+    }
     return buf + (off - start);
 }
 
@@ -53,7 +59,7 @@ static void fat_name(const uint8_t *p, char *out, size_t n) {
 }
 
 int fs_fat32_label_slot(int fd, uint64_t start, uint64_t *off, int *found) {
-    uint8_t *buf = malloc(BLK);
+    uint8_t *buf = malloc(BUFSZ);
     const uint8_t *b;
     int rc = -1;
     if (!buf || !(b = rd(fd, buf, start))) goto out;
@@ -85,7 +91,7 @@ out:
 }
 
 static void read_label(int fd, const char *fs, uint64_t start, char *out, size_t n) {
-    uint8_t *buf = malloc(BLK);
+    uint8_t *buf = malloc(BUFSZ);
     const uint8_t *b;
     out[0] = 0;
     if (!buf) return;
@@ -148,7 +154,7 @@ static const char *detect(int fd, uint32_t ss, uint64_t devsize, uint8_t *buf, f
 }
 
 int fs_probe(int fd, uint32_t ss, uint64_t devsize, fsinfo_t *out) {
-    uint8_t *buf = malloc(BLK);   /* nicht auf den Stapel: Threads haben auf der PS5 nur 64 KiB */
+    uint8_t *buf = malloc(BUFSZ);   /* nicht auf den Stapel: Threads haben auf der PS5 nur 64 KiB */
     memset(out, 0, sizeof(*out));
     if (!buf) { out->fs = "unbekannt"; out->scheme = ""; return -1; }
     out->fs = detect(fd, ss ? ss : 512, devsize, buf, out);

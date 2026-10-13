@@ -138,6 +138,20 @@ code=$(post "{\"device\":\"da0\",\"fs\":\"exfat\",\"size\":$((2048 * MIB)),\"lim
     && ok "nur den echten Bereich formatiert: $(q 'd["message"]' <"$W/st" | cut -c1-150)" || bad "limit-Format" "$(cat "$W/st")"
 sfdisk -d "$W/fake.img" 2>/dev/null | grep -Eq 'start= *2048, size= *522240' && ok "  Partition endet bei 256 MB" || bad "  Partition limit"
 
+# ---------------------------------------------------------------- alte Sticks: Partition ab Sektor 63 (nicht auf 4 KiB)
+truncate -s 64M "$W/s63.img"
+python3 - "$W/s63.img" <<'EOF'
+import struct, sys
+mbr = bytearray(512)
+mbr[446:462] = bytes([0, 0, 0, 0, 0x0C, 0, 0, 0]) + struct.pack("<II", 63, 131072 - 63)
+mbr[510:512] = b"\x55\xaa"
+with open(sys.argv[1], "r+b") as f:
+    f.write(mbr)
+EOF
+start "$W/s63.img" "0"
+[ "$(curl -s "$U/api/devices" | q 'd["devices"][0]["format"] + "/" + d["devices"][0]["scheme"]')" = "leer/MBR" ] \
+    && ok "Partition ab Sektor 63, leer: erkannt (ohne über den Puffer zu lesen)" || bad "Sektor 63" "$(curl -s "$U/api/devices")"
+
 echo
 [ $fails -eq 0 ] && echo "Alle Funktions-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."
 exit $((fails > 0))

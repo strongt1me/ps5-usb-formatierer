@@ -426,7 +426,15 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
                 if (snap[k].exists && snap[k].ino == now.ino && snap[k].rdev == now.rdev) continue;
                 snprintf(name, sizeof(name), "da%d", k);
                 int fd = grab(path, name);
-                if (fd == -2) {          /* die PS5 war schneller: noch einmal freigeben lassen */
+                if (fd == -2) {          /* die PS5 war schneller: noch einmal freigeben lassen - wenn es unser Stick ist */
+                    off_t media = 0;
+                    u_int sector = 0;
+                    int ro = open(path, O_RDONLY);
+                    int ours = ro >= 0 && ioctl(ro, DIOCGMEDIASIZE, &media) == 0 &&
+                               ioctl(ro, DIOCGSECTORSIZE, &sector) == 0 && (uint64_t)media == d->size && sector == d->ss;
+                    if (ro >= 0) close(ro);
+                    snap[k] = now;
+                    if (!ours) continue;   /* ein anderer Stick wurde eingebunden: in Ruhe lassen */
                     snprintf(cur, sizeof(cur), "%s", path);
                     lost = 1;
                     break;

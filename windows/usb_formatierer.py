@@ -4,6 +4,7 @@ Findet die PS5 im Netz (ps5_discovery) und spricht mit dem usb_format-Payload (H
 Port 8090). Laeuft der Payload noch nicht, wird er an den ELF-Loader der PS5 (Port 9021) geschickt.
 """
 import ctypes
+import http.client
 import json
 import os
 import queue
@@ -118,8 +119,8 @@ class Api:
             except ValueError:
                 msg = None
             raise ApiError(msg or f"HTTP-Fehler {e.code}") from None
-        except (urllib.error.URLError, OSError, ValueError) as e:
-            raise ConnectionError(str(e)) from None
+        except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as e:
+            raise ConnectionError(str(e) or type(e).__name__) from None
 
     def devices(self, timeout=4):
         return self._call("/api/devices", timeout=timeout)
@@ -154,7 +155,17 @@ def pc_list():
         raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
     r = subprocess.run([exe, "list"], capture_output=True, timeout=30,
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    return json.loads(r.stdout.decode("utf-8") or "[]")
+    if r.returncode != 0:
+        raise RuntimeError(f"Helfer meldet Fehler {r.returncode}: "
+                           f"{r.stderr.decode('utf-8', 'replace').strip() or 'keine Angabe'}")
+    devices = json.loads(r.stdout.decode("utf-8") or "[]")
+    for d in devices:   # fehlende Felder (andere Helfer-Version) nicht zum Absturz werden lassen
+        d.setdefault("model", "")
+        d.setdefault("volumes", [])
+        for v in d["volumes"]:
+            for k, default in (("letters", ""), ("label", ""), ("fs", ""), ("total", 0), ("free", 0)):
+                v.setdefault(k, default)
+    return devices
 
 
 def pc_used(d):
@@ -171,7 +182,8 @@ def pc_dev_text(d):
             t += f" {v['fs']}"
         parts.append(t)
     vols = ", ".join(parts) if parts else "ohne Partition"
-    return f"{d['model'] or 'USB-Datenträger'} – {fmt_size(d['size'])} – {vols}"
+    # Datenträgernummer macht den Eintrag eindeutig (zwei gleiche leere Sticks)
+    return f"{d['model'] or 'USB-Datenträger'} (Datenträger {d['disk']}) – {fmt_size(d['size'])} – {vols}"
 
 
 class _ShellExecuteInfo(ctypes.Structure):
@@ -184,7 +196,9 @@ class _ShellExecuteInfo(ctypes.Structure):
 
 class PcJob:
     """Startet den Helfer mit Administratorrechten (UAC-Abfrage von Windows) und liest seine Ausgabedatei mit"""
-    def __init__(self, args):
+    STALL_S = 30 * 60   # so lange ohne neue Ausgabe: Helfer gilt als hängend
+
+    def __init__(self, args, hwnd=None):
         exe = find_helper()
         if not exe:
             raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
@@ -200,12 +214,15 @@ class PcJob:
         sei.lpFile = exe
         sei.lpParameters = subprocess.list2cmdline(["--out", self.out, "--cancel", self.cancel_file] + args)
         sei.nShow = 0                     # SW_HIDE
+        sei.hwnd = hwnd                   # UAC-Abfrage vor dem Programmfenster statt blinkend in der Taskleiste
         shell32 = ctypes.WinDLL("shell32", use_last_error=True)
         if not shell32.ShellExecuteExW(ctypes.byref(sei)):
             code = ctypes.get_last_error()
             if code == 1223:   # ERROR_CANCELLED: Benutzer hat die UAC-Abfrage abgelehnt
                 raise PermissionError("Ohne Administratorrechte lässt Windows keine Datenträger bearbeiten.")
             raise OSError(f"Helfer konnte nicht gestartet werden (Windows-Fehler {code}).")
+        if not sei.hProcess:
+            raise OSError("Helfer wurde gestartet, aber Windows liefert keinen Prozess dazu.")
         self.proc = sei.hProcess
 
     def cancel(self):
@@ -215,11 +232,12 @@ class PcJob:
             pass
 
     def running(self):
-        return ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 0) != 0
+        # 0x102 = WAIT_TIMEOUT: läuft noch; 0 = beendet; WAIT_FAILED (ungültiges Handle) = gilt als beendet
+        return ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 0) == 0x102
 
     def follow(self, on_progress):
         """Bis zum Ende mitlesen; liefert (ok, meldung, json)"""
-        pos, result = 0, None
+        pos, result, last_change = 0, None, time.time()
         try:
             while result is None:
                 alive = self.running()
@@ -231,18 +249,26 @@ class PcJob:
                     data = b""
                 end = data.rfind(b"\n") + 1
                 pos += end
+                if end:
+                    last_change = time.time()
                 for line in data[:end].decode("utf-8", "replace").splitlines():
                     parts = line.split("\t")
                     if parts[0] == "P" and len(parts) >= 3:
-                        on_progress(int(parts[1]), parts[2])
+                        try:
+                            on_progress(int(parts[1]), parts[2])
+                        except ValueError:
+                            pass
                     elif parts[0] == "R" and len(parts) >= 4:
                         try:
                             info = json.loads(parts[3])
                         except ValueError:
                             info = {}
-                        result = (parts[1] == "1", parts[2], info)
+                        result = (parts[1] == "1", parts[2], info if isinstance(info, dict) else {})
                 if result is None and not alive:
                     result = (False, "Der Helfer wurde unerwartet beendet.", {})
+                elif result is None and time.time() - last_change > self.STALL_S:
+                    self.cancel()
+                    result = (False, "Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen.", {})
                 elif result is None:
                     time.sleep(0.3)
         finally:
@@ -566,12 +592,15 @@ class App(tk.Tk):
         self.lib_loading = True
 
         def work():
+            data = None
             try:
-                self.q.put(("library", api.library()))
+                data = api.library()
             except (ConnectionError, ApiError):
-                self.q.put(("library", None))
+                pass
+            finally:   # immer melden - sonst bliebe lib_loading stehen und die Liste käme nie wieder
+                self.q.put(("library", data if isinstance(data, dict) else None))
 
-        threading.Thread(target=self._guard(work), daemon=True).start()
+        threading.Thread(target=self._guard(work, background=True), daemon=True).start()
 
     def _fill_pc_devices(self, devices):
         prev = self._selected_device()
@@ -590,6 +619,10 @@ class App(tk.Tk):
             self.status_var.set(f"{len(devices)} USB-Datenträger am PC gefunden – bitte oben auswählen.")
 
     def _fill_devices(self, devices):
+        for d in devices:   # ältere/andere Payload-Versionen: fehlende Felder ergänzen
+            for k, default in (("name", "?"), ("model", ""), ("size", 0), ("locked", False), ("mounts", []),
+                               ("format", ""), ("label", "")):
+                d.setdefault(k, default)
         self.ps5_devices = devices
         if self.mode_var.get() == "pc":
             return
@@ -623,12 +656,13 @@ class App(tk.Tk):
         self._update()
         threading.Thread(target=self._guard(work), daemon=True).start()
 
-    def _guard(self, work):
+    def _guard(self, work, background=False):
+        """background: Spieleliste/Wächter - deren Fehler dürfen laufende Aufträge (busy) nicht freigeben"""
         def run():
             try:
                 work()
             except Exception as e:  # unerwartete Fehler im Thread sichtbar machen
-                self.q.put(("error", f"Unerwarteter Fehler: {e}"))
+                self.q.put(("bgerror" if background else "error", f"Unerwarteter Fehler: {e}"))
         return run
 
     @staticmethod
@@ -687,6 +721,10 @@ class App(tk.Tk):
         self.settings["host"] = host
         save_settings(self.settings)
         api = Api(host)
+        # alte Verbindung vergessen: scheitert die neue, darf "Starten" nicht die vorige PS5 formatieren
+        self.api = None
+        self.games = {}
+        self._fill_devices([])
 
         def work():
             self.q.put(("status", f"Verbinde mit {host} …"))
@@ -767,6 +805,8 @@ class App(tk.Tk):
                 f"um den Vorgang abzubrechen.",
                 icon="warning", default="cancel", parent=self):
             return
+        if self.busy or not self.api:   # während der Rückfrage kann ein anderer Auftrag begonnen haben
+            return
         self.settings["label"] = label
         save_settings(self.settings)
         api = self.api
@@ -802,6 +842,8 @@ class App(tk.Tk):
                 + "Laufende Spiele vorher beenden. Das lässt sich nicht rückgängig machen.",
                 icon="warning", default="cancel", parent=self):
             return
+        if self.busy or not self.api:
+            return
         api = self.api
 
         def work():
@@ -832,13 +874,13 @@ class App(tk.Tk):
                                                    "PS5-Benachrichtigungen prüfen.", foreign, done_title))
                     return
                 continue
-            self.q.put(("progress", st["percent"], st["step"]))
-            if not st["busy"]:
+            self.q.put(("progress", int(st.get("percent") or 0), st.get("step") or ""))
+            if not st.get("busy"):
                 try:   # erst die Liste, dann das Ergebnis - sonst überschreibt der Listenhinweis die Meldung
                     self.q.put(("devices", api.devices()))
                 except (ConnectionError, ApiError):
                     pass
-                self.q.put(("finished", st["ok"], st["message"], foreign, done_title))
+                self.q.put(("finished", bool(st.get("ok")), st.get("message") or "", foreign, done_title))
                 return
 
     def _watch(self):
@@ -853,9 +895,10 @@ class App(tk.Tk):
                         self.q.put(("foreign", api))
                 except (ConnectionError, ApiError):
                     pass
-                self.watching = False
+                finally:   # sonst wäre der Wächter nach einem unerwarteten Fehler für immer aus
+                    self.watching = False
 
-            threading.Thread(target=self._guard(check), daemon=True).start()
+            threading.Thread(target=self._guard(check, background=True), daemon=True).start()
         self._watch_id = self.after(3000, self._watch)
 
     # ------------------------------------------------------------------ PC-Modus
@@ -875,9 +918,14 @@ class App(tk.Tk):
 
     def _pc_run(self, op, args, cancellable=False, after=None):
         """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread"""
+        try:
+            hwnd = int(self.wm_frame(), 16)   # im UI-Thread holen: Elternfenster der UAC-Abfrage
+        except (tk.TclError, ValueError):
+            hwnd = None
+
         def work():
             try:
-                job = PcJob(args)
+                job = PcJob(args, hwnd)
             except (OSError, RuntimeError) as e:
                 self.q.put(("error", str(e)))
                 return
@@ -927,6 +975,8 @@ class App(tk.Tk):
                     f"Windows fragt anschließend nach Administratorrechten.",
                     icon="warning", default="cancel", parent=self):
                 return
+        if self.busy or self.mode_var.get() != "pc":
+            return
         self.settings.update(label=label, verify=self.verify_var.get(), folders=self.folders_var.get())
         save_settings(self.settings)
         args = ["format", str(dev["disk"]), str(dev["size"]), fs, label]
@@ -972,6 +1022,8 @@ class App(tk.Tk):
                 "Umbenennen", f"{pc_dev_text(dev)}\n\nNeue Bezeichnung: {target}\n\nDie Daten bleiben erhalten. Das "
                 "Laufwerk wird dafür kurz abgemeldet – geöffnete Dateien darauf vorher schließen.", parent=self):
             return
+        if self.busy or self.mode_var.get() != "pc":
+            return
 
         def after(ok, msg, info):
             (messagebox.showinfo if ok else messagebox.showerror)("Umbenennen", msg, parent=self)
@@ -988,103 +1040,116 @@ class App(tk.Tk):
     def _poll(self):
         try:
             while True:
-                msg = self.q.get_nowait()
-                kind = msg[0]
-                if kind == "status":
-                    self.status_var.set(msg[1])
-                elif kind == "found":
-                    self.busy = False
-                    self._on_found(msg[1])
-                elif kind == "connected":
-                    self.api = msg[1]
-                    self.busy = False
-                    self.status_var.set(f"Verbunden mit {self.host_var.get().strip()}")
-                    self._fill_devices(msg[2]["devices"])
-                    self._load_library()
-                elif kind == "devices":
-                    self.busy = self.formatting
-                    self._fill_devices(msg[1]["devices"])
-                    self._load_library()
-                elif kind == "formatting":
-                    self.formatting = True
-                elif kind == "foreign":
-                    if not self.busy:   # woanders gestartet: hier mitverfolgen
-                        self.status_var.set("Auf der PS5 läuft ein Auftrag …")
-                        self.pbar["value"] = 0
-                        api = msg[1]
-                        self._run(lambda: self._follow(api, foreign=True))
-                elif kind == "progress":
-                    pct, step = msg[1], msg[2]
-                    # Schritte ohne Prozentangabe (Warten auf das Abmelden, Werkzeuge): Lauf-Animation statt Stillstand
-                    moving = is_replug_step(step) or (pct == 0 and step not in ("", "Fertig"))
-                    if moving and str(self.pbar["mode"]) != "indeterminate":
-                        self.pbar.configure(mode="indeterminate")
-                        self.pbar.start(12)
-                    elif not moving:
-                        if str(self.pbar["mode"]) != "determinate":
-                            self.pbar.stop()
-                            self.pbar.configure(mode="determinate")
-                        self.pbar["value"] = pct
-                    self.status_var.set(f"{step} …" if moving else f"{step} … {pct} %")
-                elif kind == "finished":
-                    self.formatting = False
-                    self.busy = False
-                    self.pbar.stop()
-                    self.pbar.configure(mode="determinate")
-                    self.status_var.set(msg[2])
-                    foreign = len(msg) > 3 and msg[3]
-                    done_title = msg[4] if len(msg) > 4 else "Datenträger erfolgreich formatiert."
-                    if msg[1]:
-                        self.pbar["value"] = 100
-                        if not foreign:
-                            messagebox.showinfo("PS5-USB formatieren", done_title + "\n\n" + msg[2], parent=self)
-                    else:
-                        self.pbar["value"] = 0
-                        if not foreign:
-                            messagebox.showerror("PS5-USB formatieren", msg[2], parent=self)
-                elif kind == "library":
-                    self.lib_loading = False
-                    data = msg[1]
-                    if data is not None:
-                        games = {}
-                        for t in data.get("titles", []):
-                            if t.get("device"):   # nur Datenträger, nicht der interne Ordner /data/homebrew
-                                games.setdefault(t["device"], []).append(t)
-                        self.games = games
-                        if data.get("scanning"):
-                            self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
-                            self.after(2000, self._relibrary)
-                    if self.mode_var.get() == "ps5" and self.ps5_devices:
-                        i = self.dev_combo.current()
-                        self.dev_combo.configure(values=[self._ps5_dev_text(d) for d in self.ps5_devices])
-                        if 0 <= i < len(self.ps5_devices):
-                            self.dev_combo.current(i)
-                    self._show_games()
-                elif kind == "pcdevices":
-                    self.busy = False
-                    if self.mode_var.get() == "pc":
-                        self._fill_pc_devices(msg[1])
-                elif kind == "pcdone":
-                    _, op, ok, text, info, devices, after = msg
-                    self.pc_job = None
-                    self.formatting = self.busy = False
-                    self.pbar.stop()
-                    self.pbar.configure(mode="determinate")
-                    self.pbar["value"] = 100 if ok else 0
-                    if devices is not None and self.mode_var.get() == "pc":
-                        self._fill_pc_devices(devices)
-                    self.status_var.set(text)
-                    self._update()
-                    if after:
-                        after(ok, text, info)
-                elif kind == "error":
-                    self.busy = self.formatting = False
-                    self.status_var.set(msg[1])
-                    messagebox.showerror("PS5-USB formatieren", msg[1], parent=self)
+                try:
+                    msg = self.q.get_nowait()
+                except queue.Empty:
+                    break
+                try:
+                    self._handle(msg)
+                except Exception as e:   # eine kaputte Nachricht (z. B. ältere PS5-Version) darf die Schleife nicht stoppen
+                    self.status_var.set(f"Unerwarteter Fehler: {e}")
                 self._update()
-        except queue.Empty:
-            pass
-        self._poll_id = self.after(50, self._poll)
+        finally:
+            self._poll_id = self.after(50, self._poll)
+
+    def _handle(self, msg):
+        kind = msg[0]
+        if kind == "status":
+            self.status_var.set(msg[1])
+        elif kind == "found":
+            self.busy = False
+            self._on_found(msg[1])
+        elif kind == "connected":
+            self.api = msg[1]
+            self.busy = False
+            self.status_var.set(f"Verbunden mit {self.host_var.get().strip()}")
+            self._fill_devices(msg[2].get("devices") or [])
+            self._load_library()
+        elif kind == "devices":
+            self.busy = self.formatting
+            self._fill_devices(msg[1].get("devices") or [])
+            self._load_library()
+        elif kind == "formatting":
+            self.formatting = True
+        elif kind == "foreign":
+            if not self.busy and self.mode_var.get() == "ps5":   # woanders gestartet: hier mitverfolgen
+                self.status_var.set("Auf der PS5 läuft ein Auftrag …")
+                self.pbar["value"] = 0
+                api = msg[1]
+                self._run(lambda: self._follow(api, foreign=True))
+        elif kind == "progress":
+            pct, step = msg[1], msg[2]
+            # Schritte ohne Prozentangabe (Warten auf das Abmelden, Werkzeuge): Lauf-Animation statt Stillstand
+            moving = is_replug_step(step) or (pct == 0 and step not in ("", "Fertig"))
+            if moving and str(self.pbar["mode"]) != "indeterminate":
+                self.pbar.configure(mode="indeterminate")
+                self.pbar.start(12)
+            elif not moving:
+                if str(self.pbar["mode"]) != "determinate":
+                    self.pbar.stop()
+                    self.pbar.configure(mode="determinate")
+                self.pbar["value"] = pct
+            self.status_var.set(f"{step} …" if moving else f"{step} … {pct} %")
+        elif kind == "finished":
+            self.formatting = False
+            self.busy = False
+            self.pbar.stop()
+            self.pbar.configure(mode="determinate")
+            self.status_var.set(msg[2])
+            foreign = len(msg) > 3 and msg[3]
+            done_title = msg[4] if len(msg) > 4 else "Datenträger erfolgreich formatiert."
+            if msg[1]:
+                self.pbar["value"] = 100
+                if not foreign:
+                    messagebox.showinfo("PS5-USB formatieren", done_title + "\n\n" + msg[2], parent=self)
+            else:
+                self.pbar["value"] = 0
+                if not foreign:
+                    messagebox.showerror("PS5-USB formatieren", msg[2], parent=self)
+        elif kind == "library":
+            self.lib_loading = False
+            data = msg[1]
+            if data is not None:
+                games = {}
+                for t in data.get("titles", []):
+                    if t.get("device"):   # nur Datenträger, nicht der interne Ordner /data/homebrew
+                        games.setdefault(t["device"], []).append(t)
+                self.games = games
+                if data.get("scanning"):
+                    self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
+                    self.after(2000, self._relibrary)
+            if self.mode_var.get() == "ps5" and self.ps5_devices:
+                i = self.dev_combo.current()
+                self.dev_combo.configure(values=[self._ps5_dev_text(d) for d in self.ps5_devices])
+                if 0 <= i < len(self.ps5_devices):
+                    self.dev_combo.current(i)
+            self._show_games()
+        elif kind == "pcdevices":
+            self.busy = False
+            if self.mode_var.get() == "pc":
+                self._fill_pc_devices(msg[1])
+        elif kind == "pcdone":
+            _, op, ok, text, info, devices, after = msg
+            self.pc_job = None
+            self.formatting = self.busy = False
+            self.pbar.stop()
+            self.pbar.configure(mode="determinate")
+            self.pbar["value"] = 100 if ok else 0
+            if devices is not None and self.mode_var.get() == "pc":
+                self._fill_pc_devices(devices)
+            self.status_var.set(text)
+            self._update()
+            if after:
+                after(ok, text, info)
+        elif kind == "error":
+            self.busy = self.formatting = False
+            self.pc_job = None
+            self.pbar.stop()
+            self.pbar.configure(mode="determinate")
+            self.status_var.set(msg[1])
+            messagebox.showerror("PS5-USB formatieren", msg[1], parent=self)
+        elif kind == "bgerror":   # Hintergrund (Spieleliste, Wächter): laufende Aufträge nicht berühren
+            self.status_var.set(msg[1])
 
     def _on_close(self):
         if self.formatting and not messagebox.askyesno(
@@ -1092,6 +1157,8 @@ class App(tk.Tk):
                                "Die Formatierung läuft auf der PS5 weiter.") + " Fenster trotzdem schließen?",
                 icon="warning", parent=self):
             return
+        if self.pc_job and getattr(self.pc_job, "cancellable", False):
+            self.pc_job.cancel()   # Prüfung/Tempo am PC nicht ohne Fenster weiterlaufen lassen
         self.after_cancel(self._poll_id)
         self.after_cancel(self._watch_id)
         self.destroy()

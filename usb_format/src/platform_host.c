@@ -148,6 +148,7 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     int tfd = open(part, O_RDWR | O_CREAT | O_TRUNC, 0644);
     if (tfd < 0 || ftruncate(tfd, (off_t)(count * d->ss)) != 0) {
         snprintf(err, errlen, "%s: %s", part, strerror(errno));
+        if (tfd >= 0) close(tfd);
         return -1;
     }
     close(tfd);

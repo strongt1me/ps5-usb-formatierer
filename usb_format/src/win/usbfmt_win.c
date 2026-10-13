@@ -29,7 +29,7 @@
 #define MAX_VOLS    16
 
 static FILE *out;
-static const char *cancel_path;
+static const WCHAR *cancel_path;   /* Unicode: Temp-Pfade mit Umlauten (C:\Users\Jürgen\...) */
 static volatile int cancel_requested;
 static const char *const TEMPLATE_DIRS[] = {"homebrew", "etaHEN/games", "pkg", NULL};
 
@@ -96,7 +96,7 @@ static void finish(int ok, const char *msg, const char *json) {
 static DWORD WINAPI cancel_watch(LPVOID arg) {
     (void)arg;
     for (;;) {
-        if (cancel_path && GetFileAttributesA(cancel_path) != INVALID_FILE_ATTRIBUTES) cancel_requested = 1;
+        if (cancel_path && GetFileAttributesW(cancel_path) != INVALID_FILE_ATTRIBUTES) cancel_requested = 1;
         Sleep(300);
     }
     return 0;
@@ -398,14 +398,14 @@ static int cmd_format(int disk, uint64_t size, const char *fsname, const char *l
                      t.bad ? "true" : "false", (unsigned long long)size, (unsigned long long)t.real_bytes,
                      (unsigned long long)t.bad_at);
             if (rc != 0)
-                snprintf(msg, sizeof(msg), "Prüfung fehlgeschlagen: %s Nichts formatiert.", err);
+                snprintf(msg, sizeof(msg), "Prüfung fehlgeschlagen: %s Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).", err);
             else if (t.fake)
-                snprintf(msg, sizeof(msg), "%s meldet %s, hat aber nur etwa %s echten Speicher. Nichts formatiert – "
+                snprintf(msg, sizeof(msg), "%s meldet %s, hat aber nur etwa %s echten Speicher. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben) – "
                          "sicher nutzbar ist nur der echte Bereich.", title(&s), size_text(size, s1, sizeof(s1)),
                          size_text(t.real_bytes, s2, sizeof(s2)));
             else
-                snprintf(msg, sizeof(msg), "Fehlerhafte Bereiche ab %llu MB: %s arbeitet nicht zuverlässig. Nichts "
-                         "formatiert.", (unsigned long long)(t.bad_at / MIB), title(&s));
+                snprintf(msg, sizeof(msg), "Fehlerhafte Bereiche ab %llu MB: %s arbeitet nicht zuverlässig. "
+                         "Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).", (unsigned long long)(t.bad_at / MIB), title(&s));
             finish(0, msg, json);
             return 1;
         }
@@ -491,7 +491,7 @@ int wmain(int argc, WCHAR **wargv) {
             if (!f) return 2;
             out = f;
         } else if (!strcmp(argv[i], "--cancel")) {
-            cancel_path = argv[i + 1];
+            cancel_path = wargv[i + 1];
         } else if (!strcmp(argv[i], "--image")) {
             image_path = wargv[i + 1];
         }

@@ -24,6 +24,7 @@
  * gemessen am VendorCo-Stick: rund 3 s). Gefälschte Größen sind Zweierpotenzen im GB-Bereich - dafür reicht ein grobes
  * Raster; 128 Stichproben halten den Schnelltest bei wenigen Minuten. */
 #define MAX_SAMPLES 128u
+#define EXTRA_SAMPLES 40u   /* Zweierpotenzen ab 64 MiB (reicht bis weit über 2^64 hinaus) */
 #define SPEED_BYTES (256ull * MIB)
 
 static const char MAGIC[16] = "USBFMT-PROBE-v1";
@@ -229,17 +230,26 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
     if (speed_rw(fd, size, progress, cancel, r, a, b, err, errlen)) goto out;
     if (r->cancelled) { rc = 0; goto out; }
 
-    /* Raster: G = 16 MiB, verdoppelt bis höchstens 4096 Stichproben; dazu eine am Ende */
+    /* Raster: G = 16 MiB, verdoppelt bis höchstens MAX_SAMPLES Stichproben; dazu eine am Ende und je eine knapp
+     * unter jeder Zweierpotenz ab 64 MiB. Ohne diese landen bei einem überlaufenden Stick, dessen echte Größe
+     * kleiner als G ist, alle Rasterproben an derselben Stelle - der ggT wäre dann G statt der echten Größe. */
     uint64_t G = 16ull * MIB;
     while (size / G > MAX_SAMPLES) G *= 2;
     const uint64_t c = G / 2, nonce = nonce64();
     uint32_t n = 0;
-    pos = malloc((MAX_SAMPLES + 2) * sizeof(*pos));
-    state = calloc(MAX_SAMPLES + 2, 1);
+    pos = malloc((MAX_SAMPLES + 2 + EXTRA_SAMPLES) * sizeof(*pos));
+    state = calloc(MAX_SAMPLES + 2 + EXTRA_SAMPLES, 1);
     if (!pos || !state) { snprintf(err, errlen, "Kein Speicher"); goto out; }
     for (uint64_t p = c; p + SAMPLE <= size && n < MAX_SAMPLES; p += G) pos[n++] = p;
     uint64_t end = (size - SAMPLE) / SAMPLE * SAMPLE;
     if (!n || end > pos[n - 1]) pos[n++] = end;
+    for (uint64_t p2 = 64ull * MIB; p2 < size && n < MAX_SAMPLES + 2 + EXTRA_SAMPLES; p2 *= 2) pos[n++] = p2 - SAMPLE;
+    /* aufsteigend schreiben: eine spätere Stichprobe darf nur eine niedrigere überschreiben (siehe Auswertung) */
+    for (uint32_t i = 1; i < n; i++)
+        for (uint32_t k = i; k > 0 && pos[k - 1] > pos[k]; k--) { uint64_t t = pos[k]; pos[k] = pos[k - 1]; pos[k - 1] = t; }
+    uint32_t m = 0;
+    for (uint32_t i = 0; i < n; i++) if (!m || pos[i] != pos[m - 1]) pos[m++] = pos[i];
+    n = m;
 
     double t0 = now_s();
     char step[64];
@@ -274,27 +284,32 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         if (i % 16 == 0) progress("Echtheit prüfen: lesen", (int)((uint64_t)i * 100 / n));
     }
 
-    /* Verloren ab first_lost (fast) alles: Grenze in 1-MiB-Schritten zwischen der letzten guten und der ersten
-     * verlorenen Stichprobe nachschärfen. Sonst sind es einzelne defekte Bereiche. */
+    /* Verloren ab first_lost (fast) alles: Grenze zwischen der letzten guten und der ersten verlorenen Stichprobe
+     * durch Halbieren auf 1 MiB genau suchen (sicher nutzbar ist nur, was eine Probe bestätigt hat). Sonst sind es
+     * einzelne defekte Bereiche. */
     uint64_t lost_limit = 0;
     if (nlost) {
         uint32_t after = 0, lost_after = 0;
         for (uint32_t i = 0; i < n; i++)
             if (pos[i] >= first_lost) { after++; lost_after += state[i] == 3; }
-        if (lost_after * 10 >= after * 9 && first_lost > 0) {
-            uint64_t lo = (last_good + MIB - 1) / MIB * MIB, k = 0;
-            uint64_t fine[64];
-            for (uint64_t p = lo; p < first_lost && k < 64; p += MIB) fine[k++] = p;
-            for (uint64_t i = 0; i < k; i++) {
-                tagged(a, SAMPLE, nonce ^ 1, fine[i]);
-                (void)io_all(fd, 1, a, SAMPLE, fine[i]);
+        if (lost_after * 10 >= after * 9 && first_lost > 0 && last_good > 0) {
+            uint64_t lo = last_good / MIB * MIB, hi = first_lost;   /* lo: bis hier bestätigt, hi: verloren */
+            for (uint64_t step = 1; hi - lo > MIB; step++) {
+                if (*cancel) { r->cancelled = 1; rc = 0; goto out; }
+                uint64_t mid = (lo + (hi - lo) / 2) / MIB * MIB;
+                if (mid <= lo) mid = lo + MIB;
+                if (mid >= hi) break;
+                progress("Echtheit prüfen: Grenze suchen", 100);
+                tagged(a, SAMPLE, nonce ^ step, mid);
+                int good = io_all(fd, 1, a, SAMPLE, mid) == 0;
+                dev_sync(fd);
+                good = good && io_all(fd, 0, b, SAMPLE, mid) == 0 && memcmp(a, b, SAMPLE) == 0;
+                if (good) lo = mid; else hi = mid;
             }
-            dev_sync(fd);
-            lost_limit = first_lost;
-            for (uint64_t i = 0; i < k; i++) {
-                tagged(a, SAMPLE, nonce ^ 1, fine[i]);
-                if (io_all(fd, 0, b, SAMPLE, fine[i]) || memcmp(a, b, SAMPLE) != 0) { lost_limit = fine[i]; break; }
-            }
+            lost_limit = lo;
+        } else if (lost_after * 10 >= after * 9 && first_lost > 0) {
+            r->bad = 1;   /* schon die erste Stichprobe verloren: kein nutzbarer Bereich erkennbar */
+            r->bad_at = first_lost;
         } else {
             r->bad = 1;
             if (!r->bad_at || first_lost < r->bad_at) r->bad_at = first_lost;

@@ -191,6 +191,11 @@ static void finish(int ok, const char *msg, const char *result) {
     st.percent = ok ? 100 : st.percent;
     snprintf(st.step, sizeof(st.step), "%s", ok ? "Fertig" : "Fehler");
     snprintf(st.message, sizeof(st.message), "%s", msg ? msg : "");
+    if (msg && strlen(msg) >= sizeof(st.message)) {   /* gekürzt: kein halbes UTF-8-Zeichen am Ende, dafür "…" */
+        size_t n = sizeof(st.message) - 4;
+        while (n && ((unsigned char)st.message[n] & 0xC0) == 0x80) n--;
+        memcpy(st.message + n, "…", 4);
+    }
     /* abgeschnittenes JSON wäre ungültig - dann lieber keine Einzelheiten */
     if (result && strlen(result) < sizeof(st.result)) memcpy(st.result, result, strlen(result) + 1);
     else st.result[0] = 0;
@@ -273,16 +278,16 @@ static void *format_worker(void *arg) {
             speed_json(&res, &t);
             sb_add(&res, "}");
             if (rc != 0) {
-                sb_add(&msg, "Prüfung fehlgeschlagen: %s Nichts formatiert.", err);
+                sb_add(&msg, "Prüfung fehlgeschlagen: %s Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).", err);
             } else if (t.fake) {
                 dev_title(&j->dev, &msg);
-                sb_add(&msg, " meldet %s, hat aber nur etwa %s echten Speicher. Nichts formatiert – sicher nutzbar ist "
+                sb_add(&msg, " meldet %s, hat aber nur etwa %s echten Speicher. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben) – sicher nutzbar ist "
                              "nur der echte Bereich.", size_text(j->dev.size, s1, sizeof(s1)),
                        size_text(t.real_bytes, s2, sizeof(s2)));
             } else {
                 sb_add(&msg, "Fehlerhafte Bereiche ab %llu MB: ", (unsigned long long)(t.bad_at / MIB));
                 dev_title(&j->dev, &msg);
-                sb_add(&msg, " arbeitet nicht zuverlässig. Nichts formatiert.");
+                sb_add(&msg, " arbeitet nicht zuverlässig. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).");
             }
             job_done(j, 0, &msg, &res, 1);
             return NULL;
@@ -990,6 +995,7 @@ static void start_job(int c, job_t *j, void *(*fn)(void *)) {
     pthread_mutex_lock(&lock);
     if (st.busy) {
         pthread_mutex_unlock(&lock);
+        free(j->items);
         free(j);
         respond_error(c, 409, "Es läuft bereits ein Auftrag");
         return;
@@ -1009,6 +1015,7 @@ static void start_job(int c, job_t *j, void *(*fn)(void *)) {
     int trc = pthread_create(&t, &attr, fn, j);
     pthread_attr_destroy(&attr);
     if (trc != 0) {
+        free(j->items);
         free(j);
         pthread_mutex_lock(&lock);
         st.busy = 0;
@@ -1161,7 +1168,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
     }
     free(r);
     snprintf(body, sizeof(body), "{\"job_id\":%lld}", job);
-    for (int tries = 0; tries < 7200; tries++) {   /* höchstens eine Stunde */
+    for (time_t end = time(NULL) + 3600; time(NULL) < end; ) {   /* höchstens eine Stunde (nach der Uhr) */
         usleep(500 * 1000);
         if (!(r = plat_smp_post("/api/v1/games/storage/status", body, &http, &len))) continue;
         char state[24] = "";
@@ -1182,10 +1189,21 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
     return -1;
 }
 
+/* Liegt path wirklich (nach Auflösen von Verknüpfungen) innerhalb von root? */
+static int path_inside(const char *path, const char *root) {
+    char *rp = realpath(path, NULL), *rr = realpath(root, NULL);
+    size_t rl = rr ? strlen(rr) : 0;
+    int ok = rp && rr && rl > 1 && strncmp(rp, rr, rl) == 0 && rp[rl] == '/';
+    free(rp);
+    free(rr);
+    return ok;
+}
+
 /* Rekursiv löschen (nur Kopien, die ShadowMountPlus nicht verwaltet, z. B. doppelte) */
 static int remove_tree(const char *path, int depth) {
     struct stat sb;
-    if (depth > 32 || lstat(path, &sb) != 0) return -1;
+    if (depth > 32) { errno = ELOOP; return -1; }
+    if (lstat(path, &sb) != 0) return -1;
     if (!S_ISDIR(sb.st_mode)) return unlink(path);
     DIR *d = opendir(path);
     if (!d) return -1;
@@ -1194,8 +1212,10 @@ static int remove_tree(const char *path, int depth) {
     char *sub = malloc(1024);
     while (sub && (e = readdir(d))) {
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
-        if (snprintf(sub, 1024, "%s/%s", path, e->d_name) >= 1024 || remove_tree(sub, depth + 1) != 0) rc = -1;
+        if (snprintf(sub, 1024, "%s/%s", path, e->d_name) >= 1024) { errno = ENAMETOOLONG; rc = -1; }
+        else if (remove_tree(sub, depth + 1) != 0) rc = -1;
     }
+    if (!sub) { errno = ENOMEM; rc = -1; }
     free(sub);
     closedir(d);
     return rc == 0 ? rmdir(path) : -1;
@@ -1207,24 +1227,32 @@ static void *delete_worker(void *arg) {
     char err[256];
     int ok_n = 0, fail_n = 0, tiles = 0;
 
-    /* Wer verwaltet welchen Pfad? Nur die Kopie, die ShadowMountPlus selbst nutzt, löscht es auch */
     lib_hint_t *smp = NULL;
-    int nsmp = 0, http;
+    int nsmp = 0, http, smp_ok = 0, stale = 1;
     size_t len;
-    char *g = plat_smp_post("/api/v1/games", "{}", &http, &len);
-    int smp_ok = g && http == 200 && lib_parse_smp_games(g, len, &smp, &nsmp) == 0;
-    free(g);
+    sbuf_t failed = {0};
 
-    sb_add(&res, "{\"items\":[");
     for (int i = 0; i < j->nitems; i++) {
         const del_item_t *it = &j->items[i];
-        int base = i * 100 / j->nitems, span = 100 / j->nitems, managed = 0, known = 0, rc;
+        int base = i * 100 / j->nitems, span = 100 / j->nitems, managed = 0, rc;
         on_progress("Spiele löschen", base);
+        /* Wer verwaltet welchen Pfad? Nur die Kopie, die ShadowMountPlus selbst nutzt, löscht es auch. Nach jedem
+         * Löschen neu fragen: Bei doppelten Spielen bindet es danach evtl. die andere Kopie ein. */
+        if (stale) {
+            free(smp);
+            smp = NULL;
+            nsmp = 0;
+            char *g = plat_smp_post("/api/v1/games", "{}", &http, &len);
+            smp_ok = g && http == 200 && lib_parse_smp_games(g, len, &smp, &nsmp) == 0;
+            free(g);
+            stale = 0;
+        }
         for (int k = 0; k < nsmp; k++)
-            if (!strcmp(smp[k].id, it->id)) { known = 1; managed |= !strcmp(smp[k].path, it->path); }
+            if (!strcmp(smp[k].id, it->id)) managed |= !strcmp(smp[k].path, it->path);
         err[0] = 0;
         if (managed) {
             rc = smp_delete(it, base, span, err, sizeof(err));
+            stale = 1;
             if (rc == 0 && j->uninstall) {   /* Kachel entfernen; Quelle ist weg, ein neuer Suchlauf holt sie nicht zurück */
                 char body[64];
                 snprintf(body, sizeof(body), "{\"title_id\":\"%s\"}", it->id);
@@ -1244,26 +1272,28 @@ static void *delete_worker(void *arg) {
         } else {
             /* nicht von ShadowMountPlus genutzt (z. B. zweite Kopie): selbst löschen - nur innerhalb der Wurzel des
              * USB-Laufwerks, auf dem die Suche es fand (api_delete übernimmt nur Spiele von USB-Laufwerken) */
-            size_t rl = strlen(it->root);
-            if (!rl || strncmp(it->path, it->root, rl) != 0 || it->path[rl] != '/' || strstr(it->path, "/../")) {
+            if (!path_inside(it->path, it->root)) {
                 rc = -1;
                 snprintf(err, sizeof(err), "Pfad liegt nicht auf dem USB-Laufwerk");
             } else if ((rc = remove_tree(it->path, 0)) != 0) {
                 snprintf(err, sizeof(err), "Löschen fehlgeschlagen: %s", strerror(errno));
             }
-            (void)known;
         }
-        sb_add(&res, "%s{\"id\":", i ? "," : "");
-        sb_str(&res, it->id);
-        sb_add(&res, ",\"name\":");
-        sb_str(&res, it->name);
-        sb_add(&res, ",\"ok\":%s,\"error\":", rc == 0 ? "true" : "false");
-        sb_str(&res, err);
-        sb_add(&res, "}");
+        if (rc != 0 && fail_n < 8) {   /* nur die ersten Fehlschläge einzeln - st.result ist begrenzt */
+            sb_add(&failed, "%s{\"id\":", fail_n ? "," : "");
+            sb_str(&failed, it->id);
+            sb_add(&failed, ",\"name\":");
+            sb_str(&failed, it->name);
+            sb_add(&failed, ",\"error\":");
+            sb_str(&failed, err);
+            sb_add(&failed, "}");
+        }
         if (rc == 0) { ok_n++; sb_add(&done_names, "%s%s", done_names.len ? ", " : "", it->name); }
         else { fail_n++; sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, err); }
     }
-    sb_add(&res, "],\"deleted\":%d,\"failed\":%d,\"tiles\":%d}", ok_n, fail_n, tiles);
+    sb_add(&res, "{\"deleted\":%d,\"failed\":%d,\"tiles\":%d,\"failed_items\":[%s]}", ok_n, fail_n, tiles,
+           failed.p ? failed.p : "");
+    free(failed.p);
     free(smp);
 
     if (ok_n) sb_add(&msg, "%d Spiel%s gelöscht: %s.", ok_n, ok_n == 1 ? "" : "e", done_names.p);
@@ -1277,14 +1307,20 @@ static void *delete_worker(void *arg) {
 }
 
 /* {"keys":"1a2b3c4d,5e6f7a8b","uninstall":true} - Schlüssel aus /api/library; nur Spiele auf USB-Laufwerken */
+#define MAX_DELETE 256   /* Spiele je Auftrag (9 Zeichen je Schlüssel passen in BODY_MAX) */
+
 static void api_delete(int c, const char *body) {
-    char keys[1024] = "";
+    static char keys[MAX_DELETE * 9 + 16];   /* nur im Server-Thread benutzt */
+    keys[0] = 0;
     const char *k = strstr(body, "\"keys\"");
     if (k) {
         k = ws(k + 6);
-        if (*k == ':') json_string(ws(k + 1), keys, sizeof(keys));
+        if (*k == ':' && !json_string(ws(k + 1), keys, sizeof(keys))) keys[0] = 0;
     }
-    if (!keys[0]) { respond_error(c, 400, "keys ist erforderlich"); return; }
+    if (!keys[0]) { respond_error(c, 400, "keys ist erforderlich (höchstens 256 Spiele auf einmal)"); return; }
+    int nkeys = 1;
+    for (const char *p = keys; *p; p++) nkeys += *p == ',';
+    if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Spiele auf einmal"); return; }
     const char *u = strstr(body, "\"uninstall\"");
     int uninstall = 0;
     if (u) { u = ws(u + 11); if (*u == ':' && !strncmp(ws(u + 1), "true", 4)) uninstall = 1; }
@@ -1292,14 +1328,14 @@ static void api_delete(int c, const char *body) {
     job_t *j = new_job(c, JOB_DELETE);
     if (!j) return;
     j->uninstall = uninstall;
-    j->items = calloc(64, sizeof(*j->items));
+    j->items = calloc(MAX_DELETE, sizeof(*j->items));
     if (!j->items) { free(j); respond_error(c, 500, "Kein Speicher"); return; }
     pthread_mutex_lock(&lib_lock);
     for (char *p = keys, *save = NULL, *tok; (tok = strtok_r(p, ",", &save)); p = NULL) {
         uint32_t want = (uint32_t)strtoul(tok, NULL, 16);
-        for (int i = 0; i < lib_n && j->nitems < 64; i++) {
+        for (int i = 0; i < lib_n && j->nitems < MAX_DELETE; i++) {
             if (!lib_snap[i].usb || !lib_snap[i].device[0]) continue;
-            for (int t = 0; t < lib_snap[i].r.ntitles; t++) {
+            for (int t = 0; t < lib_snap[i].r.ntitles && j->nitems < MAX_DELETE; t++) {
                 const lib_title_t *tt = &lib_snap[i].r.titles[t];
                 if (path_key(tt->path) != want) continue;
                 int dup = 0;

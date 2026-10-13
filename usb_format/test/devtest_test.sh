@@ -37,6 +37,17 @@ done
 truncate -s 256M "$W/drop.img"
 USBFMT_FAKE_REAL=$((256 * MIB)) USBFMT_FAKE_MODE=drop "$W/dt" verify "$W/drop.img" $((2048 * MIB)) >"$W/out" 2>&1
 expect_real "Schnelltest, Daten hinter 256 MB verschwinden" 256 1
+rm -f "$W/drop.img"
+# echte Größe kleiner als das Stichproben-Raster (128 GB gemeldet: Raster 1 GB) - darf nicht das Raster melden
+truncate -s 512M "$W/fake.img"
+USBFMT_FAKE_REAL=$((512 * MIB)) "$W/dt" verify "$W/fake.img" $((131072 * MIB)) >"$W/out" 2>&1
+expect_real "Schnelltest, 128 GB gemeldet, Überlauf bei 512 MB (kleiner als das Raster)" 512 0
+rm -f "$W/fake.img"
+# Grenze weit zwischen zwei Rasterproben (64 GB gemeldet: Raster 512 MB) - nie größer als die echte Größe
+truncate -s 8448M "$W/drop.img"
+USBFMT_FAKE_REAL=$((8448 * MIB)) USBFMT_FAKE_MODE=drop "$W/dt" verify "$W/drop.img" $((65536 * MIB)) >"$W/out" 2>&1
+expect_real "Schnelltest, 64 GB gemeldet, Daten hinter 8448 MB verschwinden" 8448 1
+rm -f "$W/drop.img"
 
 truncate -s 300M "$W/fake.img"
 USBFMT_FAKE_REAL=$((300 * MIB)) "$W/dt" full "$W/fake.img" $((1024 * MIB)) >"$W/out" 2>&1

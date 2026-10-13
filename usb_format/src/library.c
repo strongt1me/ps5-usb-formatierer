@@ -293,7 +293,9 @@ static long read_file(const char *path, char *buf, size_t max) {
 
 /* Name ohne Endung als Ersatz, wenn das Spiel keinen nennt */
 static void base_name(char *out, size_t n, const char *file) {
-    snprintf(out, n, "%s", file);
+    size_t l = strnlen(file, n - 1);   /* gewollt gekürzt: der Name ist nur Ersatzanzeige */
+    memcpy(out, file, l);
+    out[l] = 0;
     char *dot = strrchr(out, '.');
     if (dot && dot != out) *dot = 0;
 }
