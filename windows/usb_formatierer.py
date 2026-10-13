@@ -169,6 +169,7 @@ class App(tk.Tk):
         self.devices = []
         self.busy = False          # Netzwerkaktion oder Formatierung laeuft
         self.formatting = False
+        self.watching = False      # Abfrage nach fremden Aufträgen unterwegs
         self.consoles = {}         # Anzeigetext -> Fund aus ps5_discovery
 
         self.host_var = tk.StringVar(value=self.settings.get("host", ""))
@@ -187,6 +188,7 @@ class App(tk.Tk):
         self.deiconify()
         self._poll_id = self.after(50, self._poll)
         self.after(200, self._search)
+        self._watch_id = self.after(3000, self._watch)
 
     # ------------------------------------------------------------------ UI
 
@@ -453,31 +455,53 @@ class App(tk.Tk):
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", f"Formatieren konnte nicht gestartet werden: {e}"))
                 return
-            self.q.put(("formatting", True))
-            failures = 0
-            while True:
-                time.sleep(0.5)
-                try:
-                    st = api.status()
-                    failures = 0
-                except (ConnectionError, ApiError):
-                    failures += 1
-                    if failures >= 20:
-                        self.q.put(("finished", False, "Verbindung zur PS5 verloren. Bitte die "
-                                                       "PS5-Benachrichtigungen prüfen."))
-                        return
-                    continue
-                self.q.put(("progress", st["percent"], st["step"]))
-                if not st["busy"]:
-                    self.q.put(("finished", st["ok"], st["message"]))
-                    try:
-                        self.q.put(("devices", api.devices()))
-                    except (ConnectionError, ApiError):
-                        pass
-                    return
+            self._follow(api, foreign=False)
 
         self.pbar["value"] = 0
         self._run(work)
+
+    def _follow(self, api, foreign):
+        """Auftrag auf der PS5 bis zum Ende verfolgen (im Thread). foreign: woanders gestartet (PS5-Browser,
+        anderer PC) - dann nur anzeigen, ohne Rückfrage-Dialoge des Starters."""
+        self.q.put(("formatting", foreign))
+        failures = 0
+        while True:
+            time.sleep(0.5)
+            try:
+                st = api.status()
+                failures = 0
+            except (ConnectionError, ApiError):
+                failures += 1
+                if failures >= 20:
+                    self.q.put(("finished", False, "Verbindung zur PS5 verloren. Bitte die "
+                                                   "PS5-Benachrichtigungen prüfen.", foreign))
+                    return
+                continue
+            self.q.put(("progress", st["percent"], st["step"]))
+            if not st["busy"]:
+                try:   # erst die Liste, dann das Ergebnis - sonst überschreibt der Listenhinweis die Meldung
+                    self.q.put(("devices", api.devices()))
+                except (ConnectionError, ApiError):
+                    pass
+                self.q.put(("finished", st["ok"], st["message"], foreign))
+                return
+
+    def _watch(self):
+        """Alle 3 Sekunden nachsehen, ob auf der PS5 ein Auftrag läuft, den jemand anderes gestartet hat"""
+        if self.api and not self.busy and not self.watching:
+            api = self.api
+            self.watching = True
+
+            def check():
+                try:
+                    if api.status().get("busy"):
+                        self.q.put(("foreign", api))
+                except (ConnectionError, ApiError):
+                    pass
+                self.watching = False
+
+            threading.Thread(target=self._guard(check), daemon=True).start()
+        self._watch_id = self.after(3000, self._watch)
 
     # ------------------------------------------------------------------ Ereignisse aus Threads
 
@@ -501,20 +525,41 @@ class App(tk.Tk):
                     self._fill_devices(msg[1]["devices"])
                 elif kind == "formatting":
                     self.formatting = True
+                elif kind == "foreign":
+                    if not self.busy:   # woanders gestartet: hier mitverfolgen
+                        self.status_var.set("Auf der PS5 läuft ein Auftrag …")
+                        self.pbar["value"] = 0
+                        api = msg[1]
+                        self._run(lambda: self._follow(api, foreign=True))
                 elif kind == "progress":
-                    self.pbar["value"] = msg[1]
-                    self.status_var.set(f"{msg[2]} …" if is_replug_step(msg[2]) else f"{msg[2]} … {msg[1]} %")
+                    pct, step = msg[1], msg[2]
+                    # Schritte ohne Prozentangabe (Warten auf das Abmelden, Werkzeuge): Lauf-Animation statt Stillstand
+                    moving = is_replug_step(step) or (pct == 0 and step not in ("", "Fertig"))
+                    if moving and str(self.pbar["mode"]) != "indeterminate":
+                        self.pbar.configure(mode="indeterminate")
+                        self.pbar.start(12)
+                    elif not moving:
+                        if str(self.pbar["mode"]) != "determinate":
+                            self.pbar.stop()
+                            self.pbar.configure(mode="determinate")
+                        self.pbar["value"] = pct
+                    self.status_var.set(f"{step} …" if moving else f"{step} … {pct} %")
                 elif kind == "finished":
                     self.formatting = False
                     self.busy = False
+                    self.pbar.stop()
+                    self.pbar.configure(mode="determinate")
                     self.status_var.set(msg[2])
+                    foreign = len(msg) > 3 and msg[3]
                     if msg[1]:
                         self.pbar["value"] = 100
-                        messagebox.showinfo("PS5-USB formatieren", "Datenträger erfolgreich formatiert.\n\n" + msg[2],
-                                            parent=self)
+                        if not foreign:
+                            messagebox.showinfo("PS5-USB formatieren", "Datenträger erfolgreich formatiert.\n\n" + msg[2],
+                                                parent=self)
                     else:
                         self.pbar["value"] = 0
-                        messagebox.showerror("PS5-USB formatieren", msg[2], parent=self)
+                        if not foreign:
+                            messagebox.showerror("PS5-USB formatieren", msg[2], parent=self)
                 elif kind == "error":
                     self.busy = self.formatting = False
                     self.status_var.set(msg[1])
@@ -530,6 +575,7 @@ class App(tk.Tk):
                 icon="warning", parent=self):
             return
         self.after_cancel(self._poll_id)
+        self.after_cancel(self._watch_id)
         self.destroy()
 
     def _on_exception(self, exc, val, tb):
