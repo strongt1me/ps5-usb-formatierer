@@ -21,7 +21,7 @@ document.documentElement.style.setProperty("--ui-zoom", String(z0 / 100));
   --veil: linear-gradient(rgba(226, 232, 242, 0.84) 25%, rgba(226, 232, 242, 0.64) 62%, rgba(226, 232, 242, 0.64) 82%, rgba(226, 232, 242, 0.8) 96%); --pane: rgba(255, 255, 255, 0.36);
   --bg-filter: saturate(0.8) brightness(1.1);
   --field: rgba(255, 255, 255, 0.55); --page: url("/page-light.jpg"); --tile: rgba(255, 255, 255, 0.4);
-  --glass: rgba(232, 237, 245, 0.72);
+  --glass: rgba(232, 237, 245, 0.62);
   --shadow: 0 10px 34px rgba(28, 48, 88, 0.22), 0 2px 6px rgba(28, 48, 88, 0.12);
 }
 /* Design: data-theme="light"|"dark" ist fest gewählt (auf der PS5 gespeichert, überall gleich),
@@ -34,7 +34,7 @@ document.documentElement.style.setProperty("--ui-zoom", String(z0 / 100));
     --ok: #97c459; --ok-bg: #20330c; --bar: #3c3b38; --warn: #fac775; --warn-bg: #412402;
     --veil: rgba(6, 10, 20, 0.5); --pane: rgba(255, 255, 255, 0.05); --bg-filter: saturate(0.85);
     --field: rgba(38, 38, 36, 0.45); --page: url("/page-dark.jpg"); --tile: rgba(255, 255, 255, 0.04);
-    --glass: rgba(22, 28, 41, 0.78);
+    --glass: rgba(22, 28, 41, 0.66);
     --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
   }
 }
@@ -45,7 +45,7 @@ document.documentElement.style.setProperty("--ui-zoom", String(z0 / 100));
   --ok: #97c459; --ok-bg: #20330c; --bar: #3c3b38; --warn: #fac775; --warn-bg: #412402;
   --veil: rgba(6, 10, 20, 0.5); --pane: rgba(255, 255, 255, 0.05); --bg-filter: saturate(0.85);
   --field: rgba(38, 38, 36, 0.45); --page: url("/page-dark.jpg"); --tile: rgba(255, 255, 255, 0.04);
-    --glass: rgba(22, 28, 41, 0.78);
+    --glass: rgba(22, 28, 41, 0.66);
   --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
 }
 * { box-sizing: border-box; }
@@ -67,8 +67,8 @@ main.wide .col + .col { margin: 0 0 0 12px; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
 /* Eigene Zeichenebene für die Bildschichten: "z-index: 0", denn der PS5-Browser kennt "isolation" nicht */
 .card.hero { padding: 14px; position: relative; z-index: 0; isolation: isolate; overflow: hidden; box-shadow: var(--shadow); }
-/* ohne Bild, leicht durchsichtig: der Platinen-Hintergrund scheint dezent durch (ohne Weichzeichnen) */
-.card.hero { background: var(--glass); }
+/* ohne Bild, leicht durchsichtig und weichgezeichnet: der Platinen-Hintergrund scheint ruhig durch */
+.card.hero { background: var(--glass); -webkit-backdrop-filter: blur(8px) saturate(1.1); backdrop-filter: blur(8px) saturate(1.1); }
 .pane { padding: 14px 16px; border-radius: 11px; background: var(--pane); }
 .pane + .pane { margin-top: 12px; }
 .pane[hidden], [hidden] { display: none !important; }
