@@ -20,7 +20,10 @@
 #define MIB         (1024u * 1024u)
 #define CHUNK       (4u * MIB)
 #define SAMPLE      4096u
-#define MAX_SAMPLES 4096u
+/* Billige Sticks brauchen für jede verstreute 4-KiB-Schreibstelle Sekunden (ganzer Löschblock wird neu geschrieben,
+ * gemessen am VendorCo-Stick: rund 3 s). Gefälschte Größen sind Zweierpotenzen im GB-Bereich - dafür reicht ein grobes
+ * Raster; 128 Stichproben halten den Schnelltest bei wenigen Minuten. */
+#define MAX_SAMPLES 128u
 #define SPEED_BYTES (256ull * MIB)
 
 static const char MAGIC[16] = "USBFMT-PROBE-v1";
@@ -238,11 +241,15 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
     uint64_t end = (size - SAMPLE) / SAMPLE * SAMPLE;
     if (!n || end > pos[n - 1]) pos[n++] = end;
 
+    double t0 = now_s();
+    char step[64];
     for (uint32_t i = 0; i < n; i++) {
         if (*cancel) { r->cancelled = 1; rc = 0; goto out; }
         tagged(a, SAMPLE, nonce, pos[i]);
         if (io_all(fd, 1, a, SAMPLE, pos[i])) state[i] = 3;
-        if (i % 16 == 0) progress("Echtheit prüfen: schreiben", (int)((uint64_t)i * 100 / n));
+        double el = now_s() - t0;   /* Restzeit aus dem bisherigen Tempo je Stichprobe */
+        eta_text(step, sizeof(step), "Echtheit prüfen", (uint64_t)(n - i - 1), el > 0 ? (i + 1) / el : 0);
+        progress(step, (int)((uint64_t)(i + 1) * 100 / n));
     }
     dev_sync(fd);
 
