@@ -42,6 +42,10 @@ int  lib_parse_smp_log(const char *log, size_t len, lib_hint_t **h, int *n);
 int  lib_scan(const char *root, int usb_root, lib_root_t *out);
 void lib_free(lib_root_t *r);
 
+/* Feld der obersten Ebene eines JSON-Objekts (Antworten von ShadowMountPlus); 0 = gefunden */
+int lib_json_str(const char *json, size_t len, const char *key, char *out, size_t n);
+int lib_json_num(const char *json, size_t len, const char *key, long long *v);
+
 /* für Tests: Titel-ID und Name aus param.json bzw. param.sfo; 0 = Titel-ID gefunden */
 int lib_parse_param_json(const char *json, size_t len, char *id, size_t idn, char *name, size_t namen);
 int lib_parse_param_sfo(const uint8_t *b, size_t len, char *id, size_t idn, char *name, size_t namen);

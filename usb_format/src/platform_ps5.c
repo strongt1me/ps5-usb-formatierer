@@ -31,6 +31,7 @@
 #include "fsdetect.h"
 #include "geom_xml.h"
 #include "platform.h"
+#include "smpapi.h"
 
 #define DATA_DIR "/data/usb_format"
 #define TOOL_DIR DATA_DIR "/bin"
@@ -636,47 +637,8 @@ static char *slurp_file(const char *path, size_t *len) {
     return buf;
 }
 
-/* POST /api/v1/games an ShadowMountPlus (nur lesen, 127.0.0.1); Rückgabe: Antwortkörper oder NULL */
-static char *smp_games(size_t *len) {
-    static const char req[] = "POST /api/v1/games HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n"
-                              "Content-Length: 2\r\nConnection: close\r\n\r\n{}";
-    struct sockaddr_in sa = {0};
-    sa.sin_family = AF_INET;
-    sa.sin_port = htons(SMP_API_PORT);
-    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    int s = socket(AF_INET, SOCK_STREAM, 0);
-    struct timeval tv = {5, 0};
-    *len = 0;
-    if (s < 0) return NULL;
-    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-    if (connect(s, (struct sockaddr *)&sa, sizeof(sa)) != 0 || send(s, req, sizeof(req) - 1, 0) != (ssize_t)(sizeof(req) - 1)) {
-        close(s);
-        return NULL;   /* ShadowMountPlus läuft nicht bzw. ohne API */
-    }
-    size_t cap = 256 * 1024, n = 0;
-    char *buf = malloc(cap + 1);
-    while (buf) {
-        if (n == cap) {
-            if (cap >= SMP_MAX) break;
-            char *nb = realloc(buf, cap * 2 + 1);
-            if (!nb) break;
-            buf = nb;
-            cap *= 2;
-        }
-        ssize_t k = recv(s, buf + n, cap - n, 0);
-        if (k <= 0) break;
-        n += (size_t)k;
-    }
-    close(s);
-    if (!buf) return NULL;
-    buf[n] = 0;
-    char *body = strstr(buf, "\r\n\r\n");
-    if (!body) { free(buf); return NULL; }
-    body += 4;
-    *len = n - (size_t)(body - buf);
-    memmove(buf, body, *len + 1);
-    return buf;
+char *plat_smp_post(const char *path, const char *body, int *http, size_t *len) {
+    return smp_http_post(SMP_API_PORT, path, body, http, len);
 }
 
 void plat_library_hints(lib_hint_t **h, int *n) {
@@ -687,7 +649,11 @@ void plat_library_hints(lib_hint_t **h, int *n) {
     *n = 0;
     for (int i = 0; i < 2; i++)   /* älteres Protokoll zuerst: der jüngste Eintrag zu einem Pfad gewinnt */
         if ((buf = slurp_file(logs[i], &len))) { lib_parse_smp_log(buf, len, h, n); free(buf); }
-    if ((buf = smp_games(&len))) { lib_parse_smp_games(buf, len, h, n); free(buf); }
+    int http;
+    if ((buf = plat_smp_post("/api/v1/games", "{}", &http, &len))) {
+        if (http == 200) lib_parse_smp_games(buf, len, h, n);
+        free(buf);
+    }
 }
 
 void plat_local_ip(char *buf, size_t len) {

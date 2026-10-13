@@ -15,6 +15,7 @@ import tempfile
 import threading
 import time
 import tkinter as tk
+import tkinter.font as tkfont
 import urllib.error
 import urllib.request
 from tkinter import messagebox, ttk
@@ -125,6 +126,12 @@ class Api:
 
     def status(self):
         return self._call("/api/status")
+
+    def library(self):
+        return self._call("/api/library", timeout=8)
+
+    def delete_games(self, keys, uninstall):
+        return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall})
 
     def format(self, device, fs, label, size, replug=False):
         return self._call("/api/format", {"device": device, "fs": fs, "label": label, "size": size,
@@ -294,6 +301,8 @@ class App(tk.Tk):
         self.consoles = {}         # Anzeigetext -> Fund aus ps5_discovery
         self.ps5_devices = []      # zuletzt gelesene Liste der PS5 (bleibt beim Umschalten erhalten)
         self.pc_job = None         # laufender Auftrag des Windows-Helfers
+        self.games = {}            # PS5-Gerätename (da1 ...) -> Spiele darauf (aus /api/library)
+        self.lib_loading = False
 
         self.mode_var = tk.StringVar(value="pc" if self.settings.get("mode") == "pc" else "ps5")
         self.verify_var = tk.BooleanVar(value=self.settings.get("verify", False))
@@ -344,7 +353,7 @@ class App(tk.Tk):
         row += 1
 
         self.ps5_caption = caption("PS5:")
-        self.host_entry = ttk.Combobox(frm, textvariable=self.host_var, width=34)
+        self.host_entry = ttk.Combobox(frm, textvariable=self.host_var, width=62)
         self.host_entry.grid(row=row, column=0, sticky="ew")
         self.host_entry.bind("<Return>", lambda e: self._connect())
         self.host_entry.bind("<<ComboboxSelected>>", lambda e: self._connect())
@@ -353,11 +362,40 @@ class App(tk.Tk):
         row += 1
 
         caption("Laufwerk:")
-        self.dev_combo = ttk.Combobox(frm, textvariable=self.dev_var, state="readonly")
+        self.dev_combo = ttk.Combobox(frm, textvariable=self.dev_var, state="readonly", style="Dev.TCombobox",
+                                      postcommand=self._widen_dev_list)
         self.dev_combo.grid(row=row, column=0, sticky="ew")
-        self.dev_combo.bind("<<ComboboxSelected>>", lambda e: self._update())
+        self.dev_combo.bind("<<ComboboxSelected>>", lambda e: (self._update(), self._show_games()))
         self.reload_btn = ttk.Button(frm, text="Aktualisieren", command=self._reload)
         self.reload_btn.grid(row=row, column=1, padx=(6, 0))
+        row += 1
+
+        # Spiele auf dem gewählten Datenträger (nur PS5-Modus, wie "Inhalt" in der Weboberfläche)
+        self.games_box = ttk.Frame(frm)
+        self.games_box.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        self.games_box.columnconfigure(0, weight=1)
+        self.games_caption = ttk.Label(self.games_box, text="Spiele auf diesem Datenträger:")
+        self.games_caption.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 2))
+        cols = ("name", "id", "kind", "size")
+        self.games_tree = ttk.Treeview(self.games_box, columns=cols, show="headings", height=5, selectmode="extended")
+        self.games_tree.bind("<<TreeviewSelect>>", lambda e: self._update())
+        for c, text, w, anchor in (("name", "Titel", 250, "w"), ("id", "Titel-ID", 90, "w"),
+                                   ("kind", "Format", 70, "w"), ("size", "Größe", 80, "e")):
+            self.games_tree.heading(c, text=text, anchor=anchor)
+            self.games_tree.column(c, width=w, minwidth=40, anchor=anchor, stretch=(c == "name"))
+        self.games_tree.grid(row=1, column=0, sticky="ew")
+        sb = ttk.Scrollbar(self.games_box, orient="vertical", command=self.games_tree.yview)
+        sb.grid(row=1, column=1, sticky="ns")
+        self.games_tree.configure(yscrollcommand=sb.set)
+        # Löschen: Spiele oben markieren (Strg/Umschalt für mehrere)
+        gbar = ttk.Frame(self.games_box)
+        gbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+        self.del_btn = ttk.Button(gbar, text="Markierte Spiele löschen …", command=self._delete_games)
+        self.del_btn.pack(side="right")
+        self.uninstall_var = tk.BooleanVar(value=True)
+        self.uninstall_chk = ttk.Checkbutton(gbar, variable=self.uninstall_var,
+                                             text="Kachel auch von der Startseite entfernen")
+        self.uninstall_chk.pack(side="left")
         row += 1
 
         caption("Dateisystem:")
@@ -394,7 +432,7 @@ class App(tk.Tk):
         self.pbar = ttk.Progressbar(frm, maximum=100)
         self.pbar.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(14, 4))
         row += 1
-        ttk.Label(frm, textvariable=self.status_var, wraplength=330, justify="left").grid(
+        ttk.Label(frm, textvariable=self.status_var, wraplength=560, justify="left").grid(
             row=row, column=0, columnspan=2, sticky="w")
         row += 1
 
@@ -410,6 +448,13 @@ class App(tk.Tk):
         self.start_btn = ttk.Button(btns, text="Starten", command=self._start)
         self.start_btn.pack(side="right")
         self.cancel_btn = ttk.Button(btns, text="Abbrechen", command=self._pc_cancel)
+
+    def _widen_dev_list(self):
+        """Aufgeklappte Liste so breit wie der längste Eintrag (ttk nimmt sonst die Breite des Feldes)"""
+        font = tkfont.nametofont("TkTextFont")
+        need = max((font.measure(v) for v in self.dev_combo.cget("values")), default=0) + 40
+        extra = max(0, need - self.dev_combo.winfo_width())
+        ttk.Style(self).configure("Dev.TCombobox", postoffset=(0, 0, extra, 0))
 
     def _selected_device(self):
         i = self.dev_combo.current()
@@ -438,6 +483,8 @@ class App(tk.Tk):
         enable(self.fs_combo, idle, "readonly")
         enable(self.start_btn, idle and dev and (pc or formattable(dev)))
         enable(self.speed_btn, idle and dev)
+        enable(self.del_btn, idle and not pc and self.api and self.games_tree.selection())
+        enable(self.uninstall_chk, idle)
         enable(self.rename_btn, idle and dev and any(v["fs"] in ("exFAT", "FAT32") for v in dev.get("volumes", [])))
         # Abbrechen nur während Echtheitsprüfung oder Tempomessung am PC (Formatieren selbst dauert Sekunden)
         if self.pc_job and getattr(self.pc_job, "cancellable", False):
@@ -451,7 +498,7 @@ class App(tk.Tk):
         if not initial:
             self.settings["mode"] = self.mode_var.get()
             save_settings(self.settings)
-        for w in (self.ps5_caption, self.host_entry, self.search_btn):
+        for w in (self.ps5_caption, self.host_entry, self.search_btn, self.games_box):
             w.grid_remove() if pc else w.grid()
         if pc:
             self.pc_opts.grid()
@@ -474,6 +521,57 @@ class App(tk.Tk):
             else:
                 self.status_var.set("Nicht verbunden")
         self._update()
+
+    def _ps5_dev_text(self, d):
+        """Kurz, damit die Auswahlliste nichts abschneidet; Erklärungen stehen in den Rückfragen"""
+        fmt = d.get("format") or ""
+        fmt = {"leer": "leer", "keine Partition": "ohne Partition", "unbekannt": "Format unbekannt"}.get(fmt, fmt)
+        if d.get("label") and fmt:
+            fmt += f" „{d['label']}“"
+        where = "gesperrt" if d["locked"] else "eingebunden" if d["mounts"] else "frei"
+        parts = [f"{dev_title(d)} ({d['name']})", fmt_size(d["size"])] + ([fmt] if fmt else []) + [where]
+        n = len(self.games.get(d["name"], []))
+        if n:
+            parts.append(f"{n} Spiel{'e' if n != 1 else ''}")
+        return " · ".join(parts)
+
+    def _show_games(self):
+        """Spiele des gewählten PS5-Datenträgers in der Liste darunter"""
+        self.games_tree.delete(*self.games_tree.get_children())
+        dev = self._selected_device()
+        if self.mode_var.get() != "ps5" or not dev:
+            self.games_caption.configure(text="Spiele auf diesem Datenträger:")
+            return
+        games = self.games.get(dev["name"], [])
+        for g in sorted(games, key=lambda g: g["name"].lower()):
+            self.games_tree.insert("", "end", iid=g.get("key") or None, values=(g["name"] or g["id"], g["id"], g["kind"],
+                                                      fmt_size(g["size"]) if g["size"] else "–"))
+        if games:
+            text = f"Spiele auf diesem Datenträger: {len(games)}"
+        elif self.lib_loading:
+            text = "Spiele auf diesem Datenträger: werden gesucht …"
+        else:
+            text = "Spiele auf diesem Datenträger: keine gefunden"
+        self.games_caption.configure(text=text)
+
+    def _relibrary(self):
+        self.lib_loading = False
+        self._load_library()
+
+    def _load_library(self):
+        """Spieleliste der PS5 im Hintergrund holen; läuft die Suche dort noch, später erneut"""
+        if not self.api or self.lib_loading:
+            return
+        api = self.api
+        self.lib_loading = True
+
+        def work():
+            try:
+                self.q.put(("library", api.library()))
+            except (ConnectionError, ApiError):
+                self.q.put(("library", None))
+
+        threading.Thread(target=self._guard(work), daemon=True).start()
 
     def _fill_pc_devices(self, devices):
         prev = self._selected_device()
@@ -501,16 +599,7 @@ class App(tk.Tk):
         self.devices = devices
         names = []
         for d in devices:
-            if d["locked"]:
-                where = "vom System verwendet (gesperrt)"
-            elif d["mounts"]:
-                where = "von der PS5 eingebunden – wird zum Formatieren kurz abgemeldet"
-            else:
-                where = "frei, bereit"
-            fmt = d.get("format") or ""
-            fmt = {"leer": "leer", "keine Partition": "ohne Partition", "unbekannt": "Format unbekannt"}.get(fmt, fmt)
-            text = f"{dev_title(d)} ({d['name']}) – {fmt_size(d['size'])}{' – ' + fmt if fmt else ''} – {where}"
-            names.append(text)
+            names.append(self._ps5_dev_text(d))
         self.dev_combo.configure(values=names)
         idx = -1
         if prev:
@@ -523,8 +612,9 @@ class App(tk.Tk):
             self.dev_combo.current(idx)
         else:
             self.dev_var.set("")
-        if not devices:
+        if not devices and self.api:
             self.status_var.set("Kein USB-Stick an der PS5 gefunden. Stick einstecken und „Aktualisieren“ klicken.")
+        self._show_games()
 
     # ------------------------------------------------------------------ Aktionen
 
@@ -663,6 +753,11 @@ class App(tk.Tk):
                        "und übernimmt ihn, bevor die PS5 ihn wieder einbindet. Klappt das nicht, bittet er, den "
                        "Stick an der PS5 abzuziehen und wieder einzustecken. Spiele und Apps, die davon laufen, "
                        "vorher beenden.\n\n") if replug else ""
+        games = sorted(g["name"] or g["id"] for g in self.games.get(dev["name"], []))
+        if games:
+            shown = "\n".join("• " + g for g in games[:8]) + (f"\n… und {len(games) - 8} weitere" if len(games) > 8 else "")
+            replug_text = (f"Darauf liegen {len(games)} Spiel{'e' if len(games) != 1 else ''}, die gelöscht werden:\n"
+                           f"{shown}\n\n") + replug_text
         if not messagebox.askokcancel(
                 "PS5-USB formatieren",
                 f"WARNUNG: Durch das Formatieren werden ALLE Daten auf diesem Datenträger gelöscht.\n\n"
@@ -687,7 +782,40 @@ class App(tk.Tk):
         self.pbar["value"] = 0
         self._run(work)
 
-    def _follow(self, api, foreign):
+    def _delete_games(self):
+        dev = self._selected_device()
+        keys = list(self.games_tree.selection())
+        if self.busy or not dev or not keys or not self.api:
+            return
+        games = {g.get("key"): g for g in self.games.get(dev["name"], [])}
+        names = sorted((games[k]["name"] or games[k]["id"]) for k in keys if k in games)
+        if not names:
+            return
+        uninstall = self.uninstall_var.get()
+        shown = "\n".join("• " + n for n in names[:10]) + (f"\n… und {len(names) - 10} weitere" if len(names) > 10 else "")
+        what = "Dieses Spiel wird" if len(names) == 1 else f"Diese {len(names)} Spiele werden"
+        if not messagebox.askokcancel(
+                "Spiele löschen",
+                f"{what} von {dev_title(dev)} ({dev['name']}) gelöscht:\n\n{shown}\n\n"
+                + ("Die Kacheln werden auch von der PS5-Startseite entfernt.\n\n" if uninstall else
+                   "Die Kacheln bleiben auf der Startseite (ohne Spiel).\n\n")
+                + "Laufende Spiele vorher beenden. Das lässt sich nicht rückgängig machen.",
+                icon="warning", default="cancel", parent=self):
+            return
+        api = self.api
+
+        def work():
+            try:
+                api.delete_games(keys, uninstall)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", f"Löschen konnte nicht gestartet werden: {e}"))
+                return
+            self._follow(api, foreign=False, done_title="Spiele gelöscht.")
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _follow(self, api, foreign, done_title="Datenträger erfolgreich formatiert."):
         """Auftrag auf der PS5 bis zum Ende verfolgen (im Thread). foreign: woanders gestartet (PS5-Browser,
         anderer PC) - dann nur anzeigen, ohne Rückfrage-Dialoge des Starters."""
         self.q.put(("formatting", foreign))
@@ -701,7 +829,7 @@ class App(tk.Tk):
                 failures += 1
                 if failures >= 20:
                     self.q.put(("finished", False, "Verbindung zur PS5 verloren. Bitte die "
-                                                   "PS5-Benachrichtigungen prüfen.", foreign))
+                                                   "PS5-Benachrichtigungen prüfen.", foreign, done_title))
                     return
                 continue
             self.q.put(("progress", st["percent"], st["step"]))
@@ -710,7 +838,7 @@ class App(tk.Tk):
                     self.q.put(("devices", api.devices()))
                 except (ConnectionError, ApiError):
                     pass
-                self.q.put(("finished", st["ok"], st["message"], foreign))
+                self.q.put(("finished", st["ok"], st["message"], foreign, done_title))
                 return
 
     def _watch(self):
@@ -872,9 +1000,11 @@ class App(tk.Tk):
                     self.busy = False
                     self.status_var.set(f"Verbunden mit {self.host_var.get().strip()}")
                     self._fill_devices(msg[2]["devices"])
+                    self._load_library()
                 elif kind == "devices":
                     self.busy = self.formatting
                     self._fill_devices(msg[1]["devices"])
+                    self._load_library()
                 elif kind == "formatting":
                     self.formatting = True
                 elif kind == "foreign":
@@ -903,15 +1033,33 @@ class App(tk.Tk):
                     self.pbar.configure(mode="determinate")
                     self.status_var.set(msg[2])
                     foreign = len(msg) > 3 and msg[3]
+                    done_title = msg[4] if len(msg) > 4 else "Datenträger erfolgreich formatiert."
                     if msg[1]:
                         self.pbar["value"] = 100
                         if not foreign:
-                            messagebox.showinfo("PS5-USB formatieren", "Datenträger erfolgreich formatiert.\n\n" + msg[2],
-                                                parent=self)
+                            messagebox.showinfo("PS5-USB formatieren", done_title + "\n\n" + msg[2], parent=self)
                     else:
                         self.pbar["value"] = 0
                         if not foreign:
                             messagebox.showerror("PS5-USB formatieren", msg[2], parent=self)
+                elif kind == "library":
+                    self.lib_loading = False
+                    data = msg[1]
+                    if data is not None:
+                        games = {}
+                        for t in data.get("titles", []):
+                            if t.get("device"):   # nur Datenträger, nicht der interne Ordner /data/homebrew
+                                games.setdefault(t["device"], []).append(t)
+                        self.games = games
+                        if data.get("scanning"):
+                            self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
+                            self.after(2000, self._relibrary)
+                    if self.mode_var.get() == "ps5" and self.ps5_devices:
+                        i = self.dev_combo.current()
+                        self.dev_combo.configure(values=[self._ps5_dev_text(d) for d in self.ps5_devices])
+                        if 0 <= i < len(self.ps5_devices):
+                            self.dev_combo.current(i)
+                    self._show_games()
                 elif kind == "pcdevices":
                     self.busy = False
                     if self.mode_var.get() == "pc":

@@ -140,6 +140,16 @@ input:disabled { cursor: not-allowed; opacity: .5; }
 .game:first-child { border-top: 0; }
 .game span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game i { font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; margin-left: 10px; }
+/* Auswahl zum Löschen */
+.game.pick { align-items: center; cursor: pointer; }
+.game.pick input { flex: none; margin: 0 10px 0 0; }
+.game.pick span { flex: 1; min-width: 0; }
+.game.pick.on span { color: var(--text); font-weight: 600; }
+.pickbar { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px;
+           border-top: 1px solid var(--border); font-size: 13.5px; }
+.pickbar .cnt { color: var(--muted); }
+.pickbar .cnt button { margin-left: 4px; }
+.pickbar .danger { padding: 6px 14px; }
 .note { margin-top: 10px; padding: 10px 12px; border-radius: 9px; font-size: 13px; border: 1px solid; }
 .note b { display: block; }
 .note.warn { background: var(--warn-bg); color: var(--warn); }
@@ -210,7 +220,7 @@ button.format { background: linear-gradient(#d4e6fc, #a9cbf3); border: 2px solid
 .theme select { width: auto; padding: 4px 28px 4px 8px; font-size: 13px; margin-left: 8px; background-position: right 9px center, 0 0; }
 /* Größenregler: oben über der Seite und außerhalb der skalierten Seite - beim Verstellen bleibt er an seinem Platz
    (darüber ändert sich nichts), und die volle Breite bleibt für die zwei Spalten */
-.zoomrow { display: flex; justify-content: flex-end; padding: 12px 16px 0; }
+.zoomrow { display: flex; justify-content: center; padding: 12px 16px 0; }
 .zoombar { display: flex; align-items: center;
            padding: 6px 10px; border-radius: 10px; font-size: 13px; color: var(--muted);
            background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow); }
@@ -263,7 +273,7 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
 
    <!-- Inhalt und Werkzeuge des gewählten Laufwerks -->
    <div class="pane">
-    <div class="sec">Inhalt <button class="link" id="more" type="button" hidden></button></div>
+    <div class="sec">Inhalt <span><button class="link" id="more" type="button" hidden></button><button class="link" id="pick" type="button" hidden>Auswählen</button></span></div>
     <div id="content"></div>
     <div id="checkinfo"></div>
     <div class="tools">
@@ -465,6 +475,8 @@ function el(tag, cls, text) {
 }
 
 let devices = [], selected = null, busy = false, pollTimer = null, showAll = false;
+let pickMode = false;          /* Spiele zum Löschen auswählen */
+const picked = new Set();      /* Schlüssel (key aus /api/library) der ausgewählten Spiele */
 let lib = { titles: [], roots: [], duplicates: [], scanning: false };
 const speedOf = {}, checkOf = {};   /* letzte Messung / Prüfung je Laufwerk (Name + Größe) */
 const KB = 1024, MB = 1024 * KB, GB = 1024 * MB, TB = 1024 * GB;
@@ -658,7 +670,7 @@ function renderDevices() {
     row.append(radio, body);
     const pick = () => {
       if (busy || blocked) return;
-      if (selected !== d.name) { showAll = false; $("renamebox").hidden = true; }
+      if (selected !== d.name) { showAll = false; pickMode = false; picked.clear(); $("renamebox").hidden = true; }
       selected = d.name;
       renderDevices();
       update();
@@ -694,6 +706,7 @@ function renderContent() {
   const box = $("content"), d = currentDevice();
   box.textContent = "";
   $("more").hidden = true;
+  $("pick").hidden = true;
   if (!d) { box.appendChild(note("info", "", "Oben ein Laufwerk wählen.")); return; }
   if (!d.mounts.length) {
     box.appendChild(note("info", "Inhalt nicht sichtbar",
@@ -707,21 +720,51 @@ function renderContent() {
   if (lib.scanning && !titles.length) box.appendChild(note("info", "", "Laufwerk wird durchsucht …"));
   if (titles.length) {
     const list = el("div", "games"), sorted = titles.slice().sort((a, b) => a.name.localeCompare(b.name, "de"));
-    if (sorted.length > 3) {   /* ruhig halten: drei Spiele, der Rest auf Wunsch */
+    for (const k of Array.from(picked)) if (!titles.some(t => t.key === k)) picked.delete(k);   /* nicht mehr da */
+    $("pick").hidden = busy;
+    $("pick").textContent = pickMode ? "Fertig" : "Auswählen";
+    if (sorted.length > 3 && !pickMode) {   /* ruhig halten: drei Spiele, der Rest auf Wunsch */
       $("more").hidden = false;
       $("more").textContent = showAll ? "Weniger anzeigen ▴" : "Alle " + sorted.length + " Spiele anzeigen ▾";
     }
-    for (const t of showAll ? sorted : sorted.slice(0, 3)) {
-      const g = el("div", "game");
-      g.append(el("span", "", t.name), el("i", "", (t.id || "Titel-ID unbekannt") + " · " + (t.kind === "Ordner" ? "Ordner" : "Abbild " + t.kind)));
+    for (const t of showAll || pickMode ? sorted : sorted.slice(0, 3)) {
+      const info = el("i", "", (t.id || "Titel-ID unbekannt") + " · " + (t.kind === "Ordner" ? "Ordner" : "Abbild " + t.kind));
+      let g;
+      if (pickMode) {   /* Häkchen vor jedem Spiel; die ganze Zeile schaltet um */
+        g = el("label", "game pick" + (picked.has(t.key) ? " on" : ""));
+        const cb = el("input");
+        cb.type = "checkbox";
+        cb.checked = picked.has(t.key);
+        cb.addEventListener("change", () => { cb.checked ? picked.add(t.key) : picked.delete(t.key); renderContent(); });
+        g.append(cb, el("span", "", t.name), info);
+      } else {
+        g = el("div", "game");
+        g.append(el("span", "", t.name), info);
+      }
       g.title = t.path;
       list.appendChild(g);
     }
     box.appendChild(list);
+    if (pickMode) {
+      const bar = el("div", "pickbar"), cnt = el("span", "cnt", picked.size ? picked.size + " ausgewählt" : "Spiele zum Löschen antippen");
+      const all = el("button", "link", picked.size === titles.length ? "Keine" : "Alle");
+      all.type = "button";
+      all.addEventListener("click", () => {
+        if (picked.size === titles.length) picked.clear(); else titles.forEach(t => picked.add(t.key));
+        renderContent();
+      });
+      cnt.appendChild(all);
+      const del = el("button", "danger solid", picked.size > 1 ? picked.size + " Spiele löschen" : "Löschen");
+      del.type = "button";
+      del.disabled = !picked.size || busy;
+      del.addEventListener("click", () => deleteGames(d, titles.filter(t => picked.has(t.key))));
+      bar.append(cnt, del);
+      box.appendChild(bar);
+    }
   }
   for (const x of dupsOf(d)) {
     const n = note("warn", "Doppelt: " + x.name + " (" + x.id + ")",
-      "ShadowMountPlus wechselt ständig zwischen diesen Fundorten – einen davon entfernen:");
+      "ShadowMountPlus wechselt ständig zwischen diesen Fundorten – einen davon entfernen (über „Auswählen“):");
     for (const p of x.paths) n.appendChild(el("div", "path", shortPath(p)));
     box.appendChild(n);
   }
@@ -897,6 +940,12 @@ function finished(st, d) {
     if (r.code === 4 && !r.repair) return askRepair(st);
     return showMsg(st.message, true);
   }
+  if (st.kind === "delete") {
+    renderTabs();
+    showMsg(st.message, st.ok);
+    if (!st.ok) return showResult(r.deleted ? "Nicht alles gelöscht" : "Nichts gelöscht", st.message, false);
+    return;
+  }
   if (st.kind === "check" && !st.ok && d) {
     checkOf[devKey(currentDevice() || d)] = { code: 8, title: "Prüfen nicht möglich", text: st.message.replace(/^[^:]*: /, "") };
   }
@@ -1060,6 +1109,33 @@ async function check(repair) {
 }
 $("bcheck").addEventListener("click", () => check(false));
 $("more").addEventListener("click", () => { showAll = !showAll; renderContent(); });
+$("pick").addEventListener("click", () => { pickMode = !pickMode; picked.clear(); renderContent(); });
+
+/* Ausgewählte Spiele löschen - über ShadowMountPlus, das eingebundene Abbilder selbst freigibt */
+async function deleteGames(d, games) {
+  if (!games.length || busy) return;
+  const extra = el("div");
+  const list = el("div", "dlist");
+  const names = games.map(t => t.name).sort((a, b) => a.localeCompare(b, "de"));
+  list.appendChild(el("div", "", names.slice(0, 8).join(" · ")));
+  if (names.length > 8) list.appendChild(el("div", "", "… und " + (names.length - 8) + " weitere"));
+  const opt = el("label", "chk"), cb = el("input"), txt = el("div", "", "Auch die Kachel von der PS5-Startseite entfernen");
+  cb.type = "checkbox";
+  cb.checked = true;
+  txt.appendChild(el("small", "", "Sonst bleibt eine Kachel ohne Spiel zurück"));
+  opt.append(cb, txt);
+  extra.append(list, opt);
+  const ok = await dialog({
+    title: games.length === 1 ? "Spiel löschen" : games.length + " Spiele löschen",
+    text: (games.length === 1 ? "Dieses Spiel wird" : "Diese Spiele werden") + " von „" + devTitle(d) + "“ gelöscht:",
+    extra, text2: "Laufende Spiele vorher beenden. Das lässt sich nicht rückgängig machen.",
+    yes: "Löschen", yesCls: "danger solid"
+  });
+  if (ok !== "yes") return;
+  pickMode = false;
+  picked.clear();
+  runJob("/api/delete", { keys: games.map(t => t.key).join(","), uninstall: cb.checked });
+}
 
 $("brename").addEventListener("click", () => {
   const d = currentDevice();

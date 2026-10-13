@@ -11,6 +11,8 @@
  *   POST /api/speed      {"device","size"} Lesetempo messen (nur lesen, auch eingebunden)
  *   POST /api/check      {"device","size","repair":true|false,"replug"} exFAT prüfen bzw. reparieren
  *   POST /api/label      {"device","size","label","replug"} Bezeichnung ändern (exFAT/FAT32)
+ *   POST /api/delete     {"keys":"<key>,<key>","uninstall":true} Spiele löschen (Schlüssel aus /api/library; über
+ *                         ShadowMountPlus, das eingebundene Abbilder selbst freigibt; uninstall: Kachel entfernen)
  *   POST /api/cancel     {} laufenden Auftrag abbrechen (Warten auf Abziehen, Prüfen, Beschreiben)
  *   GET  /api/status     Fortschritt des laufenden/letzten Auftrags: "kind" und "result" (Einzelheiten)
  *   GET  /api/info       LAN-Adresse der PS5 (fuer den Hinweis im PS5-Browser)
@@ -29,6 +31,7 @@
 #include <strings.h>
 #include <time.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -153,8 +156,13 @@ static void on_progress(const char *step, int pct) {
     plat_throttle();
 }
 
-enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL };
-static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label"};
+enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE };
+static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete"};
+
+/* Spiel zum Löschen (aus der Bibliothek übernommen) */
+typedef struct {
+    char id[16], name[128], path[256], root[96], device[16];
+} del_item_t;
 
 typedef struct {
     int      kind;
@@ -168,6 +176,9 @@ typedef struct {
     uint64_t limit;
     /* Prüfen */
     int      repair;
+    /* Spiele löschen */
+    del_item_t *items;
+    int      nitems, uninstall;
 } job_t;
 
 static const char *const TEMPLATE_DIRS[] = {"homebrew", "etaHEN/games", "pkg", NULL};
@@ -414,6 +425,13 @@ static pthread_mutex_t lib_lock = PTHREAD_MUTEX_INITIALIZER;
 static libroot_t *lib_snap;
 static int lib_n, lib_busy, lib_again;
 static time_t lib_when;
+
+/* Kurzer Schlüssel eines Spiels für /api/delete (FNV-1a über den Pfad): gelöscht wird nur, was die Suche fand */
+static uint32_t path_key(const char *p) {
+    uint32_t h = 2166136261u;
+    while (*p) { h ^= (unsigned char)*p++; h *= 16777619u; }
+    return h;
+}
 
 static void lib_free_all(libroot_t *r, int n) {
     for (int i = 0; i < n; i++) lib_free(&r[i].r);
@@ -717,7 +735,7 @@ static void api_library(int c, int refresh) {
             sb_str(&b, t->kind);
             sb_add(&b, ",\"path\":");
             sb_str(&b, t->path);
-            sb_add(&b, ",\"size\":%llu,\"root\":", (unsigned long long)t->size);
+            sb_add(&b, ",\"key\":\"%08x\",\"size\":%llu,\"root\":", path_key(t->path), (unsigned long long)t->size);
             sb_str(&b, lib_snap[i].r.root);
             sb_add(&b, ",\"device\":");
             sb_str(&b, lib_snap[i].device);
@@ -1113,6 +1131,200 @@ static void api_label(int c, const char *body) {
     start_job(c, j, label_worker);
 }
 
+/* ------------------------------------------------------------ Spiele löschen */
+
+/* Fehlertext einer ShadowMountPlus-Antwort ({"status":<errno>,"error":"..."}) */
+static void smp_error(const char *resp, size_t len, int http, char *out, size_t n) {
+    char e[160] = "";
+    if (resp) lib_json_str(resp, len, "error", e, sizeof(e));
+    if (http == 409) snprintf(out, n, "ShadowMountPlus ist beschäftigt oder das Spiel läuft gerade – Spiel beenden und "
+                                     "erneut versuchen");
+    else if (http == 400 || http == 501) snprintf(out, n, "ShadowMountPlus kann das nicht (ab Version 1.7 nötig)%s%s",
+                                                  e[0] ? ": " : "", e);
+    else snprintf(out, n, "ShadowMountPlus meldet Fehler %d%s%s", http, e[0] ? ": " : "", e);
+}
+
+/* Löschen über ShadowMountPlus: Auftrag starten und bis zum Ende verfolgen (es hält dabei Scanner und Startseite an
+ * und gibt eingebundene Abbilder selbst frei). 0 = gelöscht. */
+static int smp_delete(const del_item_t *it, int base, int span, char *err, size_t n) {
+    char body[96], resp_err[200];
+    size_t len;
+    int http;
+    long long job = 0, v;
+    snprintf(body, sizeof(body), "{\"title_id\":\"%s\",\"confirm\":true}", it->id);
+    char *r = plat_smp_post("/api/v1/games/delete", body, &http, &len);
+    if (!r) { snprintf(err, n, "ShadowMountPlus nicht erreichbar"); return -1; }
+    if (http != 202 || lib_json_num(r, len, "job_id", &job) != 0) {
+        smp_error(r, len, http, err, n);
+        free(r);
+        return -1;
+    }
+    free(r);
+    snprintf(body, sizeof(body), "{\"job_id\":%lld}", job);
+    for (int tries = 0; tries < 7200; tries++) {   /* höchstens eine Stunde */
+        usleep(500 * 1000);
+        if (!(r = plat_smp_post("/api/v1/games/storage/status", body, &http, &len))) continue;
+        char state[24] = "";
+        lib_json_str(r, len, "state", state, sizeof(state));
+        if (lib_json_num(r, len, "progress_percent", &v) == 0 && v >= 0 && v <= 100)
+            on_progress("Spiele löschen", base + (int)(v * span / 100));
+        if (!strcmp(state, "completed")) { free(r); return 0; }
+        if (!strcmp(state, "failed") || !strcmp(state, "cancelled") || http != 200) {
+            resp_err[0] = 0;
+            lib_json_str(r, len, "result_error", resp_err, sizeof(resp_err));
+            snprintf(err, n, "ShadowMountPlus: %s", resp_err[0] ? resp_err : state[0] ? state : "Fehler");
+            free(r);
+            return -1;
+        }
+        free(r);
+    }
+    snprintf(err, n, "ShadowMountPlus antwortet nicht mehr");
+    return -1;
+}
+
+/* Rekursiv löschen (nur Kopien, die ShadowMountPlus nicht verwaltet, z. B. doppelte) */
+static int remove_tree(const char *path, int depth) {
+    struct stat sb;
+    if (depth > 32 || lstat(path, &sb) != 0) return -1;
+    if (!S_ISDIR(sb.st_mode)) return unlink(path);
+    DIR *d = opendir(path);
+    if (!d) return -1;
+    struct dirent *e;
+    int rc = 0;
+    char *sub = malloc(1024);
+    while (sub && (e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (snprintf(sub, 1024, "%s/%s", path, e->d_name) >= 1024 || remove_tree(sub, depth + 1) != 0) rc = -1;
+    }
+    free(sub);
+    closedir(d);
+    return rc == 0 ? rmdir(path) : -1;
+}
+
+static void *delete_worker(void *arg) {
+    job_t *j = arg;
+    sbuf_t msg = {0}, res = {0}, done_names = {0}, errs = {0};
+    char err[256];
+    int ok_n = 0, fail_n = 0, tiles = 0;
+
+    /* Wer verwaltet welchen Pfad? Nur die Kopie, die ShadowMountPlus selbst nutzt, löscht es auch */
+    lib_hint_t *smp = NULL;
+    int nsmp = 0, http;
+    size_t len;
+    char *g = plat_smp_post("/api/v1/games", "{}", &http, &len);
+    int smp_ok = g && http == 200 && lib_parse_smp_games(g, len, &smp, &nsmp) == 0;
+    free(g);
+
+    sb_add(&res, "{\"items\":[");
+    for (int i = 0; i < j->nitems; i++) {
+        const del_item_t *it = &j->items[i];
+        int base = i * 100 / j->nitems, span = 100 / j->nitems, managed = 0, known = 0, rc;
+        on_progress("Spiele löschen", base);
+        for (int k = 0; k < nsmp; k++)
+            if (!strcmp(smp[k].id, it->id)) { known = 1; managed |= !strcmp(smp[k].path, it->path); }
+        err[0] = 0;
+        if (managed) {
+            rc = smp_delete(it, base, span, err, sizeof(err));
+            if (rc == 0 && j->uninstall) {   /* Kachel entfernen; Quelle ist weg, ein neuer Suchlauf holt sie nicht zurück */
+                char body[64];
+                snprintf(body, sizeof(body), "{\"title_id\":\"%s\"}", it->id);
+                char *r = plat_smp_post("/api/v1/games/uninstall", body, &http, &len);
+                if (r && http == 200) tiles++;
+                else if (!r || http != 404) {
+                    char e2[200];
+                    smp_error(r, len, http, e2, sizeof(e2));
+                    sb_add(&errs, "%s%s: gelöscht, aber Kachel nicht entfernt (%s)", errs.len ? "; " : "", it->name, e2);
+                }
+                free(r);
+            }
+        } else if (!smp_ok) {
+            rc = -1;
+            snprintf(err, sizeof(err), "ShadowMountPlus nicht erreichbar – zum Schutz eingebundener Spiele nichts "
+                                       "gelöscht");
+        } else {
+            /* nicht von ShadowMountPlus genutzt (z. B. zweite Kopie): selbst löschen - nur innerhalb der Wurzel des
+             * USB-Laufwerks, auf dem die Suche es fand (api_delete übernimmt nur Spiele von USB-Laufwerken) */
+            size_t rl = strlen(it->root);
+            if (!rl || strncmp(it->path, it->root, rl) != 0 || it->path[rl] != '/' || strstr(it->path, "/../")) {
+                rc = -1;
+                snprintf(err, sizeof(err), "Pfad liegt nicht auf dem USB-Laufwerk");
+            } else if ((rc = remove_tree(it->path, 0)) != 0) {
+                snprintf(err, sizeof(err), "Löschen fehlgeschlagen: %s", strerror(errno));
+            }
+            (void)known;
+        }
+        sb_add(&res, "%s{\"id\":", i ? "," : "");
+        sb_str(&res, it->id);
+        sb_add(&res, ",\"name\":");
+        sb_str(&res, it->name);
+        sb_add(&res, ",\"ok\":%s,\"error\":", rc == 0 ? "true" : "false");
+        sb_str(&res, err);
+        sb_add(&res, "}");
+        if (rc == 0) { ok_n++; sb_add(&done_names, "%s%s", done_names.len ? ", " : "", it->name); }
+        else { fail_n++; sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, err); }
+    }
+    sb_add(&res, "],\"deleted\":%d,\"failed\":%d,\"tiles\":%d}", ok_n, fail_n, tiles);
+    free(smp);
+
+    if (ok_n) sb_add(&msg, "%d Spiel%s gelöscht: %s.", ok_n, ok_n == 1 ? "" : "e", done_names.p);
+    if (tiles) sb_add(&msg, " %d Kachel%s von der Startseite entfernt.", tiles, tiles == 1 ? "" : "n");
+    if (errs.len) sb_add(&msg, "%s%s.", ok_n ? " " : "Nicht gelöscht – ", errs.p);
+    free(done_names.p);
+    free(errs.p);
+    free(j->items);
+    job_done(j, fail_n == 0, &msg, &res, 1);
+    return NULL;
+}
+
+/* {"keys":"1a2b3c4d,5e6f7a8b","uninstall":true} - Schlüssel aus /api/library; nur Spiele auf USB-Laufwerken */
+static void api_delete(int c, const char *body) {
+    char keys[1024] = "";
+    const char *k = strstr(body, "\"keys\"");
+    if (k) {
+        k = ws(k + 6);
+        if (*k == ':') json_string(ws(k + 1), keys, sizeof(keys));
+    }
+    if (!keys[0]) { respond_error(c, 400, "keys ist erforderlich"); return; }
+    const char *u = strstr(body, "\"uninstall\"");
+    int uninstall = 0;
+    if (u) { u = ws(u + 11); if (*u == ':' && !strncmp(ws(u + 1), "true", 4)) uninstall = 1; }
+
+    job_t *j = new_job(c, JOB_DELETE);
+    if (!j) return;
+    j->uninstall = uninstall;
+    j->items = calloc(64, sizeof(*j->items));
+    if (!j->items) { free(j); respond_error(c, 500, "Kein Speicher"); return; }
+    pthread_mutex_lock(&lib_lock);
+    for (char *p = keys, *save = NULL, *tok; (tok = strtok_r(p, ",", &save)); p = NULL) {
+        uint32_t want = (uint32_t)strtoul(tok, NULL, 16);
+        for (int i = 0; i < lib_n && j->nitems < 64; i++) {
+            if (!lib_snap[i].usb || !lib_snap[i].device[0]) continue;
+            for (int t = 0; t < lib_snap[i].r.ntitles; t++) {
+                const lib_title_t *tt = &lib_snap[i].r.titles[t];
+                if (path_key(tt->path) != want) continue;
+                int dup = 0;
+                for (int d = 0; d < j->nitems; d++) dup |= !strcmp(j->items[d].path, tt->path);
+                if (dup) continue;
+                del_item_t *it = &j->items[j->nitems++];
+                snprintf(it->id, sizeof(it->id), "%s", tt->id);
+                snprintf(it->name, sizeof(it->name), "%s", tt->name[0] ? tt->name : tt->id);
+                snprintf(it->path, sizeof(it->path), "%s", tt->path);
+                snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
+                snprintf(it->device, sizeof(it->device), "%s", lib_snap[i].device);
+            }
+        }
+    }
+    pthread_mutex_unlock(&lib_lock);
+    if (!j->nitems) {
+        free(j->items);
+        free(j);
+        respond_error(c, 404, "Spiele nicht gefunden – Liste neu laden");
+        return;
+    }
+    snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
+    start_job(c, j, delete_worker);
+}
+
 static void handle(int c) {
     char *req = malloc(REQ_MAX + 1);
     size_t len = 0;
@@ -1195,6 +1407,8 @@ static void handle(int c) {
         api_check(c, body);
     else if (strcmp(path, "/api/label") == 0 && is_post)
         api_label(c, body);
+    else if (strcmp(path, "/api/delete") == 0 && is_post)
+        api_delete(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {
         /* Warten auf Abziehen/Einstecken, Prüfen und Beschreiben brechen ab; das Formatieren selbst nicht */
         cancel_requested = 1;

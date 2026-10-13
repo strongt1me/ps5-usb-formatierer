@@ -17,6 +17,7 @@
 #include "extfs.h"
 #include "fsdetect.h"
 #include "platform.h"
+#include "smpapi.h"
 
 void plat_notify(const char *msg) { printf("[Benachrichtigung] %s\n", msg); fflush(stdout); }
 
@@ -233,6 +234,14 @@ static char *slurp_file(const char *path, size_t *len) {
     }
     fclose(f);
     return buf;
+}
+
+/* Test: ShadowMountPlus-Attrappe auf 127.0.0.1:USBFMT_SMP_PORT (test/smp_mock.py), sonst nicht erreichbar */
+char *plat_smp_post(const char *path, const char *body, int *http, size_t *len) {
+    const char *port = getenv("USBFMT_SMP_PORT");
+    *http = 0;
+    *len = 0;
+    return port ? smp_http_post(atoi(port), path, body, http, len) : NULL;
 }
 
 /* Test: USBFMT_SMP_GAMES = Antwort von /api/v1/games, USBFMT_SMP_LOG = debug.log von ShadowMountPlus */

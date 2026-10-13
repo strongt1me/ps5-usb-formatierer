@@ -118,6 +118,17 @@ static int jget_str(const char *obj, const char *e, const char *key, char *out, 
     return v && v < e && *v == '"' && jstr(v, e, out, n) ? 0 : -1;
 }
 
+int lib_json_str(const char *json, size_t len, const char *key, char *out, size_t n) {
+    return jget_str(json, json + len, key, out, n);
+}
+
+int lib_json_num(const char *json, size_t len, const char *key, long long *v) {
+    const char *e = json + len, *p = jget(json, e, key);
+    if (!p || p >= e || !(*p == '-' || (*p >= '0' && *p <= '9'))) return -1;
+    *v = strtoll(p, NULL, 10);
+    return 0;
+}
+
 /* UTF-8 nicht mitten in einem Zeichen abschneiden */
 static void trim_utf8(char *s) {
     size_t n = strlen(s), i = n;
