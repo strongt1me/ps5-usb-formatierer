@@ -21,7 +21,6 @@
 #define FAT32_MIN_CLUSTERS 65536u
 #define FAT32_MAX_CLUSTERS 0x0FFFFFF4u
 #define EXFAT_MAX_CLUSTERS 0xFFFFFFF5u
-#define ZERO_REPORT_MIN    (8u * MIB)
 
 static char errbuf[256];
 static char sumbuf[256];
@@ -56,8 +55,18 @@ static const char *size_text(uint32_t bytes, char *buf, size_t n) {
     return buf;
 }
 
+/* Fortschritt über das ganze Formatieren: Jeder Schritt bekommt einen festen Anteil (phase), innerhalb dessen er
+ * 0-100 % meldet. So steigt die Anzeige stetig, statt je Schritt bei 0 zu beginnen und lange still zu stehen
+ * (langsame Sticks brauchen Sekunden je verstreutem Schreibzugriff). Nie rückwärts. */
+static int ph_lo = 0, ph_hi = 100, ph_last = -1;
+
+static void phase(int lo, int hi) { ph_lo = lo; ph_hi = hi; }
+
 static void report(blkdev_t *d, const char *step, int pct) {
-    if (d->progress) d->progress(step, pct);
+    int all = ph_lo + pct * (ph_hi - ph_lo) / 100;
+    if (all < ph_last) all = ph_last;
+    ph_last = all;
+    if (d->progress) d->progress(step, all);
 }
 
 static int dev_write(blkdev_t *d, uint64_t sec, const void *buf, uint64_t nsec) {
@@ -78,7 +87,8 @@ static int dev_write(blkdev_t *d, uint64_t sec, const void *buf, uint64_t nsec) 
 
 static int dev_zero(blkdev_t *d, uint64_t sec, uint64_t nsec, const char *step) {
     uint64_t chunk = MIB / d->ss, done = 0;
-    int report_it = step && nsec * d->ss >= ZERO_REPORT_MIN;
+    int report_it = step != NULL;   /* je MiB: auch kleine Bereiche, langsame Sticks brauchen dafür Sekunden */
+    if (report_it) report(d, step, 0);
 
     if (!zbuf) {
         if (posix_memalign((void **)&zbuf, 4096, MIB)) return fail("Kein Speicher");
@@ -346,10 +356,13 @@ int mkfs_fat32(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
         goto out;
 
     /* Reservierter Bereich, beide FATs, Root-Cluster und die Ordner-Cluster nullen */
-    if (dev_zero(d, 0, rsvd, NULL) ||
-        dev_zero(d, rsvd, 2ull * fatsz, "FAT-Tabellen schreiben") ||
-        dev_zero(d, data, (uint64_t)(next - 2) * spc, NULL))
-        goto out;
+    phase(8, 10);
+    if (dev_zero(d, 0, rsvd, "Bootbereich vorbereiten")) goto out;
+    phase(10, 75);
+    if (dev_zero(d, rsvd, 2ull * fatsz, "FAT-Tabellen schreiben")) goto out;
+    phase(75, 80);
+    if (dev_zero(d, data, (uint64_t)(next - 2) * spc, "Ordner vorbereiten")) goto out;
+    phase(80, 85);
 
     static const uint8_t jmp[3] = {0xEB, 0x58, 0x90};
     memcpy(bs, jmp, 3);
@@ -415,9 +428,11 @@ int mkfs_fat32(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
         if (fat_children(dirbuf, csize, &pos, pn, npn, i) ||
             dev_write(d, data + (uint64_t)(pn[i].clus - 2) * spc, dirbuf, spc))
             goto out;
+        report(d, "Ordner anlegen", (i + 1) * 100 / npn);
     }
 
-    report(d, "Dateisystem schreiben", 50);
+    phase(85, 95);
+    report(d, "Dateisystem schreiben", 0);
     if (dev_write(d, data, root, spc) ||
         dev_write(d, rsvd, fat, fat_secs) ||
         dev_write(d, rsvd + fatsz, fat, fat_secs) ||
@@ -573,11 +588,15 @@ int mkfs_exfat(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
         goto out;
 
     /* Bootbereiche, FAT und Luecke bis zum Cluster-Heap nullen, dann Bitmap-, Up-case-, Root- und neue Cluster */
-    if (dev_zero(d, 0, fat_off, NULL) ||
-        dev_zero(d, fat_off, heap - fat_off, "FAT schreiben") ||
-        dev_zero(d, CLUSTER_SEC(c_bm), (uint64_t)bm_clus * spc, "Zuordnungstabelle schreiben") ||
-        dev_zero(d, CLUSTER_SEC(c_up), (uint64_t)(next - c_up) * spc, NULL))
-        goto out;
+    phase(8, 10);
+    if (dev_zero(d, 0, fat_off, "Bootbereich vorbereiten")) goto out;
+    phase(10, 45);
+    if (dev_zero(d, fat_off, heap - fat_off, "FAT schreiben")) goto out;
+    phase(45, 75);
+    if (dev_zero(d, CLUSTER_SEC(c_bm), (uint64_t)bm_clus * spc, "Zuordnungstabelle schreiben")) goto out;
+    phase(75, 80);
+    if (dev_zero(d, CLUSTER_SEC(c_up), (uint64_t)(next - c_up) * spc, "Ordner vorbereiten")) goto out;
+    phase(80, 85);
 
     /* FAT */
     put32(fat, 0xFFFFFFF8u);
@@ -633,6 +652,7 @@ int mkfs_exfat(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
             free(fb);
             if (wr) goto out;
         }
+        report(d, "Ordner anlegen", (i + 1) * 100 / npn);
     }
 
     /* Main Boot Region: Sektor 0 Bootsektor, 1-8 Extended, 9 OEM, 10 reserviert, 11 Checksumme */
@@ -663,7 +683,8 @@ int mkfs_exfat(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
     for (uint32_t i = 0; i < ss; i += 4)
         put32(br + 11ull * ss + i, sum);
 
-    report(d, "Dateisystem schreiben", 50);
+    phase(85, 95);
+    report(d, "Dateisystem schreiben", 0);
     if (dev_write(d, fat_off, fat, fat_secs) ||
         dev_write(d, CLUSTER_SEC(c_bm), bm, bm_head_secs) ||
         dev_write(d, CLUSTER_SEC(c_up), up, up_secs) ||
@@ -733,8 +754,11 @@ static int begin_layout(blkdev_t *d, int fs, const char *label, mkfs_opts_t *o, 
     if (o) o->is_gpt = l->gpt;
 
     d->base = 0;
-    report(d, "Alte Partitionstabellen löschen", 0);
-    return dev_zero(d, 0, edge, NULL) || dev_zero(d, l->end - edge, edge, NULL) ? -1 : 0;
+    ph_last = -1;   /* neues Formatieren: Fortschritt von vorn */
+    phase(0, 4);
+    if (dev_zero(d, 0, edge, "Alte Partitionstabellen löschen")) return -1;
+    phase(4, 8);
+    return dev_zero(d, l->end - edge, edge, "Alte Partitionstabellen löschen");
 }
 
 static int sync_dev(blkdev_t *d) {
@@ -853,9 +877,12 @@ int format_disk(blkdev_t *d, int fs, const char *label, uint32_t serial, uint32_
     rc = fs == FS_EXFAT ? mkfs_exfat(d, l.start, l.count, label, serial, cluster, o)
                         : mkfs_fat32(d, l.start, l.count, label, serial, cluster, o);
     d->base = 0;
-    if (rc || write_table(d, fs, &l, serial, label)) return -1;
-    report(d, "Fertig", 100);
-    return 0;
+    phase(95, 100);
+    rc = rc || write_table(d, fs, &l, serial, label);
+    if (!rc) report(d, "Fertig", 100);
+    phase(0, 100);   /* für spätere Aufrufe ohne format_disk (Tests) */
+    ph_last = -1;
+    return rc ? -1 : 0;
 }
 
 int prepare_partition(blkdev_t *d, int fs, const char *label, uint32_t serial, mkfs_opts_t *o,

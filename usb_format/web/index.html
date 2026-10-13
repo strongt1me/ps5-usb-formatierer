@@ -194,6 +194,11 @@ button.format { background: linear-gradient(#d4e6fc, #a9cbf3); border: 2px solid
 /* Fortschritt */
 .bar { height: 8px; background: var(--bar); border-radius: 4px; overflow: hidden; margin: 2px 0 8px; }
 .bar div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+/* Schritt läuft, meldet aber noch keine Prozente: wandernder Abschnitt statt stillstehender Balken */
+.bar.indet div { width: 30% !important; transition: none; -webkit-animation: indet 1.3s ease-in-out infinite;
+                 animation: indet 1.3s ease-in-out infinite; }
+@-webkit-keyframes indet { from { margin-left: -30%; } to { margin-left: 100%; } }
+@keyframes indet { from { margin-left: -30%; } to { margin-left: 100%; } }
 .status { font-size: 13px; color: var(--muted); min-height: 20px; }
 .status.wait { font-size: 17px; font-weight: 600; color: var(--accent); }
 .msg { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
@@ -911,9 +916,11 @@ function setProgress(st) {
   const wait = isReplugStep(st.step);
   $("progress").hidden = false;
   $("bar").hidden = wait;
+  const indet = st.busy !== false && Math.round(st.percent) === 0;
+  $("bar").classList.toggle("indet", indet);
   $("bar").firstElementChild.style.width = Math.round(st.percent) + "%";
   $("status").classList.toggle("wait", wait);
-  $("status").textContent = !st.step ? "" : wait ? st.step + " …" : st.step + " … " + Math.round(st.percent) + " %";
+  $("status").textContent = !st.step ? "" : wait || indet ? st.step + " …" : st.step + " … " + Math.round(st.percent) + " %";
   $("cancel").hidden = !(st.busy !== false && cancellable(st.step));
 }
 
