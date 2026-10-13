@@ -64,9 +64,8 @@ main.wide .col + .col { margin: 0 0 0 12px; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
 /* Eigene Zeichenebene für die Bildschichten: "z-index: 0", denn der PS5-Browser kennt "isolation" nicht */
 .card.hero { padding: 14px; position: relative; z-index: 0; isolation: isolate; overflow: hidden; box-shadow: var(--shadow); }
-.card.hero::before, .card.hero::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; }
-.card.hero::before { background: url("/bg.jpg") center bottom / cover no-repeat; filter: var(--bg-filter); }
-.card.hero::after { background: var(--veil); }
+/* ohne Bild (Wunsch des Benutzers): ruhige, einfarbige Karte vor dem Platinen-Hintergrund */
+.card.hero::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; background: var(--veil); }
 .pane { padding: 14px 16px; border-radius: 11px; background: var(--pane); }
 .pane + .pane { margin-top: 12px; }
 .pane[hidden], [hidden] { display: none !important; }
