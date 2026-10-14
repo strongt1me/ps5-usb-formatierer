@@ -247,6 +247,9 @@ static void job_done(job_t *j, int ok, sbuf_t *msg, sbuf_t *res, int refresh) {
     if (refresh) lib_refresh();
 }
 
+/* NTFS/ext4: Partition vorbereiten belegt 0-10 %, das externe Werkzeug (mkntfs/mke2fs) den Rest - ohne Rücksprung */
+static void ext_progress(const char *step, int pct) { on_progress(step, 10 + pct * 90 / 100); }
+
 static void *format_worker(void *arg) {
     job_t *j = arg;
     char err[256] = "", summary[160] = "", s1[24], s2[24];
@@ -316,7 +319,7 @@ static void *format_worker(void *arg) {
         rc = prepare_partition(&d, j->fs, j->label, arc4random(), &o, &start, &count);
         close(fd);
         if (rc != 0) snprintf(err, sizeof(err), "%s", mkfs_error());
-        else rc = plat_external_mkfs(&j->dev, j->fs, j->label, j->cluster, start, count, o.is_gpt, on_progress,
+        else rc = plat_external_mkfs(&j->dev, j->fs, j->label, j->cluster, start, count, o.is_gpt, ext_progress,
                                      summary, sizeof(summary), err, sizeof(err));
     }
     if (rc != 0) {
@@ -1200,11 +1203,50 @@ static int path_inside(const char *path, const char *root) {
 }
 
 /* Rekursiv löschen (nur Kopien, die ShadowMountPlus nicht verwaltet, z. B. doppelte) */
-static int remove_tree(const char *path, int depth) {
+/* Fortschritt beim Selbst-Löschen: Gewicht je Datei = Größe + 64 KiB (Freigeben großer Dateien dauert, viele kleine
+ * auch). total wird vorher gezählt, damit die Anzeige gleichmäßig steigt statt bei 0 % zu stehen. */
+typedef struct {
+    uint64_t total, done;
+    int      base, span, last;
+} rm_prog_t;
+
+#define RM_FILE_WEIGHT (64ull * 1024)
+
+static uint64_t tree_weight(const char *path, int depth) {
+    struct stat sb;
+    if (depth > 32 || lstat(path, &sb) != 0) return 0;
+    if (!S_ISDIR(sb.st_mode)) return (uint64_t)sb.st_size + RM_FILE_WEIGHT;
+    DIR *d = opendir(path);
+    if (!d) return 0;
+    uint64_t w = RM_FILE_WEIGHT;
+    char *sub = malloc(1024);
+    struct dirent *e;
+    while (sub && (e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (snprintf(sub, 1024, "%s/%s", path, e->d_name) < 1024) w += tree_weight(sub, depth + 1);
+    }
+    free(sub);
+    closedir(d);
+    return w;
+}
+
+static void rm_step(rm_prog_t *p, uint64_t w) {
+    if (!p) return;
+    p->done += w;
+    int pct = p->base + (int)(p->total ? (p->done > p->total ? p->total : p->done) * (uint64_t)p->span / p->total : 0);
+    if (pct != p->last) { p->last = pct; on_progress("Spiele löschen", pct); }
+}
+
+static int remove_tree(const char *path, int depth, rm_prog_t *p) {
     struct stat sb;
     if (depth > 32) { errno = ELOOP; return -1; }
     if (lstat(path, &sb) != 0) return -1;
-    if (!S_ISDIR(sb.st_mode)) return unlink(path);
+    if (!S_ISDIR(sb.st_mode)) {
+        int rc = unlink(path), saved = errno;
+        rm_step(p, (uint64_t)sb.st_size + RM_FILE_WEIGHT);
+        errno = saved;   /* Fehlertext gehört zum unlink, nicht zur Fortschrittsmeldung */
+        return rc;
+    }
     DIR *d = opendir(path);
     if (!d) return -1;
     struct dirent *e;
@@ -1213,11 +1255,12 @@ static int remove_tree(const char *path, int depth) {
     while (sub && (e = readdir(d))) {
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
         if (snprintf(sub, 1024, "%s/%s", path, e->d_name) >= 1024) { errno = ENAMETOOLONG; rc = -1; }
-        else if (remove_tree(sub, depth + 1) != 0) rc = -1;
+        else if (remove_tree(sub, depth + 1, p) != 0) rc = -1;
     }
     if (!sub) { errno = ENOMEM; rc = -1; }
     free(sub);
     closedir(d);
+    rm_step(p, RM_FILE_WEIGHT);
     return rc == 0 ? rmdir(path) : -1;
 }
 
@@ -1275,7 +1318,12 @@ static void *delete_worker(void *arg) {
             if (!path_inside(it->path, it->root)) {
                 rc = -1;
                 snprintf(err, sizeof(err), "Pfad liegt nicht auf dem USB-Laufwerk");
-            } else if ((rc = remove_tree(it->path, 0)) != 0) {
+            } else {
+                on_progress("Spiele löschen: Dateien zählen", base);
+                rm_prog_t rp = {tree_weight(it->path, 0), 0, base, span, -1};
+                rc = remove_tree(it->path, 0, &rp);
+            }
+            if (rc != 0 && !err[0]) {
                 snprintf(err, sizeof(err), "Löschen fehlgeschlagen: %s", strerror(errno));
             }
         }

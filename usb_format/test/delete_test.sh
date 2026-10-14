@@ -86,6 +86,23 @@ library
 [ "$(q 'len([t for t in d["titles"] if t["device"] == "da0"])' <"$W/lib")" = 1 ] && ok "Bibliothek danach aktualisiert" \
     || bad "Bibliothek danach" "$(cat "$W/lib")"
 
+# ---------------------------------------------------------------- Fortschritt beim Selbst-Löschen (zweite Kopie)
+game "$H/Viele" PPSA07777
+for i in $(seq 1 60); do head -c 200000 /dev/zero >"$H/Viele/datei$i.bin"; done
+start USBFMT_SMP_PORT=$SMP_PORT USBFMT_SLOW=1
+library
+post "{\"keys\":\"$(key "$H/Viele")\"}" delete >/dev/null
+seen=""
+for _ in $(seq 1 300); do
+    curl -s "$U/api/status" >"$W/st"
+    p=$(q 'd["percent"] if d["busy"] else -1' <"$W/st")
+    [ "$p" = -1 ] && break
+    [ "$p" -gt 0 ] && [ "$p" -lt 100 ] && seen="$seen $p"
+    sleep 0.05
+done
+[ -n "$seen" ] && [ ! -e "$H/Viele" ] && ok "Fortschritt steigt beim Löschen:$(echo $seen | tr ' ' '\n' | sort -nu | head -5 | tr '\n' ' ')…" \
+    || bad "Fortschritt beim Löschen" "Zwischenwerte: '$seen' $(cat "$W/st")"
+
 echo
 [ $fails -eq 0 ] && echo "Alle Lösch-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."
 exit $((fails > 0))

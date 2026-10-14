@@ -143,6 +143,12 @@ static void eta_text(char *out, size_t n, const char *what, uint64_t left, doubl
     else snprintf(out, n, "%s – noch ca. %d Std. %d Min.", what, (int)(s / 3600), (int)(s / 60) % 60);
 }
 
+/* Fortschritt einer Messung mit Mengen- und Zeitgrenze: der größere Anteil, höchstens 99 bis zum Ende */
+static int time_pct(uint64_t done, uint64_t total, double elapsed, double limit) {
+    double a = total ? (double)done / (double)total : 1, b = elapsed / limit, p = a > b ? a : b;
+    return p >= 1 ? 99 : (int)(p * 100);
+}
+
 int dt_read_speed(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile int *cancel, devtest_t *r,
                   char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
@@ -164,7 +170,8 @@ int dt_read_speed(int fd, uint32_t ss, uint64_t size, progress_fn progress, vola
             return -1;
         }
         done += take;
-        progress("Lesetempo messen", (int)(done * 100 / total));
+        /* Ende nach Menge oder nach 8 s - was zuerst kommt; so läuft der Balken gleichmäßig bis zum Schluss */
+        progress("Lesetempo messen", time_pct(done, total, now_s() - t0, 8));
         if (now_s() - t0 > 8 && done >= 16ull * MIB) break;
     }
     double dt = now_s() - t0;
@@ -190,7 +197,7 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
             return -1;
         }
         done += CHUNK;
-        progress("Schreibtempo messen", (int)(done * 100 / total));
+        progress("Schreibtempo messen", time_pct(done, total, now_s() - t0, 15));
         if (now_s() - t0 > 15 && done >= 16ull * MIB) break;
     }
     dev_sync(fd);

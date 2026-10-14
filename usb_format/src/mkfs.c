@@ -898,9 +898,12 @@ int prepare_partition(blkdev_t *d, int fs, const char *label, uint32_t serial, m
     /* Alte Dateisystem-Signaturen am Partitionsanfang und -ende löschen (NTFS legt hinten eine Kopie des
      * Bootsektors ab), damit niemand den Zwischenstand für ein gültiges Dateisystem hält */
     d->base = l.start * d->ss;
+    phase(8, 10);
     report(d, "Partition vorbereiten", 0);
     int rc = dev_zero(d, 0, 2 * edge, NULL) || dev_zero(d, l.count - edge, edge, NULL);
     d->base = 0;
-    if (rc || write_table(d, fs, &l, serial, label)) return -1;
-    return 0;
+    rc = rc || write_table(d, fs, &l, serial, label);
+    phase(0, 100);   /* den Rest meldet das externe Werkzeug selbst */
+    ph_last = -1;
+    return rc ? -1 : 0;
 }
