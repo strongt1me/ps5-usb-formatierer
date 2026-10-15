@@ -1,6 +1,6 @@
 # Linux-Fassung: Helfer bauen und testen (auch als root an echten Loop-Geräten), Oberfläche unter Xvfb prüfen,
 # beide Programme mit PyInstaller bauen. Gebaut wird auf Ubuntu 22.04 (glibc 2.35), damit die Programme auch auf
-# älteren Verteilungen laufen; der Helfer ist statisch.
+# älteren Verteilungen laufen; der Helfer ist statisch. Daneben die Host-Tests des PS5-Codes (eigener Job).
 name: Linux
 
 on:
@@ -56,18 +56,6 @@ jobs:
         working-directory: usb_format
         run: sudo -E env "PATH=$PATH" bash test/linux_loop_test.sh
 
-      - name: Payload-Tests (Host)
-        working-directory: usb_format
-        run: |
-          fails=0
-          for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
-                   test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
-                   test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh; do
-            echo "== $t"
-            bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
-          done
-          exit $fails
-
       - name: Oberfläche (Xvfb)
         run: |
           mkdir -p shots
@@ -100,3 +88,26 @@ jobs:
         with:
           name: linux-bilder
           path: shots/
+
+  # Der PS5-Code (Payload) als Host-Programm - FreeBSD hat arc4random, glibc erst ab 2.36: daher Ubuntu 24.04
+  payload:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Werkzeuge
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs mtools
+
+      - name: Payload-Tests (Host)
+        working-directory: usb_format
+        run: |
+          fails=0
+          for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
+                   test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
+                   test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh; do
+            echo "== $t"
+            bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
+          done
+          exit $fails

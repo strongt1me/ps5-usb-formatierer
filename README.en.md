@@ -9,7 +9,7 @@ With authenticity and speed tests, game management, all common file systems and 
 
 [![Version](https://img.shields.io/badge/Version-2.3.1-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-PS5%20%7C%20Windows-0070d1?style=for-the-badge)](#-download)
+[![Platform](https://img.shields.io/badge/Platform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Languages](https://img.shields.io/badge/Languages-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-features)
 
 [Features](#-features) · [Download](#-download) · [Quick start](#-quick-start) · [Screenshots](#-screenshots) · [Building](#-building) · [Licences](#-licences)
@@ -79,7 +79,7 @@ Deutsch, English, Italiano, Español and Français – with a detailed guide beh
 <td valign="top">
 
 ### 📱 Use it anywhere
-PS5 browser, phone or PC (QR code) and two Windows programs. Light or dark theme, adjustable size.
+PS5 browser, phone or PC (QR code) and two PC programs for Windows and Linux. Light or dark theme, adjustable size.
 
 </td>
 </tr>
@@ -95,8 +95,9 @@ All files are in the [latest release](../../releases/latest).
 | `usb_format.elf` | **The formatter (payload).** The app starts it by itself; without the app, send it to the ELF loader (port 9021). |
 | `PS5-USB-Formatierer.exe` | **Windows program with PS5 features:** USB on the PS5 (over the network), USB on PC for the PS5, PC standard. |
 | `USB-Formatierer.exe` | **Windows program without PS5 features:** all file systems, partitions and expert mode. |
+| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **The same two programs for Linux** (x86_64): unpack and start. |
 
-**Requirements:** a PS5 with a running jailbreak and ELF loader (tested with firmware 12.00); ShadowMountPlus for the app tile and for deleting games. Windows 10 or 11 (64-bit); for formatting on the PC, Windows asks once for administrator rights. Linux and Mac versions will follow.
+**Requirements:** a PS5 with a running jailbreak and ELF loader (tested with firmware 12.00); ShadowMountPlus for the app tile and for deleting games. Windows 10 or 11 (64-bit); for formatting on the PC, Windows asks once for administrator rights. Linux (x86_64): for formatting, the system asks for the administrator password (pkexec/polkit); NTFS, FAT16 and ext are written by the system tools from `ntfs-3g`, `dosfstools` and `e2fsprogs`. A Mac version will follow.
 
 ## 🚀 Quick start
 
@@ -107,7 +108,7 @@ All files are in the [latest release](../../releases/latest).
 > [!WARNING]
 > Do not unplug or reconnect USB drives on the PS5 while it is in use. The PS5 attaches them to running games and apps – afterwards these often only start again after restarting the console. Only unplug when the formatter explicitly asks you to.
 
-The **Help** button opens the detailed guide in five languages – in the web interface and in both Windows programs.
+The **Help** button opens the detailed guide in five languages – in the web interface and in the PC programs.
 
 ## 🖼️ Screenshots
 
@@ -136,6 +137,7 @@ The **Help** button opens the detailed guide in five languages – in the web in
 | Payload and app starter | WSL/Linux with [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk): `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` needs `ps5-native-tool`, see `usb_format/app/build_title.sh`) |
 | App folder | `usb_format/dump/build.ps1` (.NET 10) |
 | Windows programs | `windows/build_exe.bat` (Python with PyInstaller, Pillow and ziglang) – also builds the helper `usbfmt_win.exe` and `mke2fs.exe` |
+| Linux programs | `windows/build_linux.sh [usb_format.elf]` (Python 3 with tkinter, PyInstaller and Pillow, gcc) – also builds the helper `usbfmt_linux`. The CI (`.github/workflows/linux.yml`) builds and tests everything on Ubuntu, including on loop devices. |
 | Tests | Linux/WSL: `usb_format/test/*.sh` |
 | Translations | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) and `windows/i18n_app.json` (`windows/i18n_check.py`) |
 

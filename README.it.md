@@ -9,7 +9,7 @@ Con test di autenticità e velocità, gestione dei giochi, tutti i file system p
 
 [![Versione](https://img.shields.io/badge/Versione-2.3.1-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licenza](https://img.shields.io/badge/Licenza-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
-[![Piattaforma](https://img.shields.io/badge/Piattaforma-PS5%20%7C%20Windows-0070d1?style=for-the-badge)](#-download)
+[![Piattaforma](https://img.shields.io/badge/Piattaforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Lingue](https://img.shields.io/badge/Lingue-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funzioni)
 
 [Funzioni](#-funzioni) · [Download](#-download) · [Avvio rapido](#-avvio-rapido) · [Schermate](#-schermate) · [Compilazione](#-compilazione) · [Licenze](#-licenze)
@@ -79,7 +79,7 @@ Deutsch, English, Italiano, Español e Français – con una guida dettagliata d
 <td valign="top">
 
 ### 📱 Usalo ovunque
-Browser della PS5, smartphone o PC (codice QR) e due programmi Windows. Tema chiaro o scuro, dimensione regolabile.
+Browser della PS5, smartphone o PC (codice QR) e due programmi per PC, per Windows e Linux. Tema chiaro o scuro, dimensione regolabile.
 
 </td>
 </tr>
@@ -95,8 +95,9 @@ Tutti i file sono nell'[ultima release](../../releases/latest).
 | `usb_format.elf` | **Il formattatore (payload).** L'app lo avvia da sola; senza app, invialo all'ELF loader (porta 9021). |
 | `PS5-USB-Formatierer.exe` | **Programma Windows con funzioni PS5:** USB sulla PS5 (in rete), USB sul PC per la PS5, PC standard. |
 | `USB-Formatierer.exe` | **Programma Windows senza funzioni PS5:** tutti i file system, partizioni e modalità esperto. |
+| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Gli stessi due programmi per Linux** (x86_64): estrai e avvia. |
 
-**Requisiti:** una PS5 con jailbreak attivo ed ELF loader (testato con il firmware 12.00); ShadowMountPlus per il riquadro app e per eliminare i giochi. Windows 10 o 11 (64 bit); per formattare sul PC, Windows chiede una volta i diritti di amministratore. Le versioni per Linux e Mac arriveranno.
+**Requisiti:** una PS5 con jailbreak attivo ed ELF loader (testato con il firmware 12.00); ShadowMountPlus per il riquadro app e per eliminare i giochi. Windows 10 o 11 (64 bit); per formattare sul PC, Windows chiede una volta i diritti di amministratore. Linux (x86_64): per formattare, il sistema chiede la password di amministratore (pkexec/polkit); NTFS, FAT16 ed ext li scrivono gli strumenti di sistema di `ntfs-3g`, `dosfstools` ed `e2fsprogs`. La versione per Mac arriverà.
 
 ## 🚀 Avvio rapido
 
@@ -107,7 +108,7 @@ Tutti i file sono nell'[ultima release](../../releases/latest).
 > [!WARNING]
 > Durante l'uso non scollegare né ricollegare unità USB alla PS5. La PS5 le collega ai giochi e alle app in esecuzione – dopo spesso questi ripartono solo dopo un riavvio della console. Scollega solo quando il formattatore te lo chiede esplicitamente.
 
-Il pulsante **Aiuto** apre la guida dettagliata in cinque lingue – nell'interfaccia web e in entrambi i programmi Windows.
+Il pulsante **Aiuto** apre la guida dettagliata in cinque lingue – nell'interfaccia web e nei programmi per PC.
 
 ## 🖼️ Schermate
 
@@ -136,6 +137,7 @@ Il pulsante **Aiuto** apre la guida dettagliata in cinque lingue – nell'interf
 | Payload e avvio dell'app | WSL/Linux con [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk): `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` richiede `ps5-native-tool`, vedi `usb_format/app/build_title.sh`) |
 | Cartella dell'app | `usb_format/dump/build.ps1` (.NET 10) |
 | Programmi Windows | `windows/build_exe.bat` (Python con PyInstaller, Pillow e ziglang) – compila anche l'helper `usbfmt_win.exe` e `mke2fs.exe` |
+| Programmi Linux | `windows/build_linux.sh [usb_format.elf]` (Python 3 con tkinter, PyInstaller e Pillow, gcc) – compila anche l'helper `usbfmt_linux`. La CI (`.github/workflows/linux.yml`) compila e verifica tutto su Ubuntu, anche su dispositivi loop. |
 | Test | Linux/WSL: `usb_format/test/*.sh` |
 | Traduzioni | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) e `windows/i18n_app.json` (`windows/i18n_check.py`) |
 

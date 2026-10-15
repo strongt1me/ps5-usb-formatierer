@@ -9,7 +9,7 @@ Avec test d'authenticité et de vitesse, gestion des jeux, tous les systèmes de
 
 [![Version](https://img.shields.io/badge/Version-2.3.1-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
-[![Plateforme](https://img.shields.io/badge/Plateforme-PS5%20%7C%20Windows-0070d1?style=for-the-badge)](#-téléchargement)
+[![Plateforme](https://img.shields.io/badge/Plateforme-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-téléchargement)
 [![Langues](https://img.shields.io/badge/Langues-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-fonctions)
 
 [Fonctions](#-fonctions) · [Téléchargement](#-téléchargement) · [Démarrage rapide](#-démarrage-rapide) · [Aperçus](#-aperçus) · [Compiler](#-compiler) · [Licences](#-licences)
@@ -79,7 +79,7 @@ Deutsch, English, Italiano, Español et Français – avec un guide détaillé d
 <td valign="top">
 
 ### 📱 Utilisable partout
-Navigateur de la PS5, téléphone ou PC (code QR) et deux programmes Windows. Thème clair ou sombre, taille réglable.
+Navigateur de la PS5, téléphone ou PC (code QR) et deux programmes PC pour Windows et Linux. Thème clair ou sombre, taille réglable.
 
 </td>
 </tr>
@@ -95,8 +95,9 @@ Tous les fichiers se trouvent dans la [dernière version](../../releases/latest)
 | `usb_format.elf` | **Le formateur (payload).** L'app le lance elle-même ; sans l'app, envoyez-le au chargeur ELF (port 9021). |
 | `PS5-USB-Formatierer.exe` | **Programme Windows avec fonctions PS5 :** USB sur la PS5 (via le réseau), USB sur PC pour la PS5, PC standard. |
 | `USB-Formatierer.exe` | **Programme Windows sans fonctions PS5 :** tous les systèmes de fichiers, partitions et mode expert. |
+| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Les deux mêmes programmes pour Linux** (x86_64) : décompresser et lancer. |
 
-**Prérequis :** une PS5 avec un jailbreak actif et un chargeur ELF (testé avec le firmware 12.00) ; ShadowMountPlus pour la vignette de l'app et la suppression des jeux. Windows 10 ou 11 (64 bits) ; pour formater sur le PC, Windows demande une fois les droits d'administrateur. Les versions Linux et Mac suivront.
+**Prérequis :** une PS5 avec un jailbreak actif et un chargeur ELF (testé avec le firmware 12.00) ; ShadowMountPlus pour la vignette de l'app et la suppression des jeux. Windows 10 ou 11 (64 bits) ; pour formater sur le PC, Windows demande une fois les droits d'administrateur. Linux (x86_64) : pour formater, le système demande le mot de passe administrateur (pkexec/polkit) ; NTFS, FAT16 et ext sont écrits par les outils système de `ntfs-3g`, `dosfstools` et `e2fsprogs`. Une version Mac suivra.
 
 ## 🚀 Démarrage rapide
 
@@ -107,7 +108,7 @@ Tous les fichiers se trouvent dans la [dernière version](../../releases/latest)
 > [!WARNING]
 > Pendant l'utilisation, ne débranchez ni ne rebranchez aucun support USB sur la PS5. Elle les rattache aux jeux et applications en cours – ceux-ci ne redémarrent souvent qu'après un redémarrage de la console. Ne débranchez que si le formateur vous le demande expressément.
 
-Le bouton **Aide** ouvre le guide détaillé en cinq langues – dans l'interface web et dans les deux programmes Windows.
+Le bouton **Aide** ouvre le guide détaillé en cinq langues – dans l'interface web et dans les programmes PC.
 
 ## 🖼️ Aperçus
 
@@ -136,6 +137,7 @@ Le bouton **Aide** ouvre le guide détaillé en cinq langues – dans l'interfac
 | Payload et lanceur de l'app | WSL/Linux avec [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk) : `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` nécessite `ps5-native-tool`, voir `usb_format/app/build_title.sh`) |
 | Dossier de l'app | `usb_format/dump/build.ps1` (.NET 10) |
 | Programmes Windows | `windows/build_exe.bat` (Python avec PyInstaller, Pillow et ziglang) – compile aussi l'assistant `usbfmt_win.exe` et `mke2fs.exe` |
+| Programmes Linux | `windows/build_linux.sh [usb_format.elf]` (Python 3 avec tkinter, PyInstaller et Pillow, gcc) – compile aussi l'assistant `usbfmt_linux`. La CI (`.github/workflows/linux.yml`) compile et teste tout sous Ubuntu, y compris sur des périphériques loop. |
 | Tests | Linux/WSL : `usb_format/test/*.sh` |
 | Traductions | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) et `windows/i18n_app.json` (`windows/i18n_check.py`) |
 
