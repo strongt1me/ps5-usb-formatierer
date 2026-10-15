@@ -102,7 +102,11 @@ e2fsck -fn "$W/p.img" >/dev/null 2>&1 && ok "MBR: ext3 in Partition 2" || bad "M
 "$H" --out "$W/label.txt" --image "$W/exfat.img" label image $((1024 * M)) "NEU NAME" >/dev/null 2>&1
 expect label 1 "exFAT umbenennen"
 part "$W/exfat.img" 1
-has exfatlabel && { [ "$(exfatlabel "$W/p.img" 2>/dev/null | tail -n 1)" = "NEU NAME" ] && ok "Bezeichnung geschrieben" || bad "Bezeichnung: $(exfatlabel "$W/p.img" 2>&1 | tail -n 1)"; }
+if has exfatlabel; then
+    lbl=$(exfatlabel "$W/p.img" 2>/dev/null | tail -n 1)
+    lbl=${lbl#label: }   # ältere exfatprogs schreiben "label: <name>"
+    [ "$lbl" = "NEU NAME" ] && ok "Bezeichnung geschrieben" || bad "Bezeichnung: $lbl"
+fi
 "$H" --out "$W/speed.txt" --image "$W/exfat.img" speed image $((1024 * M)) plain >/dev/null 2>&1
 expect speed 1 "Tempo messen"
 run verify 512M format exfat TEST verify plain
