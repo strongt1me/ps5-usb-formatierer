@@ -971,12 +971,6 @@
   "es": "No desconectes ni vuelvas a conectar unidades USB mientras se usan",
   "fr": "Ne débranchez ni ne rebranchez aucun support USB pendant l'utilisation"
  },
- "Die PS5 bindet USB-Laufwerke in laufende Spiele und Apps ein. Wird ein Laufwerk abgezogen oder neu angeschlossen, starten Spiele und Apps danach oft erst wieder nach einem Neustart der Konsole. Zum Formatieren meldet der Formatierer Laufwerke selbst per Software ab – abziehen nur, wenn er ausdrücklich dazu auffordert.": {
-  "en": "The PS5 attaches USB drives to running games and apps. If a drive is unplugged or reconnected, games and apps often only start again after restarting the console. For formatting, the formatter detaches drives itself by software – only unplug when it explicitly asks you to.",
-  "it": "La PS5 collega le unità USB ai giochi e alle app in esecuzione. Se un'unità viene scollegata o ricollegata, spesso giochi e app ripartono solo dopo un riavvio della console. Per la formattazione il formattatore scollega da solo le unità via software – scollega solo quando te lo chiede esplicitamente.",
-  "es": "La PS5 vincula las unidades USB a los juegos y aplicaciones en ejecución. Si se desconecta o vuelve a conectar una unidad, a menudo los juegos y aplicaciones solo vuelven a iniciarse tras reiniciar la consola. Para formatear, el formateador desconecta él mismo las unidades por software – desconecta solo cuando te lo pida expresamente.",
-  "fr": "La PS5 rattache les lecteurs USB aux jeux et applications en cours. Si un lecteur est débranché ou rebranché, les jeux et applications ne redémarrent souvent qu'après un redémarrage de la console. Pour formater, le formateur déconnecte lui-même les lecteurs par logiciel – ne débranchez que s'il vous le demande expressément."
- },
  "Hilfe": {
   "en": "Help",
   "it": "Aiuto",

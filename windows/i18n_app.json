@@ -371,12 +371,6 @@
   "es": "Solo se permiten A–Z, 0–9, espacio, - y _ (como máximo {n} caracteres).",
   "fr": "Seuls A–Z, 0–9, l'espace, - et _ sont autorisés ({n} caractères au maximum)."
  },
- "Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu anschließen: Die PS5 bindet sie in laufende Spiele und Apps ein – danach starten diese oft erst nach einem Neustart der Konsole wieder. Abziehen nur, wenn der Formatierer ausdrücklich dazu auffordert.": {
-  "en": "Do not unplug or reconnect USB drives on the PS5 while it is in use: the PS5 attaches them to running games and apps – afterwards these often only start again after restarting the console. Only unplug when the formatter explicitly asks you to.",
-  "it": "Durante l'uso non scollegare né ricollegare unità USB alla PS5: la PS5 le collega ai giochi e alle app in esecuzione – dopo spesso questi ripartono solo dopo un riavvio della console. Scollega solo quando il formattatore te lo chiede esplicitamente.",
-  "es": "Mientras se usa, no desconectes ni vuelvas a conectar unidades USB en la PS5: la PS5 las vincula a los juegos y aplicaciones en ejecución – después, a menudo solo vuelven a iniciarse tras reiniciar la consola. Desconecta solo cuando el formateador te lo pida expresamente.",
-  "fr": "Pendant l'utilisation, ne débranchez ni ne rebranchez de support USB sur la PS5 : elle les rattache aux jeux et applications en cours – ceux-ci ne redémarrent souvent qu'après un redémarrage de la console. Ne débranchez que si le formateur vous le demande expressément."
- },
  "Bis zu {n} Zeichen: A–Z, 0–9, Leerzeichen, - und _": {
   "en": "Up to {n} characters: A–Z, 0–9, space, - and _",
   "it": "Fino a {n} caratteri: A–Z, 0–9, spazio, - e _",
@@ -1450,5 +1444,17 @@
   "it": "Impossibile aprire la guida: {e}",
   "es": "No se pudo abrir la guía: {e}",
   "fr": "Impossible d'ouvrir le guide : {e}"
+ },
+ "Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu anschließen": {
+  "en": "Do not unplug or reconnect USB drives on the PS5 while in use",
+  "it": "Durante l'uso non scollegare né ricollegare unità USB alla PS5",
+  "es": "No desconectes ni vuelvas a conectar unidades USB en la PS5 mientras se usan",
+  "fr": "Ne débranchez ni ne rebranchez aucun support USB sur la PS5 pendant l'utilisation"
+ },
+ "Ordner": {
+  "en": "folder",
+  "it": "cartella",
+  "es": "carpeta",
+  "fr": "dossier"
  }
 }

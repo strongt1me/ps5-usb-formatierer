@@ -1,0 +1,149 @@
+<div align="center">
+
+<img src="docs/images/logo.png" width="140" alt="Formateur USB">
+
+# Formateur USB
+
+**Formatez clés et disques USB – directement sur la PS5 ou sur le PC.**<br>
+Avec test d'authenticité et de vitesse, gestion des jeux, tous les systèmes de fichiers courants et vos propres partitions.
+
+[![Version](https://img.shields.io/badge/Version-2.3.0-185fa5?style=for-the-badge)](../../releases/latest)
+[![Licences](https://img.shields.io/badge/Licences-parties%20GPL-6e7781?style=for-the-badge)](#-licences)
+[![Plateforme](https://img.shields.io/badge/Plateforme-PS5%20%7C%20Windows-0070d1?style=for-the-badge)](#-téléchargement)
+[![Langues](https://img.shields.io/badge/Langues-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-fonctions)
+
+[Fonctions](#-fonctions) · [Téléchargement](#-téléchargement) · [Démarrage rapide](#-démarrage-rapide) · [Aperçus](#-aperçus) · [Compiler](#-compiler) · [Licences](#-licences)
+
+[Deutsch](README.md) · [English](README.en.md) · [Italiano](README.it.md) · [Español](README.es.md) · **Français**
+
+<img src="docs/images/fr/web.webp" width="900" alt="Interface web du Formateur USB">
+
+</div>
+
+## ✨ Fonctions
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 🎮 Conçu pour la PS5
+exFAT avec 64 Ko – idéal pour ShadowMountPlus. Crée tout de suite les dossiers `homebrew`, `etaHEN/games` et `pkg`. Se lance depuis sa propre vignette.
+
+</td>
+<td width="33%" valign="top">
+
+### 🔌 Sans débrancher
+Le formateur déconnecte par logiciel les lecteurs montés et les reprend avant que la PS5 ne les remonte.
+
+</td>
+<td width="33%" valign="top">
+
+### 🕹️ Les jeux en un coup d'œil
+Jeux (dossiers et images avec ID de titre), fichiers PKG et occupation. Détecte les jeux en double, supprime les jeux avec leur vignette.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🛡️ Test d'authenticité
+Détecte les clés à capacité contrefaite et, si vous le souhaitez, ne formate que la zone réelle. Mesure les vitesses de lecture et d'écriture.
+
+</td>
+<td valign="top">
+
+### 🧩 Tous les systèmes de fichiers
+exFAT, FAT32 (même au-delà de 32 Go), NTFS, FAT16, ext4/ext3/ext2 et HFS+ – unité d'allocation au choix.
+
+</td>
+<td valign="top">
+
+### 🗂️ Mode expert
+Plusieurs partitions en MBR (jusqu'à 4) ou GPT (jusqu'à 16) : système de fichiers, taille, type, nom, amorçable.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🩺 Vérifier et réparer
+Vérifie et répare exFAT, renomme les lecteurs sans perte de données, formatage complet qui écrit et vérifie chaque secteur.
+
+</td>
+<td valign="top">
+
+### 🌍 Cinq langues
+Deutsch, English, Italiano, Español et Français – avec un guide détaillé derrière le bouton « Aide ».
+
+</td>
+<td valign="top">
+
+### 📱 Utilisable partout
+Navigateur de la PS5, téléphone ou PC (code QR) et deux programmes Windows. Thème clair ou sombre, taille réglable.
+
+</td>
+</tr>
+</table>
+
+## 📦 Téléchargement
+
+Tous les fichiers se trouvent dans la [dernière version](../../releases/latest).
+
+| Fichier | Rôle |
+|---|---|
+| `PPSA86920.zip` | **Vignette de l'app pour la PS5 :** décompressez et copiez le dossier `PPSA86920` dans `/data/homebrew/` (par ex. via FTP). ShadowMountPlus enregistre l'app. |
+| `usb_format.elf` | **Le formateur (payload).** L'app le lance elle-même ; sans l'app, envoyez-le au chargeur ELF (port 9021). |
+| `PS5-USB-Formatierer.exe` | **Programme Windows avec fonctions PS5 :** USB sur la PS5 (via le réseau), USB sur PC pour la PS5, PC standard. |
+| `USB-Formatierer.exe` | **Programme Windows sans fonctions PS5 :** tous les systèmes de fichiers, partitions et mode expert. |
+
+**Prérequis :** une PS5 avec un jailbreak actif et un chargeur ELF (testé avec le firmware 12.00) ; ShadowMountPlus pour la vignette de l'app et la suppression des jeux. Windows 10 ou 11 (64 bits) ; pour formater sur le PC, Windows demande une fois les droits d'administrateur. Les versions Linux et Mac suivront.
+
+## 🚀 Démarrage rapide
+
+1. **Installer :** copiez le dossier `PPSA86920` du ZIP dans `/data/homebrew/` sur la PS5.
+2. **Lancer :** chargez le jailbreak et ouvrez la vignette **USB-Formatierer**. L'interface s'affiche dans le navigateur de la PS5 – via le code QR ou à l'adresse `http://<IP-PS5>:8090` aussi sur téléphone ou PC.
+3. **Formater :** choisissez un lecteur, réglez le système de fichiers et le nom, appuyez sur **Formater** – c'est fait.
+
+> [!WARNING]
+> Pendant l'utilisation, ne débranchez ni ne rebranchez aucun support USB sur la PS5. Elle les rattache aux jeux et applications en cours – ceux-ci ne redémarrent souvent qu'après un redémarrage de la console. Ne débranchez que si le formateur vous le demande expressément.
+
+Le bouton **Aide** ouvre le guide détaillé en cinq langues – dans l'interface web et dans les deux programmes Windows.
+
+## 🖼️ Aperçus
+
+<table>
+<tr>
+<td width="50%" align="center"><img src="docs/images/fr/ps5.webp" alt="Navigateur de la PS5"><br><sub><b>Dans le navigateur de la PS5 sur le téléviseur</b></sub></td>
+<td width="50%" align="center"><img src="docs/images/fr/dialog.webp" alt="Confirmation"><br><sub><b>Confirmation – si le lecteur contient des jeux, il faut le confirmer expressément</b></sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/images/fr/light.webp" alt="Thème clair"><br><sub><b>Thème clair – clé contrefaite détectée, seule la zone réelle est utilisée</b></sub></td>
+<td align="center"><img src="docs/images/fr/help.webp" alt="Guide"><br><sub><b>Guide en cinq langues derrière le bouton « Aide »</b></sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/images/fr/win_ps5.webp" alt="Windows : USB sur la PS5" width="420"><br><sub><b>Windows : USB sur la PS5 – trouve la PS5 sur le réseau domestique</b></sub></td>
+<td align="center"><img src="docs/images/fr/win_std.webp" alt="Windows : Formateur USB" width="420"><br><sub><b>Windows : Formateur USB – tous les systèmes de fichiers</b></sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/fr/win_expert.webp" alt="Mode expert" width="520"><br><sub><b>Mode expert – vos propres partitions avec exFAT, NTFS, HFS+ et ext4</b></sub></td>
+</tr>
+</table>
+
+## 🛠️ Compiler
+
+| Partie | Comment faire |
+|---|---|
+| Payload et lanceur de l'app | WSL/Linux avec [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk) : `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` nécessite `ps5-native-tool`, voir `usb_format/app/build_title.sh`) |
+| Dossier de l'app | `usb_format/dump/build.ps1` (.NET 10) |
+| Programmes Windows | `windows/build_exe.bat` (Python avec PyInstaller, Pillow et ziglang) – compile aussi l'assistant `usbfmt_win.exe` et `mke2fs.exe` |
+| Tests | Linux/WSL : `usb_format/test/*.sh` |
+| Traductions | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) et `windows/i18n_app.json` (`windows/i18n_check.py`) |
+
+## 📄 Licences
+
+- `usb_format/third_party/exfatprogs` – exfatprogs 1.4.3, **GPL-2.0-or-later** (fsck.exfat est intégré au formateur, `usb_format.elf` relève donc aussi de la GPL)
+- `usb_format/tools/bin` – mkntfs (ntfs-3g) et mke2fs (e2fsprogs), GPL, voir `THIRD_PARTY_NOTICES.txt`
+- `windows/mke2fs` – mke2fs d'e2fsprogs 1.47.1 pour ext2/3/4 sur le PC, GPL, voir `NOTICE.txt`
+- `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, voir `NOTICE.txt`
+
+Utilisation à vos risques – sauvegardez d'abord vos données importantes.

@@ -1,0 +1,149 @@
+<div align="center">
+
+<img src="docs/images/logo.png" width="140" alt="USB Formatter">
+
+# USB Formatter
+
+**Format USB sticks and drives – directly on the PS5 or on your PC.**<br>
+With authenticity and speed tests, game management, all common file systems and custom partitions.
+
+[![Version](https://img.shields.io/badge/Version-2.3.0-185fa5?style=for-the-badge)](../../releases/latest)
+[![Licences](https://img.shields.io/badge/Licences-GPL%20parts-6e7781?style=for-the-badge)](#-licences)
+[![Platform](https://img.shields.io/badge/Platform-PS5%20%7C%20Windows-0070d1?style=for-the-badge)](#-download)
+[![Languages](https://img.shields.io/badge/Languages-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-features)
+
+[Features](#-features) · [Download](#-download) · [Quick start](#-quick-start) · [Screenshots](#-screenshots) · [Building](#-building) · [Licences](#-licences)
+
+[Deutsch](README.md) · **English** · [Italiano](README.it.md) · [Español](README.es.md) · [Français](README.fr.md)
+
+<img src="docs/images/en/web.webp" width="900" alt="Web interface of the USB Formatter">
+
+</div>
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 🎮 Made for the PS5
+exFAT with 64 KB – ideal for ShadowMountPlus. Creates the folders `homebrew`, `etaHEN/games` and `pkg` right away. Starts from its own app tile.
+
+</td>
+<td width="33%" valign="top">
+
+### 🔌 No unplugging
+The formatter detaches mounted drives by software and takes them over before the PS5 mounts them again.
+
+</td>
+<td width="33%" valign="top">
+
+### 🕹️ Games at a glance
+Games (folders and images with title ID), PKG files and usage. Detects duplicate games, deletes games including their tile.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🛡️ Authenticity test
+Detects sticks with a fake capacity and, if you like, formats only the real area. Measures read and write speed.
+
+</td>
+<td valign="top">
+
+### 🧩 All file systems
+exFAT, FAT32 (even above 32 GB), NTFS, FAT16, ext4/ext3/ext2 and HFS+ – with any allocation unit.
+
+</td>
+<td valign="top">
+
+### 🗂️ Expert mode
+Several partitions with MBR (up to 4) or GPT (up to 16): file system, size, type, label, bootable.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🩺 Check & repair
+Check and repair exFAT, rename drives without losing data, full format that writes and verifies every sector.
+
+</td>
+<td valign="top">
+
+### 🌍 Five languages
+Deutsch, English, Italiano, Español and Français – with a detailed guide behind the “Help” button.
+
+</td>
+<td valign="top">
+
+### 📱 Use it anywhere
+PS5 browser, phone or PC (QR code) and two Windows programs. Light or dark theme, adjustable size.
+
+</td>
+</tr>
+</table>
+
+## 📦 Download
+
+All files are in the [latest release](../../releases/latest).
+
+| File | Purpose |
+|---|---|
+| `PPSA86920.zip` | **App tile for the PS5:** unzip and copy the folder `PPSA86920` to `/data/homebrew/` (e.g. via FTP). ShadowMountPlus registers the app. |
+| `usb_format.elf` | **The formatter (payload).** The app starts it by itself; without the app, send it to the ELF loader (port 9021). |
+| `PS5-USB-Formatierer.exe` | **Windows program with PS5 features:** USB on the PS5 (over the network), USB on PC for the PS5, PC standard. |
+| `USB-Formatierer.exe` | **Windows program without PS5 features:** all file systems, partitions and expert mode. |
+
+**Requirements:** a PS5 with a running jailbreak and ELF loader (tested with firmware 12.00); ShadowMountPlus for the app tile and for deleting games. Windows 10 or 11 (64-bit); for formatting on the PC, Windows asks once for administrator rights. Linux and Mac versions will follow.
+
+## 🚀 Quick start
+
+1. **Install:** copy the folder `PPSA86920` from the ZIP to `/data/homebrew/` on the PS5.
+2. **Start:** load the jailbreak and open the **USB-Formatierer** tile. The interface appears in the PS5 browser – via QR code or at `http://<PS5-IP>:8090` also on your phone or PC.
+3. **Format:** choose a drive, set the file system and label, press **Format** – done.
+
+> [!WARNING]
+> Do not unplug or reconnect USB drives on the PS5 while it is in use. The PS5 attaches them to running games and apps – afterwards these often only start again after restarting the console. Only unplug when the formatter explicitly asks you to.
+
+The **Help** button opens the detailed guide in five languages – in the web interface and in both Windows programs.
+
+## 🖼️ Screenshots
+
+<table>
+<tr>
+<td width="50%" align="center"><img src="docs/images/en/ps5.webp" alt="PS5 browser"><br><sub><b>In the PS5 browser on the TV</b></sub></td>
+<td width="50%" align="center"><img src="docs/images/en/dialog.webp" alt="Confirmation"><br><sub><b>Confirmation – games on the drive must be confirmed explicitly</b></sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/images/en/light.webp" alt="Light theme"><br><sub><b>Light theme – fake stick detected, only the real area is used</b></sub></td>
+<td align="center"><img src="docs/images/en/help.webp" alt="Guide"><br><sub><b>Guide in five languages behind the “Help” button</b></sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/images/en/win_ps5.webp" alt="Windows: USB on the PS5" width="420"><br><sub><b>Windows: USB on the PS5 – finds the PS5 on your home network</b></sub></td>
+<td align="center"><img src="docs/images/en/win_std.webp" alt="Windows: USB Formatter" width="420"><br><sub><b>Windows: USB Formatter – all file systems</b></sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/en/win_expert.webp" alt="Expert mode" width="520"><br><sub><b>Expert mode – custom partitions with exFAT, NTFS, HFS+ and ext4</b></sub></td>
+</tr>
+</table>
+
+## 🛠️ Building
+
+| Part | How to |
+|---|---|
+| Payload and app starter | WSL/Linux with [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk): `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` needs `ps5-native-tool`, see `usb_format/app/build_title.sh`) |
+| App folder | `usb_format/dump/build.ps1` (.NET 10) |
+| Windows programs | `windows/build_exe.bat` (Python with PyInstaller, Pillow and ziglang) – also builds the helper `usbfmt_win.exe` and `mke2fs.exe` |
+| Tests | Linux/WSL: `usb_format/test/*.sh` |
+| Translations | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) and `windows/i18n_app.json` (`windows/i18n_check.py`) |
+
+## 📄 Licences
+
+- `usb_format/third_party/exfatprogs` – exfatprogs 1.4.3, **GPL-2.0-or-later** (fsck.exfat is built into the formatter, so `usb_format.elf` is covered by the GPL as well)
+- `usb_format/tools/bin` – mkntfs (ntfs-3g) and mke2fs (e2fsprogs), GPL, see `THIRD_PARTY_NOTICES.txt`
+- `windows/mke2fs` – mke2fs from e2fsprogs 1.47.1 for ext2/3/4 on the PC, GPL, see `NOTICE.txt`
+- `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, see `NOTICE.txt`
+
+Use at your own risk – back up important data first.

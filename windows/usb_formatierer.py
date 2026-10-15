@@ -231,12 +231,10 @@ class App(tk.Tk):
             row += 1
             return lbl
 
-        # wie in der Weboberfläche ganz oben: das passiert wirklich, wenn man an der laufenden PS5 umsteckt
+        # wie in der Weboberfläche ganz oben und nur eine Zeile (die Erklärung steht in der Anleitung)
         self.ps5_warn = ttk.Label(
             frm, foreground="#9a5b00", wraplength=600, justify="left",
-            text="⚠ " + _("Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu anschließen: Die PS5 "
-                          "bindet sie in laufende Spiele und Apps ein – danach starten diese oft erst nach einem Neustart "
-                          "der Konsole wieder. Abziehen nur, wenn der Formatierer ausdrücklich dazu auffordert."))
+            text="⚠ " + _("Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu anschließen"))
         self.ps5_warn.grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 0))
         row += 1
         self.ps5_caption = caption(_("PS5:"))
@@ -489,7 +487,8 @@ class App(tk.Tk):
             return
         games = self.games.get(dev["name"], [])
         for g in sorted(games, key=lambda g: g["name"].lower()):
-            self.games_tree.insert("", "end", iid=g.get("key") or None, values=(g["name"] or g["id"], g["id"], g["kind"],
+            kind = _("Ordner") if g["kind"] == "Ordner" else g["kind"]   # Art kommt deutsch vom Formatierer
+            self.games_tree.insert("", "end", iid=g.get("key") or None, values=(g["name"] or g["id"], g["id"], kind,
                                                       fmt_size(g["size"]) if g["size"] else "–"))
         if games:
             text = _("Spiele auf diesem Datenträger: {n}", n=len(games))
