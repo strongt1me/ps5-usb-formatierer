@@ -476,22 +476,31 @@ int plat_session_open(session_t *s, const char *disk, uint64_t size, int write, 
 }
 
 /* das System die (neue) Partitionstabelle einlesen lassen und auf die Geräte warten */
-static void settle(void) {
-    static const char *const udevadm[] = {"/usr/bin/udevadm", "/bin/udevadm", "/sbin/udevadm", NULL};
-    for (int i = 0; udevadm[i]; i++) {
+/* udevadm (nur eine root-eigene Datei) mit bis zu drei Argumenten; ohne udevadm kurz warten */
+static void udevadm(const char *a1, const char *a2, const char *a3) {
+    static const char *const paths[] = {"/usr/bin/udevadm", "/bin/udevadm", "/sbin/udevadm", NULL};
+    for (int i = 0; paths[i]; i++) {
         struct stat st;
-        if (stat(udevadm[i], &st) || st.st_uid != 0 || (st.st_mode & 022)) continue;
+        if (stat(paths[i], &st) || st.st_uid != 0 || (st.st_mode & 022)) continue;
         pid_t pid = fork();
         if (pid == 0) {
             int nul = open("/dev/null", O_RDWR);
             if (nul >= 0) { dup2(nul, 0); dup2(nul, 1); dup2(nul, 2); }
-            execl(udevadm[i], "udevadm", "settle", "--timeout=10", (char *)NULL);
+            execl(paths[i], "udevadm", a1, a2, a3, (char *)NULL);
             _exit(127);
         }
         if (pid > 0) waitpid(pid, NULL, 0);
         return;
     }
     sleep_ms(1500);
+}
+
+static void settle(void) { udevadm("settle", "--timeout=10", NULL); }
+
+/* udev das neue Dateisystem einer Partition erkennen lassen - sonst zeigt die Liste noch eine Weile den alten Stand */
+static void reprobe(const char *dev) {
+    udevadm("trigger", "--action=change", dev);
+    settle();
 }
 
 void plat_session_close(session_t *s, int changed) {
@@ -662,6 +671,7 @@ int plat_os_format(const diskinfo_t *di, int fs, int index, uint64_t start, uint
     int rc = run_tool(tool, argv, ntfs ? FS_NTFS : 0, lo, hi, output, sizeof(output));
     if (rc != 0) { tool_failed(err, n, strrchr(tool, '/') + 1, rc, output); return -1; }
     sync();
+    reprobe(dev);
     uint32_t c = boot_cluster(dev, ntfs);
     const char *kind = ntfs ? "NTFS" : count * di->ss < 16 * MIB ? "FAT12" : "FAT16";
     if (c) snprintf(summary, sn, T("%s, %s Cluster"), kind, size_text(c, cs, sizeof(cs)));
@@ -702,6 +712,7 @@ int plat_mke2fs(const diskinfo_t *di, int index, uint64_t start, uint64_t count,
     argv[a] = NULL;
     int rc = run_tool(tool, argv, FS_EXT4, lo, hi, output, sizeof(output));
     if (rc != 0 || !extfs_succeeded(FS_EXT4, output)) { tool_failed(err, n, "mke2fs", rc, output); return -1; }
+    if (!image_path) reprobe(dev);
     unsigned long long blocks = 0;
     unsigned kb = block ? block / 1024 : 0;
     const char *p = strstr(output, "Creating filesystem with ");
@@ -712,16 +723,36 @@ int plat_mke2fs(const diskinfo_t *di, int index, uint64_t start, uint64_t count,
 
 /* ------------------------------------------------------------------ Umbenennen (NTFS/FAT16) */
 
+/* Dateisystem direkt aus dem Bootsektor (1 = NTFS, 2 = FAT12/16, 0 = anderes). Die udev-Datenbank kann kurz nach
+ * dem Formatieren noch den alten Stand haben. */
+static int boot_kind(const char *dev) {
+    uint8_t b[512];
+    int fd = open(dev, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return 0;
+    ssize_t r = pread(fd, b, sizeof(b), 0);
+    close(fd);
+    if (r != (ssize_t)sizeof(b) || b[510] != 0x55 || b[511] != 0xAA) return 0;
+    if (!memcmp(b + 3, "NTFS    ", 8)) return 1;
+    const unsigned bps = b[11] | b[12] << 8, fat16_size = b[22] | b[23] << 8;   /* FAT32 und exFAT: 0 */
+    if (memcmp(b + 3, "EXFAT   ", 8) && bps >= 512 && bps <= 4096 && !(bps & (bps - 1)) && b[13] && b[16] && fat16_size)
+        return 2;
+    return 0;
+}
+
 int plat_os_label(const char *disk, uint64_t size, const char *label, diskinfo_t *di, int *handled, char *err,
                   size_t n) {
     *handled = 0;
     if (!valid_name(disk)) return 0;   /* das Öffnen meldet den Fehler */
     partinfo_t v[MAX_PARTS_SCAN];
-    int nv = disk_parts(disk, v, MAX_PARTS_SCAN), hit = -1;
+    char dev[48];
+    int nv = disk_parts(disk, v, MAX_PARTS_SCAN), hit = -1, kind = 0;
     for (int i = 0; i < nv; i++) {
-        if (strcmp(v[i].fs, "NTFS") && !v[i].fat16) continue;
+        snprintf(dev, sizeof(dev), "/dev/%s", v[i].name);
+        const int k = boot_kind(dev);
+        if (!k) continue;
         if (hit != -1) { *handled = 1; snprintf(err, n, "%s", T("Mehrere NTFS-/FAT-Laufwerke auf dem Datenträger.")); return -1; }
         hit = i;
+        kind = k;
     }
     if (hit < 0) return 0;
     *handled = 1;
@@ -729,7 +760,7 @@ int plat_os_label(const char *disk, uint64_t size, const char *label, diskinfo_t
         snprintf(err, n, T("Datenträger %s hat sich geändert (andere Größe) – bitte die Liste aktualisieren."), disk);
         return -1;
     }
-    const int ntfs = !strcmp(v[hit].fs, "NTFS");
+    const int ntfs = kind == 1;
     if (!label_valid(label, ntfs ? FS_NTFS : FS_FAT32)) {
         snprintf(err, n, T("Ungültige Bezeichnung: max. %d Zeichen, nur A-Z, 0-9, Leerzeichen, - und _"), ntfs ? 32 : 11);
         return -1;
@@ -744,7 +775,6 @@ int plat_os_label(const char *disk, uint64_t size, const char *label, diskinfo_t
         return -1;
     }
     static char output[4096];
-    char dev[48];
     snprintf(dev, sizeof(dev), "/dev/%s", v[hit].name);
     char *argv[6];
     int a = 0;
