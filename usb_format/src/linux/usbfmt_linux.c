@@ -15,14 +15,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/fs.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
+#include <sys/mount.h>   /* auch BLKGETSIZE64, BLKSSZGET, BLKRRPART, BLKFLSBUF, BLKROGET (linux/fs.h verträgt sich mit
+                          * sys/mount.h in älteren glibc nicht) */
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
