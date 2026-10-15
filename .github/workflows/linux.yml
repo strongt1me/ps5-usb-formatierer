@@ -98,7 +98,7 @@ jobs:
       - name: Werkzeuge
         run: |
           sudo apt-get update
-          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs mtools
+          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs mtools makefs gdisk
 
       - name: Payload-Tests (Host)
         working-directory: usb_format
