@@ -10,6 +10,7 @@ import json
 import os
 import queue
 import re
+import secrets
 import socket
 import subprocess
 import sys
@@ -240,8 +241,22 @@ class PcJob:
         if not exe:
             raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
         lock = lock_helper(exe)   # bis der Prozess läuft: niemand kann die Datei austauschen
-        # eigener Ordner mit Zufallsnamen je Auftrag: ein fester Ordner ließe sich vorab umleiten (Junction)
-        self.tmpdir = tempfile.mkdtemp(prefix=f"{APP_NAME}-")
+        # eigener Ordner mit Zufallsnamen je Auftrag: ein fester Ordner ließe sich vorab umleiten (Junction).
+        # Nicht tempfile.mkdtemp: Das gibt unter Windows nur "Eigentümer" Rechte - die Ausgabedatei legt aber der
+        # Helfer als Administrator an (Eigentümer: Administratoren), das Programm ohne Adminrechte dürfte sie dann
+        # nicht lesen. os.mkdir erbt die Rechte des Temp-Ordners (dort steht der Benutzer selbst).
+        self.tmpdir = None
+        for _ in range(20):
+            d = os.path.join(tempfile.gettempdir(), f"{APP_NAME}-{secrets.token_hex(8)}")
+            try:
+                os.mkdir(d)
+                self.tmpdir = d
+                break
+            except FileExistsError:
+                continue
+        if not self.tmpdir:
+            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(lock))
+            raise OSError("Arbeitsordner im Temp-Verzeichnis ließ sich nicht anlegen.")
         self.out = os.path.join(self.tmpdir, "auftrag.txt")
         self.cancel_file = os.path.join(self.tmpdir, "abbruch")
         sei = _ShellExecuteInfo()
@@ -318,7 +333,9 @@ class PcJob:
                             info = {}
                         result = (parts[1] == "1", parts[2], info if isinstance(info, dict) else {})
                 if result is None and not alive:
-                    result = (False, "Der Helfer wurde unerwartet beendet.", {})
+                    code = ctypes.c_ulong(0)
+                    ctypes.windll.kernel32.GetExitCodeProcess(ctypes.c_void_p(self.proc), ctypes.byref(code))
+                    result = (False, f"Der Helfer wurde unerwartet beendet (Code {code.value}).", {})
                 elif result is None and time.time() - last_change > self.STALL_S:
                     self.cancel()
                     # wirklich beenden, sonst schreibt er womöglich weiter, während schon ein neuer Auftrag läuft.

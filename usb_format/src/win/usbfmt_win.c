@@ -484,9 +484,16 @@ static int cmd_label(int disk, uint64_t size, const char *label) {
 /* Ausgabedatei als Administrator anlegen - aber nur NEU und nur genau dort, wo verlangt: Ein Schadprogramm ohne
  * Adminrechte könnte den Ordner sonst per Verknüpfung (Junction) umleiten und uns eine geschützte Datei anlegen oder
  * leeren lassen. CREATE_NEW scheitert an vorhandenen Dateien/Verknüpfungen; danach wird der echte Ort verglichen. */
+/* Exit-Codes, wenn die Ausgabedatei nicht angelegt werden kann (das Programm zeigt sie an - ohne Datei gibt es
+ * sonst keinen Weg, den Grund zu melden) */
+enum { EXIT_OUT_CREATE = 10, EXIT_OUT_PATH = 11, EXIT_OUT_FD = 12 };
+static int out_error = EXIT_OUT_CREATE;
+static DWORD out_win_error;
+
 static FILE *open_out(const WCHAR *path) {
     HANDLE h = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (h == INVALID_HANDLE_VALUE) return NULL;
+    if (h == INVALID_HANDLE_VALUE) { out_error = EXIT_OUT_CREATE; out_win_error = GetLastError(); return NULL; }
+    out_error = EXIT_OUT_PATH;
     WCHAR fin[1024], want[1024], longp[1024];
     DWORD nf = GetFinalPathNameByHandleW(h, fin, 1024, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
     DWORD nw = GetFullPathNameW(path, 1024, want, NULL);
@@ -498,6 +505,7 @@ static FILE *open_out(const WCHAR *path) {
         if (nf && nf < 1024) DeleteFileW(fin);   /* umgeleitet: die gerade angelegte Datei wieder entfernen */
         return NULL;
     }
+    out_error = EXIT_OUT_FD;
     int fd = _open_osfhandle((intptr_t)h, _O_WRONLY | _O_BINARY);
     if (fd < 0) { CloseHandle(h); return NULL; }
     FILE *fp = _fdopen(fd, "wb");
@@ -516,7 +524,8 @@ int wmain(int argc, WCHAR **wargv) {
     for (; i + 1 < argc && !strncmp(argv[i], "--", 2); i += 2) {
         if (!strcmp(argv[i], "--out")) {
             FILE *f = open_out(wargv[i + 1]);
-            if (!f) return 2;
+            /* Anlegen gescheitert: 10000 + Windows-Fehler (z. B. 10005 = Zugriff verweigert), sonst 11/12 */
+            if (!f) return out_error == EXIT_OUT_CREATE ? 10000 + (int)out_win_error : out_error;
             out = f;
         } else if (!strcmp(argv[i], "--cancel")) {
             cancel_path = wargv[i + 1];
