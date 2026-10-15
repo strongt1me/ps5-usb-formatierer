@@ -1151,12 +1151,6 @@
   "es": "Se quitó la etiqueta de %s.",
   "fr": "Nom de %s supprimé."
  },
- "NTFS/FAT schreibt Windows - im Abbild-Test nicht möglich.": {
-  "en": "NTFS/FAT is written by Windows - not possible in the image test.",
-  "it": "NTFS/FAT viene scritto da Windows - non possibile nel test con immagine.",
-  "es": "NTFS/FAT lo escribe Windows - no es posible en la prueba con imagen.",
-  "fr": "NTFS/FAT est écrit par Windows - impossible dans le test sur image."
- },
  "Ungültige Grenze für den echten Bereich.": {
   "en": "Invalid limit for the real area.",
   "it": "Limite non valido per l'area reale.",
@@ -1702,5 +1696,53 @@
   "it": "Windows non ha completato la formattazione: %s",
   "es": "Windows no completó el formateo: %s",
   "fr": "Windows n'a pas terminé le formatage : %s"
+ },
+ "NTFS und FAT16 sind im Abbild-Test nicht möglich.": {
+  "en": "NTFS and FAT16 are not possible in the image test.",
+  "it": "NTFS e FAT16 non sono possibili nel test con immagine.",
+  "es": "NTFS y FAT16 no son posibles en la prueba con imagen.",
+  "fr": "NTFS et FAT16 ne sont pas possibles dans le test sur image."
+ },
+ "Laufwerk %s wird vom System verwendet (LVM, RAID oder Verschlüsselung) – abgelehnt.": {
+  "en": "Drive %s is used by the system (LVM, RAID or encryption) – refused.",
+  "it": "L'unità %s è usata dal sistema (LVM, RAID o crittografia) – rifiutata.",
+  "es": "La unidad %s la usa el sistema (LVM, RAID o cifrado) – rechazada.",
+  "fr": "Le lecteur %s est utilisé par le système (LVM, RAID ou chiffrement) – refusé."
+ },
+ "Laufwerk %s wird gerade benutzt. Bitte Dateimanager-Fenster und Programme schließen, die darauf zugreifen, und es noch einmal versuchen.": {
+  "en": "Drive %s is in use. Please close file manager windows and programs accessing it and try again.",
+  "it": "L'unità %s è in uso. Chiudi le finestre del file manager e i programmi che vi accedono e riprova.",
+  "es": "La unidad %s está en uso. Cierra las ventanas del gestor de archivos y los programas que accedan a ella e inténtalo de nuevo.",
+  "fr": "Le lecteur %s est utilisé. Fermez les fenêtres du gestionnaire de fichiers et les programmes qui y accèdent, puis réessayez."
+ },
+ "Datenträger %s nicht gefunden – bitte die Liste aktualisieren.": {
+  "en": "Drive %s not found – please refresh the list.",
+  "it": "Unità %s non trovata – aggiorna l'elenco.",
+  "es": "Unidad %s no encontrada – actualiza la lista.",
+  "fr": "Support %s introuvable – veuillez actualiser la liste."
+ },
+ "Datenträger %s ist kein USB-Datenträger – abgelehnt.": {
+  "en": "Drive %s is not a USB drive – refused.",
+  "it": "L'unità %s non è un'unità USB – rifiutata.",
+  "es": "La unidad %s no es una unidad USB – rechazada.",
+  "fr": "Le support %s n'est pas un support USB – refusé."
+ },
+ "Datenträger %s enthält das laufende System – abgelehnt.": {
+  "en": "Drive %s contains the running system – refused.",
+  "it": "L'unità %s contiene il sistema in esecuzione – rifiutata.",
+  "es": "La unidad %s contiene el sistema en ejecución – rechazada.",
+  "fr": "Le support %s contient le système en cours d'exécution – refusé."
+ },
+ "Datenträger %s hat sich geändert (andere Größe) – bitte die Liste aktualisieren.": {
+  "en": "Drive %s has changed (different size) – please refresh the list.",
+  "it": "L'unità %s è cambiata (dimensione diversa) – aggiorna l'elenco.",
+  "es": "La unidad %s ha cambiado (otro tamaño) – actualiza la lista.",
+  "fr": "Le support %s a changé (autre taille) – veuillez actualiser la liste."
+ },
+ "%s fehlt – bitte das Paket %s installieren.": {
+  "en": "%s is missing – please install the package %s.",
+  "it": "%s manca – installa il pacchetto %s.",
+  "es": "Falta %s – instala el paquete %s.",
+  "fr": "%s est absent – veuillez installer le paquet %s."
  }
 }

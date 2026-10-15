@@ -11,7 +11,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCES = ["usb_formatierer.py", "usb_standard.py", "standard_panel.py", "partition_editor.py", "pc_common.py",
-           "fsinfo.py"]
+           "pc_linux.py", "fsinfo.py"]
 LANGS = ["en", "it", "es", "fr"]
 
 

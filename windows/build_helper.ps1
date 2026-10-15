@@ -6,7 +6,7 @@
 param([switch]$Test)
 $ErrorActionPreference = "Stop"
 $src = Join-Path $PSScriptRoot "..\usb_format\src"
-$files = "win\usbfmt_win.c", "win\wincompat.c", "mkfs.c", "hfsplus.c", "upcase.c", "devtest.c", "vollabel.c",
+$files = "win\usbfmt_win.c", "win\wincompat.c", "pc\helper.c", "mkfs.c", "hfsplus.c", "upcase.c", "devtest.c", "vollabel.c",
          "fsdetect.c", "fsread.c", "extfs.c", "i18n.c", "i18n_table.c" | ForEach-Object { Join-Path $src $_ }
 
 # SHA-256 einer Datei (ohne Get-FileHash: das fehlt Windows PowerShell, wenn es aus PowerShell 7 heraus startet)

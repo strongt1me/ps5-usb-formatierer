@@ -1,16 +1,15 @@
-"""USB-Formatierer für Windows: USB-Sticks, Speicherkarten und externe USB-Laufwerke frei formatieren – exFAT,
+"""USB-Formatierer für Windows und Linux: USB-Sticks, Speicherkarten und externe USB-Laufwerke frei formatieren – exFAT,
 FAT32, NTFS, FAT, ext2/3/4 (Linux) oder HFS+ (Mac), mit Wahl der Zuordnungseinheit und des Partitionsschemas;
 im Expertenmodus mehrere Partitionen. Ohne PS5-Funktionen. Sprachen: Deutsch, English, Italiano, Español, Français.
-Die eigentliche Arbeit erledigt der Windows-Helfer usbfmt_win.exe mit Administratorrechten (UAC-Abfrage je Auftrag);
-die Systemplatte und interne Laufwerke bietet er nie an."""
-import os
+Die eigentliche Arbeit erledigt der Helfer (usbfmt_win.exe bzw. usbfmt_linux) mit Administratorrechten (Abfrage je
+Auftrag: UAC bzw. pkexec); die Systemplatte und interne Laufwerke bietet er nie an."""
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 import i18n
 from i18n import _
-from pc_common import (enable_dpi_awareness, keep_on_screen, load_settings, open_help, resource_path, save_settings,
-                       top_bar)
+from pc_common import (enable_dpi_awareness, keep_on_screen, load_settings, open_help, save_settings, setup_window,
+                       show_centered, top_bar)
 from standard_panel import StandardPanel
 
 APP_NAME = "USBFormatierer"
@@ -25,22 +24,14 @@ class StandardApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<<StdClose>>", lambda e: self._on_close())
         self.bind("<<StdResized>>", lambda e: self.after_idle(lambda: keep_on_screen(self)))
-        icon = resource_path("app.ico")
-        if os.path.isfile(icon):
-            self.iconbitmap(default=icon)   # auch für Dialoge und Meldungen
-        style = ttk.Style(self)
-        if "vista" in style.theme_names():
-            style.theme_use("vista")
+        setup_window(self)   # Symbol (auch für Dialoge) und Stil je System
 
         self.settings = load_settings(APP_NAME)
         i18n.set_lang(self.settings.get("lang") or i18n.system_lang())
         self.frm = None
         self._build()
 
-        self.update_idletasks()
-        w, h = self.winfo_width(), self.winfo_height()
-        self.geometry(f"+{(self.winfo_screenwidth() - w) // 2}+{(self.winfo_screenheight() - h) // 3}")
-        self.deiconify()
+        show_centered(self)   # mittig im nutzbaren Bildschirmbereich, ganz sichtbar
         self.after(100, self.panel.activate)
 
     def _build(self):

@@ -24,8 +24,9 @@ import i18n
 import pc_common
 import ps5_discovery
 from i18n import _, quote
-from pc_common import (PcJob, ask_string, confirm, enable_dpi_awareness, fmt_size, hwnd_of, keep_on_screen,
-                       open_help, pc_dev_text, pc_list, pc_used, pc_volumes_text, resource_path, top_bar)
+from pc_common import (PcJob, admin_wait_text, ask_string, confirm, disk_name, enable_dpi_awareness, fmt_size,
+                       hwnd_of, irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used,
+                       pc_volumes_text, resource_path, setup_window, show_centered, top_bar)
 from standard_panel import StandardPanel
 
 APP_NAME = "PS5USBFormatierer"
@@ -142,13 +143,7 @@ class App(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<<StdClose>>", lambda e: self._on_close())
         self.bind("<<StdResized>>", lambda e: self.after_idle(self._keep_on_screen))
-        icon = resource_path("app.ico")
-        if os.path.isfile(icon):
-            self.iconbitmap(default=icon)   # auch für Dialoge und Meldungen
-
-        style = ttk.Style(self)
-        if "vista" in style.theme_names():
-            style.theme_use("vista")
+        setup_window(self)   # Symbol (auch für Dialoge) und Stil je System
 
         self.settings = load_settings()
         i18n.set_lang(self.settings.get("lang") or i18n.system_lang())
@@ -160,7 +155,7 @@ class App(tk.Tk):
         self.watching = False      # Abfrage nach fremden Aufträgen unterwegs
         self.consoles = {}         # Anzeigetext -> Fund aus ps5_discovery
         self.ps5_devices = []      # zuletzt gelesene Liste der PS5 (bleibt beim Umschalten erhalten)
-        self.pc_job = None         # laufender Auftrag des Windows-Helfers
+        self.pc_job = None         # laufender Auftrag des PC-Helfers
         self.games = {}            # PS5-Gerätename (da1 ...) -> Spiele darauf (aus /api/library)
         self.lib_loading = False
         self.lib_known = False     # Spieleliste mindestens einmal geladen (sonst Inhalt unbekannt)
@@ -183,10 +178,7 @@ class App(tk.Tk):
         self._build_ui()
         self._update()
 
-        self.update_idletasks()
-        w, h = self.winfo_width(), self.winfo_height()
-        self.geometry(f"+{(self.winfo_screenwidth() - w) // 2}+{(self.winfo_screenheight() - h) // 3}")
-        self.deiconify()
+        show_centered(self)   # mittig im nutzbaren Bildschirmbereich, ganz sichtbar
         self._poll_id = self.after(50, self._poll)
         self._mode_changed(initial=True)
         self._watch_id = self.after(3000, self._watch)
@@ -362,7 +354,7 @@ class App(tk.Tk):
         return confirm(self, title, text, ok_text, ack)
 
     def _keep_on_screen(self):
-        keep_on_screen(self)   # die Bereiche sind verschieden hoch
+        keep_on_screen(self)   # die Bereiche sind verschieden hoch: wieder mittig
 
     def _std_busy_changed(self, busy):
         """Auftrag in "Am PC Standard": solange nicht umschalten"""
@@ -916,7 +908,7 @@ class App(tk.Tk):
             self.q.put(("pcdone", op, ok, msg, info, devices, after))
 
         self.pbar["value"] = 0
-        self.status_var.set(_("Windows fragt nach Administratorrechten …"))
+        self.status_var.set(admin_wait_text())
         self._run(work)
 
     def _pc_format(self, dev, limit=0):
@@ -930,12 +922,12 @@ class App(tk.Tk):
             data_warn = "\n\n" + _("Auf dem Datenträger liegen {size} Daten – sie sind danach weg.",
                                    size=fmt_size(used)) if has_data else ""
             head = _("{model} (Datenträger {disk}, {size})", model=dev["model"] or _("USB-Datenträger"),
-                     disk=dev["disk"], size=fmt_size(dev["size"]))
+                     disk=disk_name(dev), size=fmt_size(dev["size"]))
             if not self._confirm(
                     _("Alle Daten werden gelöscht"),
                     f"{head}\n{vols + chr(10) if vols else ''}\n" +
                     _("wird als {fs} für die PS5 formatiert.", fs=fs_text) + data_warn + "\n\n" +
-                    _("Das lässt sich nicht rückgängig machen. Windows fragt anschließend nach Administratorrechten."),
+                    irreversible_admin_text(),
                     _("Formatieren"),
                     _("Ich weiß, dass die {size} Daten unwiderruflich gelöscht werden", size=fmt_size(used))
                     if has_data else None):

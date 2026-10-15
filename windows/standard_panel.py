@@ -14,8 +14,8 @@ from fsinfo import (FILESYSTEMS, KB, LABEL_CHARS, MB, SCHEMES, available_filesys
                     partition_bytes, unit_text, uses_gpt)
 from i18n import _, quote
 from partition_editor import PartitionEditor
-from pc_common import (PcJob, ask_string, confirm, fmt_size, hwnd_of, pc_dev_text, pc_list, pc_used,
-                       pc_volumes_text)
+from pc_common import (IS_WIN, PcJob, admin_wait_text, ask_string, confirm, data_kept_admin_text, disk_name,
+                       fmt_size, hwnd_of, irreversible_admin_text, pc_dev_text, pc_list, pc_used, pc_volumes_text)
 
 __all__ = ["StandardPanel", "SCHEMES", "FILESYSTEMS", "KB", "MB"]
 
@@ -30,7 +30,7 @@ class StandardPanel(ttk.Frame):
         self.q = queue.Queue()
         self.devices = []
         self.busy = False
-        self.job = None                 # laufender Auftrag des Windows-Helfers
+        self.job = None                 # laufender Auftrag des PC-Helfers
         self.cluster_values = []        # Bytes zu den Einträgen der Auswahlliste
 
         fs = settings.get("fs") if settings.get("fs") in FILESYSTEMS else "exFAT"
@@ -278,7 +278,8 @@ class StandardPanel(ttk.Frame):
         if fs in ("fat32", "fat"):
             text += ", " + _("wird großgeschrieben")
         elif fs in ("ext2", "ext3", "ext4", "hfsplus"):
-            text += " – " + _("Windows zeigt dafür keinen Laufwerksbuchstaben")
+            if IS_WIN:
+                text += " – " + _("Windows zeigt dafür keinen Laufwerksbuchstaben")
         if len(label) > label_max:
             self.label_var.set(label[:label_max])
             text += " – " + _("auf {n} Zeichen gekürzt", n=label_max)
@@ -380,12 +381,12 @@ class StandardPanel(ttk.Frame):
         has_data = used > 64 * MB
         data_warn = _("Auf dem Datenträger liegen {size} Daten – sie sind danach weg.", size=fmt_size(used)) + \
             "\n\n" if has_data else ""
-        head = _("{model} (Datenträger {disk}, {size})", model=dev["model"] or _("USB-Datenträger"), disk=dev["disk"],
+        head = _("{model} (Datenträger {disk}, {size})", model=dev["model"] or _("USB-Datenträger"), disk=disk_name(dev),
                  size=fmt_size(dev["size"]))
         return confirm(
             self, _("Alle Daten werden gelöscht"),
             f"{head}\n{vols + chr(10) if vols else ''}\n{what}\n\n{data_warn}"
-            + _("Das lässt sich nicht rückgängig machen. Windows fragt anschließend nach Administratorrechten."),
+            + irreversible_admin_text(),
             _("Formatieren"),
             _("Ich weiß, dass die {size} Daten unwiderruflich gelöscht werden", size=fmt_size(used)) if has_data
             else None)
@@ -522,7 +523,7 @@ class StandardPanel(ttk.Frame):
             return
         target = quote(label) if label else _("keine Bezeichnung (wird entfernt)")
         if not confirm(self, _("Umbenennen"), pc_dev_text(dev) + "\n\n" + _("Neue Bezeichnung: {label}", label=target)
-                       + "\n\n" + _("Die Daten bleiben erhalten. Windows fragt anschließend nach Administratorrechten."),
+                       + "\n\n" + data_kept_admin_text(),
                        _("Umbenennen") if label else _("Entfernen")):
             return
 
@@ -556,7 +557,7 @@ class StandardPanel(ttk.Frame):
         self.pbar.stop()
         self.pbar.configure(mode="determinate")
         self.pbar["value"] = 0
-        self.status_var.set(_("Windows fragt nach Administratorrechten …"))
+        self.status_var.set(admin_wait_text())
         self._run(work)
 
     def _cancel(self):

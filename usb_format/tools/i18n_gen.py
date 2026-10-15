@@ -64,7 +64,7 @@ def c_escape(s):
 
 def source_texts():
     found = {}
-    files = glob.glob(os.path.join(SRC, "*.c")) + glob.glob(os.path.join(SRC, "win", "*.c"))
+    files = [f for d in ("", "win", "pc", "linux") for f in glob.glob(os.path.join(SRC, d, "*.c"))]
     for path in files:
         if path.endswith("i18n_table.c"):
             continue

@@ -1,0 +1,102 @@
+# Linux-Fassung: Helfer bauen und testen (auch als root an echten Loop-Geräten), Oberfläche unter Xvfb prüfen,
+# beide Programme mit PyInstaller bauen. Gebaut wird auf Ubuntu 22.04 (glibc 2.35), damit die Programme auch auf
+# älteren Verteilungen laufen; der Helfer ist statisch.
+name: Linux
+
+on:
+  push:
+    branches: [main, "linux*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Werkzeuge
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs util-linux xvfb tk-dev \
+            libtk8.6 python3-tk
+          for t in mke2fs mkfs.fat mkntfs fsck.exfat fsck.hfsplus e2fsck sfdisk; do command -v $t || echo "fehlt: $t"; done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python-Pakete
+        run: python -m pip install pyinstaller pillow pyflakes
+
+      - name: Übersetzungen und Code prüfen
+        run: |
+          python usb_format/tools/i18n_gen.py
+          git diff --exit-code usb_format/src/i18n_table.c
+          python usb_format/tools/web_i18n.py --check
+          python windows/i18n_check.py
+          cd windows && python -m pyflakes usb_formatierer.py usb_standard.py standard_panel.py partition_editor.py \
+            pc_common.py pc_linux.py fsinfo.py i18n.py ps5_discovery.py tests/linux_ui_test.py
+
+      - name: Helfer bauen
+        working-directory: usb_format
+        run: |
+          bash src/linux/build.sh /tmp/usbfmt_linux_test -DUSBFMT_TEST
+          bash src/linux/build.sh /tmp/usbfmt_linux
+          file /tmp/usbfmt_linux
+
+      - name: Helfer an Abbild-Dateien
+        working-directory: usb_format
+        run: bash test/linux_helper_test.sh
+
+      - name: Helfer an Loop-Geräten (root)
+        working-directory: usb_format
+        run: sudo -E env "PATH=$PATH" bash test/linux_loop_test.sh
+
+      - name: Payload-Tests (Host)
+        working-directory: usb_format
+        run: |
+          fails=0
+          for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
+                   test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
+                   test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh; do
+            echo "== $t"
+            bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
+          done
+          exit $fails
+
+      - name: Oberfläche (Xvfb)
+        run: |
+          mkdir -p shots
+          xvfb-run -a -s "-screen 0 1600x1200x24" python windows/tests/linux_ui_test.py /tmp/usbfmt_linux_test shots
+
+      - name: Payload aus dem letzten Release (für die PS5-Fassung)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download --repo "$GITHUB_REPOSITORY" --pattern usb_format.elf --dir /tmp/elf
+
+      - name: Programme bauen
+        run: bash windows/build_linux.sh /tmp/elf/usb_format.elf
+
+      - name: Gebaute Programme starten (Xvfb, ohne Datenträger)
+        run: |
+          for app in PS5-USB-Formatierer USB-Formatierer; do
+            timeout 15 xvfb-run -a "windows/dist/$app" & pid=$!
+            sleep 10
+            kill -0 $pid && echo "$app läuft" || { echo "$app ist abgestürzt"; exit 1; }
+            kill $pid 2>/dev/null || true
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-programme
+          path: windows/dist/*.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-bilder
+          path: shots/

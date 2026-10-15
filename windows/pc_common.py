@@ -1,6 +1,6 @@
-"""Gemeinsamer Teil für USB-Datenträger am PC: Windows-Helfer (usbfmt_win.exe) finden, prüfen und mit
-Administratorrechten starten, Datenträger auflisten, Einstellungen, Rückfrage-Dialog.
-Genutzt vom PS5-USB-Formatierer und vom eigenständigen USB-Formatierer (ohne PS5-Teile)."""
+"""Gemeinsamer Teil für USB-Datenträger am PC: den Helfer (Windows: usbfmt_win.exe, Linux: usbfmt_linux) finden,
+prüfen und mit Administratorrechten starten (Windows: UAC, Linux: pkexec - siehe pc_linux), Datenträger auflisten,
+Einstellungen, Rückfrage-Dialog, Hilfe. Genutzt vom PS5-USB-Formatierer und vom eigenständigen USB-Formatierer."""
 import ctypes
 import hashlib
 import json
@@ -21,6 +21,8 @@ except ImportError:   # Entwicklung ohne gebauten Helfer: nur sperren, nicht ver
     HELPER_SHA256 = ""
 
 TEMP_PREFIX = "USBFormatierer"
+IS_WIN = sys.platform == "win32"
+HELPER_NAME = "usbfmt_win.exe" if IS_WIN else "usbfmt_linux"
 
 
 def resource_path(rel):
@@ -29,7 +31,10 @@ def resource_path(rel):
 
 
 def settings_file(app_name):
-    base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    if IS_WIN:
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    else:   # Linux: ~/.config (bzw. XDG_CONFIG_HOME)
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
     return os.path.join(base, app_name, "settings.json")
 
 
@@ -79,10 +84,20 @@ def enable_dpi_awareness():
 # ---------------------------------------------------------------------- Windows-Helfer
 
 def find_helper():
-    for p in (resource_path("usbfmt_win.exe"), os.path.join(os.path.dirname(os.path.abspath(__file__)), "usbfmt_win.exe")):
+    for p in (resource_path(HELPER_NAME), os.path.join(os.path.dirname(os.path.abspath(__file__)), HELPER_NAME)):
         if os.path.isfile(p):
+            if not IS_WIN and not os.access(p, os.X_OK):   # ausgepackt ohne Ausführrecht
+                try:
+                    os.chmod(p, 0o755)
+                except OSError:
+                    pass
             return os.path.abspath(p)
     return None
+
+
+def helper_digest():
+    """Prüfsumme des mitgelieferten Helfers (vom Bau erzeugt; leer in der Entwicklung)"""
+    return HELPER_SHA256
 
 
 def lock_helper(exe):
@@ -114,7 +129,7 @@ def pc_list():
     """USB-Datenträger am PC (ohne Administratorrechte). Die Systemplatte meldet der Helfer nie."""
     exe = find_helper()
     if not exe:
-        raise RuntimeError(_("usbfmt_win.exe fehlt neben dem Programm."))
+        raise RuntimeError(_("Der Helfer {name} fehlt neben dem Programm.", name=HELPER_NAME))
     r = subprocess.run([exe, "list"], capture_output=True, timeout=30,
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if r.returncode != 0:
@@ -135,19 +150,25 @@ def pc_used(d):
     return sum(v["total"] - v["free"] for v in d["volumes"] if v["total"])
 
 
+def disk_name(d):
+    """Datenträger, wie das System ihn nennt (Windows: 3, Linux: /dev/sdb)"""
+    return str(d["disk"]) if IS_WIN else f"/dev/{d['disk']}"
+
+
 def pc_dev_text(d):
     parts = []
     for v in d["volumes"]:
-        t = v["letters"] or _("ohne Buchstaben")
+        t = v["letters"] or (_("ohne Buchstaben") if IS_WIN else v.get("device") or _("nicht eingehängt"))
         if v["label"]:
             t += " " + quote(v["label"])
         if v["fs"]:
             t += f" {v['fs']}"
         parts.append(t)
-    vols = ", ".join(parts) if parts else _("kein Windows-Laufwerk (leer, Linux oder Mac)")
+    vols = ", ".join(parts) if parts else (_("kein Windows-Laufwerk (leer, Linux oder Mac)") if IS_WIN
+                                           else _("ohne erkanntes Dateisystem (leer)"))
     # Datenträgernummer macht den Eintrag eindeutig (zwei gleiche leere Sticks)
     return _("{model} (Datenträger {disk}) – {size} – {vols}", model=d["model"] or _("USB-Datenträger"),
-             disk=d["disk"], size=fmt_size(d["size"]), vols=vols)
+             disk=disk_name(d), size=fmt_size(d["size"]), vols=vols)
 
 
 def pc_volumes_text(dev):
@@ -155,7 +176,8 @@ def pc_volumes_text(dev):
     lines = []
     for v in dev["volumes"]:
         used = v["total"] - v["free"] if v["total"] else 0
-        t = _("Laufwerk {letters}", letters=v["letters"] or _("(ohne Buchstaben)"))
+        t = _("Laufwerk {letters}", letters=v["letters"] or (_("(ohne Buchstaben)") if IS_WIN
+                                                             else v.get("device") or _("nicht eingehängt")))
         if v["label"]:
             t += " " + quote(v["label"])
         if v["fs"]:
@@ -174,14 +196,14 @@ class _ShellExecuteInfo(ctypes.Structure):
                 ("dwHotKey", ctypes.c_ulong), ("hIconOrMonitor", ctypes.c_void_p), ("hProcess", ctypes.c_void_p)]
 
 
-class PcJob:
+class _WinJob:
     """Startet den Helfer mit Administratorrechten (UAC-Abfrage von Windows) und liest seine Ausgabedatei mit"""
     STALL_S = 30 * 60   # so lange ohne neue Ausgabe: Helfer gilt als hängend
 
     def __init__(self, args, hwnd=None):
         exe = find_helper()
         if not exe:
-            raise RuntimeError(_("usbfmt_win.exe fehlt neben dem Programm."))
+            raise RuntimeError(_("Der Helfer {name} fehlt neben dem Programm.", name=HELPER_NAME))
         lock = lock_helper(exe)   # bis der Prozess läuft: niemand kann die Datei austauschen
         # eigener Ordner mit Zufallsnamen je Auftrag: ein fester Ordner ließe sich vorab umleiten (Junction).
         # Nicht tempfile.mkdtemp: Das gibt unter Windows nur "Eigentümer" Rechte - die Ausgabedatei legt aber der
@@ -295,7 +317,53 @@ class PcJob:
         return result
 
 
+if IS_WIN:
+    PcJob = _WinJob
+else:
+    import pc_linux   # noqa: E402  (pkexec statt UAC)
+    PcJob = pc_linux.LinuxJob
+
+
+def admin_wait_text():
+    """Statuszeile, solange das System nach den Rechten fragt"""
+    return _("Windows fragt nach Administratorrechten …") if IS_WIN else \
+        _("Das System fragt nach dem Administrator-Passwort …")
+
+
+def irreversible_admin_text():
+    return _("Das lässt sich nicht rückgängig machen. Windows fragt anschließend nach Administratorrechten.") if IS_WIN \
+        else _("Das lässt sich nicht rückgängig machen. Anschließend fragt das System nach dem Administrator-Passwort.")
+
+
+def data_kept_admin_text():
+    return _("Die Daten bleiben erhalten. Windows fragt anschließend nach Administratorrechten.") if IS_WIN \
+        else _("Die Daten bleiben erhalten. Anschließend fragt das System nach dem Administrator-Passwort.")
+
+
 # ---------------------------------------------------------------------- Oberfläche
+
+def setup_window(root):
+    """Programmsymbol (auch für Dialoge) und Stil: Windows wie das System, Linux "clam" (ordentlicher als "default")"""
+    if IS_WIN:
+        icon = resource_path("app.ico")
+        if os.path.isfile(icon):
+            root.iconbitmap(default=icon)
+    else:
+        png = resource_path("app.png")
+        if os.path.isfile(png):
+            try:
+                img = tk.PhotoImage(file=png)
+                root.iconphoto(True, img)
+                root._app_icon = img   # Verweis halten, sonst verschwindet das Bild
+            except tk.TclError:
+                pass
+    style = ttk.Style(root)
+    for theme in ("vista", "clam"):
+        if theme in style.theme_names():
+            style.theme_use(theme)
+            break
+    return style
+
 
 def confirm(root, title, text, ok_text, ack=None):
     """Rückfrage mit eigenen Knopftexten; mit ack muss erst ein Häkchen gesetzt werden (wie in der Web-UI).
@@ -379,12 +447,74 @@ def ask_string(root, title, prompt, initial=""):
     return result["text"]
 
 
-def keep_on_screen(win):
-    """Ragt das Fenster nach einer Größenänderung unten aus dem Bildschirm, nach oben schieben (Taskleiste frei)"""
+def work_area(win):
+    """Nutzbarer Bereich (ohne Taskleiste) des Bildschirms, auf dem das Fenster steht: (x, y, breite, höhe)"""
+    if IS_WIN:
+        try:
+            from ctypes import wintypes
+
+            class MonitorInfo(ctypes.Structure):
+                _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT), ("rcWork", wintypes.RECT),
+                            ("dwFlags", wintypes.DWORD)]
+            user32 = ctypes.windll.user32
+            user32.MonitorFromWindow.argtypes = [wintypes.HWND, wintypes.DWORD]
+            user32.MonitorFromWindow.restype = wintypes.HANDLE
+            user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+            user32.MonitorFromPoint.restype = wintypes.HANDLE
+            user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MonitorInfo)]
+            hwnd = hwnd_of(win) if win.winfo_ismapped() else None
+            # MONITOR_DEFAULTTONEAREST (2) bzw. MONITOR_DEFAULTTOPRIMARY (1)
+            mon = user32.MonitorFromWindow(hwnd, 2) if hwnd else user32.MonitorFromPoint(wintypes.POINT(0, 0), 1)
+            mi = MonitorInfo()
+            mi.cbSize = ctypes.sizeof(mi)
+            if mon and user32.GetMonitorInfoW(mon, ctypes.byref(mi)):
+                r = mi.rcWork
+                return r.left, r.top, r.right - r.left, r.bottom - r.top
+        except (AttributeError, OSError, ValueError):
+            pass
+        return 0, 0, win.winfo_screenwidth(), win.winfo_screenheight() - 48
+    # Linux: Leisten der Arbeitsumgebung oben und unten freihalten
+    return 0, 32, win.winfo_screenwidth(), win.winfo_screenheight() - 32 - 48
+
+
+def center_window(win):
+    """Fenster mittig in den nutzbaren Bildschirmbereich setzen, samt Titelleiste und Rahmen ganz sichtbar. Ist es
+    höher als der Platz, wird es oben angelegt (die Titelleiste bleibt erreichbar)."""
     win.update_idletasks()
-    h, y, sh = win.winfo_height(), win.winfo_y(), win.winfo_screenheight()
-    if y + h + 80 > sh:
-        win.geometry(f"+{win.winfo_x()}+{max(0, sh - h - 80)}")
+    x0, y0, aw, ah = work_area(win)
+    w, h = win.winfo_reqwidth(), win.winfo_reqheight()
+    if win.winfo_ismapped():   # Rahmen und Titelleiste, wie das System sie wirklich zeichnet
+        side = max(0, win.winfo_rootx() - win.winfo_x())
+        top = max(0, win.winfo_rooty() - win.winfo_y())
+    else:                      # noch nicht angezeigt: übliche Maße, skaliert
+        scale = win.winfo_fpixels("1i") / 96
+        side, top = round(8 * scale), round(31 * scale)
+    fw, fh = w + 2 * side, h + top + side
+    win.geometry(f"+{x0 + max(0, (aw - fw) // 2)}+{y0 + max(0, (ah - fh) // 2)}")
+
+
+def show_centered(win):
+    """Beim Start mittig anzeigen und mit dem echten Rahmen gleich noch einmal ausrichten. Danach jedes Mal wieder
+    mittig, wenn sich die Größe ändert (Moduswechsel, Expertenmodus, Sprache, nachgeladene Listen) - nur verschieben
+    (z. B. mit der Maus) lässt das Fenster, wo es ist."""
+    center_window(win)
+    win.deiconify()
+    win.after(80, lambda: center_window(win))
+    size = {"wh": None, "job": None}
+
+    def changed(e):
+        if e.widget is not win:
+            return
+        wh = (e.width, e.height)
+        if size["wh"] is not None and wh != size["wh"]:
+            if size["job"]:
+                win.after_cancel(size["job"])
+            size["job"] = win.after(60, lambda: (size.update(job=None), center_window(win)))
+        size["wh"] = wh
+    win.bind("<Configure>", changed, add="+")
+
+
+keep_on_screen = center_window   # nach jeder Größenänderung: wieder mittig
 
 
 def lang_selector(parent, current, on_change):
@@ -415,7 +545,13 @@ def open_help(lang_code, parent=None):
         path = os.path.join(tempfile.gettempdir(), f"USB-Formatierer-Anleitung-{lang_code}.html")
         with open(path, "w", encoding="utf-8") as f:
             f.write(page)
-        os.startfile(path)
+        if IS_WIN:
+            os.startfile(path)
+        else:   # Linux: Standardbrowser (xdg-open)
+            import pathlib
+            import webbrowser
+            if not webbrowser.open(pathlib.Path(path).as_uri()):
+                raise OSError(_("kein Browser gefunden"))
     except OSError as e:
         messagebox.showerror(_("Hilfe"), _("Die Anleitung ließ sich nicht öffnen: {e}", e=e), parent=parent)
 
@@ -424,7 +560,8 @@ def top_bar(parent, current, on_lang, on_help):
     """Leiste oben rechts: Hilfe und Sprache"""
     top = ttk.Frame(parent)
     ttk.Button(top, text="? " + _("Hilfe"), command=on_help, width=0).pack(side="left", padx=(0, 10))
-    ttk.Label(top, text="🌐").pack(side="left", padx=(0, 4))
+    if IS_WIN:   # Tk unter Linux kann keine Farb-Emojis (zeigte ein Kästchen)
+        ttk.Label(top, text="🌐").pack(side="left", padx=(0, 4))
     box = lang_selector(top, current, on_lang)
     box.pack(side="left")
     return top, box

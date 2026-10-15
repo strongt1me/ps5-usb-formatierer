@@ -1139,12 +1139,6 @@
   "es": "El asistente usbfmt_win.exe ha sido modificado – no se inició por motivos de seguridad. Vuelve a descargar el programa.",
   "fr": "L'assistant usbfmt_win.exe a été modifié – non lancé pour des raisons de sécurité. Veuillez retélécharger le programme."
  },
- "usbfmt_win.exe fehlt neben dem Programm.": {
-  "en": "usbfmt_win.exe is missing next to the program.",
-  "it": "usbfmt_win.exe manca accanto al programma.",
-  "es": "Falta usbfmt_win.exe junto al programa.",
-  "fr": "usbfmt_win.exe est absent à côté du programme."
- },
  "Helfer meldet Fehler {code}: {text}": {
   "en": "Helper reports error {code}: {text}",
   "it": "L'helper segnala l'errore {code}: {text}",
@@ -1456,5 +1450,77 @@
   "it": "cartella",
   "es": "carpeta",
   "fr": "dossier"
+ },
+ "Der Helfer {name} fehlt neben dem Programm.": {
+  "en": "The helper {name} is missing next to the program.",
+  "it": "L'helper {name} manca accanto al programma.",
+  "es": "Falta el ayudante {name} junto al programa.",
+  "fr": "L'assistant {name} est absent à côté du programme."
+ },
+ "nicht eingehängt": {
+  "en": "not mounted",
+  "it": "non montata",
+  "es": "no montada",
+  "fr": "non monté"
+ },
+ "ohne erkanntes Dateisystem (leer)": {
+  "en": "no recognised file system (empty)",
+  "it": "nessun file system riconosciuto (vuota)",
+  "es": "sin sistema de archivos reconocido (vacía)",
+  "fr": "aucun système de fichiers reconnu (vide)"
+ },
+ "Das System fragt nach dem Administrator-Passwort …": {
+  "en": "The system asks for the administrator password …",
+  "it": "Il sistema chiede la password di amministratore …",
+  "es": "El sistema pide la contraseña de administrador …",
+  "fr": "Le système demande le mot de passe administrateur …"
+ },
+ "Das lässt sich nicht rückgängig machen. Anschließend fragt das System nach dem Administrator-Passwort.": {
+  "en": "This cannot be undone. The system will then ask for the administrator password.",
+  "it": "Non è possibile annullare l'operazione. Poi il sistema chiederà la password di amministratore.",
+  "es": "Esto no se puede deshacer. A continuación, el sistema pedirá la contraseña de administrador.",
+  "fr": "Cette opération est irréversible. Le système demandera ensuite le mot de passe administrateur."
+ },
+ "Die Daten bleiben erhalten. Anschließend fragt das System nach dem Administrator-Passwort.": {
+  "en": "The data is kept. The system will then ask for the administrator password.",
+  "it": "I dati vengono mantenuti. Poi il sistema chiederà la password di amministratore.",
+  "es": "Los datos se conservan. A continuación, el sistema pedirá la contraseña de administrador.",
+  "fr": "Les données sont conservées. Le système demandera ensuite le mot de passe administrateur."
+ },
+ "kein Browser gefunden": {
+  "en": "no browser found",
+  "it": "nessun browser trovato",
+  "es": "no se encontró ningún navegador",
+  "fr": "aucun navigateur trouvé"
+ },
+ "Ohne Administratorrechte lässt Linux keine Datenträger bearbeiten.": {
+  "en": "Without administrator rights, Linux does not allow changing drives.",
+  "it": "Senza diritti di amministratore Linux non consente di modificare le unità.",
+  "es": "Sin permisos de administrador, Linux no permite modificar unidades.",
+  "fr": "Sans droits d'administrateur, Linux ne permet pas de modifier les supports."
+ },
+ "Der Helfer wurde verändert – aus Sicherheitsgründen nicht gestartet. Bitte das Programm neu herunterladen.": {
+  "en": "The helper has been modified – not started for security reasons. Please download the program again.",
+  "it": "L'helper è stato modificato – non avviato per motivi di sicurezza. Scarica di nuovo il programma.",
+  "es": "El ayudante ha sido modificado – no se ha iniciado por seguridad. Descarga de nuevo el programa.",
+  "fr": "L'assistant a été modifié – non démarré pour des raisons de sécurité. Veuillez retélécharger le programme."
+ },
+ "Der Helfer konnte seine Ergebnisdatei nicht anlegen (Code {code}).": {
+  "en": "The helper could not create its result file (code {code}).",
+  "it": "L'helper non ha potuto creare il file dei risultati (codice {code}).",
+  "es": "El ayudante no pudo crear su archivo de resultados (código {code}).",
+  "fr": "L'assistant n'a pas pu créer son fichier de résultat (code {code})."
+ },
+ "pkexec fehlt – bitte das Paket polkit (pkexec) installieren. Ohne Administratorrechte lässt Linux keine Datenträger bearbeiten.": {
+  "en": "pkexec is missing – please install the polkit (pkexec) package. Without administrator rights, Linux does not allow changing drives.",
+  "it": "pkexec manca – installa il pacchetto polkit (pkexec). Senza diritti di amministratore Linux non consente di modificare le unità.",
+  "es": "Falta pkexec – instala el paquete polkit (pkexec). Sin permisos de administrador, Linux no permite modificar unidades.",
+  "fr": "pkexec est absent – veuillez installer le paquet polkit (pkexec). Sans droits d'administrateur, Linux ne permet pas de modifier les supports."
+ },
+ "Helfer konnte nicht gestartet werden: {e}": {
+  "en": "Could not start the helper: {e}",
+  "it": "Impossibile avviare l'helper: {e}",
+  "es": "No se pudo iniciar el ayudante: {e}",
+  "fr": "Impossible de démarrer l'assistant : {e}"
  }
 }
