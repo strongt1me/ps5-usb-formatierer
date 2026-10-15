@@ -398,7 +398,7 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
             if (strncmp(cur, "/dev/", 5) != 0 || soft_unplug(cur + 5) != 0) soft = 0;
         }
         if (!soft) {
-            progress(attempt ? "Die PS5 war schneller - Stick bitte noch einmal abziehen" : "Stick jetzt abziehen", 0);
+            progress(attempt ? "Die PS5 war schneller – Stick bitte noch einmal abziehen" : "Stick jetzt abziehen", 0);
             long t0 = now_ms();
             while (dev_exists(cur)) {
                 if (*cancel) { snprintf(err, errlen, "Abgebrochen."); return -1; }
@@ -436,6 +436,9 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
                     int ours = ro >= 0 && ioctl(ro, DIOCGMEDIASIZE, &media) == 0 &&
                                ioctl(ro, DIOCGSECTORSIZE, &sector) == 0 && (uint64_t)media == d->size && sector == d->ss;
                     if (ro >= 0) close(ro);
+                    char id2[64];   /* gleiche Größe, aber andere Seriennummer: nicht unser Stick */
+                    if (ours && d->ident[0] && disk_ident(name, id2, sizeof(id2)) && id2[0] && strcmp(id2, d->ident))
+                        ours = 0;
                     snap[k] = now;
                     if (!ours) continue;   /* ein anderer Stick wurde eingebunden: in Ruhe lassen */
                     snprintf(cur, sizeof(cur), "%s", path);
@@ -457,6 +460,12 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
                 out->size = (uint64_t)media;
                 out->ss = sector;
                 fill_models(out, 1);
+                /* gleich groß reicht nicht: ein anderer Stick gleicher Größe (z. B. aus einer Mehrfachpackung) hat eine
+                 * andere Seriennummer - den nicht anfassen und weiter auf unseren warten */
+                if (d->ident[0] && out->ident[0] && strcmp(d->ident, out->ident) != 0) {
+                    close(fd);
+                    continue;
+                }
                 return fd;
             }
             usleep(1000);

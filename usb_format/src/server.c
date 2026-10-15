@@ -288,16 +288,16 @@ static void *format_worker(void *arg) {
             speed_json(&res, &t);
             sb_add(&res, "}");
             if (rc != 0) {
-                sb_add(&msg, "Prüfung fehlgeschlagen: %s Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).", err);
+                sb_add(&msg, "Prüfung fehlgeschlagen: %s Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.", err);
             } else if (t.fake) {
                 dev_title(&j->dev, &msg);
-                sb_add(&msg, " meldet %s, hat aber nur etwa %s echten Speicher. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben) – für Spiele an der PS5 "
+                sb_add(&msg, " meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben – für Spiele an der PS5 "
                              "nicht empfohlen, höchstens den echten Bereich nutzen.", size_text(j->dev.size, s1, sizeof(s1)),
                        size_text(t.real_bytes, s2, sizeof(s2)));
             } else {
                 sb_add(&msg, "Fehlerhafte Bereiche ab %llu MB: ", (unsigned long long)(t.bad_at / MIB));
                 dev_title(&j->dev, &msg);
-                sb_add(&msg, " arbeitet nicht zuverlässig. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).");
+                sb_add(&msg, " arbeitet nicht zuverlässig. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.");
             }
             job_done(j, 0, &msg, &res, 1);
             return NULL;
@@ -394,7 +394,7 @@ static void *check_worker(void *arg) {
         job_done(j, 0, &msg, &res, 0);
         return NULL;
     }
-    on_progress(j->repair ? "Reparieren (fsck.exfat)" : "Prüfen (fsck.exfat)", 40);
+    on_progress(j->repair ? "Dateisystem reparieren" : "Dateisystem prüfen", 0);   /* 0 %: Lauf-Balken */
     fsck_result_t r;
     exfat_fsck_run(fd, fi.start, fi.size ? fi.size : j->dev.size - fi.start, j->dev.ss, j->repair, &r);
     close(fd);
@@ -601,15 +601,21 @@ static void send_all(int c, const char *p, size_t len) {
 }
 
 static void respond_ex(int c, int code, const char *ctype, const char *body, size_t len, const char *cache) {
-    char hdr[512];
+    char hdr[1024];
     const char *reason = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 400 ? "Bad Request" :
                          code == 403 ? "Forbidden" : code == 404 ? "Not Found" : code == 405 ? "Method Not Allowed" :
                          code == 409 ? "Conflict" : code == 415 ? "Unsupported Media Type" : "Error";
     int n = snprintf(hdr, sizeof(hdr),
                      "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
                      "Cache-Control: %s\r\nX-Content-Type-Options: nosniff\r\n"
-                     "X-Frame-Options: DENY\r\nConnection: close\r\n\r\n",
+                     "X-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\n"
+                     /* nur eigene Inhalte (die Seite ist eine Datei mit eingebettetem Skript/Stil) */
+                     "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                     "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+                     "frame-ancestors 'none'; base-uri 'none'; form-action 'none'\r\n"
+                     "Connection: close\r\n\r\n",
                      code, reason, ctype, len, cache);
+    if (n <= 0 || (size_t)n >= sizeof(hdr)) return;   /* nie über den Puffer hinaus senden */
     send_all(c, hdr, (size_t)n);
     send_all(c, body, len);
 }
@@ -857,14 +863,18 @@ static void settings_load(void) {
     if (v > 0) scale_pc = v;
 }
 
+/* erst vollständig in eine neue Datei, dann umbenennen: ist /data voll, bleiben die alten Einstellungen erhalten */
 static int settings_save(void) {
-    char path[256];
+    char path[256], tmp[264];
     mkdir(plat_data_dir(), 0755);
     settings_path(path, sizeof(path));
-    FILE *f = fopen(path, "w");
+    snprintf(tmp, sizeof(tmp), "%s.neu", path);
+    FILE *f = fopen(tmp, "w");
     if (!f) return -1;
     int ok = fprintf(f, "{\"theme\":\"%s\",\"scale_tv\":%d,\"scale_pc\":%d}\n", theme, scale_tv, scale_pc) > 0;
-    return (fclose(f) == 0 && ok) ? 0 : -1;
+    ok = fclose(f) == 0 && ok;
+    if (!ok || rename(tmp, path) != 0) { remove(tmp); return -1; }
+    return 0;
 }
 
 static void api_settings(int c, int is_post, const char *body) {
@@ -904,8 +914,9 @@ static void api_settings(int c, int is_post, const char *body) {
  * Neustart und Umstecken - und wird beim Formatieren auf seinen echten Bereich begrenzt. */
 static pthread_mutex_t fake_lock = PTHREAD_MUTEX_INITIALIZER;
 
+/* nur mit Seriennummer: ohne würde ein Ergebnis jeden gleich großen Stick ohne Seriennummer kennzeichnen */
 static void fake_key(const usbdev_t *d, char *k, size_t n) {
-    snprintf(k, n, "%s|%llu", d->ident[0] ? d->ident : d->model, (unsigned long long)d->size);
+    snprintf(k, n, "%s|%llu", d->ident, (unsigned long long)d->size);
     for (char *p = k; *p; p++)
         if (*p == '\t' || *p == '\n' || *p == '\r') *p = ' ';
 }
@@ -916,6 +927,7 @@ static void fake_path(char *p, size_t n) { snprintf(p, n, "%s/fakes.txt", plat_d
 static uint64_t fake_get(const usbdev_t *d) {
     char key[160], path[256], line[256];
     uint64_t real = 0;
+    if (!d->ident[0]) return 0;
     fake_key(d, key, sizeof(key));
     fake_path(path, sizeof(path));
     pthread_mutex_lock(&fake_lock);
@@ -933,6 +945,7 @@ static uint64_t fake_get(const usbdev_t *d) {
 /* real > 0: als gefälscht merken; 0: Eintrag entfernen (Prüfung fand den Stick echt) */
 static void fake_put(const usbdev_t *d, uint64_t real) {
     char key[160], path[256], tmp[264], line[256];
+    if (!d->ident[0]) return;
     fake_key(d, key, sizeof(key));
     fake_path(path, sizeof(path));
     snprintf(tmp, sizeof(tmp), "%s.neu", path);
@@ -1237,13 +1250,38 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
     }
     free(r);
     snprintf(body, sizeof(body), "{\"job_id\":%lld}", job);
-    for (time_t end = time(NULL) + 3600; time(NULL) < end; ) {   /* höchstens eine Stunde (nach der Uhr) */
+    /* Grenzen: höchstens eine Stunde; aufgeben, wenn ShadowMountPlus 30 s nicht antwortet oder sich 10 Minuten
+     * nichts tut (abgestürzt/hängt) - sonst wäre der Formatierer so lange für alles andere blockiert */
+    time_t end = time(NULL) + 3600, last_change = time(NULL);
+    int silent = 0, cancel_sent = 0;
+    long long last_v = -1;
+    char last_state[24] = "";
+    while (time(NULL) < end) {
         usleep(500 * 1000);
-        if (!(r = plat_smp_post("/api/v1/games/storage/status", body, &http, &len))) continue;
+        if (cancel_requested && !cancel_sent) {   /* geht nur, solange ShadowMountPlus noch nichts entfernt hat */
+            char *cr = plat_smp_post("/api/v1/games/storage/cancel", body, &http, &len);
+            free(cr);
+            cancel_sent = 1;
+        }
+        if (!(r = plat_smp_post("/api/v1/games/storage/status", body, &http, &len))) {
+            if (++silent >= 60) { snprintf(err, n, "ShadowMountPlus antwortet nicht mehr"); return -1; }
+            continue;
+        }
+        silent = 0;
         char state[24] = "";
         lib_json_str(r, len, "state", state, sizeof(state));
         if (lib_json_num(r, len, "progress_percent", &v) == 0 && v >= 0 && v <= 100)
             on_progress("Spiele löschen", base + (int)(v * span / 100));
+        else v = -1;
+        if (v != last_v || strcmp(state, last_state) != 0) {
+            last_v = v;
+            snprintf(last_state, sizeof(last_state), "%s", state);
+            last_change = time(NULL);
+        } else if (time(NULL) - last_change > 600) {
+            free(r);
+            snprintf(err, n, "ShadowMountPlus meldet seit 10 Minuten keinen Fortschritt – abgebrochen");
+            return -1;
+        }
         if (!strcmp(state, "completed")) { free(r); return 0; }
         if (!strcmp(state, "failed") || !strcmp(state, "cancelled") || http != 200) {
             resp_err[0] = 0;
@@ -1341,6 +1379,23 @@ static void *delete_worker(void *arg) {
     size_t len;
     sbuf_t failed = {0};
 
+    /* zweite Kopien zuerst: Wird die verwaltete zuerst gelöscht, bindet ShadowMountPlus womöglich gleich die andere
+     * ein - und die gälte dann nicht mehr als sichere zweite Kopie */
+    char *g0 = plat_smp_post("/api/v1/games", "{}", &http, &len);
+    if (g0 && http == 200 && lib_parse_smp_games(g0, len, &smp, &nsmp) == 0) {
+        for (int i = 0, front = 0; i < j->nitems; i++) {
+            int copy = 0;
+            for (int k = 0; k < nsmp; k++)
+                copy |= !strcmp(smp[k].id, j->items[i].id) && strcmp(smp[k].path, j->items[i].path) != 0;
+            if (copy) {   /* nach vorn holen, Reihenfolge sonst erhalten */
+                del_item_t tmp = j->items[i];
+                memmove(&j->items[front + 1], &j->items[front], (size_t)(i - front) * sizeof(tmp));
+                j->items[front++] = tmp;
+            }
+        }
+    }
+    free(g0);
+
     for (int i = 0; i < j->nitems; i++) {
         const del_item_t *it = &j->items[i];
         int base = i * 100 / j->nitems, span = 100 / j->nitems, managed = 0, rc;
@@ -1356,8 +1411,12 @@ static void *delete_worker(void *arg) {
             free(g);
             stale = 0;
         }
+        int other_copy = 0;   /* ShadowMountPlus führt diese Titel-ID unter einem anderen Pfad: das hier ist die zweite Kopie */
         for (int k = 0; k < nsmp; k++)
-            if (!strcmp(smp[k].id, it->id)) managed |= !strcmp(smp[k].path, it->path);
+            if (!strcmp(smp[k].id, it->id)) {
+                if (!strcmp(smp[k].path, it->path)) managed = 1;
+                else other_copy = 1;
+            }
         err[0] = 0;
         if (managed) {
             rc = smp_delete(it, base, span, err, sizeof(err));
@@ -1378,6 +1437,12 @@ static void *delete_worker(void *arg) {
             rc = -1;
             snprintf(err, sizeof(err), "ShadowMountPlus nicht erreichbar – zum Schutz eingebundener Spiele nichts "
                                        "gelöscht");
+        } else if (!other_copy) {
+            /* ShadowMountPlus kennt das Spiel (noch) nicht - etwa direkt nach einem Neustart, solange es sucht. Ob es
+             * eingebunden ist, lässt sich dann nicht sicher sagen: lieber nicht selbst löschen. */
+            rc = -1;
+            snprintf(err, sizeof(err), "ShadowMountPlus kennt dieses Spiel noch nicht – bitte kurz warten und erneut "
+                                       "versuchen");
         } else {
             /* nicht von ShadowMountPlus genutzt (z. B. zweite Kopie): selbst löschen - nur innerhalb der Wurzel des
              * USB-Laufwerks, auf dem die Suche es fand (api_delete übernimmt nur Spiele von USB-Laufwerken) */
@@ -1444,9 +1509,16 @@ static void api_delete(int c, const char *body) {
     j->uninstall = uninstall;
     j->items = calloc(MAX_DELETE, sizeof(*j->items));
     if (!j->items) { free(j); respond_error(c, 500, "Kein Speicher"); return; }
+    int ambiguous = 0;
     pthread_mutex_lock(&lib_lock);
     for (char *p = keys, *save = NULL, *tok; (tok = strtok_r(p, ",", &save)); p = NULL) {
         uint32_t want = (uint32_t)strtoul(tok, NULL, 16);
+        /* Schlüssel sind 32-Bit-Prüfsummen: passt einer zu mehreren Spielen (Zufall oder ein präparierter Stick),
+         * wird nichts gelöscht statt womöglich ein anderes Spiel */
+        int hits = 0;
+        for (int i = 0; i < lib_n; i++)
+            for (int t = 0; t < lib_snap[i].r.ntitles; t++) hits += path_key(lib_snap[i].r.titles[t].path) == want;
+        if (hits > 1) { ambiguous = 1; break; }
         for (int i = 0; i < lib_n && j->nitems < MAX_DELETE; i++) {
             if (!lib_snap[i].usb || !lib_snap[i].device[0]) continue;
             for (int t = 0; t < lib_snap[i].r.ntitles && j->nitems < MAX_DELETE; t++) {
@@ -1465,10 +1537,11 @@ static void api_delete(int c, const char *body) {
         }
     }
     pthread_mutex_unlock(&lib_lock);
-    if (!j->nitems) {
+    if (ambiguous || !j->nitems) {
         free(j->items);
         free(j);
-        respond_error(c, 404, "Spiele nicht gefunden – Liste neu laden");
+        respond_error(c, ambiguous ? 409 : 404, ambiguous ? "Auswahl nicht eindeutig – nichts gelöscht. Liste neu laden."
+                                                          : "Spiele nicht gefunden – Liste neu laden");
         return;
     }
     snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
@@ -1482,8 +1555,12 @@ static void handle(int c) {
     long clen = 0;
 
     if (!req) return;
+    /* eine Anfrage darf insgesamt höchstens 10 s dauern: ein Client, der tröpfchenweise sendet, blockiert sonst den
+     * Server (und damit Fortschritt und "Abbrechen") beliebig lange */
+    const time_t deadline = time(NULL) + 10;
     /* Header lesen */
     while (len < REQ_MAX) {
+        if (time(NULL) > deadline) goto out;
         ssize_t n = recv(c, req + len, REQ_MAX - len, 0);
         if (n <= 0) goto out;
         len += n;
@@ -1509,6 +1586,7 @@ static void handle(int c) {
     /* Rest des Bodys lesen */
     size_t have = len - (size_t)(body - req);
     while ((long)have < clen) {
+        if (time(NULL) > deadline) goto out;
         ssize_t n = recv(c, body + have, (size_t)clen - have, 0);
         if (n <= 0) goto out;
         have += n;
@@ -1603,8 +1681,10 @@ void server_serve(int s) {
     while (!quit_requested) {
         int c = accept(s, NULL, NULL);
         if (c < 0) {
-            if (errno == EINTR) continue;
-            break;
+            /* Nie wegen eines einzelnen Fehlers aufhören (z. B. ECONNABORTED, wenn ein Client abbricht): das beendete
+             * sonst den Formatierer - auch mitten in einem laufenden Auftrag. Bei Mangel an Ressourcen kurz warten. */
+            if (errno != EINTR && errno != ECONNABORTED) usleep(100 * 1000);
+            continue;
         }
         struct timeval tv = {5, 0};
         setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));

@@ -44,8 +44,10 @@ game "$W/data/homebrew/Intern" PPSA05555
 truncate -s 64M "$W/a.img"
 cat >"$W/games.json" <<EOF
 [{"title_id":"PPSA01325","path":"$H/Astro"},{"title_id":"PPSA03117","path":"$H/Crazy"},
- {"title_id":"PPSA09999","path":"$H/Laeuft","busy":true},{"title_id":"PPSA05555","path":"$W/data/homebrew/Intern"}]
+ {"title_id":"PPSA09999","path":"$H/Laeuft","busy":true},{"title_id":"PPSA05555","path":"$W/data/homebrew/Intern"},
+ {"title_id":"PPSA07777","path":"$W/mnt/usb0/Viele-Original"}]
 EOF
+game "$H/Unbekannt" PPSA06666   # kennt ShadowMountPlus nicht (z. B. noch nicht erfasst)
 python3 test/smp_mock.py $SMP_PORT "$W/games.json" "$W/smp.log" &
 MPID=$!
 sleep 0.5
@@ -68,7 +70,8 @@ code=$(post "{\"keys\":\"$(key "$W/data/homebrew/Intern")\"}" delete)
 code=$(post '{"keys":"","uninstall":true}' delete)
 [ "$code" = 400 ] && ok "leere Auswahl abgelehnt" || bad "leere Auswahl" "$code"
 
-code=$(post "{\"keys\":\"$(key "$H/Astro"),$(key "$H/Crazy Kopie"),$(key "$H/Crazy")\",\"uninstall\":true}" delete)
+# verwaltete Kopie absichtlich VOR der zweiten Kopie: der Server muss die zweite trotzdem zuerst (sicher) löschen
+code=$(post "{\"keys\":\"$(key "$H/Astro"),$(key "$H/Crazy"),$(key "$H/Crazy Kopie")\",\"uninstall\":true}" delete)
 [ "$code" = 202 ] && wait_job || bad "Löschen starten" "$code $(cat "$W/body")"
 [ "$(q 'd["ok"]' <"$W/st")" = True ] && [ "$(q 'd["result"]["deleted"]' <"$W/st")" = 3 ] \
     && [ "$(q 'd["result"]["tiles"]' <"$W/st")" = 2 ] && ok "3 Spiele gelöscht, 2 Kacheln entfernt" || bad "Ergebnis" "$(cat "$W/st")"
@@ -83,7 +86,11 @@ code=$(post "{\"keys\":\"$(key "$H/Laeuft")\",\"uninstall\":true}" delete)
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q 'läuft gerade' "$W/st" && [ -d "$H/Laeuft" ] \
     && ok "laufendes Spiel: abgelehnt, bleibt erhalten" || bad "laufendes Spiel" "$code $(cat "$W/st")"
 library
-[ "$(q 'len([t for t in d["titles"] if t["device"] == "da0"])' <"$W/lib")" = 1 ] && ok "Bibliothek danach aktualisiert" \
+code=$(post "{\"keys\":\"$(key "$H/Unbekannt")\"}" delete)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q 'kennt dieses Spiel noch nicht' "$W/st" \
+    && [ -d "$H/Unbekannt" ] && ok "unbekanntes Spiel (evtl. eingebunden): nicht selbst gelöscht" || bad "unbekanntes Spiel" "$code $(cat "$W/st")"
+library
+[ "$(q 'len([t for t in d["titles"] if t["device"] == "da0"])' <"$W/lib")" = 2 ] && ok "Bibliothek danach aktualisiert" \
     || bad "Bibliothek danach" "$(cat "$W/lib")"
 
 # ---------------------------------------------------------------- Fortschritt beim Selbst-Löschen (zweite Kopie)
@@ -102,6 +109,11 @@ for _ in $(seq 1 300); do
 done
 [ -n "$seen" ] && [ ! -e "$H/Viele" ] && ok "Fortschritt steigt beim Löschen:$(echo $seen | tr ' ' '\n' | sort -nu | head -5 | tr '\n' ' ')…" \
     || bad "Fortschritt beim Löschen" "Zwischenwerte: '$seen' $(cat "$W/st")"
+
+# mehrdeutiger Schlüssel (passt zu zwei Spielen): nichts löschen - per Hand nachgestellt mit zwei gleichen Pfaden ist
+# nicht möglich, daher Gegenprobe: ein gültiger Schlüssel mit Unsinn dahinter wird als nicht gefunden behandelt
+code=$(post '{"keys":"zzzzzzzz"}' delete)
+[ "$code" = 404 ] && ok "unbekannter Schlüssel: nichts gelöscht" || bad "unbekannter Schlüssel" "$code $(cat "$W/body")"
 
 echo
 [ $fails -eq 0 ] && echo "Alle Lösch-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."

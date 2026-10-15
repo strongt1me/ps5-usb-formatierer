@@ -309,6 +309,7 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
       <input type="text" id="newlabel" maxlength="11" placeholder="Neue Bezeichnung" autocomplete="off" spellcheck="false">
       <button class="solid primary" id="brenameok" type="button">Übernehmen</button>
     </div>
+    <div class="err" id="renameerr"></div>
     <div class="hint" id="checkhint"></div>
    </div>
    </div>
@@ -320,6 +321,7 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
       <div class="warnbox" id="fakewarn" hidden style="margin:0 0 10px"></div>
       <label class="f" for="fs" style="margin-top:0">Dateisystem</label>
       <select id="fs"></select>
+      <div class="hint" id="fshint" hidden>Spiele-Abbilder sind meist größer als 4 GB – für Spiele exFAT wählen.</div>
       <label class="chk" style="border:0;padding-bottom:0"><input type="checkbox" id="other"><div>Andere Dateisysteme (nicht für die PS5)</div></label>
       <div class="warnbox" id="otherwarn" hidden>
         <b>Nicht für die PS5 gedacht.</b> Diese Formate sind für PC, Mac, Linux, Kameras und Co.
@@ -528,7 +530,7 @@ function fat32Cluster(size) {
 
 /* Dateisysteme: PS5 (ohne Haken) bzw. "andere" (mit Haken, nicht für die PS5) */
 const FS_LIST = {
-  ps5:   [["exfat", "exFAT"], ["fat32", "FAT32"]],
+  ps5:   [["exfat", "exFAT (empfohlen)"], ["fat32", "FAT32 – Dateien höchstens 4 GB"]],
   other: [["exfat", "exFAT – freie Zuordnungseinheit"], ["fat32", "FAT32 – freie Zuordnungseinheit"],
           ["ntfs", "NTFS (Windows)"], ["ext4", "ext4 (Linux)"]],
 };
@@ -592,7 +594,12 @@ async function api(path, body) {
   const opt = body === undefined ? {} : {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
   };
-  const r = await fetch(path, opt);
+  let r;
+  try {
+    r = await fetch(path, opt);
+  } catch (e) {   /* Netzwerkfehler: WebKit meldet nur "Load failed" */
+    throw new Error("Keine Verbindung zum Formatierer. Läuft er noch auf der PS5? Dann „Aktualisieren“ wählen.");
+  }
   let data = {};
   try { data = await r.json(); } catch (e) {}
   if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
@@ -654,14 +661,17 @@ async function loadLibrary(refresh) {
 
 function renderDevices() {
   const box = $("devs");
+  /* neu aufbauen, ohne dass der Controller-Fokus auf den Seitenanfang springt */
+  const ae = document.activeElement, focusDev = ae && box.contains(ae) && ae.dataset ? ae.dataset.dev : null;
   box.textContent = "";
   if (!devices.length) {
-    box.appendChild(el("div", "empty", "Kein USB-Stick gefunden. Stick einstecken und „Aktualisieren“ wählen."));
+    box.appendChild(el("div", "empty", "Kein USB-Laufwerk gefunden. Laufwerk einstecken und „Aktualisieren“ wählen."));
   }
   for (const d of devices) {
     const blocked = !formattable(d);
     const row = el("div", "dev" + (blocked ? " locked" : "") + (selected === d.name ? " sel" : ""));
     row.tabIndex = blocked ? -1 : 0;
+    row.dataset.dev = d.name;
     const radio = el("input");
     radio.type = "radio";
     radio.name = "dev";
@@ -713,6 +723,7 @@ function renderDevices() {
     row.addEventListener("click", pick);
     row.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
     box.appendChild(row);
+    if (focusDev === d.name && !blocked) row.focus({ preventScroll: true });
   }
 }
 
@@ -770,7 +781,7 @@ function renderContent() {
     const list = el("div", "games"), sorted = titles.slice().sort((a, b) => a.name.localeCompare(b.name, "de"));
     for (const k of Array.from(picked)) if (!titles.some(t => t.key === k)) picked.delete(k);   /* nicht mehr da */
     $("pick").hidden = busy;
-    $("pick").textContent = pickMode ? "Fertig" : "Auswählen";
+    $("pick").textContent = pickMode ? "Fertig" : "Spiele löschen …";
     if (sorted.length > 3 && !pickMode) {   /* ruhig halten: drei Spiele, der Rest auf Wunsch */
       $("more").hidden = false;
       $("more").textContent = showAll ? "Weniger anzeigen ▴" : "Alle " + sorted.length + " Spiele anzeigen ▾";
@@ -779,7 +790,7 @@ function renderContent() {
     const cntText = el("span", ""), all = el("button", "link"), del = el("button", "danger solid");
     const boxes = [];
     const refreshBar = () => {
-      cntText.textContent = picked.size ? picked.size + " ausgewählt" : "Spiele zum Löschen antippen";
+      cntText.textContent = picked.size ? picked.size + " ausgewählt" : "Spiele zum Löschen anhaken";
       all.textContent = picked.size === titles.length ? "Keine" : "Alle";
       del.textContent = picked.size > 1 ? picked.size + " Spiele löschen" : "Löschen";
       del.disabled = !picked.size || busy || picked.size > MAX_DELETE;
@@ -822,17 +833,21 @@ function renderContent() {
         refreshBar();
       });
       cnt.append(cntText, all);
+      all.dataset.key = "__all";
+      del.dataset.key = "__del";
       del.type = "button";
       del.addEventListener("click", () => deleteGames(d, titles.filter(t => picked.has(t.key))));
       bar.append(cnt, del);
       box.appendChild(bar);
       refreshBar();
+      if (focusKey === "__all") all.focus({ preventScroll: true });
+      else if (focusKey === "__del" && !del.disabled) del.focus({ preventScroll: true });
       if (titles.length > MAX_DELETE) box.appendChild(el("div", "hint", "Höchstens " + MAX_DELETE + " Spiele auf einmal."));
     }
   }
   for (const x of dupsOf(d)) {
     const n = note("warn", "Doppelt: " + x.name + " (" + x.id + ")",
-      "ShadowMountPlus wechselt ständig zwischen diesen Fundorten – einen davon entfernen (über „Auswählen“):");
+      "ShadowMountPlus wechselt ständig zwischen diesen Fundorten – einen davon entfernen (über „Spiele löschen …“):");
     for (const p of x.paths) n.appendChild(el("div", "path", shortPath(p)));
     box.appendChild(n);
   }
@@ -894,6 +909,7 @@ function update() {
   $("label").maxLength = max;
   $("labelhint").textContent = "Bis zu " + max + " Zeichen: A–Z, 0–9, Leerzeichen, - und _" +
     (fs === "fat32" ? " – wird bei FAT32 großgeschrieben" : "");
+  $("fshint").hidden = fs !== "fat32";
   /* Ordner-Vorlage nur, wo die PS5 sie nutzen kann */
   const native = fs === "exfat" || fs === "fat32";
   $("folders").disabled = busy || !native;
@@ -951,7 +967,7 @@ async function loadDevices() {
 /* Warten auf (Software-)Abziehen/Einstecken: Aufforderung groß zeigen */
 const isReplugStep = step => /abziehen|einstecken|neu angemeldet/.test(step || "");
 /* abbrechen lässt sich das Warten, Prüfen, Beschreiben und Messen - das Formatieren selbst nicht */
-const cancellable = step => isReplugStep(step) || /Echtheit|tempo|Beschreiben|Prüfen –|Prüfen$/i.test(step || "");
+const cancellable = step => isReplugStep(step) || /Echtheit|[Tt]empo|Beschreiben|^Prüfen/.test(step || "");
 
 function setProgress(st) {
   const wait = isReplugStep(st.step);
@@ -961,8 +977,18 @@ function setProgress(st) {
   $("bar").classList.toggle("indet", indet);
   $("bar").firstElementChild.style.width = Math.round(st.percent) + "%";
   $("status").classList.toggle("wait", wait);
-  $("status").textContent = !st.step ? "" : wait || indet ? st.step + " …" : st.step + " … " + Math.round(st.percent) + " %";
-  $("cancel").hidden = !(st.busy !== false && cancellable(st.step));
+  /* Abziehen/Einstecken: immer sagen, WELCHES Laufwerk - sonst zieht man womöglich die Spiele-SSD */
+  const dev = devices.find(x => x.name === st.device);
+  const who = wait && dev ? "„" + devTitle(dev) + "“ (" + dev.name + "): " : "";
+  $("status").textContent = !st.step ? "" : wait || indet ? who + st.step + " …" : st.step + " … " + Math.round(st.percent) + " %";
+  const canCancel = st.busy !== false && cancellable(st.step);
+  if (canCancel && $("cancel").hidden) { $("cancel").disabled = false; $("cancel").textContent = "Abbrechen"; }
+  $("cancel").hidden = !canCancel;
+}
+
+/* Fortschritt sichtbar machen (PS5: bei großer Anzeige liegt er sonst unterhalb des Bildschirms) */
+function revealProgress() {
+  try { $("progress").scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { $("progress").scrollIntoView(); }
 }
 
 let foreignJob = false;   /* Auftrag wurde in einem anderen Browser gestartet (z. B. an der PS5, angezeigt am PC) */
@@ -974,11 +1000,20 @@ function startPolling(foreign) {
   renderDevices();
   clearInterval(pollTimer);
   let inFlight = false;   /* langsame Antworten: nie zwei Abfragen gleichzeitig (sonst Ergebnis doppelt) */
+  let failures = 0;
   const timer = pollTimer = setInterval(async () => {
     if (inFlight) return;
     inFlight = true;
     let st;
-    try { st = await api("/api/status"); } catch (e) { return; } finally { inFlight = false; }
+    try {
+      st = await api("/api/status");
+      failures = 0;
+    } catch (e) {
+      /* kurz weg (WLAN, PS5 beschäftigt): weiterfragen, aber nicht stumm stehen bleiben */
+      if (++failures >= 6 && pollTimer === timer)
+        $("status").textContent = "Verbindung zur PS5 unterbrochen – der Auftrag läuft dort weiter, Fortschritt wird weiter abgefragt …";
+      return;
+    } finally { inFlight = false; }
     if (pollTimer !== timer) return;   /* inzwischen neu gestartet */
     setProgress(st);
     if (!st.busy) {
@@ -990,6 +1025,12 @@ function startPolling(foreign) {
       await loadDevices();
       /* nach dem Neu-Anmelden kann der Stick anders heißen (st.device ist der aktuelle Name) */
       const d = devices.find(x => x.name === st.device) || before;
+      if (!st.done) {   /* Formatierer wurde zwischendurch neu gestartet: Ergebnis unbekannt */
+        renderTabs();
+        loadLibrary(true);
+        return showResult("Ergebnis unbekannt", "Der Formatierer auf der PS5 wurde zwischendurch neu gestartet. Ob der " +
+          "Auftrag fertig wurde, ist nicht bekannt – bitte den Datenträger prüfen bzw. erneut formatieren.", false);
+      }
       /* fremder Auftrag: nur das Ergebnis zeigen - Rückfragen (z. B. "nur echten Bereich formatieren") gehören
          dem Browser, der ihn gestartet hat */
       if (foreignJob) { showMsg(st.message, st.ok); renderTabs(); }
@@ -1031,8 +1072,8 @@ function finished(st, d) {
   if (st.kind === "delete") {
     renderTabs();
     showMsg(st.message, st.ok);
-    if (!st.ok) return showResult(r.deleted ? "Nicht alles gelöscht" : "Nichts gelöscht", st.message, false);
-    return;
+    /* endgültige Aktion: Ergebnis immer deutlich bestätigen, nicht nur 5 s am Seitenende */
+    return showResult(st.ok ? "Spiele gelöscht" : r.deleted ? "Nicht alles gelöscht" : "Nichts gelöscht", st.message, st.ok);
   }
   if (st.kind === "check" && !st.ok && d) {
     checkOf[key] = { code: 8, title: "Prüfen nicht möglich", text: st.message.replace(/^[^:]*: /, "") };
@@ -1047,6 +1088,7 @@ async function runJob(path, body) {
     await api(path, body);
     setProgress({ percent: 0, step: "Startet" });
     startPolling();
+    revealProgress();
   } catch (e) {
     showMsg(e.message, false);
   }
@@ -1054,10 +1096,12 @@ async function runJob(path, body) {
 
 /* ---------------------------------------------------------------- Dialoge */
 
-let dlgResolve = null;
+let dlgResolve = null, dlgReturn = null;
 
 /* o: {title, cls, text, text2, extra (Element), ack (Text), yes, yesCls, no, alt, altCls} -> "yes" | "alt" | false */
 function dialog(o) {
+  if (dlgResolve) { dlgResolve(false); dlgResolve = null; }   /* ein offener Dialog gilt als abgebrochen */
+  else dlgReturn = document.activeElement;                     /* Fokus danach dorthin zurück (Controller) */
   $("dtitle").textContent = o.title;
   $("dtitle").className = o.cls || "";
   $("dtext").textContent = o.text || "";
@@ -1082,8 +1126,27 @@ function dialog(o) {
 
 function closeDialog(result) {
   $("dlg").hidden = true;
+  const back = dlgReturn;
+  dlgReturn = null;
   if (dlgResolve) { dlgResolve(result); dlgResolve = null; }
+  /* Fokus zurück: zum Auslöser, sonst Abbrechen (läuft ein Auftrag) oder das gewählte Laufwerk */
+  setTimeout(() => {
+    const ae = document.activeElement;   /* WebKit lässt den Fokus mitunter auf dem versteckten Dialogknopf */
+    if (!$("dlg").hidden || (ae && ae !== document.body && !$("dlg").contains(ae))) return;
+    const sel = document.querySelector(".dev.sel");
+    const target = [back, $("cancel"), sel].find(x => x && document.body.contains(x) && !x.disabled && !x.hidden &&
+                                                      x.offsetParent !== null);
+    if (target) target.focus();
+  }, 0);
 }
+
+/* Fokus bleibt im offenen Dialog (D-Pad/Tab würde sonst Elemente dahinter erreichen) */
+document.addEventListener("focusin", e => {
+  if (!$("dlg").hidden && !$("dlg").contains(e.target)) {
+    const first = [$("dno"), $("dyes")].find(b => !b.hidden && !b.disabled) || $("dackbox");
+    first.focus();
+  }
+});
 $("dno").addEventListener("click", () => closeDialog(false));
 $("dyes").addEventListener("click", () => closeDialog("yes"));
 $("dalt").addEventListener("click", () => closeDialog("alt"));
@@ -1103,7 +1166,7 @@ async function fakeDialog(st, r, d) {
     title: "Gefälschter Speicher erkannt", cls: "amber",
     text: name + " meldet " + fmtSize(r.reported) + ", hat aber nur etwa " + fmtSize(r.real) +
           " echten Speicher. Was darüber hinaus gespeichert wird, geht verloren – Spiele würden unbemerkt beschädigt.",
-    extra: stats, text2: "Noch nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben). Für Spiele an " +
+    extra: stats, text2: "Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben. Für Spiele an " +
       "der PS5 besser einen echten Datenträger verwenden – wenn überhaupt, dann nur den echten Bereich nutzen.",
     no: "Schließen", yes: "Nur echte " + fmtSize(r.real) + " formatieren", yesCls: "solid primary"
   });
@@ -1241,23 +1304,40 @@ async function deleteGames(d, games) {
 $("brename").addEventListener("click", () => {
   const d = currentDevice();
   $("renamebox").hidden = !$("renamebox").hidden;
+  $("renameerr").textContent = "";
   if (!$("renamebox").hidden) { $("newlabel").value = d ? d.label : ""; $("newlabel").focus(); }
 });
 $("brenameok").addEventListener("click", async () => {
   const d = currentDevice(), label = $("newlabel").value;
-  if (!d) return;
-  if (!/^[A-Za-z0-9 _-]{0,11}$/.test(label)) { showMsg("Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (max. 11 Zeichen).", false); return; }
-  if (d.mounts.length) {
-    const ok = await dialog({ title: "Umbenennen", cls: "plain",
-      text: "„" + devTitle(d) + "“ wird dafür kurz abgemeldet und danach von der PS5 wieder eingebunden.", yes: "Umbenennen" });
+  if (!d || busy) return;
+  $("renameerr").textContent = "";
+  if (!/^[A-Za-z0-9 _-]{0,11}$/.test(label)) {   /* Fehler direkt am Feld, nicht unten am Seitenende */
+    $("renameerr").textContent = "Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (höchstens 11 Zeichen).";
+    $("newlabel").focus();
+    return;
+  }
+  if (label === (d.label || "")) { $("renamebox").hidden = true; return; }   /* nichts geändert */
+  const notes = [];
+  if (!label) notes.push("Die Bezeichnung wird entfernt.");
+  if (d.mounts.length) notes.push("„" + devTitle(d) + "“ wird dafür kurz abgemeldet und danach von der PS5 wieder eingebunden.");
+  if (notes.length) {
+    const ok = await dialog({ title: label ? "Umbenennen" : "Bezeichnung entfernen?", cls: "plain",
+      text: notes.join(" "), text2: "Die Daten auf dem Laufwerk bleiben erhalten.", yes: label ? "Umbenennen" : "Entfernen" });
     if (ok !== "yes") return;
   }
   $("renamebox").hidden = true;
   runJob("/api/label", { device: d.name, size: d.size, label, replug: d.mounts.length > 0 });
 });
 
+$("newlabel").addEventListener("keydown", e => {   /* Enter bzw. "Fertig" der PS5-Tastatur */
+  if (e.key === "Enter") { e.preventDefault(); $("brenameok").click(); }
+});
+
 $("cancel").addEventListener("click", async () => {
-  try { await api("/api/cancel", {}); } catch (e) { showMsg(e.message, false); }
+  $("cancel").disabled = true;   /* sofort sichtbar reagieren, nicht doppelt drücken */
+  $("cancel").textContent = "Wird abgebrochen …";
+  try { await api("/api/cancel", {}); }
+  catch (e) { showMsg(e.message, false); $("cancel").disabled = false; $("cancel").textContent = "Abbrechen"; }
 });
 
 $("quit").addEventListener("click", async () => {
@@ -1323,6 +1403,8 @@ $("theme").addEventListener("change", async () => {
   try { await api("/api/settings", { theme: t }); } catch (e) { showMsg(e.message, false); }
 });
 $("scale").addEventListener("input", () => setScale($("scale").value));
+/* PS5: Der Regler würde links/rechts des Steuerkreuzes abfangen - dort reichen die Knöpfe − und + */
+if (document.documentElement.classList.contains("tv")) $("scale").tabIndex = -1;
 $("scaleDown").addEventListener("click", () => setScale(Number($("scale").value) - 10));
 $("scaleUp").addEventListener("click", () => setScale(Number($("scale").value) + 10));
 applyScale(parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ui-zoom")) * 100);
@@ -1354,7 +1436,20 @@ $("cluster").addEventListener("change", update);
 $("other").addEventListener("change", () => { renderFs(); update(); });
 $("full").addEventListener("change", update);
 $("label").addEventListener("input", update);
-$("reload").addEventListener("click", () => { showMsg("", true); loadDevices(); loadLibrary(true); });
+$("reload").addEventListener("click", async () => {   /* sichtbar reagieren, solange gesucht wird */
+  if (busy || $("reload").dataset.loading) return;
+  const text = $("reload").lastChild;   /* Textknoten hinter dem Symbol */
+  $("reload").dataset.loading = "1";
+  $("reload").disabled = true;
+  text.textContent = "Suche …";
+  showMsg("", true);
+  try { await Promise.all([loadDevices(), loadLibrary(true)]); }
+  finally {
+    delete $("reload").dataset.loading;
+    $("reload").disabled = busy;
+    text.textContent = "Aktualisieren";
+  }
+});
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("dlg").hidden) closeDialog(false); });
 
 const onConsole = location.hostname === "127.0.0.1" || location.hostname === "localhost";

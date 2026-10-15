@@ -49,6 +49,15 @@ USBFMT_FAKE_REAL=$((8448 * MIB)) USBFMT_FAKE_MODE=drop "$W/dt" verify "$W/drop.i
 expect_real "Schnelltest, 64 GB gemeldet, Daten hinter 8448 MB verschwinden" 8448 1
 rm -f "$W/drop.img"
 
+# Stick wird mitten in der Prüfung abgezogen: Fehler "nicht mehr erreichbar", NIE "gefälscht" (würde gespeichert)
+truncate -s 2G "$W/weg.img"
+for mode in verify full; do
+    USBFMT_GONE_AT=$((1200 * MIB)) "$W/dt" $mode "$W/weg.img" $((2048 * MIB)) >"$W/out" 2>&1
+    grep -q "nicht mehr erreichbar" "$W/out" && ! grep -q "fake=1" "$W/out" \
+        && ok "abgezogen während der Prüfung ($mode): Fehler statt Fälschung" || bad "abgezogen ($mode)"
+done
+rm -f "$W/weg.img"
+
 truncate -s 300M "$W/fake.img"
 USBFMT_FAKE_REAL=$((300 * MIB)) "$W/dt" full "$W/fake.img" $((1024 * MIB)) >"$W/out" 2>&1
 expect_real "Vollständig, Adresse läuft bei 300 MB über (keine Zweierpotenz)" 300 0

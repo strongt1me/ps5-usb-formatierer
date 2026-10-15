@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -37,7 +38,9 @@ char *smp_http_post(int port, const char *path, const char *body, int *http, siz
     }
     size_t cap = 64 * 1024, n = 0;
     char *buf = malloc(cap + 1);
+    const time_t deadline = time(NULL) + 20;   /* ganze Antwort, nicht nur je recv (hängendes ShadowMountPlus) */
     while (buf) {
+        if (time(NULL) > deadline) { free(buf); close(s); return NULL; }
         if (n == cap) {
             if (cap >= SMP_MAX) break;
             char *nb = realloc(buf, cap * 2 + 1);

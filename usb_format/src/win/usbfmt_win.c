@@ -319,12 +319,15 @@ static void session_close(session_t *s, int changed) {
     s->fd = -1;
 }
 
-static const WCHAR *image_path;   /* nur Tests: --image <Datei> statt eines Datenträgers */
+#ifdef USBFMT_TEST
+static const WCHAR *image_path;   /* nur Test-Build: --image <Datei> statt eines Datenträgers (nie ausgeliefert) */
+#endif
 
 static int session_open(session_t *s, int disk, uint64_t size, int write, char *err, size_t n) {
     memset(s, 0, sizeof(*s));
     s->disk = INVALID_HANDLE_VALUE;
     s->fd = -1;
+#ifdef USBFMT_TEST
     if (image_path) {
         LARGE_INTEGER sz;
         s->disk = CreateFileW(image_path, GENERIC_READ | (write ? GENERIC_WRITE : 0), FILE_SHARE_READ, NULL,
@@ -340,6 +343,7 @@ static int session_open(session_t *s, int disk, uint64_t size, int write, char *
         s->fd = _open_osfhandle((intptr_t)s->disk, write ? _O_RDWR | _O_BINARY : _O_RDONLY | _O_BINARY);
         return 0;
     }
+#endif
     if (disk_info(disk, &s->info)) { snprintf(err, n, "Datenträger %d nicht gefunden – bitte die Liste aktualisieren.", disk); return -1; }
     if (!usb_bus(s->info.bus)) { snprintf(err, n, "Datenträger %d ist kein USB-Datenträger – abgelehnt.", disk); return -1; }
     if (system_disk(disk)) { snprintf(err, n, "Datenträger %d enthält Windows – abgelehnt.", disk); return -1; }
@@ -398,14 +402,14 @@ static int cmd_format(int disk, uint64_t size, const char *fsname, const char *l
                      t.bad ? "true" : "false", (unsigned long long)size, (unsigned long long)t.real_bytes,
                      (unsigned long long)t.bad_at);
             if (rc != 0)
-                snprintf(msg, sizeof(msg), "Prüfung fehlgeschlagen: %s Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).", err);
+                snprintf(msg, sizeof(msg), "Prüfung fehlgeschlagen: %s Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.", err);
             else if (t.fake)
-                snprintf(msg, sizeof(msg), "%s meldet %s, hat aber nur etwa %s echten Speicher. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben) – "
+                snprintf(msg, sizeof(msg), "%s meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben – "
                          "für Spiele an der PS5 nicht empfohlen, höchstens den echten Bereich nutzen.", title(&s), size_text(size, s1, sizeof(s1)),
                          size_text(t.real_bytes, s2, sizeof(s2)));
             else
                 snprintf(msg, sizeof(msg), "Fehlerhafte Bereiche ab %llu MB: %s arbeitet nicht zuverlässig. "
-                         "Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).", (unsigned long long)(t.bad_at / MIB), title(&s));
+                         "Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.", (unsigned long long)(t.bad_at / MIB), title(&s));
             finish(0, msg, json);
             return 1;
         }
@@ -477,6 +481,30 @@ static int cmd_label(int disk, uint64_t size, const char *label) {
 
 /* ------------------------------------------------------------------ Start */
 
+/* Ausgabedatei als Administrator anlegen - aber nur NEU und nur genau dort, wo verlangt: Ein Schadprogramm ohne
+ * Adminrechte könnte den Ordner sonst per Verknüpfung (Junction) umleiten und uns eine geschützte Datei anlegen oder
+ * leeren lassen. CREATE_NEW scheitert an vorhandenen Dateien/Verknüpfungen; danach wird der echte Ort verglichen. */
+static FILE *open_out(const WCHAR *path) {
+    HANDLE h = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE) return NULL;
+    WCHAR fin[1024], want[1024], longp[1024];
+    DWORD nf = GetFinalPathNameByHandleW(h, fin, 1024, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    DWORD nw = GetFullPathNameW(path, 1024, want, NULL);
+    DWORD nl = nw && nw < 1024 ? GetLongPathNameW(want, longp, 1024) : 0;   /* 8.3-Kurznamen auflösen */
+    const WCHAR *f = fin;
+    if (nf > 4 && !wcsncmp(fin, L"\\\\?\\", 4)) f = fin + 4;
+    if (!nf || nf >= 1024 || !nl || nl >= 1024 || _wcsicmp(f, longp) != 0) {
+        CloseHandle(h);
+        if (nf && nf < 1024) DeleteFileW(fin);   /* umgeleitet: die gerade angelegte Datei wieder entfernen */
+        return NULL;
+    }
+    int fd = _open_osfhandle((intptr_t)h, _O_WRONLY | _O_BINARY);
+    if (fd < 0) { CloseHandle(h); return NULL; }
+    FILE *fp = _fdopen(fd, "wb");
+    if (!fp) _close(fd);
+    return fp;
+}
+
 int wmain(int argc, WCHAR **wargv) {
     static char abuf[32][512];
     char *argv[32];
@@ -487,13 +515,18 @@ int wmain(int argc, WCHAR **wargv) {
     int i = 1;
     for (; i + 1 < argc && !strncmp(argv[i], "--", 2); i += 2) {
         if (!strcmp(argv[i], "--out")) {
-            FILE *f = _wfopen(wargv[i + 1], L"wb");
+            FILE *f = open_out(wargv[i + 1]);
             if (!f) return 2;
             out = f;
         } else if (!strcmp(argv[i], "--cancel")) {
             cancel_path = wargv[i + 1];
+#ifdef USBFMT_TEST
         } else if (!strcmp(argv[i], "--image")) {
             image_path = wargv[i + 1];
+#endif
+        } else {
+            fprintf(stderr, "Unbekannte Option %s\n", argv[i]);   /* nichts still überspringen */
+            return 2;
         }
     }
     if (i >= argc) { fprintf(stderr, "Aufruf: usbfmt_win list | format | speed | label ...\n"); return 2; }

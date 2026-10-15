@@ -41,13 +41,16 @@ static uint64_t sim_real;
 static int sim_drop, sim_ready;
 
 static int sim_slow;   /* USBFMT_SLOW=1: je Zugriff 20 ms warten (Abbrechen testen) */
+static uint64_t sim_gone_at;   /* USBFMT_GONE_AT=<Byte>: ab dem ersten Zugriff dort ist der Stick "abgezogen" */
+static int sim_gone;
 
 static void sim_load(void) {
     if (sim_ready) return;
-    const char *r = getenv("USBFMT_FAKE_REAL"), *m = getenv("USBFMT_FAKE_MODE");
+    const char *r = getenv("USBFMT_FAKE_REAL"), *m = getenv("USBFMT_FAKE_MODE"), *g = getenv("USBFMT_GONE_AT");
     sim_real = r ? strtoull(r, NULL, 10) : 0;
     sim_drop = m && strcmp(m, "drop") == 0;
     sim_slow = getenv("USBFMT_SLOW") != NULL;
+    sim_gone_at = g ? strtoull(g, NULL, 10) : 0;
     sim_ready = 1;
 }
 #endif
@@ -56,6 +59,7 @@ static ssize_t io_rw(int fd, int wr, void *buf, size_t len, uint64_t off) {
 #ifdef USBFMT_HOST
     sim_load();
     if (sim_slow) usleep(20000);
+    if (sim_gone || (sim_gone_at && off + len > sim_gone_at)) { sim_gone = 1; errno = ENXIO; return -1; }
     if (sim_real) {
         for (size_t done = 0; done < len; ) {
             uint64_t o = off + done, phys = o % sim_real;
@@ -75,14 +79,35 @@ static ssize_t io_rw(int fd, int wr, void *buf, size_t len, uint64_t off) {
     return wr ? pwrite(fd, buf, len, (off_t)off) : pread(fd, buf, len, (off_t)off);
 }
 
+static int io_failed;   /* seit Prüfbeginn ein Lese-/Schreibfehler (nicht: falsche Daten) - nur ein Auftrag zugleich */
+
 static int io_all(int fd, int wr, void *buf, size_t len, uint64_t off) {
     for (size_t done = 0; done < len; ) {
         ssize_t n = io_rw(fd, wr, (uint8_t *)buf + done, len - done, off + done);
         if (n < 0 && errno == EINTR) continue;
-        if (n <= 0) return -1;
+        if (n <= 0) { io_failed = 1; return -1; }
         done += (size_t)n;
     }
     return 0;
+}
+
+/* Nach Lese-/Schreibfehlern: Ist der Stick noch da? Gelesen wird am Anfang (16 MiB), der bei jedem Stick echt ist.
+ * Antwortet er dort nicht mehr, wurde er abgezogen oder die USB-Verbindung ist weg - dann ist die Prüfung ungültig
+ * (sonst würde ein echter Stick als "gefälscht ab hier" gespeichert). */
+static int dev_gone(int fd, uint32_t ss) {
+    void *p = NULL;
+    size_t len = ss > SAMPLE ? ss : SAMPLE;
+    if (posix_memalign(&p, 4096, len)) return 0;
+    int gone = io_rw(fd, 0, p, len, 16ull * MIB) != (ssize_t)len;
+    free(p);
+    return gone;
+}
+
+static int gone_error(int fd, uint32_t ss, uint64_t at, char *err, size_t errlen) {
+    if (!io_failed || !dev_gone(fd, ss)) return 0;
+    snprintf(err, errlen, "Laufwerk nicht mehr erreichbar (bei %llu MB) – abgezogen oder USB-Verbindung "
+                          "unterbrochen? Die Prüfung ist ungültig.", (unsigned long long)(at / MIB));
+    return 1;
 }
 
 static void dev_sync(int fd) { (void)fsync(fd); }   /* Rohgeräte melden ggf. EINVAL - dann ist nichts gepuffert */
@@ -226,8 +251,8 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
 
 int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile int *cancel, devtest_t *r,
               char *err, size_t errlen) {
-    (void)ss;
     memset(r, 0, sizeof(*r));
+    io_failed = 0;
     uint8_t *a = alloc_buf(CHUNK, err, errlen), *b = a ? alloc_buf(CHUNK, err, errlen) : NULL;
     uint64_t *pos = NULL;
     uint8_t *state = NULL;   /* je Stichprobe: 0 offen, 1 gut, 2 fehlerhaft */
@@ -269,6 +294,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         progress(step, (int)((uint64_t)(i + 1) * 100 / n));
     }
     dev_sync(fd);
+    if (gone_error(fd, ss, pos[n - 1], err, errlen)) goto out;
 
     /* state: 1 gut, 2 überschrieben (eine spätere Stichprobe landete hier), 3 verloren (Fehler, Nullen, Müll) */
     uint64_t alias = 0, first_lost = 0, last_good = 0;
@@ -290,6 +316,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         if (state[i] == 1 && !nlost) last_good = pos[i] + SAMPLE;
         if (i % 16 == 0) progress("Echtheit prüfen: lesen", (int)((uint64_t)i * 100 / n));
     }
+    if (gone_error(fd, ss, first_lost, err, errlen)) goto out;
 
     /* Verloren ab first_lost (fast) alles: Grenze zwischen der letzten guten und der ersten verlorenen Stichprobe
      * durch Halbieren auf 1 MiB genau suchen (sicher nutzbar ist nur, was eine Probe bestätigt hat). Sonst sind es
@@ -313,6 +340,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
                 good = good && io_all(fd, 0, b, SAMPLE, mid) == 0 && memcmp(a, b, SAMPLE) == 0;
                 if (good) lo = mid; else hi = mid;
             }
+            if (gone_error(fd, ss, hi, err, errlen)) goto out;   /* Grenze nur, wenn der Stick noch antwortet */
             lost_limit = lo;
         } else if (lost_after * 10 >= after * 9 && first_lost > 0) {
             r->bad = 1;   /* schon die erste Stichprobe verloren: kein nutzbarer Bereich erkennbar */
@@ -346,7 +374,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
     int rc = -1;
     if (!a || !b) goto out;
     const uint64_t total = size / SAMPLE * SAMPLE, nonce = nonce64();
-    (void)ss;
+    io_failed = 0;
 
     double t0 = now_s(), last = 0;
     uint64_t done = 0;
@@ -355,6 +383,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
         size_t take = total - done < CHUNK ? (size_t)(total - done) : CHUNK;
         tagged(a, take, nonce, done);
         if (io_all(fd, 1, a, take, done)) {
+            if (gone_error(fd, ss, done, err, errlen)) goto out;   /* abgezogen, nicht defekt */
             snprintf(err, errlen, "Schreibfehler bei %llu MB: %s – der Datenträger ist vermutlich defekt",
                      (unsigned long long)(done / MIB), strerror(errno));
             r->bad = 1;
@@ -380,6 +409,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
         if (*cancel) { r->cancelled = 1; rc = 0; goto out; }
         size_t take = total - done < CHUNK ? (size_t)(total - done) : CHUNK;
         int rerr = io_all(fd, 0, b, take, done) != 0;
+        if (rerr && gone_error(fd, ss, done, err, errlen)) goto out;   /* abgezogen: kein "gefälscht ab hier" */
         tagged(a, take, nonce, done);
         if (rerr || memcmp(a, b, take) != 0) {
             for (size_t o = 0; o < take; o += SAMPLE) {

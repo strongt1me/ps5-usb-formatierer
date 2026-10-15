@@ -140,6 +140,17 @@ static void trim_utf8(char *s) {
     }
 }
 
+/* Titel-ID wie PPSA01234 / CUSA00001: 4 Großbuchstaben + 5 Ziffern. Sie stammt von beliebigen Sticks und geht an
+ * ShadowMountPlus weiter (JSON) - alles andere wird verworfen. */
+static int title_id_ok(const char *s, size_t n) {
+    if (n != 9) return 0;
+    for (size_t i = 0; i < 9; i++)
+        if (i < 4 ? !(s[i] >= 'A' && s[i] <= 'Z') : !(s[i] >= '0' && s[i] <= '9')) return 0;
+    return 1;
+}
+
+static void keep_valid_id(char *id) { if (!title_id_ok(id, strlen(id))) id[0] = 0; }
+
 int lib_parse_param_json(const char *json, size_t len, char *id, size_t idn, char *name, size_t namen) {
     const char *e = json + len, *lp;
     id[0] = name[0] = 0;
@@ -158,6 +169,7 @@ int lib_parse_param_json(const char *json, size_t len, char *id, size_t idn, cha
         }
     }
     trim_utf8(name);
+    keep_valid_id(id);
     return id[0] ? 0 : -1;
 }
 
@@ -176,6 +188,7 @@ int lib_parse_param_sfo(const uint8_t *b, size_t len, char *id, size_t idn, char
         if (dst) snprintf(dst, dn, "%.*s", (int)strnlen((const char *)b + vo, vl), (const char *)b + vo);
     }
     trim_utf8(name);
+    keep_valid_id(id);
     return id[0] ? 0 : -1;
 }
 
@@ -225,6 +238,7 @@ int lib_parse_smp_games(const char *json, size_t len, lib_hint_t **h, int *n) {
         jget_str(p, next, "title_id", t.id, sizeof(t.id));
         jget_str(p, next, "title_name", t.name, sizeof(t.name));
         trim_utf8(t.name);
+        keep_valid_id(t.id);
         lib_hint_t *dst;
         if (t.path[0] && t.id[0] && (dst = hint_add(h, n))) *dst = t;
         p = jws(next, e);
@@ -247,7 +261,7 @@ int lib_parse_smp_log(const char *log, size_t len, lib_hint_t **h, int *n) {
         const char *arrow = NULL;
         for (const char *q = slash; q && q + 4 <= eol && !arrow; q++)
             if (!memcmp(q, " -> ", 4)) arrow = q + 4;
-        if (slash && arrow && slash - k > 0 && slash - k < 16) {
+        if (slash && arrow && title_id_ok(k, (size_t)(slash - k))) {
             const char *end = eol;
             for (const char *q = arrow; q + 8 <= eol; q++)
                 if (!memcmp(q, " layers=", 8)) { end = q; break; }

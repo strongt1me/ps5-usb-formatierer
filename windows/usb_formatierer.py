@@ -4,6 +4,7 @@ Findet die PS5 im Netz (ps5_discovery) und spricht mit dem usb_format-Payload (H
 Port 8090). Laeuft der Payload noch nicht, wird er an den ELF-Loader der PS5 (Port 9021) geschickt.
 """
 import ctypes
+import hashlib
 import http.client
 import json
 import os
@@ -19,9 +20,14 @@ import tkinter as tk
 import tkinter.font as tkfont
 import urllib.error
 import urllib.request
-from tkinter import messagebox, ttk
+from tkinter import messagebox, simpledialog, ttk
 
 import ps5_discovery
+
+try:   # von build_helper.ps1 erzeugt: Prüfsumme des ausgelieferten Helfers
+    from helper_hash import HELPER_SHA256
+except ImportError:   # Entwicklung ohne gebauten Helfer: nur sperren, nicht vergleichen
+    HELPER_SHA256 = ""
 
 APP_NAME = "PS5USBFormatierer"
 API_PORT = 8090
@@ -134,11 +140,15 @@ class Api:
     def delete_games(self, keys, uninstall):
         return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall})
 
-    def format(self, device, fs, label, size, replug=False, limit=0):
-        body = {"device": device, "fs": fs, "label": label, "size": size, "replug": replug}
+    def format(self, device, fs, label, size, replug=False, limit=0, folders=True, verify=False):
+        body = {"device": device, "fs": fs, "label": label, "size": size, "replug": replug,
+                "folders": folders, "verify": verify}
         if limit:
             body["limit"] = limit   # gefälschter Stick: nur den echten Bereich nutzen
         return self._call("/api/format", body)
+
+    def cancel(self):
+        return self._call("/api/cancel", {})
 
 
 # ---------------------------------------------------------------------- PC-Modus: USB-Datenträger an diesem PC
@@ -148,6 +158,31 @@ def find_helper():
         if os.path.isfile(p):
             return os.path.abspath(p)
     return None
+
+
+def lock_helper(exe):
+    """Helfer gegen Ändern/Löschen sperren und seine Prüfsumme prüfen, bevor er Administratorrechte bekommt.
+    Er liegt (PyInstaller) im Temp-Ordner, in den auch Programme ohne Adminrechte schreiben dürfen.
+    Liefert das Sperr-Handle; der Aufrufer schließt es, sobald der Prozess läuft."""
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.restype = ctypes.c_void_p
+    k32.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_ulong,
+                                ctypes.c_ulong, ctypes.c_void_p]
+    # GENERIC_READ, nur FILE_SHARE_READ (kein Schreiben/Löschen durch andere), OPEN_EXISTING
+    h = k32.CreateFileW(exe, 0x80000000, 0x1, None, 3, 0x80, None)
+    if not h or h == ctypes.c_void_p(-1).value:
+        raise OSError("Der Helfer usbfmt_win.exe lässt sich nicht öffnen (wird er gerade verändert?).")
+    try:
+        with open(exe, "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()
+    except OSError as e:
+        k32.CloseHandle(ctypes.c_void_p(h))
+        raise OSError(f"Der Helfer usbfmt_win.exe lässt sich nicht lesen: {e}") from None
+    if HELPER_SHA256 and digest != HELPER_SHA256:
+        k32.CloseHandle(ctypes.c_void_p(h))
+        raise OSError("Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. "
+                      "Bitte das Programm neu herunterladen.")
+    return h
 
 
 def pc_list():
@@ -204,11 +239,11 @@ class PcJob:
         exe = find_helper()
         if not exe:
             raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
-        tmp = os.path.join(tempfile.gettempdir(), APP_NAME)
-        os.makedirs(tmp, exist_ok=True)
-        stamp = f"{os.getpid()}-{int(time.time() * 1000)}"
-        self.out = os.path.join(tmp, f"auftrag-{stamp}.txt")
-        self.cancel_file = os.path.join(tmp, f"abbruch-{stamp}")
+        lock = lock_helper(exe)   # bis der Prozess läuft: niemand kann die Datei austauschen
+        # eigener Ordner mit Zufallsnamen je Auftrag: ein fester Ordner ließe sich vorab umleiten (Junction)
+        self.tmpdir = tempfile.mkdtemp(prefix=f"{APP_NAME}-")
+        self.out = os.path.join(self.tmpdir, "auftrag.txt")
+        self.cancel_file = os.path.join(self.tmpdir, "abbruch")
         sei = _ShellExecuteInfo()
         sei.cbSize = ctypes.sizeof(sei)
         sei.fMask = 0x40 | 0x400          # SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI
@@ -218,14 +253,30 @@ class PcJob:
         sei.nShow = 0                     # SW_HIDE
         sei.hwnd = hwnd                   # UAC-Abfrage vor dem Programmfenster statt blinkend in der Taskleiste
         shell32 = ctypes.WinDLL("shell32", use_last_error=True)
-        if not shell32.ShellExecuteExW(ctypes.byref(sei)):
-            code = ctypes.get_last_error()
-            if code == 1223:   # ERROR_CANCELLED: Benutzer hat die UAC-Abfrage abgelehnt
-                raise PermissionError("Ohne Administratorrechte lässt Windows keine Datenträger bearbeiten.")
-            raise OSError(f"Helfer konnte nicht gestartet werden (Windows-Fehler {code}).")
+        try:
+            if not shell32.ShellExecuteExW(ctypes.byref(sei)):
+                code = ctypes.get_last_error()
+                self._cleanup()
+                if code == 1223:   # ERROR_CANCELLED: Benutzer hat die UAC-Abfrage abgelehnt
+                    raise PermissionError("Ohne Administratorrechte lässt Windows keine Datenträger bearbeiten.")
+                raise OSError(f"Helfer konnte nicht gestartet werden (Windows-Fehler {code}).")
+        finally:
+            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(lock))   # läuft jetzt: Windows sperrt die Datei selbst
         if not sei.hProcess:
+            self._cleanup()
             raise OSError("Helfer wurde gestartet, aber Windows liefert keinen Prozess dazu.")
         self.proc = sei.hProcess
+
+    def _cleanup(self):
+        for p in (self.out, self.cancel_file):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+        try:
+            os.rmdir(self.tmpdir)
+        except OSError:
+            pass
 
     def cancel(self):
         try:
@@ -270,17 +321,16 @@ class PcJob:
                     result = (False, "Der Helfer wurde unerwartet beendet.", {})
                 elif result is None and time.time() - last_change > self.STALL_S:
                     self.cancel()
+                    # wirklich beenden, sonst schreibt er womöglich weiter, während schon ein neuer Auftrag läuft.
+                    # Mitten im Formatieren abgebrochen bleibt ein leerer Stick (Tabelle wird zuletzt geschrieben).
+                    ctypes.windll.kernel32.TerminateProcess(ctypes.c_void_p(self.proc), 1)
                     result = (False, "Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen.", {})
                 elif result is None:
                     time.sleep(0.3)
         finally:
             ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 5000)   # Datei freigeben lassen
             ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self.proc))
-            for p in (self.out, self.cancel_file):
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
+            self._cleanup()
         return result
 
 
@@ -331,6 +381,8 @@ class App(tk.Tk):
         self.pc_job = None         # laufender Auftrag des Windows-Helfers
         self.games = {}            # PS5-Gerätename (da1 ...) -> Spiele darauf (aus /api/library)
         self.lib_loading = False
+        self.lib_known = False     # Spieleliste mindestens einmal geladen (sonst Inhalt unbekannt)
+        self.ps5_step = ""         # aktueller Schritt eines PS5-Auftrags (für "Abbrechen")
 
         self.mode_var = tk.StringVar(value="pc" if self.settings.get("mode") == "pc" else "ps5")
         self.verify_var = tk.BooleanVar(value=self.settings.get("verify", False))
@@ -454,11 +506,11 @@ class App(tk.Tk):
         self.label_hint.grid(row=row, column=0, columnspan=2, sticky="w")
         row += 1
 
-        # nur am PC: dieselben Zusatzoptionen wie in der Weboberfläche der PS5
+        # dieselben Zusatzoptionen wie in der Weboberfläche (an der PS5 und am PC)
         self.pc_opts = ttk.Frame(frm)
         self.pc_opts.grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self.verify_chk = ttk.Checkbutton(self.pc_opts, variable=self.verify_var,
-                                          text="Vorher Echtheit prüfen (Fake-Test, einige Minuten)")
+                                          text="Vorher Echtheit und Tempo prüfen (ca. 2–10 Minuten)")
         self.verify_chk.pack(anchor="w")
         self.folders_chk = ttk.Checkbutton(self.pc_opts, variable=self.folders_var,
                                            text="Ordner homebrew, etaHEN/games und pkg anlegen")
@@ -481,9 +533,50 @@ class App(tk.Tk):
         self.rename_btn = ttk.Button(self.tools, text="Umbenennen", command=self._pc_rename)
         self.rename_btn.pack(side="left", padx=(6, 0))
         ttk.Button(btns, text="Schließen", command=self._on_close).pack(side="right", padx=(6, 0))
-        self.start_btn = ttk.Button(btns, text="Starten", command=self._start)
+        self.start_btn = ttk.Button(btns, text="Formatieren …", command=self._start)
         self.start_btn.pack(side="right")
-        self.cancel_btn = ttk.Button(btns, text="Abbrechen", command=self._pc_cancel)
+        self.cancel_btn = ttk.Button(btns, text="Abbrechen", command=self._cancel)
+
+    def _confirm(self, title, text, ok_text, ack=None):
+        """Rückfrage mit eigenen Knopftexten; mit ack muss erst ein Häkchen gesetzt werden (wie in der Web-UI).
+        Abbrechen ist vorausgewählt, Esc bricht ab. Liefert True bei Bestätigung."""
+        win = tk.Toplevel(self)
+        win.withdraw()
+        win.title(title)
+        win.transient(self)
+        win.resizable(False, False)
+        frm = ttk.Frame(win, padding=(18, 14, 18, 14))
+        frm.pack(fill="both", expand=True)
+        ttk.Label(frm, text=text, wraplength=520, justify="left").pack(anchor="w")
+        result = {"ok": False}
+
+        def done(ok):
+            result["ok"] = ok
+            win.destroy()
+
+        btns = ttk.Frame(frm)
+        ok_btn = ttk.Button(btns, text=ok_text, command=lambda: done(True))
+        cancel_btn = ttk.Button(btns, text="Abbrechen", command=lambda: done(False))
+        if ack:
+            var = tk.BooleanVar(value=False)
+            ttk.Checkbutton(frm, text=ack, variable=var,
+                            command=lambda: ok_btn.state(["!disabled"] if var.get() else ["disabled"])).pack(
+                anchor="w", pady=(12, 0))
+            ok_btn.state(["disabled"])
+        btns.pack(anchor="e", pady=(16, 0))
+        cancel_btn.pack(side="right")
+        ok_btn.pack(side="right", padx=(0, 6))
+        win.bind("<Escape>", lambda e: done(False))
+        win.protocol("WM_DELETE_WINDOW", lambda: done(False))
+        win.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - win.winfo_reqwidth()) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - win.winfo_reqheight()) // 3
+        win.geometry(f"+{max(0, x)}+{max(0, y)}")
+        win.deiconify()
+        cancel_btn.focus_set()
+        win.grab_set()
+        self.wait_window(win)
+        return result["ok"]
 
     def _widen_dev_list(self):
         """Aufgeklappte Liste so breit wie der längste Eintrag (ttk nimmt sonst die Breite des Feldes)"""
@@ -522,8 +615,10 @@ class App(tk.Tk):
         enable(self.del_btn, idle and not pc and self.api and self.games_tree.selection())
         enable(self.uninstall_chk, idle)
         enable(self.rename_btn, idle and dev and any(v["fs"] in ("exFAT", "FAT32") for v in dev.get("volumes", [])))
-        # Abbrechen nur während Echtheitsprüfung oder Tempomessung am PC (Formatieren selbst dauert Sekunden)
-        if self.pc_job and getattr(self.pc_job, "cancellable", False):
+        # Abbrechen nur bei Warten auf Abziehen, Echtheitsprüfung und Tempomessung (Formatieren selbst dauert Sekunden)
+        ps5_cancellable = (not pc and self.formatting and not self.pc_job and
+                           (is_replug_step(self.ps5_step) or re.search(r"Echtheit|[Tt]empo|^Prüfen", self.ps5_step)))
+        if (self.pc_job and getattr(self.pc_job, "cancellable", False)) or ps5_cancellable:
             if not self.cancel_btn.winfo_ismapped():
                 self.cancel_btn.pack(side="right", padx=(0, 6))
         elif self.cancel_btn.winfo_ismapped():
@@ -537,10 +632,8 @@ class App(tk.Tk):
         for w in (self.ps5_caption, self.host_entry, self.search_btn, self.games_box, self.ps5_warn):
             w.grid_remove() if pc else w.grid()
         if pc:
-            self.pc_opts.grid()
             self.tools.pack(side="left", before=self.start_btn)
         else:
-            self.pc_opts.grid_remove()
             self.tools.pack_forget()
         self.pbar["value"] = 0
         if pc:
@@ -809,32 +902,59 @@ class App(tk.Tk):
                            f"Speicher. Es wird nur dieser Bereich formatiert. Für Spiele an der PS5 besser einen echten "
                            f"Datenträger verwenden.\n\n") + replug_text
         games = sorted(g["name"] or g["id"] for g in self.games.get(dev["name"], []))
+        ack = None
         if games:
             shown = "\n".join("• " + g for g in games[:8]) + (f"\n… und {len(games) - 8} weitere" if len(games) > 8 else "")
             replug_text = (f"Darauf liegen {len(games)} Spiel{'e' if len(games) != 1 else ''}, die gelöscht werden:\n"
                            f"{shown}\n\n") + replug_text
-        if not messagebox.askokcancel(
-                "PS5-USB formatieren",
-                f"WARNUNG: Durch das Formatieren werden ALLE Daten auf diesem Datenträger gelöscht.\n\n"
+            ack = "Ich weiß, dass diese Spiele unwiderruflich gelöscht werden"
+        elif dev["mounts"] and (self.lib_loading or not self.lib_known):
+            # Inhalt noch unbekannt: lieber ausdrücklich bestätigen lassen
+            replug_text = "Der Inhalt wird noch durchsucht – möglicherweise liegen Spiele darauf.\n\n" + replug_text
+            ack = "Ich weiß, dass alles darauf unwiderruflich gelöscht wird"
+        verify = bool(self.verify_var.get())
+        if verify:
+            replug_text += "Vorher werden Echtheit und Tempo geprüft (einige Minuten).\n\n"
+            limit = 0   # die Prüfung testet den ganzen Stick erneut
+        if not self._confirm(
+                "Alle Daten werden gelöscht",
                 f"{dev_title(dev)} ({dev['name']}, {fmt_size(dev['size'])}) wird als {fs_text} formatiert.\n\n"
-                f"{replug_text}"
-                f"Klicken Sie auf „OK“, um den Datenträger zu formatieren, oder auf „Abbrechen“, "
-                f"um den Vorgang abzubrechen.",
-                icon="warning", default="cancel", parent=self):
+                f"{replug_text}Das lässt sich nicht rückgängig machen.",
+                "Formatieren", ack):
             return
         if self.busy or not self.api:   # während der Rückfrage kann ein anderer Auftrag begonnen haben
             return
-        self.settings["label"] = label
+        self.settings.update(label=label, verify=verify, folders=self.folders_var.get())
         save_settings(self.settings)
+        folders = bool(self.folders_var.get())
+
+        def after(ok, msg, result):
+            """eigenes Formatieren: bei gefälschtem Stick anbieten, nur den echten Bereich zu nutzen"""
+            if ok:
+                messagebox.showinfo("PS5-USB formatieren", "Datenträger erfolgreich formatiert.\n\n" + msg, parent=self)
+            elif result.get("fake") and result.get("real", 0) >= 64 * 1024 * 1024:
+                real = result["real"]
+                if self._confirm("Gefälschter Speicher erkannt",
+                                 f"{msg}\n\nNur die echten {fmt_size(real)} formatieren? Für Spiele an der PS5 besser "
+                                 f"einen echten Datenträger verwenden.", f"Nur echte {fmt_size(real)} formatieren"):
+                    self._ps5_format_job(dev, fs, label, folders, False, real, after)
+            else:
+                messagebox.showerror("PS5-USB formatieren", msg, parent=self)
+
+        self._ps5_format_job(dev, fs, label, folders, verify, limit, after)
+
+    def _ps5_format_job(self, dev, fs, label, folders, verify, limit, after):
+        if self.busy or not self.api:
+            return
         api = self.api
 
         def work():
             try:
-                api.format(dev["name"], fs, label, dev["size"], replug, limit)
+                api.format(dev["name"], fs, label, dev["size"], bool(dev["mounts"]), limit, folders, verify)
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", f"Formatieren konnte nicht gestartet werden: {e}"))
                 return
-            self._follow(api, foreign=False)
+            self._follow(api, foreign=False, after=after)
 
         self.pbar["value"] = 0
         self._run(work)
@@ -874,30 +994,45 @@ class App(tk.Tk):
         self.pbar["value"] = 0
         self._run(work)
 
-    def _follow(self, api, foreign, done_title="Datenträger erfolgreich formatiert."):
+    def _follow(self, api, foreign, done_title="Datenträger erfolgreich formatiert.", after=None):
         """Auftrag auf der PS5 bis zum Ende verfolgen (im Thread). foreign: woanders gestartet (PS5-Browser,
         anderer PC) - dann nur anzeigen, ohne Rückfrage-Dialoge des Starters."""
         self.q.put(("formatting", foreign))
-        failures = 0
+        last_ok = time.time()
         while True:
             time.sleep(0.5)
             try:
                 st = api.status()
-                failures = 0
+                last_ok = time.time()
             except (ConnectionError, ApiError):
-                failures += 1
-                if failures >= 20:
-                    self.q.put(("finished", False, "Verbindung zur PS5 verloren. Bitte die "
-                                                   "PS5-Benachrichtigungen prüfen.", foreign, done_title))
+                # WLAN-Aussetzer oder PC kurz im Ruhezustand: der Auftrag läuft auf der PS5 weiter - geduldig
+                # weiterfragen und erst nach 3 Minuten aufgeben (mit ehrlicher Meldung)
+                offline = time.time() - last_ok
+                if offline >= 180:
+                    self.q.put(("finished", False, "Keine Verbindung zur PS5 seit 3 Minuten. Der Auftrag läuft dort "
+                                "vermutlich weiter – den Stick NICHT abziehen. Später „Suchen“ klicken, um das Ergebnis "
+                                "zu sehen.", foreign, done_title))
                     return
+                if offline >= 5:
+                    self.q.put(("status", "Verbindung zur PS5 unterbrochen – der Auftrag läuft dort weiter, frage weiter "
+                                          "nach …"))
+                time.sleep(min(2.0, offline / 10))   # sanft weiterfragen
                 continue
+            if not st.get("busy") and not st.get("done"):
+                # Formatierer wurde zwischendurch neu gestartet: Ergebnis unbekannt
+                self.q.put(("finished", False, "Der Formatierer auf der PS5 wurde zwischendurch neu gestartet – das "
+                            "Ergebnis ist unbekannt. Bitte den Datenträger prüfen bzw. erneut formatieren.",
+                            foreign, done_title))
+                return
             self.q.put(("progress", int(st.get("percent") or 0), st.get("step") or ""))
             if not st.get("busy"):
                 try:   # erst die Liste, dann das Ergebnis - sonst überschreibt der Listenhinweis die Meldung
                     self.q.put(("devices", api.devices()))
                 except (ConnectionError, ApiError):
                     pass
-                self.q.put(("finished", bool(st.get("ok")), st.get("message") or "", foreign, done_title))
+                result = st.get("result") if isinstance(st.get("result"), dict) else {}
+                self.q.put(("finished", bool(st.get("ok")), st.get("message") or "", foreign, done_title, result,
+                            after))
                 return
 
     def _watch(self):
@@ -981,16 +1116,16 @@ class App(tk.Tk):
         if not limit:
             vols = self._pc_volumes_text(dev)
             used = pc_used(dev)
-            data_warn = (f"\n\nAuf dem Datenträger liegen {fmt_size(used)} Daten – sie sind danach weg."
-                         if used > 64 * 1024 * 1024 else "")
-            if not messagebox.askokcancel(
-                    "USB-Datenträger am PC formatieren",
-                    f"WARNUNG: Durch das Formatieren werden ALLE Daten auf diesem Datenträger gelöscht.\n\n"
-                    f"{dev['model'] or 'USB-Datenträger'} ({fmt_size(dev['size'])})\n"
+            has_data = used > 64 * 1024 * 1024
+            data_warn = f"\n\nAuf dem Datenträger liegen {fmt_size(used)} Daten – sie sind danach weg." if has_data else ""
+            if not self._confirm(
+                    "Alle Daten werden gelöscht",
+                    f"{dev['model'] or 'USB-Datenträger'} (Datenträger {dev['disk']}, {fmt_size(dev['size'])})\n"
                     f"{vols + chr(10) if vols else ''}"
                     f"\nwird als {fs_text} für die PS5 formatiert.{data_warn}\n\n"
-                    f"Windows fragt anschließend nach Administratorrechten.",
-                    icon="warning", default="cancel", parent=self):
+                    f"Das lässt sich nicht rückgängig machen. Windows fragt anschließend nach Administratorrechten.",
+                    "Formatieren",
+                    f"Ich weiß, dass die {fmt_size(used)} Daten unwiderruflich gelöscht werden" if has_data else None):
                 return
         if self.busy or self.mode_var.get() != "pc":
             return
@@ -1033,11 +1168,20 @@ class App(tk.Tk):
         dev = self._selected_device()
         if self.busy or not dev:
             return
-        label = self.label_var.get()
-        target = f"„{label}“" if label else "keine Bezeichnung"
-        if not messagebox.askokcancel(
+        current = next((v["label"] for v in dev["volumes"] if v["fs"] in ("exFAT", "FAT32")), "")
+        label = simpledialog.askstring("Umbenennen", "Neue Bezeichnung (bis zu 11 Zeichen: A–Z, 0–9, Leerzeichen, - "
+                                       "und _; leer = Bezeichnung entfernen):", initialvalue=current, parent=self)
+        if label is None or label == current:
+            return
+        if not LABEL_RE.match(label):
+            messagebox.showerror("Umbenennen", "Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (höchstens 11 Zeichen).",
+                                 parent=self)
+            return
+        target = f"„{label}“" if label else "keine Bezeichnung (wird entfernt)"
+        if not self._confirm(
                 "Umbenennen", f"{pc_dev_text(dev)}\n\nNeue Bezeichnung: {target}\n\nDie Daten bleiben erhalten. Das "
-                "Laufwerk wird dafür kurz abgemeldet – geöffnete Dateien darauf vorher schließen.", parent=self):
+                "Laufwerk wird dafür kurz abgemeldet – geöffnete Dateien darauf vorher schließen.",
+                "Umbenennen" if label else "Entfernen"):
             return
         if self.busy or self.mode_var.get() != "pc":
             return
@@ -1047,10 +1191,22 @@ class App(tk.Tk):
 
         self._pc_run("label", ["label", str(dev["disk"]), str(dev["size"]), label], after=after)
 
-    def _pc_cancel(self):
+    def _cancel(self):
+        """Abbrechen: am PC über die Abbruch-Datei des Helfers, an der PS5 über /api/cancel"""
+        self.cancel_btn.state(["disabled"])
+        self.status_var.set("Wird abgebrochen …")
         if self.pc_job:
             self.pc_job.cancel()
-            self.status_var.set("Wird abgebrochen …")
+        elif self.api:
+            api = self.api
+
+            def work():
+                try:
+                    api.cancel()
+                except (ConnectionError, ApiError) as e:
+                    self.q.put(("bgerror", f"Abbrechen nicht möglich: {e}"))
+
+            threading.Thread(target=self._guard(work, background=True), daemon=True).start()
 
     # ------------------------------------------------------------------ Ereignisse aus Threads
 
@@ -1107,6 +1263,7 @@ class App(tk.Tk):
                     self.pbar.configure(mode="determinate")
                 self.pbar["value"] = pct
             self.status_var.set(f"{step} …" if moving else f"{step} … {pct} %")
+            self.ps5_step = step   # für "Abbrechen" (Warten auf Abziehen, Prüfung, Messung)
         elif kind == "finished":
             self.formatting = False
             self.busy = False
@@ -1115,7 +1272,14 @@ class App(tk.Tk):
             self.status_var.set(msg[2])
             foreign = len(msg) > 3 and msg[3]
             done_title = msg[4] if len(msg) > 4 else "Datenträger erfolgreich formatiert."
-            if msg[1]:
+            result = msg[5] if len(msg) > 5 else {}
+            after = msg[6] if len(msg) > 6 else None
+            self.ps5_step = ""
+            if after and not foreign:   # der Auftraggeber entscheidet selbst (z. B. Fälschung: nur echten Bereich)
+                self.pbar["value"] = 100 if msg[1] else 0
+                self._update()
+                after(msg[1], msg[2], result)
+            elif msg[1]:
                 self.pbar["value"] = 100
                 if not foreign:
                     messagebox.showinfo("PS5-USB formatieren", done_title + "\n\n" + msg[2], parent=self)
@@ -1132,6 +1296,7 @@ class App(tk.Tk):
                     if t.get("device"):   # nur Datenträger, nicht der interne Ordner /data/homebrew
                         games.setdefault(t["device"], []).append(t)
                 self.games = games
+                self.lib_known = True
                 if data.get("scanning"):
                     self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
                     self.after(2000, self._relibrary)

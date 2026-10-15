@@ -15,5 +15,7 @@ windows/build/
 windows/dist/
 windows/*.spec
 windows/usbfmt_win.exe
+windows/usbfmt_win_test.exe
+windows/helper_hash.py
 **/__pycache__/
 *.pyc
