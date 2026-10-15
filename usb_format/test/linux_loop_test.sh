@@ -61,18 +61,21 @@ expect mounted 1 "eingehängtes Laufwerk wird ausgehängt und formatiert"
 mountpoint -q "$W/mnt" && bad "noch eingehängt" || ok "danach nicht mehr eingehängt"
 fsck.fat -n "$(p 1)" >/dev/null 2>&1 && ok "FAT32: fsck.fat" || bad "FAT32: fsck.fat"
 
-# belegt (Programm mit offener Datei): abgelehnt, nichts verändert
+# belegt (Programm mit offener Datei): abgelehnt, nichts verändert. Verglichen werden Partitionstabelle und
+# Dateisystem-Kennung - das Abbild als Ganzes ändert vfat schon selbst beim Einhängen (Schmutz-Kennzeichen).
+mbr_sum() { head -c $M "$W/disk.img" | sha256sum | cut -c1-16; }
 mount "$(p 1)" "$W/mnt"
 sleep 60 3>"$W/mnt/offen.txt" &   # dieser Prozess selbst hält die Datei offen (lässt sich sauber beenden)
 BUSY=$!
 sleep 0.5
-before=$(sha256sum "$W/disk.img" | cut -c1-16)
+before=$(mbr_sum)
 h busy format "$D" $SIZE exfat X plain
 expect busy 0 "belegtes Laufwerk: abgelehnt"
 grep -q "wird gerade benutzt" "$W/busy.txt" && ok "Meldung: wird gerade benutzt" || bad "Meldung: $(cat "$W/busy.txt")"
 kill $BUSY 2>/dev/null; wait $BUSY 2>/dev/null
 umount "$W/mnt" || { echo "        (noch belegt: $(fuser -vm "$W/mnt" 2>&1 | tail -n +2))"; umount -l "$W/mnt"; }
-[ "$(sha256sum "$W/disk.img" | cut -c1-16)" = "$before" ] && ok "belegt: Datenträger unverändert" || bad "belegt: Datenträger verändert"
+[ "$(mbr_sum)" = "$before" ] && [ "$(blkid -p -o value -s LABEL "$(p 1)")" = DATEN ] \
+    && ok "belegt: Datenträger unverändert" || bad "belegt: Datenträger verändert ($(blkid -p "$(p 1)"))"
 
 # NTFS + FAT16 + ext4 + HFS+ (MBR) über die Systemwerkzeuge
 h mixed layout "$D" $SIZE scheme=mbr plain "part=ntfs,$((300 * M)),4096,auto,0,WIN DATEN" \
@@ -81,16 +84,33 @@ expect mixed 1 "MBR: NTFS, FAT16 (startfähig), ext4, HFS+"
 ntfsfix -n "$(p 1)" >/dev/null 2>&1 && ok "NTFS: ntfsfix -n" || bad "NTFS: ntfsfix -n"
 [ "$(ntfslabel "$(p 1)" 2>/dev/null)" = "WIN DATEN" ] && ok "NTFS: Bezeichnung" || bad "NTFS: Bezeichnung $(ntfslabel "$(p 1)" 2>&1)"
 fsck.fat -n "$(p 2)" >/dev/null 2>&1 && ok "FAT16: fsck.fat" || bad "FAT16: fsck.fat"
-blkid -o value -s VERSION "$(p 2)" | grep -q FAT16 && ok "FAT16: wirklich FAT16" || bad "FAT16: $(blkid "$(p 2)")"
+fat_type() { dd if="$1" bs=1 skip=54 count=8 2>/dev/null | tr -d ' '; }   # BS_FilSysType im Bootsektor (FAT12/16)
+[ "$(fat_type "$(p 2)")" = FAT16 ] && ok "FAT16: wirklich FAT16" || bad "FAT16: '$(fat_type "$(p 2)")'"
 e2fsck -fn "$(p 3)" >/dev/null 2>&1 && ok "ext4: e2fsck" || bad "ext4: e2fsck"
 fsck.hfsplus -fn "$(p 4)" 2>&1 | grep -q "appears to be OK" && ok "HFS+: fsck.hfsplus" || bad "HFS+: fsck.hfsplus"
 grep -q "NTFS, 4,0 KB Cluster\|NTFS, 4 KB Cluster" "$W/mixed.txt" && ok "Meldung: NTFS mit 4 KB" || bad "Meldung: $(grep -P '^R' "$W/mixed.txt")"
 [ "$(sfdisk -d "$LOOP" | grep '^/' | sed -n 2p | grep -c bootable)" = 1 ] && ok "FAT16 startfähig" || bad "FAT16 nicht startfähig"
 
-# NTFS umbenennen (ntfslabel)
+# Umbenennen bei NTFS und FAT16 zugleich: unklar, welches gemeint ist - abgelehnt (wie unter Windows)
+h label2 label "$D" $SIZE "NEUER NAME"
+expect label2 0 "zwei NTFS-/FAT-Laufwerke: Umbenennen abgelehnt"
+[ "$(ntfslabel "$(p 1)" 2>/dev/null)" = "WIN DATEN" ] && ok "NTFS: Bezeichnung unverändert" || bad "NTFS: $(ntfslabel "$(p 1)" 2>&1)"
+
+# NTFS über den ganzen Datenträger, dann umbenennen (ntfslabel)
+h ntfs format "$D" $SIZE ntfs "WIN DATEN" plain
+expect ntfs 1 "NTFS über den ganzen Datenträger"
+ntfsfix -n "$(p 1)" >/dev/null 2>&1 && ok "NTFS: ntfsfix -n" || bad "NTFS: ntfsfix -n"
 h label label "$D" $SIZE "NEUER NAME"
 expect label 1 "NTFS umbenennen"
 [ "$(ntfslabel "$(p 1)" 2>/dev/null)" = "NEUER NAME" ] && ok "NTFS: neue Bezeichnung" || bad "NTFS: $(ntfslabel "$(p 1)" 2>&1)"
+
+# FAT16 über den ganzen Datenträger, dann umbenennen (fatlabel)
+h fat16 format "$D" $SIZE fat ALT plain
+expect fat16 1 "FAT16 über den ganzen Datenträger"
+[ "$(fat_type "$(p 1)")" = FAT16 ] && fsck.fat -n "$(p 1)" >/dev/null 2>&1 && ok "FAT16: fsck.fat" || bad "FAT16: '$(fat_type "$(p 1)")'"
+h label16 label "$D" $SIZE NEU16
+expect label16 1 "FAT16 umbenennen"
+[ "$(blkid -p -o value -s LABEL "$(p 1)")" = NEU16 ] && ok "FAT16: neue Bezeichnung" || bad "FAT16: $(blkid -p "$(p 1)")"
 
 # Echtheitsprüfung (O_DIRECT) und Tempo am echten Gerät
 h verify format "$D" $SIZE exfat TEST verify plain
