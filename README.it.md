@@ -7,8 +7,8 @@
 **Formatta chiavette e dischi USB – direttamente sulla PS5 o sul PC.**<br>
 Con test di autenticità e velocità, gestione dei giochi, tutti i file system più diffusi e partizioni personalizzate.
 
-[![Versione](https://img.shields.io/badge/Versione-2.3.0-185fa5?style=for-the-badge)](../../releases/latest)
-[![Licenze](https://img.shields.io/badge/Licenze-parti%20GPL-6e7781?style=for-the-badge)](#-licenze)
+[![Versione](https://img.shields.io/badge/Versione-2.3.1-185fa5?style=for-the-badge)](../../releases/latest)
+[![Licenza](https://img.shields.io/badge/Licenza-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Piattaforma](https://img.shields.io/badge/Piattaforma-PS5%20%7C%20Windows-0070d1?style=for-the-badge)](#-download)
 [![Lingue](https://img.shields.io/badge/Lingue-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funzioni)
 
@@ -140,6 +140,8 @@ Il pulsante **Aiuto** apre la guida dettagliata in cinque lingue – nell'interf
 | Traduzioni | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) e `windows/i18n_app.json` (`windows/i18n_check.py`) |
 
 ## 📄 Licenze
+
+Il Formattatore USB è distribuito con licenza [GNU General Public License 3.0](LICENSE). Il codice di terze parti incluso mantiene la propria licenza:
 
 - `usb_format/third_party/exfatprogs` – exfatprogs 1.4.3, **GPL-2.0-or-later** (fsck.exfat è integrato nel formattatore, quindi anche `usb_format.elf` è soggetto alla GPL)
 - `usb_format/tools/bin` – mkntfs (ntfs-3g) e mke2fs (e2fsprogs), GPL, vedi `THIRD_PARTY_NOTICES.txt`

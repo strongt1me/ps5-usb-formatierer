@@ -7,8 +7,8 @@
 **Formatea pendrives y discos USB – directamente en la PS5 o en el PC.**<br>
 Con prueba de autenticidad y velocidad, gestión de juegos, todos los sistemas de archivos habituales y particiones propias.
 
-[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.3.0-185fa5?style=for-the-badge)](../../releases/latest)
-[![Licencias](https://img.shields.io/badge/Licencias-partes%20GPL-6e7781?style=for-the-badge)](#-licencias)
+[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.3.1-185fa5?style=for-the-badge)](../../releases/latest)
+[![Licencia](https://img.shields.io/badge/Licencia-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plataforma](https://img.shields.io/badge/Plataforma-PS5%20%7C%20Windows-0070d1?style=for-the-badge)](#-descarga)
 [![Idiomas](https://img.shields.io/badge/Idiomas-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funciones)
 
@@ -140,6 +140,8 @@ El botón **Ayuda** abre la guía detallada en cinco idiomas – en la interfaz 
 | Traducciones | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) y `windows/i18n_app.json` (`windows/i18n_check.py`) |
 
 ## 📄 Licencias
+
+El Formateador USB se distribuye bajo la [GNU General Public License 3.0](LICENSE). El código de terceros incluido conserva su propia licencia:
 
 - `usb_format/third_party/exfatprogs` – exfatprogs 1.4.3, **GPL-2.0-or-later** (fsck.exfat está integrado en el formateador, por lo que `usb_format.elf` también está sujeto a la GPL)
 - `usb_format/tools/bin` – mkntfs (ntfs-3g) y mke2fs (e2fsprogs), GPL, ver `THIRD_PARTY_NOTICES.txt`

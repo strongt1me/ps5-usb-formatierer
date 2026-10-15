@@ -7,8 +7,8 @@
 **USB-Sticks und -Festplatten formatieren – direkt an der PS5 oder am PC.**<br>
 Mit Echtheits- und Tempotest, Spieleverwaltung, allen gängigen Dateisystemen und eigenen Partitionen.
 
-[![Version](https://img.shields.io/badge/Version-2.3.0-185fa5?style=for-the-badge)](../../releases/latest)
-[![Lizenzen](https://img.shields.io/badge/Lizenzen-GPL--Anteile-6e7781?style=for-the-badge)](#-lizenzen)
+[![Version](https://img.shields.io/badge/Version-2.3.1-185fa5?style=for-the-badge)](../../releases/latest)
+[![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plattform](https://img.shields.io/badge/Plattform-PS5%20%7C%20Windows-0070d1?style=for-the-badge)](#-download)
 [![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funktionen)
 
@@ -140,6 +140,8 @@ Die ausführliche Anleitung in fünf Sprachen öffnet der Knopf **Hilfe** – in
 | Übersetzungen | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) und `windows/i18n_app.json` (`windows/i18n_check.py`) |
 
 ## 📄 Lizenzen
+
+Der USB-Formatierer steht unter der [GNU General Public License 3.0](LICENSE). Enthaltener Fremdcode behält seine eigene Lizenz:
 
 - `usb_format/third_party/exfatprogs` – exfatprogs 1.4.3, **GPL-2.0-or-later** (fsck.exfat ist in den Formatierer eingebunden, damit unterliegt auch `usb_format.elf` der GPL)
 - `usb_format/tools/bin` – mkntfs (ntfs-3g) und mke2fs (e2fsprogs), GPL, siehe `THIRD_PARTY_NOTICES.txt`
