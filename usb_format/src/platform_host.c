@@ -112,11 +112,11 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
     const char *mode = getenv("USBFMT_REPLUG");
     progress("Stick jetzt abziehen", 0);
     if (mode && strcmp(mode, "wait") == 0) {
-        for (int i = 0; i < 600 && !*cancel; i++) {
+        for (int i = 0; i < 600 && !__atomic_load_n(cancel, __ATOMIC_RELAXED); i++) {
             struct timespec ts = {0, 50 * 1000 * 1000};
             nanosleep(&ts, NULL);
         }
-        snprintf(err, errlen, "%s", *cancel ? "Abgebrochen." : "Der Stick wurde nicht abgezogen.");
+        snprintf(err, errlen, "%s", __atomic_load_n(cancel, __ATOMIC_RELAXED) ? "Abgebrochen." : "Der Stick wurde nicht abgezogen.");
         return -1;
     }
     progress("Stick jetzt wieder einstecken", 0);

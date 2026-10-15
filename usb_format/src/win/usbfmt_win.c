@@ -96,7 +96,7 @@ static void finish(int ok, const char *msg, const char *json) {
 static DWORD WINAPI cancel_watch(LPVOID arg) {
     (void)arg;
     for (;;) {
-        if (cancel_path && GetFileAttributesW(cancel_path) != INVALID_FILE_ATTRIBUTES) cancel_requested = 1;
+        if (cancel_path && GetFileAttributesW(cancel_path) != INVALID_FILE_ATTRIBUTES) __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
         Sleep(300);
     }
     return 0;

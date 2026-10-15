@@ -184,7 +184,7 @@ int dt_read_speed(int fd, uint32_t ss, uint64_t size, progress_fn progress, vola
     uint64_t done = 0;
     double t0 = now_s();
     while (done < total) {
-        if (*cancel) { r->cancelled = 1; break; }
+        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; break; }
         size_t take = total - done < CHUNK ? (size_t)(total - done) : CHUNK;
         if (io_all(fd, 0, buf, take, start + done)) {
             snprintf(err, errlen, "Lesefehler bei %llu MB: %s", (unsigned long long)((start + done) / MIB),
@@ -214,7 +214,7 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
     if (total < CHUNK || start + total > size) return 0;   /* zu klein zum Messen */
     double t0 = now_s();
     while (done < total) {
-        if (*cancel) { r->cancelled = 1; return 0; }
+        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; return 0; }
         fill(a, CHUNK, nonce ^ (start + done));
         if (io_all(fd, 1, a, CHUNK, start + done)) {
             snprintf(err, errlen, "Schreibfehler bei %llu MB: %s", (unsigned long long)((start + done) / MIB),
@@ -233,7 +233,7 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
     done = 0;
     t0 = now_s();
     while (done < written) {
-        if (*cancel) { r->cancelled = 1; return 0; }
+        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; return 0; }
         if (io_all(fd, 0, b, CHUNK, start + done)) {
             snprintf(err, errlen, "Lesefehler bei %llu MB: %s", (unsigned long long)((start + done) / MIB),
                      strerror(errno));
@@ -286,7 +286,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
     double t0 = now_s();
     char step[64];
     for (uint32_t i = 0; i < n; i++) {
-        if (*cancel) { r->cancelled = 1; rc = 0; goto out; }
+        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         tagged(a, SAMPLE, nonce, pos[i]);
         if (io_all(fd, 1, a, SAMPLE, pos[i])) state[i] = 3;
         double el = now_s() - t0;   /* Restzeit aus dem bisherigen Tempo je Stichprobe */
@@ -300,7 +300,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
     uint64_t alias = 0, first_lost = 0, last_good = 0;
     uint32_t nlost = 0;
     for (uint32_t i = 0; i < n; i++) {
-        if (*cancel) { r->cancelled = 1; rc = 0; goto out; }
+        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         if (state[i] != 3 && io_all(fd, 0, b, SAMPLE, pos[i]) == 0) {
             tagged(a, SAMPLE, nonce, pos[i]);
             uint64_t other = tag_pos(b, nonce);
@@ -329,7 +329,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         if (lost_after * 10 >= after * 9 && first_lost > 0 && last_good > 0) {
             uint64_t lo = last_good / MIB * MIB, hi = first_lost;   /* lo: bis hier bestätigt, hi: verloren */
             for (uint64_t step = 1; hi - lo > MIB; step++) {
-                if (*cancel) { r->cancelled = 1; rc = 0; goto out; }
+                if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
                 uint64_t mid = (lo + (hi - lo) / 2) / MIB * MIB;
                 if (mid <= lo) mid = lo + MIB;
                 if (mid >= hi) break;
@@ -379,7 +379,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
     double t0 = now_s(), last = 0;
     uint64_t done = 0;
     while (done < total) {
-        if (*cancel) { r->cancelled = 1; rc = 0; goto out; }
+        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         size_t take = total - done < CHUNK ? (size_t)(total - done) : CHUNK;
         tagged(a, take, nonce, done);
         if (io_all(fd, 1, a, take, done)) {
@@ -406,7 +406,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
     last = 0;
     done = 0;
     while (done < total) {
-        if (*cancel) { r->cancelled = 1; rc = 0; goto out; }
+        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         size_t take = total - done < CHUNK ? (size_t)(total - done) : CHUNK;
         int rerr = io_all(fd, 0, b, take, done) != 0;
         if (rerr && gone_error(fd, ss, done, err, errlen)) goto out;   /* abgezogen: kein "gefälscht ab hier" */

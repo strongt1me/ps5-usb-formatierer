@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <ifaddrs.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,18 +98,21 @@ int plat_open_browser(const char *url, char *err, size_t errlen) {
     typedef int (*fn_usinit_t)(void *);
     typedef int (*fn_browser_t)(const char *, void *);
     static int user_ready;
+    static pthread_mutex_t open_lock = PTHREAD_MUTEX_INITIALIZER;   /* Anfragen laufen parallel */
 
     fn_browser_t browser = (fn_browser_t)dynsym("libSceSystemService.sprx", "sceSystemServiceLaunchWebBrowser");
     if (!browser) {
         snprintf(err, errlen, "sceSystemServiceLaunchWebBrowser nicht gefunden");
         return -1;
     }
+    pthread_mutex_lock(&open_lock);
     if (!user_ready) {
         fn_usinit_t init = (fn_usinit_t)dynsym("libSceUserService.sprx", "sceUserServiceInitialize");
         if (init) init(NULL);
         user_ready = 1;
     }
     int rc = browser(url, NULL);
+    pthread_mutex_unlock(&open_lock);
     if (rc != 0) {
         snprintf(err, errlen, "Browser ließ sich nicht öffnen (0x%08x)", (unsigned)rc);
         return -1;
@@ -401,7 +405,7 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
             progress(attempt ? "Die PS5 war schneller – Stick bitte noch einmal abziehen" : "Stick jetzt abziehen", 0);
             long t0 = now_ms();
             while (dev_exists(cur)) {
-                if (*cancel) { snprintf(err, errlen, "Abgebrochen."); return -1; }
+                if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { snprintf(err, errlen, "Abgebrochen."); return -1; }
                 if (now_ms() - t0 > REPLUG_WAIT_MS) {
                     snprintf(err, errlen, "Der Stick wurde nicht abgezogen (2 Minuten gewartet).");
                     return -1;
@@ -416,7 +420,7 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
         long t0 = now_ms();
         int lost = 0, fallback = 0;
         while (!lost && !fallback) {
-            if (*cancel) { snprintf(err, errlen, "Abgebrochen."); return -1; }
+            if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { snprintf(err, errlen, "Abgebrochen."); return -1; }
             if (soft && now_ms() - t0 > SOFT_BACK_MS) { fallback = 1; break; }
             if (!soft && now_ms() - t0 > REPLUG_WAIT_MS) {
                 snprintf(err, errlen, "Der Stick wurde nicht wieder eingesteckt (2 Minuten gewartet).");

@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -144,6 +145,7 @@ static struct {
 } st;
 
 static volatile int quit_requested;
+static int quitting;   /* /api/quit angenommen: keine neuen Aufträge mehr (unter lock) */
 static volatile int cancel_requested;   /* POST /api/cancel */
 
 static void lib_refresh(void);
@@ -274,7 +276,7 @@ static void *format_worker(void *arg) {
                          : dt_verify(fd, j->dev.ss, size, on_progress, &cancel_requested, &t, err, sizeof(err));
         if (rc == 0 && t.cancelled) {
             test_cancelled = 1;
-            cancel_requested = 0;
+            __atomic_store_n(&cancel_requested, 0, __ATOMIC_RELAXED);
         } else if (rc == 0 && t.fake) {
             fake_put(&j->dev, t.real_bytes);   /* merken: Kennzeichnung und Begrenzung beim nächsten Mal */
         } else if (rc == 0 && !t.bad && !j->limit) {
@@ -604,7 +606,8 @@ static void respond_ex(int c, int code, const char *ctype, const char *body, siz
     char hdr[1024];
     const char *reason = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 400 ? "Bad Request" :
                          code == 403 ? "Forbidden" : code == 404 ? "Not Found" : code == 405 ? "Method Not Allowed" :
-                         code == 409 ? "Conflict" : code == 415 ? "Unsupported Media Type" : "Error";
+                         code == 409 ? "Conflict" : code == 415 ? "Unsupported Media Type" :
+                         code == 503 ? "Service Unavailable" : "Error";
     int n = snprintf(hdr, sizeof(hdr),
                      "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
                      "Cache-Control: %s\r\nX-Content-Type-Options: nosniff\r\n"
@@ -890,12 +893,13 @@ static void api_settings(int c, int is_post, const char *body) {
             respond_error(c, 400, "Größe muss zwischen 50 und 250 % liegen");
             return;
         }
-        pthread_mutex_lock(&lock);
+        pthread_mutex_lock(&lock);   /* Anfragen laufen parallel: setzen und speichern in einem Zug */
         if (t) theme_set(t);
         if (stv) scale_tv = scale_parse(stv);
         if (spc) scale_pc = scale_parse(spc);
+        int saved = settings_save();
         pthread_mutex_unlock(&lock);
-        if (settings_save() != 0) { respond_error(c, 500, "Einstellung ließ sich nicht speichern"); return; }
+        if (saved != 0) { respond_error(c, 500, "Einstellung ließ sich nicht speichern"); return; }
     }
     sbuf_t b = {0};
     pthread_mutex_lock(&lock);
@@ -1075,11 +1079,12 @@ static int request_replug(int c, kv_t *kv, int n, const usbdev_t *d, int *replug
 
 static void start_job(int c, job_t *j, void *(*fn)(void *)) {
     pthread_mutex_lock(&lock);
-    if (st.busy) {
+    if (st.busy || quitting) {
+        int q = quitting;
         pthread_mutex_unlock(&lock);
         free(j->items);
         free(j);
-        respond_error(c, 409, "Es läuft bereits ein Auftrag");
+        respond_error(c, 409, q ? "Der Formatierer wird gerade beendet" : "Es läuft bereits ein Auftrag");
         return;
     }
     memset(&st, 0, sizeof(st));
@@ -1087,7 +1092,7 @@ static void start_job(int c, job_t *j, void *(*fn)(void *)) {
     snprintf(st.kind, sizeof(st.kind), "%s", JOB_KIND[j->kind]);
     snprintf(st.device, sizeof(st.device), "%s", j->dev.name);
     snprintf(st.step, sizeof(st.step), "Startet");
-    cancel_requested = 0;
+    __atomic_store_n(&cancel_requested, 0, __ATOMIC_RELAXED);
     pthread_mutex_unlock(&lock);
 
     pthread_t t;
@@ -1258,7 +1263,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
     char last_state[24] = "";
     while (time(NULL) < end) {
         usleep(500 * 1000);
-        if (cancel_requested && !cancel_sent) {   /* geht nur, solange ShadowMountPlus noch nichts entfernt hat */
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED) && !cancel_sent) {   /* geht nur, solange ShadowMountPlus noch nichts entfernt hat */
             char *cr = plat_smp_post("/api/v1/games/storage/cancel", body, &http, &len);
             free(cr);
             cancel_sent = 1;
@@ -1489,7 +1494,7 @@ static void *delete_worker(void *arg) {
 #define MAX_DELETE 256   /* Spiele je Auftrag (9 Zeichen je Schlüssel passen in BODY_MAX) */
 
 static void api_delete(int c, const char *body) {
-    static char keys[MAX_DELETE * 9 + 16];   /* nur im Server-Thread benutzt */
+    char keys[MAX_DELETE * 9 + 16];   /* ~2,3 KiB auf dem Stapel (Verbindungs-Threads haben 512 KiB) */
     keys[0] = 0;
     const char *k = strstr(body, "\"keys\"");
     if (k) {
@@ -1639,17 +1644,18 @@ static void handle(int c) {
         api_delete(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {
         /* Warten auf Abziehen/Einstecken, Prüfen und Beschreiben brechen ab; das Formatieren selbst nicht */
-        cancel_requested = 1;
+        __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
         respond_ok(c, 200);
     }
     else if (strcmp(path, "/api/quit") == 0 && is_post) {
         pthread_mutex_lock(&lock);
         int busy = st.busy;
+        if (!busy) quitting = 1;   /* unter der Sperre: kein neuer Auftrag kann mehr dazwischenkommen (start_job) */
         pthread_mutex_unlock(&lock);
         if (busy) respond_error(c, 409, "Es läuft noch ein Auftrag");
         else {
             respond_ok(c, 200);
-            quit_requested = 1;
+            __atomic_store_n(&quit_requested, 1, __ATOMIC_RELAXED);
         }
     } else if (strncmp(path, "/api/", 5) == 0 || strcmp(path, "/") == 0)
         respond_error(c, 405, "Methode nicht erlaubt");
@@ -1677,20 +1683,54 @@ int server_listen(int port) {
     return s;
 }
 
+/* Jede Verbindung in einem eigenen Thread: ein langsames Gerät im Netz (oder ein hängender Browser) hält dann nicht
+ * alle anderen auf - Fortschritt und "Abbrechen" bleiben erreichbar. Höchstens MAX_CONN gleichzeitig. */
+#define MAX_CONN   8
+#define CONN_STACK (512 * 1024)   /* PS5-Standard wären nur 64 KiB; api_devices legt ~16 KiB Geräteliste an */
+
+static volatile int active_conns;
+
+static void *conn_thread(void *arg) {
+    int c = (int)(intptr_t)arg;
+    handle(c);
+    close(c);
+    __sync_fetch_and_sub(&active_conns, 1);
+    return NULL;
+}
+
 void server_serve(int s) {
-    while (!quit_requested) {
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, CONN_STACK);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    while (!__atomic_load_n(&quit_requested, __ATOMIC_RELAXED)) {
+        /* mit Zeitlimit warten, damit "Beenden" (aus einem Verbindungs-Thread) sofort wirkt */
+        struct pollfd pfd = {s, POLLIN, 0};
+        if (poll(&pfd, 1, 500) <= 0) continue;
         int c = accept(s, NULL, NULL);
         if (c < 0) {
             /* Nie wegen eines einzelnen Fehlers aufhören (z. B. ECONNABORTED, wenn ein Client abbricht): das beendete
              * sonst den Formatierer - auch mitten in einem laufenden Auftrag. Bei Mangel an Ressourcen kurz warten. */
-            if (errno != EINTR && errno != ECONNABORTED) usleep(100 * 1000);
+            if (errno != EINTR && errno != ECONNABORTED && errno != EAGAIN) usleep(100 * 1000);
             continue;
         }
         struct timeval tv = {5, 0};
         setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
         setsockopt(c, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-        handle(c);
-        close(c);
+        if (__sync_fetch_and_add(&active_conns, 1) >= MAX_CONN) {
+            __sync_fetch_and_sub(&active_conns, 1);
+            respond_error(c, 503, "Zu viele gleichzeitige Anfragen – bitte gleich noch einmal versuchen");
+            close(c);
+            continue;
+        }
+        pthread_t t;
+        if (pthread_create(&t, &attr, conn_thread, (void *)(intptr_t)c) != 0) {
+            handle(c);   /* kein Thread verfügbar: wie früher direkt bearbeiten */
+            close(c);
+            __sync_fetch_and_sub(&active_conns, 1);
+        }
     }
+    pthread_attr_destroy(&attr);
+    for (int i = 0; i < 50 && __atomic_load_n(&active_conns, __ATOMIC_RELAXED) > 0; i++) usleep(100 * 1000);   /* laufende Antworten noch zu Ende senden */
     close(s);
 }
