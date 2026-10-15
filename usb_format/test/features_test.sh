@@ -137,6 +137,15 @@ code=$(post "{\"device\":\"da0\",\"fs\":\"exfat\",\"size\":$((2048 * MIB)),\"lim
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["result"]["limit"] == 268435456' <"$W/st")" = True ] \
     && ok "nur den echten Bereich formatiert: $(q 'd["message"]' <"$W/st" | cut -c1-150)" || bad "limit-Format" "$(cat "$W/st")"
 sfdisk -d "$W/fake.img" 2>/dev/null | grep -Eq 'start= *2048, size= *522240' && ok "  Partition endet bei 256 MB" || bad "  Partition limit"
+# gemerkt: /api/devices kennzeichnet den Stick (auch nach Neustart des Servers), Partition im echten Bereich
+start "$W/fake.img" "0" USBFMT_FAKE_REAL=$((256 * MIB))
+[ "$(curl -s "$U/api/devices" | q 'str(d["devices"][0]["fake_real"]) + "/" + str(d["devices"][0]["part_end"] <= d["devices"][0]["fake_real"])')" = "268435456/True" ] \
+    && ok "Fälschung gemerkt (nach Neustart): fake_real 256 MB, Partition im echten Bereich" || bad "Fälschung merken" "$(curl -s "$U/api/devices")"
+# ganzer Stick erneut geprüft und echt: Kennzeichnung verschwindet
+start "$W/fake.img" "0"
+code=$(post "{\"device\":\"da0\",\"fs\":\"exfat\",\"size\":$((2048 * MIB)),\"verify\":true}" format)
+[ "$code" = 202 ] && wait_job && [ "$(curl -s "$U/api/devices" | q 'd["devices"][0]["fake_real"]')" = 0 ] \
+    && ok "als echt geprüft: Kennzeichnung entfernt" || bad "Kennzeichnung entfernen" "$(cat "$W/st")"
 
 # ---------------------------------------------------------------- alte Sticks: Partition ab Sektor 63 (nicht auf 4 KiB)
 truncate -s 64M "$W/s63.img"

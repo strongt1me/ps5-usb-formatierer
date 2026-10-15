@@ -24,6 +24,8 @@ typedef struct {
     char        format[16]; /* aktuelles Dateisystem laut fs_probe, z.B. "exFAT", "leer", "unbekannt" */
     char        label[48];  /* Bezeichnung des Dateisystems (kann leer sein) */
     char        scheme[4];  /* Partitionstabelle: "MBR", "GPT" oder "" */
+    char        ident[64];  /* Seriennummer laut GEOM <ident> (kann leer sein) - erkennt den Stick wieder */
+    uint64_t    part_end;   /* Ende der ersten Partition in Bytes, 0 = keine */
     int         nmounts;
     mountinfo_t mounts[MAX_MOUNTS];
     int         locked;     /* ausserhalb von /mnt/usb* eingehaengt -> wird nicht angefasst */

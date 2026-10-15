@@ -134,9 +134,11 @@ class Api:
     def delete_games(self, keys, uninstall):
         return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall})
 
-    def format(self, device, fs, label, size, replug=False):
-        return self._call("/api/format", {"device": device, "fs": fs, "label": label, "size": size,
-                                          "replug": replug})
+    def format(self, device, fs, label, size, replug=False, limit=0):
+        body = {"device": device, "fs": fs, "label": label, "size": size, "replug": replug}
+        if limit:
+            body["limit"] = limit   # gefälschter Stick: nur den echten Bereich nutzen
+        return self._call("/api/format", body)
 
 
 # ---------------------------------------------------------------------- PC-Modus: USB-Datenträger an diesem PC
@@ -386,6 +388,14 @@ class App(tk.Tk):
         self.search_btn = ttk.Button(frm, text="Suchen", command=self._search)
         self.search_btn.grid(row=row, column=1, sticky="ew", padx=(6, 0))
         row += 1
+        # wie in der Weboberfläche: das passiert wirklich, wenn man an der laufenden PS5 umsteckt
+        self.ps5_warn = ttk.Label(
+            frm, foreground="#9a5b00", wraplength=600, justify="left",
+            text="⚠ Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu anschließen: Die PS5 bindet "
+                 "sie in laufende Spiele und Apps ein – danach starten diese oft erst nach einem Neustart der Konsole "
+                 "wieder. Abziehen nur, wenn der Formatierer ausdrücklich dazu auffordert.")
+        self.ps5_warn.grid(row=row, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        row += 1
 
         caption("Laufwerk:")
         self.dev_combo = ttk.Combobox(frm, textvariable=self.dev_var, state="readonly", style="Dev.TCombobox",
@@ -524,7 +534,7 @@ class App(tk.Tk):
         if not initial:
             self.settings["mode"] = self.mode_var.get()
             save_settings(self.settings)
-        for w in (self.ps5_caption, self.host_entry, self.search_btn, self.games_box):
+        for w in (self.ps5_caption, self.host_entry, self.search_btn, self.games_box, self.ps5_warn):
             w.grid_remove() if pc else w.grid()
         if pc:
             self.pc_opts.grid()
@@ -556,6 +566,8 @@ class App(tk.Tk):
             fmt += f" „{d['label']}“"
         where = "gesperrt" if d["locked"] else "eingebunden" if d["mounts"] else "frei"
         parts = [f"{dev_title(d)} ({d['name']})", fmt_size(d["size"])] + ([fmt] if fmt else []) + [where]
+        if d.get("fake_real"):
+            parts.append(f"GEFÄLSCHT – echt nur {fmt_size(d['fake_real'])}")
         n = len(self.games.get(d["name"], []))
         if n:
             parts.append(f"{n} Spiel{'e' if n != 1 else ''}")
@@ -621,7 +633,7 @@ class App(tk.Tk):
     def _fill_devices(self, devices):
         for d in devices:   # ältere/andere Payload-Versionen: fehlende Felder ergänzen
             for k, default in (("name", "?"), ("model", ""), ("size", 0), ("locked", False), ("mounts", []),
-                               ("format", ""), ("label", "")):
+                               ("format", ""), ("label", ""), ("fake_real", 0)):
                 d.setdefault(k, default)
         self.ps5_devices = devices
         if self.mode_var.get() == "pc":
@@ -791,6 +803,11 @@ class App(tk.Tk):
                        "und übernimmt ihn, bevor die PS5 ihn wieder einbindet. Klappt das nicht, bittet er, den "
                        "Stick an der PS5 abzuziehen und wieder einzustecken. Spiele und Apps, die davon laufen, "
                        "vorher beenden.\n\n") if replug else ""
+        limit = dev.get("fake_real") or 0
+        if limit:
+            replug_text = (f"GEFÄLSCHTER STICK: Er meldet {fmt_size(dev['size'])}, hat aber nur {fmt_size(limit)} echten "
+                           f"Speicher. Es wird nur dieser Bereich formatiert. Für Spiele an der PS5 besser einen echten "
+                           f"Datenträger verwenden.\n\n") + replug_text
         games = sorted(g["name"] or g["id"] for g in self.games.get(dev["name"], []))
         if games:
             shown = "\n".join("• " + g for g in games[:8]) + (f"\n… und {len(games) - 8} weitere" if len(games) > 8 else "")
@@ -813,7 +830,7 @@ class App(tk.Tk):
 
         def work():
             try:
-                api.format(dev["name"], fs, label, dev["size"], replug)
+                api.format(dev["name"], fs, label, dev["size"], replug, limit)
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", f"Formatieren konnte nicht gestartet werden: {e}"))
                 return

@@ -147,6 +147,8 @@ static volatile int quit_requested;
 static volatile int cancel_requested;   /* POST /api/cancel */
 
 static void lib_refresh(void);
+static uint64_t fake_get(const usbdev_t *d);
+static void fake_put(const usbdev_t *d, uint64_t real);
 
 static void on_progress(const char *step, int pct) {
     pthread_mutex_lock(&lock);
@@ -273,7 +275,12 @@ static void *format_worker(void *arg) {
         if (rc == 0 && t.cancelled) {
             test_cancelled = 1;
             cancel_requested = 0;
-        } else if (rc != 0 || t.fake || t.bad) {
+        } else if (rc == 0 && t.fake) {
+            fake_put(&j->dev, t.real_bytes);   /* merken: Kennzeichnung und Begrenzung beim nächsten Mal */
+        } else if (rc == 0 && !t.bad && !j->limit) {
+            fake_put(&j->dev, 0);              /* ganzer Stick geprüft und echt: frühere Kennzeichnung löschen */
+        }
+        if (!test_cancelled && (rc != 0 || t.fake || t.bad)) {
             close(fd);
             sb_add(&res, "{\"test\":\"%s\",\"fake\":%s,\"bad\":%s,\"reported\":%llu,\"real\":%llu,\"bad_at\":%llu",
                    tested == 2 ? "full" : "quick", t.fake ? "true" : "false", t.bad ? "true" : "false",
@@ -284,8 +291,8 @@ static void *format_worker(void *arg) {
                 sb_add(&msg, "Prüfung fehlgeschlagen: %s Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).", err);
             } else if (t.fake) {
                 dev_title(&j->dev, &msg);
-                sb_add(&msg, " meldet %s, hat aber nur etwa %s echten Speicher. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben) – sicher nutzbar ist "
-                             "nur der echte Bereich.", size_text(j->dev.size, s1, sizeof(s1)),
+                sb_add(&msg, " meldet %s, hat aber nur etwa %s echten Speicher. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben) – für Spiele an der PS5 "
+                             "nicht empfohlen, höchstens den echten Bereich nutzen.", size_text(j->dev.size, s1, sizeof(s1)),
                        size_text(t.real_bytes, s2, sizeof(s2)));
             } else {
                 sb_add(&msg, "Fehlerhafte Bereiche ab %llu MB: ", (unsigned long long)(t.bad_at / MIB));
@@ -328,6 +335,8 @@ static void *format_worker(void *arg) {
         return NULL;
     }
 
+    /* auf den echten Bereich begrenzt formatiert: als gefälscht merken, falls noch nicht bekannt */
+    if (j->limit && j->limit < j->dev.size && !fake_get(&j->dev)) fake_put(&j->dev, j->limit);
     dev_title(&j->dev, &msg);
     sb_add(&msg, " erfolgreich formatiert: %s", summary);
     if (j->label[0]) sb_add(&msg, ", Bezeichnung %s", j->label);
@@ -686,8 +695,9 @@ static void api_devices(int c) {
         sb_str(&b, d->label);
         sb_add(&b, ",\"scheme\":");
         sb_str(&b, d->scheme);
-        sb_add(&b, ",\"size\":%llu,\"sector\":%u,\"locked\":%s,\"mounts\":[",
-               (unsigned long long)d->size, d->ss, d->locked ? "true" : "false");
+        sb_add(&b, ",\"size\":%llu,\"sector\":%u,\"locked\":%s,\"part_end\":%llu,\"fake_real\":%llu,\"mounts\":[",
+               (unsigned long long)d->size, d->ss, d->locked ? "true" : "false", (unsigned long long)d->part_end,
+               (unsigned long long)fake_get(d));
         for (int m = 0; m < d->nmounts; m++) {
             struct statvfs vs;
             sb_add(&b, "%s{\"path\":", m ? "," : "");
@@ -885,6 +895,62 @@ static void api_settings(int c, int is_post, const char *body) {
     pthread_mutex_unlock(&lock);
     respond_json(c, 200, &b);
     free(b.p);
+}
+
+/* ------------------------------------------------------------ Gefälschte Sticks merken */
+
+/* Ergebnis der Echtheitsprüfung je Stick (Seriennummer bzw. Modell + gemeldete Größe), dauerhaft in
+ * <data>/fakes.txt: "<schlüssel>\t<echte Bytes>". So bleibt ein gefälschter Stick gekennzeichnet - auch nach
+ * Neustart und Umstecken - und wird beim Formatieren auf seinen echten Bereich begrenzt. */
+static pthread_mutex_t fake_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void fake_key(const usbdev_t *d, char *k, size_t n) {
+    snprintf(k, n, "%s|%llu", d->ident[0] ? d->ident : d->model, (unsigned long long)d->size);
+    for (char *p = k; *p; p++)
+        if (*p == '\t' || *p == '\n' || *p == '\r') *p = ' ';
+}
+
+static void fake_path(char *p, size_t n) { snprintf(p, n, "%s/fakes.txt", plat_data_dir()); }
+
+/* echte Größe eines bekannten gefälschten Sticks, sonst 0 */
+static uint64_t fake_get(const usbdev_t *d) {
+    char key[160], path[256], line[256];
+    uint64_t real = 0;
+    fake_key(d, key, sizeof(key));
+    fake_path(path, sizeof(path));
+    pthread_mutex_lock(&fake_lock);
+    FILE *f = fopen(path, "r");
+    while (f && fgets(line, sizeof(line), f)) {
+        char *tab = strchr(line, '\t');
+        if (tab && (size_t)(tab - line) == strlen(key) && !strncmp(line, key, strlen(key)))
+            real = strtoull(tab + 1, NULL, 10);
+    }
+    if (f) fclose(f);
+    pthread_mutex_unlock(&fake_lock);
+    return real < d->size ? real : 0;
+}
+
+/* real > 0: als gefälscht merken; 0: Eintrag entfernen (Prüfung fand den Stick echt) */
+static void fake_put(const usbdev_t *d, uint64_t real) {
+    char key[160], path[256], tmp[264], line[256];
+    fake_key(d, key, sizeof(key));
+    fake_path(path, sizeof(path));
+    snprintf(tmp, sizeof(tmp), "%s.neu", path);
+    pthread_mutex_lock(&fake_lock);
+    mkdir(plat_data_dir(), 0755);
+    FILE *in = fopen(path, "r"), *out = fopen(tmp, "w");
+    int ok = out != NULL;
+    while (ok && in && fgets(line, sizeof(line), in)) {
+        char *tab = strchr(line, '\t');
+        if (tab && (size_t)(tab - line) == strlen(key) && !strncmp(line, key, strlen(key))) continue;
+        ok = fputs(line, out) >= 0;
+    }
+    if (ok && real) ok = fprintf(out, "%s\t%llu\n", key, (unsigned long long)real) > 0;
+    if (in) fclose(in);
+    if (out && fclose(out) != 0) ok = 0;
+    if (ok) rename(tmp, path);
+    else remove(tmp);
+    pthread_mutex_unlock(&fake_lock);
 }
 
 /* Diagnose der Darstellung: Die Seite meldet, was der Browser von CSS und Bildern hält (POST /api/diag), lesbar

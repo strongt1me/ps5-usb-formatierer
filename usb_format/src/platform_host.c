@@ -50,6 +50,9 @@ int plat_scan(usbdev_t *out, int max) {
         snprintf(d->format, sizeof(d->format), "%s", fi.fs);
         snprintf(d->label, sizeof(d->label), "%s", fi.label);
         snprintf(d->scheme, sizeof(d->scheme), "%s", fi.scheme);
+        d->part_end = fi.start ? fi.start + fi.size : 0;
+        const char *base = strrchr(p, '/');   /* Test: Dateiname als "Seriennummer" */
+        snprintf(d->ident, sizeof(d->ident), "%s", base ? base + 1 : p);
         if (fd >= 0) close(fd);
         const char *models = getenv("USBFMT_MODELS");
         for (int k = 0; models && k < n; k++) {

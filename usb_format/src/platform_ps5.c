@@ -142,8 +142,10 @@ static void fill_models(usbdev_t *devs, int n) {
     if (!xml) return;
     if (sysctlbyname("kern.geom.confxml", xml, &len, NULL, 0) == 0) {
         xml[len] = 0;
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < n; i++) {
             geom_disk_descr(xml, devs[i].name, devs[i].model, sizeof(devs[i].model));
+            geom_disk_ident(xml, devs[i].name, devs[i].ident, sizeof(devs[i].ident));
+        }
     }
     free(xml);
 }
@@ -192,6 +194,7 @@ int plat_scan(usbdev_t *out, int max) {
             snprintf(d->format, sizeof(d->format), "%s", fi.fs);
             snprintf(d->label, sizeof(d->label), "%s", fi.label);
             snprintf(d->scheme, sizeof(d->scheme), "%s", fi.scheme);
+            d->part_end = fi.start ? fi.start + fi.size : 0;
         }
         close(fd);
         if (!ok || media <= 0 || sector < 512 || sector > 4096) continue;  /* kein Medium */

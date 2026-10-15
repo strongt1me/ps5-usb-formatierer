@@ -401,7 +401,7 @@ static int cmd_format(int disk, uint64_t size, const char *fsname, const char *l
                 snprintf(msg, sizeof(msg), "Prüfung fehlgeschlagen: %s Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben).", err);
             else if (t.fake)
                 snprintf(msg, sizeof(msg), "%s meldet %s, hat aber nur etwa %s echten Speicher. Nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben) – "
-                         "sicher nutzbar ist nur der echte Bereich.", title(&s), size_text(size, s1, sizeof(s1)),
+                         "für Spiele an der PS5 nicht empfohlen, höchstens den echten Bereich nutzen.", title(&s), size_text(size, s1, sizeof(s1)),
                          size_text(t.real_bytes, s2, sizeof(s2)));
             else
                 snprintf(msg, sizeof(msg), "Fehlerhafte Bereiche ab %llu MB: %s arbeitet nicht zuverlässig. "

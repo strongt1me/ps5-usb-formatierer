@@ -116,6 +116,16 @@ input:disabled { cursor: not-allowed; opacity: .5; }
         border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
 .chip.fs { color: var(--accent); border-color: var(--accent); }
 .chip.on { color: var(--ok); border-color: var(--ok); }
+.chip.fake { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); font-weight: 600; }
+.m .fakeinfo { display: block; color: var(--danger); font-size: 12.5px; margin-top: 3px; }
+/* Warnhinweis im Kopfbereich: dauerhaft sichtbar, aber ruhig */
+.hwarn { display: flex; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-radius: 9px;
+         background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); font-size: 13px; line-height: 1.45; }
+.hwarn svg { flex: none; width: 20px; height: 20px; margin: 1px 10px 0 0; fill: none; stroke: currentColor;
+             stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hwarn b { display: block; font-size: 13.5px; margin-bottom: 2px; }
+.hwarn span { opacity: .95; }
+html.tv .hwarn { font-size: 15px; } html.tv .hwarn b { font-size: 16px; }
 .usage { height: 6px; border-radius: 4px; background: var(--bar); margin: 8px 0 4px; overflow: hidden; }
 .usage div { height: 100%; background: var(--accent); border-radius: 4px; }
 .utext { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
@@ -269,6 +279,13 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
       <button class="tool" id="reload" type="button" style="margin:0"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>Aktualisieren</button>
     </div>
     <div class="lan" id="lan" hidden></div>
+    <div class="hwarn" role="note">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v5"/><path d="M12 18.2v.1"/></svg>
+      <div><b>Während der Nutzung keine USB-Datenträger abziehen oder neu anschließen</b>
+      <span>Die PS5 bindet USB-Laufwerke in laufende Spiele und Apps ein. Wird ein Laufwerk abgezogen oder neu
+      angeschlossen, starten Spiele und Apps danach oft erst wieder nach einem Neustart der Konsole. Zum Formatieren
+      meldet der Formatierer Laufwerke selbst per Software ab – abziehen nur, wenn er ausdrücklich dazu auffordert.</span></div>
+    </div>
    </div>
 
    <div class="cols">
@@ -300,6 +317,7 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
    <div class="pane">
     <div class="sec">Formatieren</div>
     <div id="tab-format">
+      <div class="warnbox" id="fakewarn" hidden style="margin:0 0 10px"></div>
       <label class="f" for="fs" style="margin-top:0">Dateisystem</label>
       <select id="fs"></select>
       <label class="chk" style="border:0;padding-bottom:0"><input type="checkbox" id="other"><div>Andere Dateisysteme (nicht für die PS5)</div></label>
@@ -663,6 +681,11 @@ function renderDevices() {
     if (d.label) meta.appendChild(el("span", "chip", "„" + d.label + "“"));
     if (d.locked) meta.appendChild(el("span", "chip", "vom System gesperrt"));
     else if (d.mounts.length) meta.appendChild(el("span", "chip on", "eingebunden"));
+    if (d.fake_real) {   /* bei einer früheren Echtheitsprüfung als gefälscht erkannt */
+      meta.appendChild(el("span", "chip fake", "Gefälscht"));
+      meta.appendChild(el("span", "fakeinfo", "Meldet " + fmtSize(d.size) + ", echt nur " + fmtSize(d.fake_real) +
+        " – für Spiele nicht empfohlen"));
+    }
     body.append(top, meta);
     const u = usageOf(d);
     if (u) {
@@ -723,6 +746,16 @@ function renderContent() {
   $("more").hidden = true;
   $("pick").hidden = true;
   if (!d) { box.appendChild(note("info", "", "Oben ein Laufwerk wählen.")); return; }
+  if (d.fake_real) {
+    const within = d.part_end && d.part_end <= d.fake_real;
+    box.appendChild(note("bad", "Gefälschter Speicher: echt nur " + fmtSize(d.fake_real),
+      "Meldet " + fmtSize(d.size) + ", hat aber nur " + fmtSize(d.fake_real) + " echten Speicher. Was darüber hinaus " +
+      "gespeichert wird, geht unbemerkt verloren. " + (within
+        ? "Die Partition nutzt nur den echten Bereich. "
+        : "Die jetzige Partition reicht darüber hinaus – neu formatieren, dann wird nur der echte Bereich genutzt. ") +
+      "Für Spiele an der PS5 besser nicht verwenden: Gefälschte Sticks haben meist minderwertigen Speicher, " +
+      "sind langsam und können auch im echten Bereich Daten verlieren – höchstens für unwichtige Dateien."));
+  }
   if (!d.mounts.length) {
     box.appendChild(note("info", "Inhalt nicht sichtbar",
       "Die PS5 hat dieses Laufwerk nicht eingebunden (" + fmtFormat(d.format) + ") – seinen Inhalt kann der Formatierer nur bei eingebundenen Laufwerken zeigen."));
@@ -868,7 +901,15 @@ function update() {
   /* No-Name-Sticks: Prüfung vorschlagen (einmal je Laufwerk, danach entscheidet der Benutzer) */
   const generic = d && isGeneric(d.model);
   $("verifytag").hidden = !generic;
-  if (d && verifyFor !== devKey(d)) { verifyFor = devKey(d); $("verify").checked = !!generic && !$("full").checked; }
+  /* bekannt gefälscht: nicht erneut prüfen, sondern gleich nur den echten Bereich nutzen */
+  if (d && verifyFor !== devKey(d)) { verifyFor = devKey(d); $("verify").checked = !!generic && !d.fake_real && !$("full").checked; }
+  const fakeLimit = d && d.fake_real && !$("verify").checked && !$("full").checked;
+  $("fakewarn").hidden = !(d && d.fake_real);
+  if (d && d.fake_real) $("fakewarn").textContent = fakeLimit
+    ? "Gefälschter Stick: Es wird nur der echte Bereich (" + fmtSize(d.fake_real) + " von " + fmtSize(d.size) +
+      ") formatiert. Für Spiele an der PS5 besser einen echten Datenträger verwenden."
+    : "Gefälschter Stick: Die Prüfung testet den ganzen Stick erneut – danach lässt sich nur der echte Bereich nutzen. " +
+      "Für Spiele an der PS5 besser einen echten Datenträger verwenden.";
   /* vollständig schließt den Schnelltest ein */
   $("verify").disabled = busy || $("full").checked;
   $("optverify").classList.toggle("off", $("full").checked);
@@ -1062,7 +1103,8 @@ async function fakeDialog(st, r, d) {
     title: "Gefälschter Speicher erkannt", cls: "amber",
     text: name + " meldet " + fmtSize(r.reported) + ", hat aber nur etwa " + fmtSize(r.real) +
           " echten Speicher. Was darüber hinaus gespeichert wird, geht verloren – Spiele würden unbemerkt beschädigt.",
-    extra: stats, text2: "Noch nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben). Der echte Bereich lässt sich sicher nutzen.",
+    extra: stats, text2: "Noch nicht formatiert (die Prüfung hat die alten Daten aber schon überschrieben). Für Spiele an " +
+      "der PS5 besser einen echten Datenträger verwenden – wenn überhaupt, dann nur den echten Bereich nutzen.",
     no: "Schließen", yes: "Nur echte " + fmtSize(r.real) + " formatieren", yesCls: "solid primary"
   });
   const cur = d && devices.find(x => x.name === d.name && x.size === d.size);
@@ -1092,13 +1134,17 @@ async function askRepair(st) {
 
 function formatBody(d, over) {
   const fs = $("fs").value, other = $("other").checked;
-  return Object.assign({
+  const verify = $("verify").checked && !$("full").checked, full = $("full").checked;
+  const body = {
     device: d.name, fs, label: $("label").value, size: d.size,
     cluster: other ? Number($("cluster").value) : 0, replug: d.mounts.length > 0,
-    verify: $("verify").checked && !$("full").checked, full: $("full").checked,
+    verify, full,
     folders: $("folders").checked && (fs === "exfat" || fs === "fat32"),
     scheme: $("schemebox").hidden ? "auto" : $("scheme").value
-  }, over || {});
+  };
+  /* bekannt gefälscht und nicht neu geprüft: nur den echten Bereich nutzen */
+  if (d.fake_real && !verify && !full) body.limit = d.fake_real;
+  return Object.assign(body, over || {});
 }
 
 $("start").addEventListener("click", async () => {
@@ -1132,6 +1178,8 @@ $("start").addEventListener("click", async () => {
   if (d.mounts.length) notes.push("Die PS5 nutzt das Laufwerk gerade – der Formatierer meldet es kurz per Software ab (klappt das nicht, bittet er, es abzuziehen und wieder einzustecken).");
   if ($("full").checked) notes.push("Vollständig: jede Stelle wird beschrieben und geprüft – " + $("fullhint").textContent.replace(/^.*· /, "") + ".");
   else if ($("verify").checked) notes.push("Vorher werden Echtheit und Tempo geprüft.");
+  if (d.fake_real && !$("verify").checked && !$("full").checked)
+    notes.push("Gefälschter Stick: Nur die echten " + fmtSize(d.fake_real) + " werden genutzt.");
   if (other) notes.push("Dieses Format ist nicht für die Nutzung an der PS5 gedacht.");
   notes.push("Das lässt sich nicht rückgängig machen.");
   const ok = await dialog({
