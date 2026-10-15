@@ -1,0 +1,1212 @@
+<!doctype html>
+<html lang="de" data-default-lang="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>USB-Formatierer – Anleitung</title>
+<!-- Anleitung für App, Payload und beide Windows-Programme in fünf Sprachen. Eine Datei ohne Nachladen: die Payload
+     liefert sie unter /help aus, die Windows-Programme öffnen eine Kopie (data-default-lang = Sprache des Programms). -->
+<script>
+(function () {
+  var h = document.documentElement;
+  try { var t = localStorage.getItem("usbfmt-theme"); if (t === "light" || t === "dark") h.setAttribute("data-theme", t); } catch (e) {}
+  if (/PlayStation/i.test(navigator.userAgent)) {   /* PS5-Browser am Fernseher: größer, wie die Oberfläche */
+    var z = 150;
+    try { var s = parseInt(localStorage.getItem("usbfmt-scale_tv"), 10); if (s >= 50 && s <= 250) z = s; } catch (e) {}
+    h.className += " tv";
+    h.style.setProperty("--zoom", String(z / 100));
+  }
+})();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #eef2f8; --bg2: #dde5f1; --card: #ffffff; --text: #1d2330; --muted: #566074; --border: #d3dbe8;
+  --accent: #185fa5; --accent2: #3b82c8; --accent-bg: #e3eefa; --code: #eef2f8;
+  --warn: #7a4a06; --warn-bg: #fdf1dc; --warn-line: #e0a54a;
+  --ok: #2f620d; --ok-bg: #e8f4dc; --ok-line: #8cc152;
+  --info: #24527f; --info-bg: #e6f0fb; --info-line: #8db7e3;
+  --shadow: 0 1px 2px rgba(20, 40, 80, .06), 0 6px 22px rgba(20, 40, 80, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1019; --bg2: #121a28; --card: #172030; --text: #e8ebf1; --muted: #a3acbd; --border: #2a364b;
+    --accent: #8cc0f2; --accent2: #5aa0e6; --accent-bg: #15304d; --code: #0f1724;
+    --warn: #f6cf8a; --warn-bg: #3a2708; --warn-line: #a8711f;
+    --ok: #a8d77a; --ok-bg: #1d3110; --ok-line: #5d8f2c;
+    --info: #a9cdf2; --info-bg: #132a44; --info-line: #3d6a99;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 26px rgba(0, 0, 0, .35);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1019; --bg2: #121a28; --card: #172030; --text: #e8ebf1; --muted: #a3acbd; --border: #2a364b;
+  --accent: #8cc0f2; --accent2: #5aa0e6; --accent-bg: #15304d; --code: #0f1724;
+  --warn: #f6cf8a; --warn-bg: #3a2708; --warn-line: #a8711f;
+  --ok: #a8d77a; --ok-bg: #1d3110; --ok-line: #5d8f2c;
+  --info: #a9cdf2; --info-bg: #132a44; --info-line: #3d6a99;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 26px rgba(0, 0, 0, .35);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); }
+body { margin: 0; min-height: 100vh; background: var(--bg); background-image: linear-gradient(180deg, var(--bg2), var(--bg) 420px);
+       color: var(--text); font: 16px/1.6 system-ui, "Segoe UI", Roboto, sans-serif; }
+html.tv body { zoom: var(--zoom, 1.5); }
+.wrap { max-width: 940px; margin: 0 auto; padding: 0 16px 48px; }
+a { color: var(--accent); }
+code { font: .9em/1.4 ui-monospace, Consolas, monospace; background: var(--code); border: 1px solid var(--border);
+       border-radius: 5px; padding: 1px 5px; word-break: break-word; }
+svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round;
+        stroke-linejoin: round; flex: none; }
+
+/* Leiste oben: zurück (nur von der Payload aus) und Sprachen */
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 14px 0 6px; }
+.bar > * { margin: 4px 0; }
+.back { display: inline-flex; align-items: center; text-decoration: none; font-size: 14px; font-weight: 600;
+        padding: 6px 12px 6px 8px; border-radius: 9px; border: 1px solid var(--border); background: var(--card); }
+.back svg { width: 18px; height: 18px; margin-right: 4px; }
+.langs { display: flex; flex-wrap: wrap; margin-left: auto; }
+.langs button { font: inherit; font-size: 13.5px; cursor: pointer; margin: 0 0 0 6px; padding: 5px 12px;
+                border-radius: 20px; border: 1px solid var(--border); background: var(--card); color: var(--muted); }
+.langs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--card); font-weight: 600; }
+.langs button:focus-visible, .back:focus-visible, summary:focus-visible, .toc a:focus-visible {
+  outline: 3px solid var(--accent2); outline-offset: 2px; }
+html.tv .langs button:focus, html.tv .back:focus, html.tv summary:focus, html.tv .toc a:focus {
+  outline: 3px solid var(--accent2); outline-offset: 2px; }
+
+/* Kopf */
+.hero { display: flex; align-items: center; margin: 18px 0 22px; padding: 26px 26px; border-radius: 18px; color: #fff;
+        background: linear-gradient(135deg, #0f3d6e, #185fa5 55%, #2f7fc9); box-shadow: var(--shadow); }
+.logo { flex: none; width: 74px; height: 74px; border-radius: 18px; margin-right: 22px; display: flex; align-items: center;
+        justify-content: center; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .28); }
+.logo svg { width: 44px; height: 44px; stroke: #fff; stroke-width: 1.7; }
+.hero h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
+.hero h1 span { display: block; font-size: 15px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+                opacity: .8; margin-bottom: 2px; }
+.hero p { margin: 8px 0 0; font-size: 16px; opacity: .93; max-width: 640px; }
+
+/* Inhaltsverzeichnis */
+.toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); grid-gap: 8px; gap: 8px;
+       margin: 0 0 26px; padding: 0; list-style: none; counter-reset: toc; }
+.toc a { display: flex; align-items: center; height: 100%; padding: 9px 12px; border-radius: 11px; text-decoration: none;
+         color: var(--text); background: var(--card); border: 1px solid var(--border); font-size: 14.5px; font-weight: 600; }
+.toc a::before { counter-increment: toc; content: counter(toc); flex: none; width: 24px; height: 24px; margin-right: 10px;
+                 border-radius: 50%; background: var(--accent-bg); color: var(--accent); font-size: 12.5px;
+                 display: flex; align-items: center; justify-content: center; }
+.toc a:hover { border-color: var(--accent); }
+
+/* Abschnitte */
+section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px 26px 18px;
+          margin: 0 0 18px; box-shadow: var(--shadow); }
+h2 { display: flex; align-items: center; margin: 0 0 12px; font-size: 22px; line-height: 1.3; }
+h2 .ic { flex: none; width: 38px; height: 38px; border-radius: 11px; margin-right: 12px; display: flex; align-items: center;
+         justify-content: center; background: var(--accent-bg); color: var(--accent); }
+h3 { font-size: 17px; margin: 18px 0 6px; }
+section p { margin: 0 0 12px; }
+.small { font-size: 14px; color: var(--muted); }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); grid-gap: 12px; gap: 12px; margin: 6px 0 10px; }
+.cards.two { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+.card { border: 1px solid var(--border); border-radius: 13px; padding: 14px 16px 6px; background: var(--bg); }
+.card h3 { display: flex; align-items: center; margin: 0 0 4px; font-size: 16px; }
+.card h3 svg { color: var(--accent); margin-right: 8px; }
+.card .file { display: inline-block; margin: 0 0 6px; }
+.card p { font-size: 14.5px; margin: 0 0 10px; color: var(--muted); }
+
+ol.steps { list-style: none; counter-reset: st; margin: 6px 0 12px; padding: 0; }
+ol.steps > li { position: relative; padding: 2px 0 12px 46px; }
+ol.steps > li::before { counter-increment: st; content: counter(st); position: absolute; left: 0; top: 0; width: 30px;
+                        height: 30px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700;
+                        font-size: 14px; display: flex; align-items: center; justify-content: center; }
+ol.steps > li::after { content: ""; position: absolute; left: 14px; top: 34px; bottom: 2px; width: 2px; background: var(--border); }
+ol.steps > li:last-child::after { display: none; }
+ol.steps ul, ul.check { margin: 6px 0 4px; padding-left: 20px; }
+ul.check { list-style: none; padding: 0; }
+ul.check > li { position: relative; padding: 0 0 8px 28px; }
+ul.check > li::before { content: ""; position: absolute; left: 4px; top: 7px; width: 10px; height: 6px; border-left: 2.5px solid var(--accent);
+                        border-bottom: 2.5px solid var(--accent); -webkit-transform: rotate(-45deg); transform: rotate(-45deg); }
+
+.note { display: flex; align-items: flex-start; padding: 12px 14px; border-radius: 12px; margin: 10px 0; font-size: 15px;
+        border: 1px solid; border-left-width: 5px; }
+.note svg { margin: 1px 10px 0 0; }
+.note .t { display: block; }
+.note.warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-line); }
+.note.ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-line); }
+.note.info { background: var(--info-bg); color: var(--info); border-color: var(--info-line); }
+
+.tbl { overflow-x: auto; margin: 6px 0 12px; border: 1px solid var(--border); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: var(--bg); font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td.y { color: var(--ok); font-weight: 700; text-align: center; }
+td.n { color: var(--muted); text-align: center; }
+td.p { color: var(--warn); text-align: center; font-size: 13px; }
+table.fs th:nth-child(n+2):nth-child(-n+5) { text-align: center; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+
+details { border: 1px solid var(--border); border-radius: 11px; margin: 0 0 8px; background: var(--bg); }
+summary { cursor: pointer; padding: 10px 14px; font-weight: 600; list-style: none; display: flex; align-items: center; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: ""; flex: none; width: 8px; height: 8px; margin-right: 12px; border-right: 2px solid var(--accent);
+                  border-bottom: 2px solid var(--accent); -webkit-transform: rotate(-45deg); transform: rotate(-45deg); }
+details[open] summary::before { -webkit-transform: rotate(45deg); transform: rotate(45deg); }
+details p { margin: 0; padding: 0 14px 12px 34px; color: var(--muted); }
+
+article { display: none; }
+article.on { display: block; }
+footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 26px; }
+
+@media (max-width: 600px) {
+  .hero { flex-direction: column; text-align: center; padding: 22px 18px; }
+  .logo { margin: 0 0 14px; }
+  .hero h1 { font-size: 25px; }
+  section { padding: 18px 16px 12px; }
+  h2 { font-size: 19px; }
+  .langs { margin-left: 0; }
+  .langs button { margin: 0 6px 6px 0; }
+}
+@media print {
+  body { background: #fff; }
+  .bar, .toc { display: none; }
+  section { box-shadow: none; break-inside: avoid; }
+  details p { display: block; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-usb" viewBox="0 0 24 24"><path d="M9 2h6v5H9z"/><path d="M7 7h10v8a5 5 0 0 1-10 0z"/><path d="M12 20v2"/><path d="M10.5 4.5h.01M13.5 4.5h.01"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 21h20z"/><path d="M12 10v5"/><path d="M12 18.2v.1"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.6v.1"/></symbol>
+  <symbol id="i-okc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
+  <symbol id="i-pad" viewBox="0 0 24 24"><path d="M7 8h10a4 4 0 0 1 4 4l.6 4.2a2.6 2.6 0 0 1-4.6 2L15 16H9l-2 2.2a2.6 2.6 0 0 1-4.6-2L3 12a4 4 0 0 1 4-4z"/><path d="M7.5 11v3M6 12.5h3"/><path d="M15.5 12h.01M17.5 13.5h.01"/></symbol>
+  <symbol id="i-win" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 8h18"/><path d="M8 21h8"/><path d="M12 18v3"/></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M5 13l2.5-8h9L19 13"/><path d="M7 16.5h.01M10 16.5h.01"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14"/><path d="M15 5v14"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M3 15h18"/><path d="M10 4v16"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a9 9 0 1 1 17 0"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.5"/><path d="M12 17.1v.2"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+</svg>
+
+<div class="wrap">
+<div class="bar">
+  <a class="back" id="back" href="/" hidden><svg class="i"><use href="#i-left" xlink:href="#i-left"/></svg><span></span></a>
+  <div class="langs" role="group" aria-label="Sprache / Language" translate="no">
+    <button type="button" data-l="de">Deutsch</button>
+    <button type="button" data-l="en">English</button>
+    <button type="button" data-l="it">Italiano</button>
+    <button type="button" data-l="es">Español</button>
+    <button type="button" data-l="fr">Français</button>
+  </div>
+</div>
+
+<!-- ================================================================== Deutsch -->
+<article class="on" lang="de" data-l="de" data-title="USB-Formatierer – Anleitung" data-back="Zurück zum Formatierer">
+<div class="hero">
+  <div class="logo"><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg></div>
+  <div><h1><span>Anleitung</span>USB-Formatierer</h1>
+  <p>USB-Sticks und -Festplatten formatieren – direkt an der PS5 oder am PC. Mit Echtheits- und Tempotest,
+  Spieleverwaltung, allen gängigen Dateisystemen und eigenen Partitionen.</p></div>
+</div>
+<ol class="toc">
+  <li><a href="#de-overview">Auf einen Blick</a></li>
+  <li><a href="#de-safety">Wichtig vorab</a></li>
+  <li><a href="#de-install">Installation</a></li>
+  <li><a href="#de-ps5">An der PS5</a></li>
+  <li><a href="#de-win">Windows-Programm mit PS5</a></li>
+  <li><a href="#de-std">USB-Formatierer (eigenständig)</a></li>
+  <li><a href="#de-expert">Expertenmodus &amp; Partitionen</a></li>
+  <li><a href="#de-fs">Dateisysteme im Vergleich</a></li>
+  <li><a href="#de-cluster">Zuordnungseinheit &amp; Partitionstabelle</a></li>
+  <li><a href="#de-test">Echtheit &amp; Tempo</a></li>
+  <li><a href="#de-faq">Hilfe bei Problemen</a></li>
+  <li><a href="#de-license">Lizenzen</a></li>
+</ol>
+
+<section id="de-overview">
+  <h2><span class="ic"><svg class="i"><use href="#i-grid" xlink:href="#i-grid"/></svg></span>Auf einen Blick</h2>
+  <p>Der USB-Formatierer besteht aus vier Teilen. Sie brauchen nur die, die Sie nutzen möchten.</p>
+  <div class="cards two">
+    <div class="card"><h3><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg>PS5-App „USB-Formatierer“</h3>
+      <code class="file">PPSA86920</code><p>Kachel auf der PS5-Startseite. Startet den Formatierer und öffnet seine Oberfläche im PS5-Browser.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg>PS5-Payload</h3>
+      <code class="file">usb_format.elf</code><p>Der eigentliche Formatierer auf der PS5. Seine Weboberfläche öffnen Sie auch am Handy oder PC: <code>http://&lt;PS5-IP&gt;:8090</code></p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Windows-Programm mit PS5</h3>
+      <code class="file">PS5-USB-Formatierer.exe</code><p>Formatiert über das Netzwerk an der PS5 – oder Sticks direkt am PC, im PS5-Format oder ganz frei.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>USB-Formatierer für Windows</h3>
+      <code class="file">USB-Formatierer.exe</code><p>Eigenständig und ohne PS5-Funktionen: alle Dateisysteme, freie Zuordnungseinheit, Partitionen und Expertenmodus.</p></div>
+  </div>
+</section>
+
+<section id="de-safety">
+  <h2><span class="ic"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg></span>Wichtig vorab</h2>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Formatieren löscht alle Daten auf dem Datenträger.</b>
+    Prüfen Sie vor dem Bestätigen Name und Größe des Laufwerks. Liegen Spiele darauf, müssen Sie das Löschen ausdrücklich bestätigen.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">An der PS5 keine USB-Datenträger abziehen oder neu anschließen, solange sie genutzt werden.</b>
+    Die PS5 bindet USB-Laufwerke in laufende Spiele und Apps ein – danach starten diese oft erst nach einem Neustart der Konsole wieder.
+    Der Formatierer meldet Laufwerke selbst per Software ab. Abziehen nur, wenn er ausdrücklich dazu auffordert.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div><b class="t">Was gerade genutzt wird, ist nie vorausgewählt.</b>
+    Eingebundene Laufwerke (z. B. Ihre Spiele-SSD) wählt der Formatierer nicht von selbst aus; am PC ist gar nichts vorausgewählt.</div></div>
+</section>
+
+<section id="de-install">
+  <h2><span class="ic"><svg class="i"><use href="#i-down" xlink:href="#i-down"/></svg></span>Installation</h2>
+  <p>Alle Dateien finden Sie auf der Release-Seite des Projekts.</p>
+  <div class="tbl"><table>
+    <tr><th>Datei</th><th>Wofür</th><th>So geht's</th></tr>
+    <tr><td><code>PPSA86920.zip</code></td><td>App-Kachel für die PS5</td><td>Entpacken und den Ordner nach <code>/data/homebrew/</code> auf die PS5 kopieren (z. B. per FTP). ShadowMountPlus meldet die App an, danach erscheint die Kachel „USB-Formatierer“.</td></tr>
+    <tr><td><code>usb_format.elf</code></td><td>Formatierer (Payload)</td><td>Die App startet ihn automatisch. Ohne App: an den ELF-Loader des Jailbreaks schicken (Port 9021).</td></tr>
+    <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, mit PS5-Funktionen</td><td>Einfach starten – keine Installation nötig.</td></tr>
+    <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, ohne PS5-Funktionen</td><td>Einfach starten – keine Installation nötig.</td></tr>
+  </table></div>
+  <p class="small">An der PS5 braucht es einen laufenden Jailbreak mit ELF-Loader (getestet mit Firmware 12.00). Zum Formatieren am PC fragt Windows nach Administratorrechten – mit „Ja“ bestätigen.</p>
+</section>
+
+<section id="de-ps5">
+  <h2><span class="ic"><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg></span>An der PS5: die Weboberfläche</h2>
+  <ol class="steps">
+    <li><b>Starten.</b> Jailbreak laden und die Kachel „USB-Formatierer“ öffnen. Der PS5-Browser zeigt die Oberfläche.
+      Ein QR-Code und die Adresse <code>http://&lt;PS5-IP&gt;:8090</code> öffnen sie auch am Handy oder PC – im selben Heimnetz.</li>
+    <li><b>Laufwerk wählen.</b> Die Liste zeigt jedes USB-Laufwerk mit Name, Größe, Dateisystem, Bezeichnung und Belegung.
+      „eingebunden“ heißt: Die PS5 nutzt es gerade. „Gefälscht“ kennzeichnet Sticks, die beim Echtheitstest durchgefallen sind.</li>
+    <li><b>Inhalt ansehen.</b> Bei eingebundenen Laufwerken zeigt der Formatierer Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien
+      und freien Platz. Doppelte Spiele (gleiche Titel-ID an mehreren Orten) werden gemeldet. Über „Spiele löschen …“ entfernen Sie
+      Spiele – auf Wunsch samt Kachel auf der Startseite.</li>
+    <li><b>Werkzeuge nutzen.</b> „Tempo messen“ misst das Lesetempo. „Prüfen &amp; reparieren“ prüft exFAT und behebt Fehler.
+      „Umbenennen“ ändert die Bezeichnung (exFAT, FAT32), die Daten bleiben erhalten.</li>
+    <li><b>Formatieren.</b> Dateisystem wählen: <b>exFAT (64 KB)</b> ist die richtige Wahl für Spiele und ShadowMountPlus; FAT32 speichert
+      Dateien nur bis 4 GB. Volumebezeichnung eingeben und Optionen setzen:
+      <ul>
+        <li><b>Ordner für Spiele anlegen</b> – homebrew, etaHEN/games und pkg.</li>
+        <li><b>Vorher Echtheit und Tempo prüfen</b> – Schnelltest mit Stichproben (ca. 2–10 Minuten), empfohlen bei No-Name-Sticks.</li>
+        <li><b>Vollständig formatieren</b> – jede Stelle beschreiben und prüfen; dauert lange.</li>
+      </ul>
+      Mit „Andere Dateisysteme (nicht für die PS5)“ gibt es zusätzlich NTFS, ext4, freie Zuordnungseinheiten und die Wahl der Partitionstabelle.</li>
+    <li><b>Bestätigen und warten.</b> Der Fortschritt erscheint unten. Nutzt die PS5 das Laufwerk gerade, meldet der Formatierer es kurz per
+      Software ab. Nur wenn das nicht klappt, bittet er groß darum, den Stick abzuziehen und wieder einzustecken. Warten, Prüfen und
+      Tempo messen lassen sich abbrechen.</li>
+  </ol>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div>Oben stellen Sie <b>Größe</b> und <b>Sprache</b> ein, ganz unten das <b>Design</b> (hell oder dunkel).
+    „Formatierer auf der PS5 beenden“ beendet den Payload – die App startet ihn jederzeit wieder.</div></div>
+</section>
+
+<section id="de-win">
+  <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Windows-Programm „PS5-USB-Formatierer“</h2>
+  <p>Oben wählen Sie, wo der Datenträger steckt. Rechts oben stellen Sie die Sprache ein und öffnen diese Hilfe.</p>
+  <div class="cards">
+    <div class="card"><h3>USB an der PS5</h3><p>Der Stick steckt an der PS5. „Suchen“ findet die PS5 im Heimnetz (oder IP-Adresse eingeben).
+      Läuft der Formatierer dort noch nicht, schickt das Programm ihn selbst hin. Danach wie in der Weboberfläche: Laufwerk, Spiele, löschen, formatieren.</p></div>
+    <div class="card"><h3>USB am PC (für PS5)</h3><p>Der Stick steckt am PC und wird genau wie an der PS5 formatiert: exFAT mit 64 KB oder FAT32 – auch
+      über 32 GB, was Windows selbst nicht kann. Dazu Echtheitstest, Tempo messen, Umbenennen und Ordner-Vorlage.</p></div>
+    <div class="card"><h3>Am PC Standard</h3><p>Frei formatieren ohne PS5-Vorgaben – derselbe Bereich wie im eigenständigen USB-Formatierer
+      (nächster Abschnitt), mit allen Dateisystemen und dem Expertenmodus.</p></div>
+  </div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Am PC ist nichts vorausgewählt: Wählen Sie das Laufwerk bewusst aus und achten Sie auf Name und Größe.</div></div>
+</section>
+
+<section id="de-std">
+  <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>USB-Formatierer (eigenständig)</h2>
+  <p>Für alle Datenträger, die nicht an die PS5 sollen: Kamera, Auto, Fernseher, Mac, Linux, Raspberry Pi und mehr.
+    Den gleichen Bereich finden Sie im Windows-Programm unter „Am PC Standard“.</p>
+  <ol class="steps">
+    <li><b>Laufwerk wählen.</b> „Aktualisieren“ liest die Liste neu ein.</li>
+    <li><b>Dateisystem wählen:</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 oder HFS+. Unter der Auswahl steht, wofür es sich eignet.</li>
+    <li><b>Größe der Zuordnungseinheiten</b> und <b>Partitionstabelle</b> (Automatisch, MBR oder GPT) festlegen – oder die Standardwerte lassen.</li>
+    <li><b>Volumebezeichnung</b> eingeben: A–Z, 0–9, Leerzeichen, - und _ (NTFS und HFS+ bis 32 Zeichen, ext bis 16, sonst 11).</li>
+    <li><b>Optionen:</b> „Schnellformatierung“ (ohne Haken wird jede Stelle beschrieben und geprüft) und „Vorher Echtheit und Tempo prüfen“.</li>
+    <li><b>„Formatieren …“</b> wählen und bestätigen. Daneben: „Tempo messen“ und „Umbenennen“.</li>
+  </ol>
+</section>
+
+<section id="de-expert">
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Expertenmodus: Partitionen selbst festlegen</h2>
+  <p>Mit dem Haken „Expertenmodus“ teilen Sie den Datenträger in mehrere Partitionen auf. Ein Balken zeigt die Aufteilung und den freien Platz.</p>
+  <ul class="check">
+    <li><b>Hinzufügen, Bearbeiten, Entfernen</b> – je Partition: Dateisystem (oder „Ohne Dateisystem“), Größe oder „den ganzen Rest“,
+      Zuordnungseinheit, Typ und Bezeichnung.</li>
+    <li><b>Typ:</b> Automatisch (passend zum Dateisystem), Windows-Daten, Linux-Dateisystem, Linux-Auslagerung (Swap), EFI-Systempartition oder Apple HFS+.</li>
+    <li><b>Startfähig (aktiv)</b> – nur bei MBR.</li>
+    <li><b>Grenzen:</b> MBR fasst höchstens 4 Partitionen, GPT bis zu 16. Nur die letzte Partition darf den Rest bekommen. Jede Partition beginnt an einer MB-Grenze.</li>
+  </ul>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Windows zeigt nur Partitionen an, die es lesen kann. ext2/3/4, HFS+ und Partitionen ohne Dateisystem sind am Windows-PC unsichtbar – das ist normal.</div></div>
+</section>
+
+<section id="de-fs">
+  <h2><span class="ic"><svg class="i"><use href="#i-table" xlink:href="#i-table"/></svg></span>Dateisysteme im Vergleich</h2>
+  <div class="tbl"><table class="fs">
+    <tr><th>Dateisystem</th><th>PS5</th><th>Windows</th><th>macOS</th><th>Linux</th><th>Größte Datei</th><th>Gut für</th></tr>
+    <tr><td>exFAT</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>praktisch unbegrenzt</td><td>USB-Sticks, Spiele an der PS5 (64 KB), Austausch</td></tr>
+    <tr><td>FAT32</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>4 GB</td><td>ältere Geräte, Autoradio, Fernseher</td></tr>
+    <tr><td>NTFS</td><td class="n">–</td><td class="y">✔</td><td class="p">nur lesen</td><td class="y">✔</td><td>praktisch unbegrenzt</td><td>Windows-Festplatten</td></tr>
+    <tr><td>FAT (FAT16)</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>2 GB</td><td>sehr alte Geräte, Datenträger bis 4 GB</td></tr>
+    <tr><td>ext4 / ext3 / ext2</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td>2–16 TB</td><td>Linux, Raspberry Pi, Steam Deck, NAS</td></tr>
+    <tr><td>HFS+</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td>praktisch unbegrenzt</td><td>Macs (Mac OS Extended)</td></tr>
+  </table></div>
+  <p class="small">✔ = lesen und schreiben · – = ohne Zusatzprogramm nicht nutzbar</p>
+</section>
+
+<section id="de-cluster">
+  <h2><span class="ic"><svg class="i"><use href="#i-sliders" xlink:href="#i-sliders"/></svg></span>Zuordnungseinheit und Partitionstabelle</h2>
+  <h3>Zuordnungseinheit (Clustergröße)</h3>
+  <p>Dateien werden in Blöcken dieser Größe gespeichert. Kleine Einheiten verschwenden bei vielen kleinen Dateien weniger Platz,
+    große sind bei großen Dateien schneller. Die Standardwerte entsprechen denen von Windows und passen fast immer.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Für die PS5: exFAT mit 64 KB.</b> Darauf ist der PS5-Bereich fest eingestellt – ideal für Spiele-Abbilder und ShadowMountPlus.</div></div>
+  <h3>Partitionstabelle</h3>
+  <ul class="check">
+    <li><b>Automatisch</b> – MBR, erst ab 2 TB GPT. Die richtige Wahl für fast alle Fälle.</li>
+    <li><b>MBR</b> – läuft auch mit älteren Geräten und Autoradios; bis 2 TB und höchstens 4 Partitionen.</li>
+    <li><b>GPT</b> – für aktuelle PCs und sehr große Datenträger; bis zu 16 Partitionen.</li>
+  </ul>
+</section>
+
+<section id="de-test">
+  <h2><span class="ic"><svg class="i"><use href="#i-gauge" xlink:href="#i-gauge"/></svg></span>Echtheit, Tempo und gefälschte Sticks</h2>
+  <p>Manche billigen Sticks melden mehr Speicher, als sie haben. Was über den echten Speicher hinaus geschrieben wird, geht unbemerkt verloren – Spiele werden beschädigt.</p>
+  <ul class="check">
+    <li><b>Schnelltest</b> („Vorher Echtheit und Tempo prüfen“): beschreibt und prüft Stichproben über den ganzen Stick, ca. 2–10 Minuten. Die bisherigen Daten werden dabei überschrieben.</li>
+    <li><b>Vollständig formatieren:</b> beschreibt und prüft jede Stelle – findet auch einzelne defekte Bereiche, dauert aber lange.</li>
+    <li><b>Gefälscht erkannt?</b> Der Formatierer zeigt die echte Größe und bietet an, nur den echten Bereich zu formatieren. Der Stick bleibt als „Gefälscht“ gekennzeichnet. Für Spiele besser einen echten Datenträger verwenden.</li>
+    <li><b>Tempo:</b> ab 100 MB/s Lesetempo schnell genug für Spiele, ab 40 MB/s ausreichend, darunter langsam.</li>
+  </ul>
+</section>
+
+<section id="de-faq">
+  <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Hilfe bei Problemen</h2>
+  <details><summary>„ELF-Loader (Port 9021) nicht erreichbar“</summary><p>Der Jailbreak läuft nicht (mehr). Jailbreak laden und die App erneut starten.</p></details>
+  <details><summary>Die Weboberfläche öffnet sich am PC oder Handy nicht</summary><p>PC bzw. Handy und PS5 müssen im selben Heimnetz sein. Die Adresse genau so eingeben, wie die PS5 sie anzeigt (<code>http://…:8090</code>). Läuft der Formatierer noch? Sonst die App erneut starten.</p></details>
+  <details><summary>„Port 8090 belegt“</summary><p>Der Formatierer läuft bereits. Einfach die App starten – sie öffnet die vorhandene Oberfläche.</p></details>
+  <details><summary>Mein Stick erscheint nicht in der Liste</summary><p>Einstecken, ein paar Sekunden warten und „Aktualisieren“ wählen. Vom System gesperrte Laufwerke werden angezeigt, lassen sich aber nicht verändern.</p></details>
+  <details><summary>Spiele oder Apps starten nach dem Umstecken nicht mehr</summary><p>Die PS5 hat ein Laufwerk verloren, das ein laufendes Spiel nutzte. Konsole neu starten – und künftig nur abziehen, wenn der Formatierer dazu auffordert.</p></details>
+  <details><summary>Windows: „Das Laufwerk wird verwendet“</summary><p>Explorer-Fenster und Programme schließen, die auf den Stick zugreifen, und erneut versuchen.</p></details>
+  <details><summary>Windows zeigt den Stick nach dem Formatieren nicht an</summary><p>Bei ext2/3/4 und HFS+ ist das normal – Windows kann diese Dateisysteme nicht lesen. Der Stick funktioniert an Linux bzw. am Mac.</p></details>
+  <details><summary>„Prüfen und Reparieren geht nur bei exFAT“</summary><p>Die Dateisystemprüfung gibt es für exFAT. Andere Dateisysteme prüfen Sie mit den Werkzeugen Ihres Betriebssystems.</p></details>
+</section>
+
+<section id="de-license">
+  <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Lizenzen</h2>
+  <p>Der Formatierer nutzt freie Software unter der GPL: <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) im Payload, <b>mkntfs</b> (ntfs-3g)
+    und <b>mke2fs</b> (e2fsprogs) für NTFS und ext4 an der PS5, <b>mke2fs.exe</b> (e2fsprogs) in den Windows-Programmen sowie
+    <b>libc.prx</b> (GPL-3.0-or-later) in der App. Die Lizenztexte liegen den Dateien bei.</p>
+  <p class="small">Benutzung auf eigene Gefahr – sichern Sie wichtige Daten vorher.</p>
+</section>
+<footer>USB-Formatierer · Anleitung</footer>
+</article>
+
+<!-- ================================================================== English -->
+<article lang="en" data-l="en" data-title="USB Formatter – Guide" data-back="Back to the formatter">
+<div class="hero">
+  <div class="logo"><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg></div>
+  <div><h1><span>Guide</span>USB Formatter</h1>
+  <p>Format USB sticks and drives – directly on the PS5 or on your PC. With authenticity and speed tests, game management,
+  all common file systems and custom partitions.</p></div>
+</div>
+<ol class="toc">
+  <li><a href="#en-overview">At a glance</a></li>
+  <li><a href="#en-safety">Important first</a></li>
+  <li><a href="#en-install">Installation</a></li>
+  <li><a href="#en-ps5">On the PS5</a></li>
+  <li><a href="#en-win">Windows program with PS5</a></li>
+  <li><a href="#en-std">USB Formatter (standalone)</a></li>
+  <li><a href="#en-expert">Expert mode &amp; partitions</a></li>
+  <li><a href="#en-fs">File systems compared</a></li>
+  <li><a href="#en-cluster">Allocation unit &amp; partition table</a></li>
+  <li><a href="#en-test">Authenticity &amp; speed</a></li>
+  <li><a href="#en-faq">Troubleshooting</a></li>
+  <li><a href="#en-license">Licences</a></li>
+</ol>
+
+<section id="en-overview">
+  <h2><span class="ic"><svg class="i"><use href="#i-grid" xlink:href="#i-grid"/></svg></span>At a glance</h2>
+  <p>The USB Formatter consists of four parts. You only need the ones you want to use.</p>
+  <div class="cards two">
+    <div class="card"><h3><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg>PS5 app “USB-Formatierer”</h3>
+      <code class="file">PPSA86920</code><p>Tile on the PS5 home screen. Starts the formatter and opens its interface in the PS5 browser.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg>PS5 payload</h3>
+      <code class="file">usb_format.elf</code><p>The actual formatter on the PS5. You can also open its web interface on your phone or PC: <code>http://&lt;PS5-IP&gt;:8090</code></p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Windows program with PS5</h3>
+      <code class="file">PS5-USB-Formatierer.exe</code><p>Formats over the network on the PS5 – or sticks directly on the PC, in PS5 format or completely freely.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>USB Formatter for Windows</h3>
+      <code class="file">USB-Formatierer.exe</code><p>Standalone, without PS5 features: all file systems, any allocation unit, partitions and expert mode.</p></div>
+  </div>
+</section>
+
+<section id="en-safety">
+  <h2><span class="ic"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg></span>Important first</h2>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Formatting erases all data on the drive.</b>
+    Check the drive's name and size before confirming. If there are games on it, you have to confirm the deletion explicitly.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Do not unplug or reconnect USB drives on the PS5 while they are in use.</b>
+    The PS5 attaches USB drives to running games and apps – afterwards these often only start again after restarting the console.
+    The formatter detaches drives itself by software. Only unplug when it explicitly asks you to.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div><b class="t">Anything currently in use is never preselected.</b>
+    The formatter never selects mounted drives (such as your games SSD) by itself; on the PC nothing is preselected at all.</div></div>
+</section>
+
+<section id="en-install">
+  <h2><span class="ic"><svg class="i"><use href="#i-down" xlink:href="#i-down"/></svg></span>Installation</h2>
+  <p>You will find all files on the project's release page.</p>
+  <div class="tbl"><table>
+    <tr><th>File</th><th>Purpose</th><th>How to</th></tr>
+    <tr><td><code>PPSA86920.zip</code></td><td>App tile for the PS5</td><td>Unzip and copy the folder to <code>/data/homebrew/</code> on the PS5 (e.g. via FTP). ShadowMountPlus registers the app, then the “USB-Formatierer” tile appears.</td></tr>
+    <tr><td><code>usb_format.elf</code></td><td>Formatter (payload)</td><td>The app starts it automatically. Without the app: send it to the jailbreak's ELF loader (port 9021).</td></tr>
+    <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, with PS5 features</td><td>Just start it – no installation needed.</td></tr>
+    <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, without PS5 features</td><td>Just start it – no installation needed.</td></tr>
+  </table></div>
+  <p class="small">The PS5 needs a running jailbreak with an ELF loader (tested with firmware 12.00). For formatting on the PC, Windows asks for administrator rights – confirm with “Yes”.</p>
+</section>
+
+<section id="en-ps5">
+  <h2><span class="ic"><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg></span>On the PS5: the web interface</h2>
+  <ol class="steps">
+    <li><b>Start.</b> Load the jailbreak and open the “USB-Formatierer” tile. The PS5 browser shows the interface.
+      A QR code and the address <code>http://&lt;PS5-IP&gt;:8090</code> also open it on your phone or PC – on the same home network.</li>
+    <li><b>Choose a drive.</b> The list shows every USB drive with name, size, file system, label and usage.
+      “mounted” means the PS5 is using it right now. “Fake” marks sticks that failed the authenticity test.</li>
+    <li><b>View the content.</b> For mounted drives the formatter shows games (folders and images with title ID), PKG files and
+      free space. Duplicate games (same title ID in several places) are reported. Use “Delete games …” to remove games –
+      optionally including their tile on the home screen.</li>
+    <li><b>Use the tools.</b> “Measure speed” measures the read speed. “Check &amp; repair” checks exFAT and fixes errors.
+      “Rename” changes the label (exFAT, FAT32) and keeps the data.</li>
+    <li><b>Format.</b> Choose the file system: <b>exFAT (64 KB)</b> is the right choice for games and ShadowMountPlus; FAT32 only stores
+      files up to 4 GB. Enter a volume label and set the options:
+      <ul>
+        <li><b>Create folders for games</b> – homebrew, etaHEN/games and pkg.</li>
+        <li><b>Check authenticity and speed first</b> – quick test with samples (approx. 2–10 minutes), recommended for no-name sticks.</li>
+        <li><b>Full format</b> – write and verify every sector; takes a long time.</li>
+      </ul>
+      “Other file systems (not for the PS5)” additionally offers NTFS, ext4, any allocation unit and the choice of partition table.</li>
+    <li><b>Confirm and wait.</b> The progress appears at the bottom. If the PS5 is using the drive, the formatter briefly detaches it
+      by software. Only if that fails does it ask you, in large letters, to unplug the stick and plug it back in. Waiting, checking
+      and speed measurement can be cancelled.</li>
+  </ol>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div>At the top you set the <b>size</b> and <b>language</b>, at the very bottom the <b>theme</b> (light or dark).
+    “Quit the formatter on the PS5” ends the payload – the app starts it again at any time.</div></div>
+</section>
+
+<section id="en-win">
+  <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Windows program “PS5-USB-Formatierer”</h2>
+  <p>At the top you choose where the drive is plugged in. At the top right you set the language and open this help.</p>
+  <div class="cards">
+    <div class="card"><h3>USB on the PS5</h3><p>The stick is plugged into the PS5. “Search” finds the PS5 on your home network (or enter its IP address).
+      If the formatter is not running there yet, the program sends it over itself. Then it works like the web interface: drive, games, delete, format.</p></div>
+    <div class="card"><h3>USB on PC (for PS5)</h3><p>The stick is plugged into the PC and formatted exactly as on the PS5: exFAT with 64 KB or FAT32 – even
+      above 32 GB, which Windows itself cannot do. Plus authenticity test, speed measurement, renaming and folder template.</p></div>
+    <div class="card"><h3>PC standard</h3><p>Format freely without PS5 presets – the same area as in the standalone USB Formatter
+      (next section), with all file systems and expert mode.</p></div>
+  </div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>On the PC nothing is preselected: choose the drive deliberately and pay attention to its name and size.</div></div>
+</section>
+
+<section id="en-std">
+  <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>USB Formatter (standalone)</h2>
+  <p>For all drives that are not meant for the PS5: camera, car, TV, Mac, Linux, Raspberry Pi and more.
+    You will find the same area in the Windows program under “PC standard”.</p>
+  <ol class="steps">
+    <li><b>Choose a drive.</b> “Refresh” reloads the list.</li>
+    <li><b>Choose a file system:</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 or HFS+. Below the selection you can read what it is good for.</li>
+    <li>Set the <b>allocation unit size</b> and the <b>partition table</b> (automatic, MBR or GPT) – or keep the defaults.</li>
+    <li>Enter a <b>volume label</b>: A–Z, 0–9, space, - and _ (NTFS and HFS+ up to 32 characters, ext up to 16, otherwise 11).</li>
+    <li><b>Options:</b> “Quick format” (unticked, every sector is written and verified) and “Check authenticity and speed first”.</li>
+    <li>Choose <b>“Format …”</b> and confirm. Next to it: “Measure speed” and “Rename”.</li>
+  </ol>
+</section>
+
+<section id="en-expert">
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Expert mode: define partitions yourself</h2>
+  <p>Tick “Expert mode” to divide the drive into several partitions. A bar shows the layout and the free space.</p>
+  <ul class="check">
+    <li><b>Add, Edit, Remove</b> – per partition: file system (or “No file system”), size or “all the rest”,
+      allocation unit, type and label.</li>
+    <li><b>Type:</b> automatic (matching the file system), Windows data, Linux file system, Linux swap, EFI system partition or Apple HFS+.</li>
+    <li><b>Bootable (active)</b> – MBR only.</li>
+    <li><b>Limits:</b> MBR holds at most 4 partitions, GPT up to 16. Only the last partition may get the rest. Each partition starts on a MB boundary.</li>
+  </ul>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Windows only shows partitions it can read. ext2/3/4, HFS+ and partitions without a file system are invisible on a Windows PC – that is normal.</div></div>
+</section>
+
+<section id="en-fs">
+  <h2><span class="ic"><svg class="i"><use href="#i-table" xlink:href="#i-table"/></svg></span>File systems compared</h2>
+  <div class="tbl"><table class="fs">
+    <tr><th>File system</th><th>PS5</th><th>Windows</th><th>macOS</th><th>Linux</th><th>Largest file</th><th>Good for</th></tr>
+    <tr><td>exFAT</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>practically unlimited</td><td>USB sticks, games on the PS5 (64 KB), exchange</td></tr>
+    <tr><td>FAT32</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>4 GB</td><td>older devices, car radio, TV</td></tr>
+    <tr><td>NTFS</td><td class="n">–</td><td class="y">✔</td><td class="p">read only</td><td class="y">✔</td><td>practically unlimited</td><td>Windows hard drives</td></tr>
+    <tr><td>FAT (FAT16)</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>2 GB</td><td>very old devices, drives up to 4 GB</td></tr>
+    <tr><td>ext4 / ext3 / ext2</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td>2–16 TB</td><td>Linux, Raspberry Pi, Steam Deck, NAS</td></tr>
+    <tr><td>HFS+</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td>practically unlimited</td><td>Macs (Mac OS Extended)</td></tr>
+  </table></div>
+  <p class="small">✔ = read and write · – = not usable without extra software</p>
+</section>
+
+<section id="en-cluster">
+  <h2><span class="ic"><svg class="i"><use href="#i-sliders" xlink:href="#i-sliders"/></svg></span>Allocation unit and partition table</h2>
+  <h3>Allocation unit (cluster size)</h3>
+  <p>Files are stored in blocks of this size. Small units waste less space with many small files, large ones are faster with
+    large files. The defaults match those of Windows and fit almost always.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">For the PS5: exFAT with 64 KB.</b> The PS5 area is fixed to this – ideal for game images and ShadowMountPlus.</div></div>
+  <h3>Partition table</h3>
+  <ul class="check">
+    <li><b>Automatic</b> – MBR, GPT only from 2 TB. The right choice in almost all cases.</li>
+    <li><b>MBR</b> – also works with older devices and car radios; up to 2 TB and at most 4 partitions.</li>
+    <li><b>GPT</b> – for current PCs and very large drives; up to 16 partitions.</li>
+  </ul>
+</section>
+
+<section id="en-test">
+  <h2><span class="ic"><svg class="i"><use href="#i-gauge" xlink:href="#i-gauge"/></svg></span>Authenticity, speed and fake sticks</h2>
+  <p>Some cheap sticks report more storage than they have. Anything written beyond the real storage is silently lost – games get damaged.</p>
+  <ul class="check">
+    <li><b>Quick test</b> (“Check authenticity and speed first”): writes and verifies samples across the whole stick, approx. 2–10 minutes. The previous data is overwritten in the process.</li>
+    <li><b>Full format:</b> writes and verifies every sector – also finds individual bad areas, but takes a long time.</li>
+    <li><b>Fake detected?</b> The formatter shows the real size and offers to format only the real area. The stick stays marked as “Fake”. For games, better use a genuine drive.</li>
+    <li><b>Speed:</b> from 100 MB/s read speed fast enough for games, from 40 MB/s adequate, below that slow.</li>
+  </ul>
+</section>
+
+<section id="en-faq">
+  <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Troubleshooting</h2>
+  <details><summary>“ELF loader (port 9021) not reachable”</summary><p>The jailbreak is not running (any more). Load the jailbreak and start the app again.</p></details>
+  <details><summary>The web interface does not open on my PC or phone</summary><p>PC or phone and PS5 must be on the same home network. Enter the address exactly as the PS5 shows it (<code>http://…:8090</code>). Is the formatter still running? Otherwise start the app again.</p></details>
+  <details><summary>“Port 8090 in use”</summary><p>The formatter is already running. Simply start the app – it opens the existing interface.</p></details>
+  <details><summary>My stick does not appear in the list</summary><p>Plug it in, wait a few seconds and choose “Refresh”. Drives locked by the system are shown but cannot be changed.</p></details>
+  <details><summary>Games or apps no longer start after replugging</summary><p>The PS5 lost a drive that a running game was using. Restart the console – and in future only unplug when the formatter asks you to.</p></details>
+  <details><summary>Windows: “The drive is in use”</summary><p>Close Explorer windows and programs accessing the stick, then try again.</p></details>
+  <details><summary>Windows does not show the stick after formatting</summary><p>That is normal for ext2/3/4 and HFS+ – Windows cannot read these file systems. The stick works on Linux or a Mac.</p></details>
+  <details><summary>“Check and repair only works with exFAT”</summary><p>The file system check is available for exFAT. Check other file systems with the tools of your operating system.</p></details>
+</section>
+
+<section id="en-license">
+  <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Licences</h2>
+  <p>The formatter uses free software under the GPL: <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) in the payload, <b>mkntfs</b> (ntfs-3g)
+    and <b>mke2fs</b> (e2fsprogs) for NTFS and ext4 on the PS5, <b>mke2fs.exe</b> (e2fsprogs) in the Windows programs and
+    <b>libc.prx</b> (GPL-3.0-or-later) in the app. The licence texts come with the files.</p>
+  <p class="small">Use at your own risk – back up important data first.</p>
+</section>
+<footer>USB Formatter · Guide</footer>
+</article>
+
+<!-- ================================================================== Italiano -->
+<article lang="it" data-l="it" data-title="Formattatore USB – Guida" data-back="Torna al formattatore">
+<div class="hero">
+  <div class="logo"><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg></div>
+  <div><h1><span>Guida</span>Formattatore USB</h1>
+  <p>Formatta chiavette e dischi USB – direttamente sulla PS5 o sul PC. Con test di autenticità e velocità, gestione dei giochi,
+  tutti i file system più diffusi e partizioni personalizzate.</p></div>
+</div>
+<ol class="toc">
+  <li><a href="#it-overview">In breve</a></li>
+  <li><a href="#it-safety">Prima di iniziare</a></li>
+  <li><a href="#it-install">Installazione</a></li>
+  <li><a href="#it-ps5">Sulla PS5</a></li>
+  <li><a href="#it-win">Programma Windows con PS5</a></li>
+  <li><a href="#it-std">Formattatore USB (autonomo)</a></li>
+  <li><a href="#it-expert">Modalità esperto e partizioni</a></li>
+  <li><a href="#it-fs">File system a confronto</a></li>
+  <li><a href="#it-cluster">Unità di allocazione e tabella</a></li>
+  <li><a href="#it-test">Autenticità e velocità</a></li>
+  <li><a href="#it-faq">Risoluzione dei problemi</a></li>
+  <li><a href="#it-license">Licenze</a></li>
+</ol>
+
+<section id="it-overview">
+  <h2><span class="ic"><svg class="i"><use href="#i-grid" xlink:href="#i-grid"/></svg></span>In breve</h2>
+  <p>Il formattatore USB è composto da quattro parti. Ti servono solo quelle che vuoi usare.</p>
+  <div class="cards two">
+    <div class="card"><h3><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg>App PS5 «USB-Formatierer»</h3>
+      <code class="file">PPSA86920</code><p>Riquadro nella schermata iniziale della PS5. Avvia il formattatore e ne apre l'interfaccia nel browser della PS5.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg>Payload PS5</h3>
+      <code class="file">usb_format.elf</code><p>Il formattatore vero e proprio sulla PS5. La sua interfaccia web si apre anche da smartphone o PC: <code>http://&lt;IP-PS5&gt;:8090</code></p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Programma Windows con PS5</h3>
+      <code class="file">PS5-USB-Formatierer.exe</code><p>Formatta in rete sulla PS5 – oppure chiavette direttamente sul PC, nel formato PS5 o in totale libertà.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>Formattatore USB per Windows</h3>
+      <code class="file">USB-Formatierer.exe</code><p>Autonomo e senza funzioni PS5: tutti i file system, unità di allocazione libera, partizioni e modalità esperto.</p></div>
+  </div>
+</section>
+
+<section id="it-safety">
+  <h2><span class="ic"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg></span>Prima di iniziare</h2>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">La formattazione cancella tutti i dati sull'unità.</b>
+    Prima di confermare controlla nome e dimensione dell'unità. Se contiene giochi, devi confermarne esplicitamente l'eliminazione.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Non scollegare né ricollegare unità USB alla PS5 mentre sono in uso.</b>
+    La PS5 collega le unità USB ai giochi e alle app in esecuzione – dopo spesso questi ripartono solo dopo un riavvio della console.
+    Il formattatore scollega da solo le unità via software. Scollega solo quando te lo chiede esplicitamente.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div><b class="t">Ciò che è in uso non viene mai preselezionato.</b>
+    Il formattatore non seleziona mai da solo le unità montate (ad es. l'SSD dei giochi); sul PC non è preselezionato nulla.</div></div>
+</section>
+
+<section id="it-install">
+  <h2><span class="ic"><svg class="i"><use href="#i-down" xlink:href="#i-down"/></svg></span>Installazione</h2>
+  <p>Trovi tutti i file nella pagina delle release del progetto.</p>
+  <div class="tbl"><table>
+    <tr><th>File</th><th>A cosa serve</th><th>Come fare</th></tr>
+    <tr><td><code>PPSA86920.zip</code></td><td>Riquadro app per la PS5</td><td>Estrai e copia la cartella in <code>/data/homebrew/</code> sulla PS5 (ad es. via FTP). ShadowMountPlus registra l'app, poi compare il riquadro «USB-Formatierer».</td></tr>
+    <tr><td><code>usb_format.elf</code></td><td>Formattatore (payload)</td><td>L'app lo avvia automaticamente. Senza app: invialo all'ELF loader del jailbreak (porta 9021).</td></tr>
+    <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, con funzioni PS5</td><td>Basta avviarlo – nessuna installazione.</td></tr>
+    <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, senza funzioni PS5</td><td>Basta avviarlo – nessuna installazione.</td></tr>
+  </table></div>
+  <p class="small">Sulla PS5 serve un jailbreak attivo con ELF loader (testato con il firmware 12.00). Per formattare sul PC, Windows chiede i diritti di amministratore – conferma con «Sì».</p>
+</section>
+
+<section id="it-ps5">
+  <h2><span class="ic"><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg></span>Sulla PS5: l'interfaccia web</h2>
+  <ol class="steps">
+    <li><b>Avvio.</b> Carica il jailbreak e apri il riquadro «USB-Formatierer». Il browser della PS5 mostra l'interfaccia.
+      Un codice QR e l'indirizzo <code>http://&lt;IP-PS5&gt;:8090</code> la aprono anche su smartphone o PC – nella stessa rete domestica.</li>
+    <li><b>Scegli l'unità.</b> L'elenco mostra ogni unità USB con nome, dimensione, file system, etichetta e occupazione.
+      «montata» significa che la PS5 la sta usando. «Contraffatta» indica le chiavette che non hanno superato il test di autenticità.</li>
+    <li><b>Guarda il contenuto.</b> Per le unità montate il formattatore mostra i giochi (cartelle e immagini con ID titolo), i file PKG
+      e lo spazio libero. I giochi doppi (stesso ID titolo in più posizioni) vengono segnalati. Con «Elimina giochi …» rimuovi i giochi –
+      se vuoi, anche il loro riquadro nella schermata iniziale.</li>
+    <li><b>Usa gli strumenti.</b> «Misura velocità» misura la velocità di lettura. «Controlla e ripara» controlla exFAT e corregge gli errori.
+      «Rinomina» cambia l'etichetta (exFAT, FAT32) mantenendo i dati.</li>
+    <li><b>Formatta.</b> Scegli il file system: <b>exFAT (64 KB)</b> è la scelta giusta per i giochi e ShadowMountPlus; FAT32 salva
+      file solo fino a 4 GB. Inserisci un'etichetta e imposta le opzioni:
+      <ul>
+        <li><b>Crea cartelle per i giochi</b> – homebrew, etaHEN/games e pkg.</li>
+        <li><b>Controlla prima autenticità e velocità</b> – test rapido a campione (circa 2–10 minuti), consigliato per chiavette senza marca.</li>
+        <li><b>Formattazione completa</b> – scrive e verifica ogni settore; richiede molto tempo.</li>
+      </ul>
+      Con «Altri file system (non per la PS5)» trovi anche NTFS, ext4, unità di allocazione libere e la scelta della tabella delle partizioni.</li>
+    <li><b>Conferma e attendi.</b> L'avanzamento compare in basso. Se la PS5 sta usando l'unità, il formattatore la scollega brevemente
+      via software. Solo se non funziona ti chiede, a caratteri grandi, di scollegare la chiavetta e ricollegarla. L'attesa, il controllo
+      e la misura della velocità si possono annullare.</li>
+  </ol>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div>In alto imposti <b>dimensione</b> e <b>lingua</b>, in fondo il <b>tema</b> (chiaro o scuro).
+    «Chiudi il formattatore sulla PS5» termina il payload – l'app lo riavvia in qualsiasi momento.</div></div>
+</section>
+
+<section id="it-win">
+  <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Programma Windows «PS5-USB-Formatierer»</h2>
+  <p>In alto scegli dove è collegata l'unità. In alto a destra imposti la lingua e apri questa guida.</p>
+  <div class="cards">
+    <div class="card"><h3>USB sulla PS5</h3><p>La chiavetta è collegata alla PS5. «Cerca» trova la PS5 nella rete domestica (oppure inserisci l'indirizzo IP).
+      Se lì il formattatore non è ancora attivo, il programma lo invia da solo. Poi funziona come l'interfaccia web: unità, giochi, eliminare, formattare.</p></div>
+    <div class="card"><h3>USB sul PC (per PS5)</h3><p>La chiavetta è collegata al PC e viene formattata esattamente come sulla PS5: exFAT con 64 KB o FAT32 – anche
+      oltre 32 GB, cosa che Windows da solo non sa fare. In più test di autenticità, misura della velocità, rinomina e cartelle predefinite.</p></div>
+    <div class="card"><h3>PC standard</h3><p>Formattazione libera senza impostazioni PS5 – la stessa sezione del Formattatore USB autonomo
+      (sezione successiva), con tutti i file system e la modalità esperto.</p></div>
+  </div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Sul PC non è preselezionato nulla: scegli l'unità con attenzione e controlla nome e dimensione.</div></div>
+</section>
+
+<section id="it-std">
+  <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>Formattatore USB (autonomo)</h2>
+  <p>Per tutte le unità che non sono destinate alla PS5: fotocamera, auto, TV, Mac, Linux, Raspberry Pi e altro.
+    La stessa sezione si trova nel programma Windows alla voce «PC standard».</p>
+  <ol class="steps">
+    <li><b>Scegli l'unità.</b> «Aggiorna» ricarica l'elenco.</li>
+    <li><b>Scegli il file system:</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 o HFS+. Sotto la scelta trovi a cosa è adatto.</li>
+    <li>Imposta la <b>dimensione dell'unità di allocazione</b> e la <b>tabella delle partizioni</b> (automatica, MBR o GPT) – oppure lascia i valori predefiniti.</li>
+    <li>Inserisci l'<b>etichetta del volume</b>: A–Z, 0–9, spazio, - e _ (NTFS e HFS+ fino a 32 caratteri, ext fino a 16, altrimenti 11).</li>
+    <li><b>Opzioni:</b> «Formattazione rapida» (senza spunta ogni settore viene scritto e verificato) e «Verifica prima autenticità e velocità».</li>
+    <li>Scegli <b>«Formatta …»</b> e conferma. Accanto: «Misura velocità» e «Rinomina».</li>
+  </ol>
+</section>
+
+<section id="it-expert">
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Modalità esperto: definisci tu le partizioni</h2>
+  <p>Con la spunta «Modalità esperto» dividi l'unità in più partizioni. Una barra mostra la suddivisione e lo spazio libero.</p>
+  <ul class="check">
+    <li><b>Aggiungi, Modifica, Rimuovi</b> – per ogni partizione: file system (o «Senza file system»), dimensione o «tutto il resto»,
+      unità di allocazione, tipo ed etichetta.</li>
+    <li><b>Tipo:</b> automatico (in base al file system), dati Windows, file system Linux, swap Linux, partizione di sistema EFI o Apple HFS+.</li>
+    <li><b>Avviabile (attiva)</b> – solo con MBR.</li>
+    <li><b>Limiti:</b> MBR contiene al massimo 4 partizioni, GPT fino a 16. Solo l'ultima partizione può ricevere il resto. Ogni partizione inizia su un limite di MB.</li>
+  </ul>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Windows mostra solo le partizioni che sa leggere. ext2/3/4, HFS+ e le partizioni senza file system sono invisibili su un PC Windows – è normale.</div></div>
+</section>
+
+<section id="it-fs">
+  <h2><span class="ic"><svg class="i"><use href="#i-table" xlink:href="#i-table"/></svg></span>File system a confronto</h2>
+  <div class="tbl"><table class="fs">
+    <tr><th>File system</th><th>PS5</th><th>Windows</th><th>macOS</th><th>Linux</th><th>File più grande</th><th>Adatto per</th></tr>
+    <tr><td>exFAT</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>praticamente illimitato</td><td>chiavette USB, giochi sulla PS5 (64 KB), scambio</td></tr>
+    <tr><td>FAT32</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>4 GB</td><td>dispositivi meno recenti, autoradio, TV</td></tr>
+    <tr><td>NTFS</td><td class="n">–</td><td class="y">✔</td><td class="p">solo lettura</td><td class="y">✔</td><td>praticamente illimitato</td><td>dischi Windows</td></tr>
+    <tr><td>FAT (FAT16)</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>2 GB</td><td>dispositivi molto vecchi, unità fino a 4 GB</td></tr>
+    <tr><td>ext4 / ext3 / ext2</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td>2–16 TB</td><td>Linux, Raspberry Pi, Steam Deck, NAS</td></tr>
+    <tr><td>HFS+</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td>praticamente illimitato</td><td>Mac (Mac OS Esteso)</td></tr>
+  </table></div>
+  <p class="small">✔ = lettura e scrittura · – = non utilizzabile senza programmi aggiuntivi</p>
+</section>
+
+<section id="it-cluster">
+  <h2><span class="ic"><svg class="i"><use href="#i-sliders" xlink:href="#i-sliders"/></svg></span>Unità di allocazione e tabella delle partizioni</h2>
+  <h3>Unità di allocazione (dimensione cluster)</h3>
+  <p>I file vengono salvati in blocchi di questa dimensione. Unità piccole sprecano meno spazio con molti file piccoli, quelle grandi
+    sono più veloci con file grandi. I valori predefiniti corrispondono a quelli di Windows e vanno bene quasi sempre.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Per la PS5: exFAT con 64 KB.</b> La sezione PS5 è impostata in modo fisso su questo valore – ideale per le immagini dei giochi e ShadowMountPlus.</div></div>
+  <h3>Tabella delle partizioni</h3>
+  <ul class="check">
+    <li><b>Automatica</b> – MBR, GPT solo da 2 TB. La scelta giusta in quasi tutti i casi.</li>
+    <li><b>MBR</b> – funziona anche con dispositivi meno recenti e autoradio; fino a 2 TB e al massimo 4 partizioni.</li>
+    <li><b>GPT</b> – per PC attuali e unità molto grandi; fino a 16 partizioni.</li>
+  </ul>
+</section>
+
+<section id="it-test">
+  <h2><span class="ic"><svg class="i"><use href="#i-gauge" xlink:href="#i-gauge"/></svg></span>Autenticità, velocità e chiavette contraffatte</h2>
+  <p>Alcune chiavette economiche dichiarano più memoria di quella che hanno. Ciò che viene scritto oltre la memoria reale va perso senza avviso – i giochi si danneggiano.</p>
+  <ul class="check">
+    <li><b>Test rapido</b> («Controlla prima autenticità e velocità»): scrive e verifica campioni su tutta la chiavetta, circa 2–10 minuti. I dati precedenti vengono sovrascritti.</li>
+    <li><b>Formattazione completa:</b> scrive e verifica ogni settore – trova anche singole aree difettose, ma richiede molto tempo.</li>
+    <li><b>Rilevata una contraffazione?</b> Il formattatore mostra la dimensione reale e propone di formattare solo l'area reale. La chiavetta resta contrassegnata come «Contraffatta». Per i giochi meglio usare un'unità autentica.</li>
+    <li><b>Velocità:</b> da 100 MB/s in lettura abbastanza veloce per i giochi, da 40 MB/s sufficiente, al di sotto lenta.</li>
+  </ul>
+</section>
+
+<section id="it-faq">
+  <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Risoluzione dei problemi</h2>
+  <details><summary>«ELF loader (porta 9021) non raggiungibile»</summary><p>Il jailbreak non è (più) attivo. Carica il jailbreak e avvia di nuovo l'app.</p></details>
+  <details><summary>L'interfaccia web non si apre su PC o smartphone</summary><p>PC o smartphone e PS5 devono essere nella stessa rete domestica. Inserisci l'indirizzo esattamente come lo mostra la PS5 (<code>http://…:8090</code>). Il formattatore è ancora attivo? Altrimenti avvia di nuovo l'app.</p></details>
+  <details><summary>«Porta 8090 occupata»</summary><p>Il formattatore è già in esecuzione. Avvia semplicemente l'app – apre l'interfaccia esistente.</p></details>
+  <details><summary>La mia chiavetta non compare nell'elenco</summary><p>Collegala, attendi qualche secondo e scegli «Aggiorna». Le unità bloccate dal sistema vengono mostrate, ma non si possono modificare.</p></details>
+  <details><summary>Giochi o app non si avviano più dopo aver ricollegato un'unità</summary><p>La PS5 ha perso un'unità usata da un gioco in esecuzione. Riavvia la console – e in futuro scollega solo quando il formattatore te lo chiede.</p></details>
+  <details><summary>Windows: «L'unità è in uso»</summary><p>Chiudi le finestre di Esplora risorse e i programmi che accedono alla chiavetta, poi riprova.</p></details>
+  <details><summary>Windows non mostra la chiavetta dopo la formattazione</summary><p>Con ext2/3/4 e HFS+ è normale – Windows non sa leggere questi file system. La chiavetta funziona su Linux o su Mac.</p></details>
+  <details><summary>«Controllo e riparazione funzionano solo con exFAT»</summary><p>Il controllo del file system è disponibile per exFAT. Gli altri file system si controllano con gli strumenti del tuo sistema operativo.</p></details>
+</section>
+
+<section id="it-license">
+  <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Licenze</h2>
+  <p>Il formattatore usa software libero con licenza GPL: <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) nel payload, <b>mkntfs</b> (ntfs-3g)
+    e <b>mke2fs</b> (e2fsprogs) per NTFS ed ext4 sulla PS5, <b>mke2fs.exe</b> (e2fsprogs) nei programmi Windows e
+    <b>libc.prx</b> (GPL-3.0-or-later) nell'app. I testi delle licenze sono allegati ai file.</p>
+  <p class="small">Uso a proprio rischio – fai prima un backup dei dati importanti.</p>
+</section>
+<footer>Formattatore USB · Guida</footer>
+</article>
+
+<!-- ================================================================== Español -->
+<article lang="es" data-l="es" data-title="Formateador USB – Guía" data-back="Volver al formateador">
+<div class="hero">
+  <div class="logo"><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg></div>
+  <div><h1><span>Guía</span>Formateador USB</h1>
+  <p>Formatea pendrives y discos USB – directamente en la PS5 o en el PC. Con prueba de autenticidad y velocidad, gestión de juegos,
+  todos los sistemas de archivos habituales y particiones propias.</p></div>
+</div>
+<ol class="toc">
+  <li><a href="#es-overview">De un vistazo</a></li>
+  <li><a href="#es-safety">Importante antes de empezar</a></li>
+  <li><a href="#es-install">Instalación</a></li>
+  <li><a href="#es-ps5">En la PS5</a></li>
+  <li><a href="#es-win">Programa de Windows con PS5</a></li>
+  <li><a href="#es-std">Formateador USB (independiente)</a></li>
+  <li><a href="#es-expert">Modo experto y particiones</a></li>
+  <li><a href="#es-fs">Sistemas de archivos</a></li>
+  <li><a href="#es-cluster">Unidad de asignación y tabla</a></li>
+  <li><a href="#es-test">Autenticidad y velocidad</a></li>
+  <li><a href="#es-faq">Solución de problemas</a></li>
+  <li><a href="#es-license">Licencias</a></li>
+</ol>
+
+<section id="es-overview">
+  <h2><span class="ic"><svg class="i"><use href="#i-grid" xlink:href="#i-grid"/></svg></span>De un vistazo</h2>
+  <p>El formateador USB consta de cuatro partes. Solo necesitas las que quieras usar.</p>
+  <div class="cards two">
+    <div class="card"><h3><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg>App de PS5 «USB-Formatierer»</h3>
+      <code class="file">PPSA86920</code><p>Icono en la pantalla de inicio de la PS5. Inicia el formateador y abre su interfaz en el navegador de la PS5.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg>Payload de PS5</h3>
+      <code class="file">usb_format.elf</code><p>El formateador propiamente dicho en la PS5. Su interfaz web también se abre en el móvil o el PC: <code>http://&lt;IP-PS5&gt;:8090</code></p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Programa de Windows con PS5</h3>
+      <code class="file">PS5-USB-Formatierer.exe</code><p>Formatea por red en la PS5 – o pendrives directamente en el PC, en formato PS5 o con total libertad.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>Formateador USB para Windows</h3>
+      <code class="file">USB-Formatierer.exe</code><p>Independiente y sin funciones de PS5: todos los sistemas de archivos, unidad de asignación libre, particiones y modo experto.</p></div>
+  </div>
+</section>
+
+<section id="es-safety">
+  <h2><span class="ic"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg></span>Importante antes de empezar</h2>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Formatear borra todos los datos de la unidad.</b>
+    Antes de confirmar, comprueba el nombre y el tamaño de la unidad. Si contiene juegos, tienes que confirmar el borrado expresamente.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">No desconectes ni vuelvas a conectar unidades USB en la PS5 mientras se usan.</b>
+    La PS5 vincula las unidades USB a los juegos y aplicaciones en ejecución – después, a menudo solo vuelven a iniciarse tras reiniciar la consola.
+    El formateador desconecta él mismo las unidades por software. Desconecta solo cuando te lo pida expresamente.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div><b class="t">Lo que está en uso nunca se preselecciona.</b>
+    El formateador nunca elige por sí mismo unidades montadas (por ejemplo, tu SSD de juegos); en el PC no hay nada preseleccionado.</div></div>
+</section>
+
+<section id="es-install">
+  <h2><span class="ic"><svg class="i"><use href="#i-down" xlink:href="#i-down"/></svg></span>Instalación</h2>
+  <p>Encontrarás todos los archivos en la página de versiones (releases) del proyecto.</p>
+  <div class="tbl"><table>
+    <tr><th>Archivo</th><th>Para qué</th><th>Cómo</th></tr>
+    <tr><td><code>PPSA86920.zip</code></td><td>Icono de la app para la PS5</td><td>Descomprime y copia la carpeta en <code>/data/homebrew/</code> de la PS5 (por ejemplo, por FTP). ShadowMountPlus registra la app y aparece el icono «USB-Formatierer».</td></tr>
+    <tr><td><code>usb_format.elf</code></td><td>Formateador (payload)</td><td>La app lo inicia automáticamente. Sin la app: envíalo al cargador ELF del jailbreak (puerto 9021).</td></tr>
+    <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, con funciones de PS5</td><td>Solo hay que iniciarlo – no requiere instalación.</td></tr>
+    <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, sin funciones de PS5</td><td>Solo hay que iniciarlo – no requiere instalación.</td></tr>
+  </table></div>
+  <p class="small">La PS5 necesita un jailbreak activo con cargador ELF (probado con el firmware 12.00). Para formatear en el PC, Windows pide permisos de administrador – confirma con «Sí».</p>
+</section>
+
+<section id="es-ps5">
+  <h2><span class="ic"><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg></span>En la PS5: la interfaz web</h2>
+  <ol class="steps">
+    <li><b>Iniciar.</b> Carga el jailbreak y abre el icono «USB-Formatierer». El navegador de la PS5 muestra la interfaz.
+      Un código QR y la dirección <code>http://&lt;IP-PS5&gt;:8090</code> la abren también en el móvil o el PC – en la misma red doméstica.</li>
+    <li><b>Elegir la unidad.</b> La lista muestra cada unidad USB con nombre, tamaño, sistema de archivos, etiqueta y ocupación.
+      «montada» significa que la PS5 la está usando. «Falsificada» marca los pendrives que no superaron la prueba de autenticidad.</li>
+    <li><b>Ver el contenido.</b> En las unidades montadas, el formateador muestra los juegos (carpetas e imágenes con ID de título), los archivos PKG
+      y el espacio libre. Se avisa de los juegos duplicados (mismo ID de título en varios sitios). Con «Borrar juegos …» eliminas juegos –
+      si quieres, también su icono de la pantalla de inicio.</li>
+    <li><b>Usar las herramientas.</b> «Medir velocidad» mide la velocidad de lectura. «Comprobar y reparar» comprueba exFAT y corrige errores.
+      «Renombrar» cambia la etiqueta (exFAT, FAT32) y conserva los datos.</li>
+    <li><b>Formatear.</b> Elige el sistema de archivos: <b>exFAT (64 KB)</b> es la opción correcta para juegos y ShadowMountPlus; FAT32 solo guarda
+      archivos de hasta 4 GB. Escribe una etiqueta y ajusta las opciones:
+      <ul>
+        <li><b>Crear carpetas para juegos</b> – homebrew, etaHEN/games y pkg.</li>
+        <li><b>Comprobar antes autenticidad y velocidad</b> – prueba rápida por muestreo (aprox. 2–10 minutos), recomendada para pendrives sin marca.</li>
+        <li><b>Formateo completo</b> – escribir y comprobar cada sector; tarda mucho.</li>
+      </ul>
+      Con «Otros sistemas de archivos (no para la PS5)» tienes además NTFS, ext4, unidades de asignación libres y la elección de la tabla de particiones.</li>
+    <li><b>Confirmar y esperar.</b> El progreso aparece abajo. Si la PS5 está usando la unidad, el formateador la desconecta brevemente por
+      software. Solo si eso falla te pide, en letra grande, que desconectes el pendrive y lo vuelvas a conectar. La espera, la comprobación
+      y la medición de velocidad se pueden cancelar.</li>
+  </ol>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div>Arriba ajustas el <b>tamaño</b> y el <b>idioma</b>, abajo del todo el <b>tema</b> (claro u oscuro).
+    «Cerrar el formateador en la PS5» termina el payload – la app lo vuelve a iniciar cuando quieras.</div></div>
+</section>
+
+<section id="es-win">
+  <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Programa de Windows «PS5-USB-Formatierer»</h2>
+  <p>Arriba eliges dónde está conectada la unidad. Arriba a la derecha ajustas el idioma y abres esta ayuda.</p>
+  <div class="cards">
+    <div class="card"><h3>USB en la PS5</h3><p>El pendrive está conectado a la PS5. «Buscar» encuentra la PS5 en la red doméstica (o escribe su dirección IP).
+      Si el formateador aún no está en marcha allí, el programa lo envía por sí mismo. Después funciona como la interfaz web: unidad, juegos, borrar, formatear.</p></div>
+    <div class="card"><h3>USB en el PC (para PS5)</h3><p>El pendrive está conectado al PC y se formatea exactamente como en la PS5: exFAT con 64 KB o FAT32 – incluso
+      de más de 32 GB, algo que Windows no puede hacer por sí solo. Además, prueba de autenticidad, medición de velocidad, renombrar y carpetas predefinidas.</p></div>
+    <div class="card"><h3>PC estándar</h3><p>Formateo libre sin ajustes de PS5 – la misma sección que en el Formateador USB independiente
+      (siguiente apartado), con todos los sistemas de archivos y el modo experto.</p></div>
+  </div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>En el PC no hay nada preseleccionado: elige la unidad con cuidado y fíjate en su nombre y tamaño.</div></div>
+</section>
+
+<section id="es-std">
+  <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>Formateador USB (independiente)</h2>
+  <p>Para todas las unidades que no van a la PS5: cámara, coche, televisor, Mac, Linux, Raspberry Pi y más.
+    La misma sección está en el programa de Windows en «PC estándar».</p>
+  <ol class="steps">
+    <li><b>Elegir la unidad.</b> «Actualizar» vuelve a cargar la lista.</li>
+    <li><b>Elegir el sistema de archivos:</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 o HFS+. Debajo de la selección se indica para qué sirve.</li>
+    <li>Ajusta el <b>tamaño de la unidad de asignación</b> y la <b>tabla de particiones</b> (automática, MBR o GPT) – o deja los valores predeterminados.</li>
+    <li>Escribe la <b>etiqueta del volumen</b>: A–Z, 0–9, espacio, - y _ (NTFS y HFS+ hasta 32 caracteres, ext hasta 16, el resto 11).</li>
+    <li><b>Opciones:</b> «Formato rápido» (sin marcar se escribe y comprueba cada sector) y «Comprobar antes autenticidad y velocidad».</li>
+    <li>Elige <b>«Formatear …»</b> y confirma. Al lado: «Medir velocidad» y «Renombrar».</li>
+  </ol>
+</section>
+
+<section id="es-expert">
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Modo experto: definir tú mismo las particiones</h2>
+  <p>Con la casilla «Modo experto» divides la unidad en varias particiones. Una barra muestra la distribución y el espacio libre.</p>
+  <ul class="check">
+    <li><b>Añadir, Editar, Quitar</b> – para cada partición: sistema de archivos (o «Sin sistema de archivos»), tamaño o «todo el resto»,
+      unidad de asignación, tipo y etiqueta.</li>
+    <li><b>Tipo:</b> automático (según el sistema de archivos), datos de Windows, sistema de archivos Linux, swap de Linux, partición de sistema EFI o Apple HFS+.</li>
+    <li><b>Arrancable (activa)</b> – solo con MBR.</li>
+    <li><b>Límites:</b> MBR admite como máximo 4 particiones, GPT hasta 16. Solo la última partición puede recibir el resto. Cada partición empieza en un límite de MB.</li>
+  </ul>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Windows solo muestra las particiones que puede leer. ext2/3/4, HFS+ y las particiones sin sistema de archivos son invisibles en un PC con Windows – es normal.</div></div>
+</section>
+
+<section id="es-fs">
+  <h2><span class="ic"><svg class="i"><use href="#i-table" xlink:href="#i-table"/></svg></span>Sistemas de archivos comparados</h2>
+  <div class="tbl"><table class="fs">
+    <tr><th>Sistema</th><th>PS5</th><th>Windows</th><th>macOS</th><th>Linux</th><th>Archivo máximo</th><th>Ideal para</th></tr>
+    <tr><td>exFAT</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>prácticamente ilimitado</td><td>pendrives, juegos en la PS5 (64 KB), intercambio</td></tr>
+    <tr><td>FAT32</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>4 GB</td><td>dispositivos antiguos, radio del coche, televisor</td></tr>
+    <tr><td>NTFS</td><td class="n">–</td><td class="y">✔</td><td class="p">solo lectura</td><td class="y">✔</td><td>prácticamente ilimitado</td><td>discos de Windows</td></tr>
+    <tr><td>FAT (FAT16)</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>2 GB</td><td>dispositivos muy antiguos, unidades de hasta 4 GB</td></tr>
+    <tr><td>ext4 / ext3 / ext2</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td>2–16 TB</td><td>Linux, Raspberry Pi, Steam Deck, NAS</td></tr>
+    <tr><td>HFS+</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td>prácticamente ilimitado</td><td>Mac (Mac OS Plus)</td></tr>
+  </table></div>
+  <p class="small">✔ = lectura y escritura · – = no se puede usar sin programas adicionales</p>
+</section>
+
+<section id="es-cluster">
+  <h2><span class="ic"><svg class="i"><use href="#i-sliders" xlink:href="#i-sliders"/></svg></span>Unidad de asignación y tabla de particiones</h2>
+  <h3>Unidad de asignación (tamaño de clúster)</h3>
+  <p>Los archivos se guardan en bloques de este tamaño. Las unidades pequeñas desperdician menos espacio con muchos archivos pequeños; las grandes
+    son más rápidas con archivos grandes. Los valores predeterminados coinciden con los de Windows y sirven casi siempre.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Para la PS5: exFAT con 64 KB.</b> La sección PS5 está fijada en este valor – ideal para imágenes de juegos y ShadowMountPlus.</div></div>
+  <h3>Tabla de particiones</h3>
+  <ul class="check">
+    <li><b>Automática</b> – MBR, GPT solo a partir de 2 TB. La opción correcta en casi todos los casos.</li>
+    <li><b>MBR</b> – funciona también con dispositivos antiguos y radios de coche; hasta 2 TB y como máximo 4 particiones.</li>
+    <li><b>GPT</b> – para PC actuales y unidades muy grandes; hasta 16 particiones.</li>
+  </ul>
+</section>
+
+<section id="es-test">
+  <h2><span class="ic"><svg class="i"><use href="#i-gauge" xlink:href="#i-gauge"/></svg></span>Autenticidad, velocidad y pendrives falsificados</h2>
+  <p>Algunos pendrives baratos indican más memoria de la que tienen. Lo que se escribe más allá de la memoria real se pierde sin aviso – los juegos se dañan.</p>
+  <ul class="check">
+    <li><b>Prueba rápida</b> («Comprobar antes autenticidad y velocidad»): escribe y comprueba muestras en todo el pendrive, aprox. 2–10 minutos. Los datos anteriores se sobrescriben.</li>
+    <li><b>Formateo completo:</b> escribe y comprueba cada sector – encuentra también zonas defectuosas aisladas, pero tarda mucho.</li>
+    <li><b>¿Se detectó una falsificación?</b> El formateador muestra el tamaño real y ofrece formatear solo la zona real. El pendrive queda marcado como «Falsificada». Para juegos, mejor usa una unidad auténtica.</li>
+    <li><b>Velocidad:</b> desde 100 MB/s de lectura es suficientemente rápida para juegos, desde 40 MB/s suficiente, por debajo lenta.</li>
+  </ul>
+</section>
+
+<section id="es-faq">
+  <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Solución de problemas</h2>
+  <details><summary>«Cargador ELF (puerto 9021) inaccesible»</summary><p>El jailbreak no está (o ya no está) activo. Carga el jailbreak y vuelve a iniciar la app.</p></details>
+  <details><summary>La interfaz web no se abre en el PC o el móvil</summary><p>El PC o el móvil y la PS5 tienen que estar en la misma red doméstica. Escribe la dirección exactamente como la muestra la PS5 (<code>http://…:8090</code>). ¿Sigue en marcha el formateador? Si no, vuelve a iniciar la app.</p></details>
+  <details><summary>«Puerto 8090 ocupado»</summary><p>El formateador ya está en marcha. Simplemente inicia la app – abre la interfaz existente.</p></details>
+  <details><summary>Mi pendrive no aparece en la lista</summary><p>Conéctalo, espera unos segundos y elige «Actualizar». Las unidades bloqueadas por el sistema se muestran, pero no se pueden modificar.</p></details>
+  <details><summary>Los juegos o aplicaciones ya no se inician tras reconectar una unidad</summary><p>La PS5 perdió una unidad que usaba un juego en ejecución. Reinicia la consola – y en adelante desconecta solo cuando el formateador te lo pida.</p></details>
+  <details><summary>Windows: «La unidad está en uso»</summary><p>Cierra las ventanas del Explorador y los programas que accedan al pendrive y vuelve a intentarlo.</p></details>
+  <details><summary>Windows no muestra el pendrive después de formatear</summary><p>Con ext2/3/4 y HFS+ es normal – Windows no puede leer estos sistemas de archivos. El pendrive funciona en Linux o en un Mac.</p></details>
+  <details><summary>«Comprobar y reparar solo funciona con exFAT»</summary><p>La comprobación del sistema de archivos está disponible para exFAT. Los demás sistemas de archivos se comprueban con las herramientas de tu sistema operativo.</p></details>
+</section>
+
+<section id="es-license">
+  <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Licencias</h2>
+  <p>El formateador usa software libre bajo la GPL: <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) en el payload, <b>mkntfs</b> (ntfs-3g)
+    y <b>mke2fs</b> (e2fsprogs) para NTFS y ext4 en la PS5, <b>mke2fs.exe</b> (e2fsprogs) en los programas de Windows y
+    <b>libc.prx</b> (GPL-3.0-or-later) en la app. Los textos de las licencias acompañan a los archivos.</p>
+  <p class="small">Uso bajo tu propia responsabilidad – haz antes una copia de seguridad de los datos importantes.</p>
+</section>
+<footer>Formateador USB · Guía</footer>
+</article>
+
+<!-- ================================================================== Français -->
+<article lang="fr" data-l="fr" data-title="Formateur USB – Guide" data-back="Retour au formateur">
+<div class="hero">
+  <div class="logo"><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg></div>
+  <div><h1><span>Guide</span>Formateur USB</h1>
+  <p>Formatez clés et disques USB – directement sur la PS5 ou sur le PC. Avec test d'authenticité et de vitesse, gestion des jeux,
+  tous les systèmes de fichiers courants et vos propres partitions.</p></div>
+</div>
+<ol class="toc">
+  <li><a href="#fr-overview">En bref</a></li>
+  <li><a href="#fr-safety">Important avant de commencer</a></li>
+  <li><a href="#fr-install">Installation</a></li>
+  <li><a href="#fr-ps5">Sur la PS5</a></li>
+  <li><a href="#fr-win">Programme Windows avec PS5</a></li>
+  <li><a href="#fr-std">Formateur USB (autonome)</a></li>
+  <li><a href="#fr-expert">Mode expert et partitions</a></li>
+  <li><a href="#fr-fs">Systèmes de fichiers comparés</a></li>
+  <li><a href="#fr-cluster">Unité d'allocation et table</a></li>
+  <li><a href="#fr-test">Authenticité et vitesse</a></li>
+  <li><a href="#fr-faq">Dépannage</a></li>
+  <li><a href="#fr-license">Licences</a></li>
+</ol>
+
+<section id="fr-overview">
+  <h2><span class="ic"><svg class="i"><use href="#i-grid" xlink:href="#i-grid"/></svg></span>En bref</h2>
+  <p>Le formateur USB se compose de quatre parties. Vous n'avez besoin que de celles que vous voulez utiliser.</p>
+  <div class="cards two">
+    <div class="card"><h3><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg>App PS5 « USB-Formatierer »</h3>
+      <code class="file">PPSA86920</code><p>Vignette sur l'écran d'accueil de la PS5. Lance le formateur et ouvre son interface dans le navigateur de la PS5.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-usb" xlink:href="#i-usb"/></svg>Payload PS5</h3>
+      <code class="file">usb_format.elf</code><p>Le formateur proprement dit sur la PS5. Son interface web s'ouvre aussi sur téléphone ou PC : <code>http://&lt;IP-PS5&gt;:8090</code></p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Programme Windows avec PS5</h3>
+      <code class="file">PS5-USB-Formatierer.exe</code><p>Formate via le réseau sur la PS5 – ou des clés directement sur le PC, au format PS5 ou en toute liberté.</p></div>
+    <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>Formateur USB pour Windows</h3>
+      <code class="file">USB-Formatierer.exe</code><p>Autonome et sans fonctions PS5 : tous les systèmes de fichiers, unité d'allocation libre, partitions et mode expert.</p></div>
+  </div>
+</section>
+
+<section id="fr-safety">
+  <h2><span class="ic"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg></span>Important avant de commencer</h2>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Le formatage efface toutes les données du support.</b>
+    Avant de confirmer, vérifiez le nom et la taille du lecteur. S'il contient des jeux, vous devez confirmer expressément leur suppression.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Ne débranchez ni ne rebranchez aucun support USB sur la PS5 pendant son utilisation.</b>
+    La PS5 rattache les lecteurs USB aux jeux et applications en cours – ceux-ci ne redémarrent souvent qu'après un redémarrage de la console.
+    Le formateur déconnecte lui-même les lecteurs par logiciel. Ne débranchez que s'il vous le demande expressément.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div><b class="t">Ce qui est en cours d'utilisation n'est jamais présélectionné.</b>
+    Le formateur ne choisit jamais de lui-même un lecteur monté (par ex. votre SSD de jeux) ; sur le PC, rien n'est présélectionné.</div></div>
+</section>
+
+<section id="fr-install">
+  <h2><span class="ic"><svg class="i"><use href="#i-down" xlink:href="#i-down"/></svg></span>Installation</h2>
+  <p>Vous trouverez tous les fichiers sur la page des versions (releases) du projet.</p>
+  <div class="tbl"><table>
+    <tr><th>Fichier</th><th>Rôle</th><th>Comment faire</th></tr>
+    <tr><td><code>PPSA86920.zip</code></td><td>Vignette de l'app pour la PS5</td><td>Décompressez et copiez le dossier dans <code>/data/homebrew/</code> sur la PS5 (par ex. via FTP). ShadowMountPlus enregistre l'app, puis la vignette « USB-Formatierer » apparaît.</td></tr>
+    <tr><td><code>usb_format.elf</code></td><td>Formateur (payload)</td><td>L'app le lance automatiquement. Sans l'app : envoyez-le au chargeur ELF du jailbreak (port 9021).</td></tr>
+    <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, avec fonctions PS5</td><td>Il suffit de le lancer – aucune installation.</td></tr>
+    <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, sans fonctions PS5</td><td>Il suffit de le lancer – aucune installation.</td></tr>
+  </table></div>
+  <p class="small">La PS5 a besoin d'un jailbreak actif avec chargeur ELF (testé avec le firmware 12.00). Pour formater sur le PC, Windows demande des droits d'administrateur – confirmez avec « Oui ».</p>
+</section>
+
+<section id="fr-ps5">
+  <h2><span class="ic"><svg class="i"><use href="#i-pad" xlink:href="#i-pad"/></svg></span>Sur la PS5 : l'interface web</h2>
+  <ol class="steps">
+    <li><b>Lancer.</b> Chargez le jailbreak et ouvrez la vignette « USB-Formatierer ». Le navigateur de la PS5 affiche l'interface.
+      Un code QR et l'adresse <code>http://&lt;IP-PS5&gt;:8090</code> l'ouvrent aussi sur téléphone ou PC – sur le même réseau domestique.</li>
+    <li><b>Choisir un lecteur.</b> La liste affiche chaque lecteur USB avec nom, taille, système de fichiers, nom de volume et occupation.
+      « monté » signifie que la PS5 l'utilise en ce moment. « Contrefaite » signale les clés qui ont échoué au test d'authenticité.</li>
+    <li><b>Voir le contenu.</b> Pour les lecteurs montés, le formateur affiche les jeux (dossiers et images avec ID de titre), les fichiers PKG
+      et l'espace libre. Les jeux en double (même ID de titre à plusieurs endroits) sont signalés. « Supprimer des jeux … » retire des jeux –
+      si vous le souhaitez, avec leur vignette sur l'écran d'accueil.</li>
+    <li><b>Utiliser les outils.</b> « Mesurer la vitesse » mesure la vitesse de lecture. « Vérifier et réparer » contrôle exFAT et corrige les erreurs.
+      « Renommer » change le nom de volume (exFAT, FAT32) en conservant les données.</li>
+    <li><b>Formater.</b> Choisissez le système de fichiers : <b>exFAT (64 Ko)</b> est le bon choix pour les jeux et ShadowMountPlus ; FAT32 ne stocke
+      que des fichiers de 4 Go maximum. Saisissez un nom de volume et réglez les options :
+      <ul>
+        <li><b>Créer les dossiers pour les jeux</b> – homebrew, etaHEN/games et pkg.</li>
+        <li><b>Vérifier d'abord l'authenticité et la vitesse</b> – test rapide par échantillons (env. 2 à 10 minutes), recommandé pour les clés sans marque.</li>
+        <li><b>Formatage complet</b> – écrire et vérifier chaque secteur ; prend du temps.</li>
+      </ul>
+      « Autres systèmes de fichiers (pas pour la PS5) » propose en plus NTFS, ext4, des unités d'allocation libres et le choix de la table de partitions.</li>
+    <li><b>Confirmer et patienter.</b> La progression s'affiche en bas. Si la PS5 utilise le lecteur, le formateur le déconnecte brièvement
+      par logiciel. Ce n'est qu'en cas d'échec qu'il vous demande, en grand, de débrancher la clé puis de la rebrancher. L'attente, la vérification
+      et la mesure de vitesse peuvent être annulées.</li>
+  </ol>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div>En haut, vous réglez la <b>taille</b> et la <b>langue</b> ; tout en bas, le <b>thème</b> (clair ou sombre).
+    « Fermer le formateur sur la PS5 » arrête le payload – l'app le relance à tout moment.</div></div>
+</section>
+
+<section id="fr-win">
+  <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Programme Windows « PS5-USB-Formatierer »</h2>
+  <p>En haut, vous choisissez où le support est branché. En haut à droite, vous réglez la langue et ouvrez cette aide.</p>
+  <div class="cards">
+    <div class="card"><h3>USB sur la PS5</h3><p>La clé est branchée sur la PS5. « Rechercher » trouve la PS5 sur le réseau domestique (ou saisissez son adresse IP).
+      Si le formateur n'y tourne pas encore, le programme l'envoie lui-même. Ensuite, tout se passe comme dans l'interface web : lecteur, jeux, suppression, formatage.</p></div>
+    <div class="card"><h3>USB sur PC (pour PS5)</h3><p>La clé est branchée sur le PC et formatée exactement comme sur la PS5 : exFAT avec 64 Ko ou FAT32 – même
+      au-delà de 32 Go, ce que Windows ne sait pas faire seul. En plus : test d'authenticité, mesure de vitesse, renommage et dossiers prédéfinis.</p></div>
+    <div class="card"><h3>PC standard</h3><p>Formatage libre sans réglages PS5 – la même partie que dans le Formateur USB autonome
+      (section suivante), avec tous les systèmes de fichiers et le mode expert.</p></div>
+  </div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Sur le PC, rien n'est présélectionné : choisissez le lecteur en connaissance de cause et vérifiez son nom et sa taille.</div></div>
+</section>
+
+<section id="fr-std">
+  <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>Formateur USB (autonome)</h2>
+  <p>Pour tous les supports qui ne sont pas destinés à la PS5 : appareil photo, voiture, téléviseur, Mac, Linux, Raspberry Pi et plus.
+    Vous trouvez la même partie dans le programme Windows sous « PC standard ».</p>
+  <ol class="steps">
+    <li><b>Choisir un lecteur.</b> « Actualiser » recharge la liste.</li>
+    <li><b>Choisir le système de fichiers :</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 ou HFS+. Sous la sélection, vous lisez à quoi il convient.</li>
+    <li>Réglez la <b>taille d'unité d'allocation</b> et la <b>table de partitions</b> (automatique, MBR ou GPT) – ou gardez les valeurs par défaut.</li>
+    <li>Saisissez le <b>nom de volume</b> : A–Z, 0–9, espace, - et _ (NTFS et HFS+ jusqu'à 32 caractères, ext jusqu'à 16, sinon 11).</li>
+    <li><b>Options :</b> « Formatage rapide » (décoché, chaque secteur est écrit et vérifié) et « Vérifier d'abord l'authenticité et la vitesse ».</li>
+    <li>Choisissez <b>« Formater … »</b> et confirmez. À côté : « Mesurer la vitesse » et « Renommer ».</li>
+  </ol>
+</section>
+
+<section id="fr-expert">
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Mode expert : définir soi-même les partitions</h2>
+  <p>En cochant « Mode expert », vous divisez le support en plusieurs partitions. Une barre montre la répartition et l'espace libre.</p>
+  <ul class="check">
+    <li><b>Ajouter, Modifier, Supprimer</b> – pour chaque partition : système de fichiers (ou « Sans système de fichiers »), taille ou « tout le reste »,
+      unité d'allocation, type et nom.</li>
+    <li><b>Type :</b> automatique (selon le système de fichiers), données Windows, système de fichiers Linux, swap Linux, partition système EFI ou Apple HFS+.</li>
+    <li><b>Amorçable (active)</b> – uniquement avec MBR.</li>
+    <li><b>Limites :</b> MBR contient 4 partitions au maximum, GPT jusqu'à 16. Seule la dernière partition peut recevoir le reste. Chaque partition commence sur une limite de Mo.</li>
+  </ul>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Windows n'affiche que les partitions qu'il sait lire. ext2/3/4, HFS+ et les partitions sans système de fichiers sont invisibles sur un PC Windows – c'est normal.</div></div>
+</section>
+
+<section id="fr-fs">
+  <h2><span class="ic"><svg class="i"><use href="#i-table" xlink:href="#i-table"/></svg></span>Systèmes de fichiers comparés</h2>
+  <div class="tbl"><table class="fs">
+    <tr><th>Système</th><th>PS5</th><th>Windows</th><th>macOS</th><th>Linux</th><th>Fichier maximal</th><th>Idéal pour</th></tr>
+    <tr><td>exFAT</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>pratiquement illimité</td><td>clés USB, jeux sur la PS5 (64 Ko), échange</td></tr>
+    <tr><td>FAT32</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>4 Go</td><td>appareils anciens, autoradio, téléviseur</td></tr>
+    <tr><td>NTFS</td><td class="n">–</td><td class="y">✔</td><td class="p">lecture seule</td><td class="y">✔</td><td>pratiquement illimité</td><td>disques Windows</td></tr>
+    <tr><td>FAT (FAT16)</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td class="y">✔</td><td>2 Go</td><td>appareils très anciens, supports jusqu'à 4 Go</td></tr>
+    <tr><td>ext4 / ext3 / ext2</td><td class="n">–</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td>2–16 To</td><td>Linux, Raspberry Pi, Steam Deck, NAS</td></tr>
+    <tr><td>HFS+</td><td class="n">–</td><td class="n">–</td><td class="y">✔</td><td class="y">✔</td><td>pratiquement illimité</td><td>Mac (Mac OS étendu)</td></tr>
+  </table></div>
+  <p class="small">✔ = lecture et écriture · – = inutilisable sans logiciel supplémentaire</p>
+</section>
+
+<section id="fr-cluster">
+  <h2><span class="ic"><svg class="i"><use href="#i-sliders" xlink:href="#i-sliders"/></svg></span>Unité d'allocation et table de partitions</h2>
+  <h3>Unité d'allocation (taille de cluster)</h3>
+  <p>Les fichiers sont stockés par blocs de cette taille. De petites unités gaspillent moins de place avec beaucoup de petits fichiers, de grandes
+    sont plus rapides avec de gros fichiers. Les valeurs par défaut correspondent à celles de Windows et conviennent presque toujours.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Pour la PS5 : exFAT avec 64 Ko.</b> La partie PS5 est réglée de façon fixe sur cette valeur – idéale pour les images de jeux et ShadowMountPlus.</div></div>
+  <h3>Table de partitions</h3>
+  <ul class="check">
+    <li><b>Automatique</b> – MBR, GPT seulement à partir de 2 To. Le bon choix dans presque tous les cas.</li>
+    <li><b>MBR</b> – fonctionne aussi avec les appareils anciens et les autoradios ; jusqu'à 2 To et 4 partitions au maximum.</li>
+    <li><b>GPT</b> – pour les PC récents et les très grands supports ; jusqu'à 16 partitions.</li>
+  </ul>
+</section>
+
+<section id="fr-test">
+  <h2><span class="ic"><svg class="i"><use href="#i-gauge" xlink:href="#i-gauge"/></svg></span>Authenticité, vitesse et clés contrefaites</h2>
+  <p>Certaines clés bon marché annoncent plus de mémoire qu'elles n'en ont. Ce qui est écrit au-delà de la mémoire réelle est perdu sans avertissement – les jeux sont endommagés.</p>
+  <ul class="check">
+    <li><b>Test rapide</b> (« Vérifier d'abord l'authenticité et la vitesse ») : écrit et vérifie des échantillons sur toute la clé, env. 2 à 10 minutes. Les données précédentes sont écrasées.</li>
+    <li><b>Formatage complet :</b> écrit et vérifie chaque secteur – trouve aussi des zones défectueuses isolées, mais prend du temps.</li>
+    <li><b>Contrefaçon détectée ?</b> Le formateur affiche la taille réelle et propose de ne formater que la zone réelle. La clé reste signalée comme « Contrefaite ». Pour les jeux, utilisez plutôt un support authentique.</li>
+    <li><b>Vitesse :</b> à partir de 100 Mo/s en lecture, assez rapide pour les jeux ; à partir de 40 Mo/s, suffisante ; en dessous, lente.</li>
+  </ul>
+</section>
+
+<section id="fr-faq">
+  <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Dépannage</h2>
+  <details><summary>« Chargeur ELF (port 9021) injoignable »</summary><p>Le jailbreak n'est pas (ou plus) actif. Chargez le jailbreak et relancez l'app.</p></details>
+  <details><summary>L'interface web ne s'ouvre pas sur le PC ou le téléphone</summary><p>Le PC ou le téléphone et la PS5 doivent être sur le même réseau domestique. Saisissez l'adresse exactement comme la PS5 l'affiche (<code>http://…:8090</code>). Le formateur tourne-t-il encore ? Sinon, relancez l'app.</p></details>
+  <details><summary>« Port 8090 occupé »</summary><p>Le formateur tourne déjà. Lancez simplement l'app – elle ouvre l'interface existante.</p></details>
+  <details><summary>Ma clé n'apparaît pas dans la liste</summary><p>Branchez-la, attendez quelques secondes et choisissez « Actualiser ». Les lecteurs verrouillés par le système sont affichés mais ne peuvent pas être modifiés.</p></details>
+  <details><summary>Les jeux ou applications ne démarrent plus après avoir rebranché un support</summary><p>La PS5 a perdu un lecteur utilisé par un jeu en cours. Redémarrez la console – et à l'avenir, ne débranchez que si le formateur vous le demande.</p></details>
+  <details><summary>Windows : « Le lecteur est utilisé »</summary><p>Fermez les fenêtres de l'Explorateur et les programmes qui accèdent à la clé, puis réessayez.</p></details>
+  <details><summary>Windows n'affiche pas la clé après le formatage</summary><p>C'est normal avec ext2/3/4 et HFS+ – Windows ne sait pas lire ces systèmes de fichiers. La clé fonctionne sous Linux ou sur Mac.</p></details>
+  <details><summary>« La vérification et la réparation ne fonctionnent qu'avec exFAT »</summary><p>La vérification du système de fichiers existe pour exFAT. Vérifiez les autres systèmes de fichiers avec les outils de votre système d'exploitation.</p></details>
+</section>
+
+<section id="fr-license">
+  <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Licences</h2>
+  <p>Le formateur utilise des logiciels libres sous GPL : <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) dans le payload, <b>mkntfs</b> (ntfs-3g)
+    et <b>mke2fs</b> (e2fsprogs) pour NTFS et ext4 sur la PS5, <b>mke2fs.exe</b> (e2fsprogs) dans les programmes Windows et
+    <b>libc.prx</b> (GPL-3.0-or-later) dans l'app. Les textes des licences accompagnent les fichiers.</p>
+  <p class="small">Utilisation à vos risques – sauvegardez d'abord vos données importantes.</p>
+</section>
+<footer>Formateur USB · Guide</footer>
+</article>
+</div>
+
+<script>
+(function () {
+  var L = ["de", "en", "it", "es", "fr"], h = document.documentElement;
+  var arts = document.getElementsByTagName("article"), btns = document.querySelectorAll(".langs button");
+  var back = document.getElementById("back");
+  function ok(c) { return L.indexOf(c) >= 0; }
+  /* Sprache: ?lang=xx (Payload/Weboberfläche), Vorgabe des Windows-Programms, zuletzt gewählt, Browser, sonst Deutsch */
+  function initial() {
+    var m = /[?&]lang=([a-z]{2})/.exec(location.search), c = m && m[1];
+    if (!ok(c)) c = h.getAttribute("data-default-lang");
+    if (!ok(c)) { try { c = localStorage.getItem("usbfmt-lang"); } catch (e) {} }
+    if (!ok(c)) c = String(navigator.language || "").slice(0, 2).toLowerCase();
+    return ok(c) ? c : "de";
+  }
+  function show(c, keep) {
+    var cur = null;
+    for (var i = 0; i < arts.length; i++) {
+      var on = arts[i].getAttribute("data-l") === c;
+      arts[i].className = on ? "on" : "";
+      if (on) cur = arts[i];
+    }
+    for (var j = 0; j < btns.length; j++) btns[j].setAttribute("aria-pressed", String(btns[j].getAttribute("data-l") === c));
+    h.lang = c;
+    document.title = cur.getAttribute("data-title");
+    back.lastChild.textContent = cur.getAttribute("data-back");
+    if (keep) { try { localStorage.setItem("usbfmt-lang", c); } catch (e) {} }
+  }
+  for (var k = 0; k < btns.length; k++)
+    btns[k].addEventListener("click", function () { show(this.getAttribute("data-l"), true); });
+  /* zurück zur Oberfläche nur, wenn die Seite vom Formatierer kommt (nicht als Datei aus dem Windows-Programm) */
+  if (/^https?:$/.test(location.protocol)) back.hidden = false;
+  var lang = initial();
+  /* Sprung zu einem Abschnitt (#en-faq) wählt dessen Sprache */
+  var hm = /^#([a-z]{2})-/.exec(location.hash);
+  if (hm && ok(hm[1])) lang = hm[1];
+  show(lang, false);
+  if (location.hash) { var t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+})();
+</script>
+</body>
+</html>

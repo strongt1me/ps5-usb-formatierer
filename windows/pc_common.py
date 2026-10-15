@@ -11,7 +11,9 @@ import sys
 import tempfile
 import time
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
+
+from i18n import _, lang, number, quote, unit
 
 try:   # von build_helper.ps1 erzeugt: Prüfsumme des ausgelieferten Helfers
     from helper_hash import HELPER_SHA256
@@ -60,7 +62,7 @@ def fmt_size(b):
         v /= 1024
         i += 1
     text = f"{v:.1f}".rstrip("0").rstrip(".") if i else str(int(v))
-    return text.replace(".", ",") + " " + units[i]
+    return number(text) + " " + unit(units[i])
 
 
 def enable_dpi_awareness():
@@ -94,17 +96,17 @@ def lock_helper(exe):
     # GENERIC_READ, nur FILE_SHARE_READ (kein Schreiben/Löschen durch andere), OPEN_EXISTING
     h = k32.CreateFileW(exe, 0x80000000, 0x1, None, 3, 0x80, None)
     if not h or h == ctypes.c_void_p(-1).value:
-        raise OSError("Der Helfer usbfmt_win.exe lässt sich nicht öffnen (wird er gerade verändert?).")
+        raise OSError(_("Der Helfer usbfmt_win.exe lässt sich nicht öffnen (wird er gerade verändert?)."))
     try:
         with open(exe, "rb") as f:
             digest = hashlib.sha256(f.read()).hexdigest()
     except OSError as e:
         k32.CloseHandle(ctypes.c_void_p(h))
-        raise OSError(f"Der Helfer usbfmt_win.exe lässt sich nicht lesen: {e}") from None
+        raise OSError(_("Der Helfer usbfmt_win.exe lässt sich nicht lesen: {e}", e=e)) from None
     if HELPER_SHA256 and digest != HELPER_SHA256:
         k32.CloseHandle(ctypes.c_void_p(h))
-        raise OSError("Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. "
-                      "Bitte das Programm neu herunterladen.")
+        raise OSError(_("Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. "
+                        "Bitte das Programm neu herunterladen."))
     return h
 
 
@@ -112,12 +114,12 @@ def pc_list():
     """USB-Datenträger am PC (ohne Administratorrechte). Die Systemplatte meldet der Helfer nie."""
     exe = find_helper()
     if not exe:
-        raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
+        raise RuntimeError(_("usbfmt_win.exe fehlt neben dem Programm."))
     r = subprocess.run([exe, "list"], capture_output=True, timeout=30,
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if r.returncode != 0:
-        raise RuntimeError(f"Helfer meldet Fehler {r.returncode}: "
-                           f"{r.stderr.decode('utf-8', 'replace').strip() or 'keine Angabe'}")
+        raise RuntimeError(_("Helfer meldet Fehler {code}: {text}", code=r.returncode,
+                             text=r.stderr.decode("utf-8", "replace").strip() or _("keine Angabe")))
     devices = json.loads(r.stdout.decode("utf-8") or "[]")
     for d in devices:   # fehlende Felder (andere Helfer-Version) nicht zum Absturz werden lassen
         d.setdefault("model", "")
@@ -136,15 +138,16 @@ def pc_used(d):
 def pc_dev_text(d):
     parts = []
     for v in d["volumes"]:
-        t = v["letters"] or "ohne Buchstaben"
+        t = v["letters"] or _("ohne Buchstaben")
         if v["label"]:
-            t += f" „{v['label']}“"
+            t += " " + quote(v["label"])
         if v["fs"]:
             t += f" {v['fs']}"
         parts.append(t)
-    vols = ", ".join(parts) if parts else "kein Windows-Laufwerk (leer, Linux oder Mac)"
+    vols = ", ".join(parts) if parts else _("kein Windows-Laufwerk (leer, Linux oder Mac)")
     # Datenträgernummer macht den Eintrag eindeutig (zwei gleiche leere Sticks)
-    return f"{d['model'] or 'USB-Datenträger'} (Datenträger {d['disk']}) – {fmt_size(d['size'])} – {vols}"
+    return _("{model} (Datenträger {disk}) – {size} – {vols}", model=d["model"] or _("USB-Datenträger"),
+             disk=d["disk"], size=fmt_size(d["size"]), vols=vols)
 
 
 def pc_volumes_text(dev):
@@ -152,13 +155,13 @@ def pc_volumes_text(dev):
     lines = []
     for v in dev["volumes"]:
         used = v["total"] - v["free"] if v["total"] else 0
-        t = f"Laufwerk {v['letters'] or '(ohne Buchstaben)'}"
+        t = _("Laufwerk {letters}", letters=v["letters"] or _("(ohne Buchstaben)"))
         if v["label"]:
-            t += f" „{v['label']}“"
+            t += " " + quote(v["label"])
         if v["fs"]:
             t += f", {v['fs']}"
         if v["total"]:
-            t += f", {fmt_size(used)} belegt"
+            t += ", " + _("{size} belegt", size=fmt_size(used))
         lines.append(t)
     return "\n".join(lines)
 
@@ -178,14 +181,14 @@ class PcJob:
     def __init__(self, args, hwnd=None):
         exe = find_helper()
         if not exe:
-            raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
+            raise RuntimeError(_("usbfmt_win.exe fehlt neben dem Programm."))
         lock = lock_helper(exe)   # bis der Prozess läuft: niemand kann die Datei austauschen
         # eigener Ordner mit Zufallsnamen je Auftrag: ein fester Ordner ließe sich vorab umleiten (Junction).
         # Nicht tempfile.mkdtemp: Das gibt unter Windows nur "Eigentümer" Rechte - die Ausgabedatei legt aber der
         # Helfer als Administrator an (Eigentümer: Administratoren), das Programm ohne Adminrechte dürfte sie dann
         # nicht lesen. os.mkdir erbt die Rechte des Temp-Ordners (dort steht der Benutzer selbst).
         self.tmpdir = None
-        for _ in range(20):
+        for _attempt in range(20):
             d = os.path.join(tempfile.gettempdir(), f"{TEMP_PREFIX}-{secrets.token_hex(8)}")
             try:
                 os.mkdir(d)
@@ -195,7 +198,7 @@ class PcJob:
                 continue
         if not self.tmpdir:
             ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(lock))
-            raise OSError("Arbeitsordner im Temp-Verzeichnis ließ sich nicht anlegen.")
+            raise OSError(_("Arbeitsordner im Temp-Verzeichnis ließ sich nicht anlegen."))
         self.out = os.path.join(self.tmpdir, "auftrag.txt")
         self.cancel_file = os.path.join(self.tmpdir, "abbruch")
         self.cancellable = False
@@ -204,7 +207,8 @@ class PcJob:
         sei.fMask = 0x40 | 0x400          # SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI
         sei.lpVerb = "runas"
         sei.lpFile = exe
-        sei.lpParameters = subprocess.list2cmdline(["--out", self.out, "--cancel", self.cancel_file] + args)
+        sei.lpParameters = subprocess.list2cmdline(["--out", self.out, "--cancel", self.cancel_file, "--lang", lang()]
+                                                   + args)
         sei.nShow = 0                     # SW_HIDE
         sei.hwnd = hwnd                   # UAC-Abfrage vor dem Programmfenster statt blinkend in der Taskleiste
         shell32 = ctypes.WinDLL("shell32", use_last_error=True)
@@ -213,13 +217,13 @@ class PcJob:
                 code = ctypes.get_last_error()
                 self._cleanup()
                 if code == 1223:   # ERROR_CANCELLED: Benutzer hat die UAC-Abfrage abgelehnt
-                    raise PermissionError("Ohne Administratorrechte lässt Windows keine Datenträger bearbeiten.")
-                raise OSError(f"Helfer konnte nicht gestartet werden (Windows-Fehler {code}).")
+                    raise PermissionError(_("Ohne Administratorrechte lässt Windows keine Datenträger bearbeiten."))
+                raise OSError(_("Helfer konnte nicht gestartet werden (Windows-Fehler {code}).", code=code))
         finally:
             ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(lock))   # läuft jetzt: Windows sperrt die Datei selbst
         if not sei.hProcess:
             self._cleanup()
-            raise OSError("Helfer wurde gestartet, aber Windows liefert keinen Prozess dazu.")
+            raise OSError(_("Helfer wurde gestartet, aber Windows liefert keinen Prozess dazu."))
         self.proc = sei.hProcess
 
     def _cleanup(self):
@@ -275,13 +279,13 @@ class PcJob:
                 if result is None and not alive:
                     code = ctypes.c_ulong(0)
                     ctypes.windll.kernel32.GetExitCodeProcess(ctypes.c_void_p(self.proc), ctypes.byref(code))
-                    result = (False, f"Der Helfer wurde unerwartet beendet (Code {code.value}).", {})
+                    result = (False, _("Der Helfer wurde unerwartet beendet (Code {code}).", code=code.value), {})
                 elif result is None and time.time() - last_change > self.STALL_S:
                     self.cancel()
                     # wirklich beenden, sonst schreibt er womöglich weiter, während schon ein neuer Auftrag läuft.
                     # Mitten im Formatieren abgebrochen bleibt ein leerer Stick (Tabelle wird zuletzt geschrieben).
                     ctypes.windll.kernel32.TerminateProcess(ctypes.c_void_p(self.proc), 1)
-                    result = (False, "Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen.", {})
+                    result = (False, _("Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen."), {})
                 elif result is None:
                     time.sleep(0.3)
         finally:
@@ -312,7 +316,7 @@ def confirm(root, title, text, ok_text, ack=None):
 
     btns = ttk.Frame(frm)
     ok_btn = ttk.Button(btns, text=ok_text, command=lambda: done(True))
-    cancel_btn = ttk.Button(btns, text="Abbrechen", command=lambda: done(False))
+    cancel_btn = ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(False))
     if ack:
         var = tk.BooleanVar(value=False)
         ttk.Checkbutton(frm, text=ack, variable=var,
@@ -336,12 +340,94 @@ def confirm(root, title, text, ok_text, ack=None):
     return result["ok"]
 
 
+def ask_string(root, title, prompt, initial=""):
+    """Texteingabe mit Knöpfen in der gewählten Sprache (simpledialog zeigt immer englische). None = abgebrochen."""
+    win = tk.Toplevel(root)
+    win.withdraw()
+    win.title(title)
+    win.transient(root)
+    win.resizable(False, False)
+    frm = ttk.Frame(win, padding=(18, 14, 18, 14))
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text=prompt, wraplength=420, justify="left").pack(anchor="w")
+    var = tk.StringVar(value=initial)
+    entry = ttk.Entry(frm, textvariable=var, width=40)
+    entry.pack(anchor="w", fill="x", pady=(10, 0))
+    result = {"text": None}
+
+    def done(ok):
+        result["text"] = var.get() if ok else None
+        win.destroy()
+
+    btns = ttk.Frame(frm)
+    btns.pack(anchor="e", pady=(14, 0))
+    ttk.Button(btns, text=_("OK"), command=lambda: done(True)).pack(side="left")
+    ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(False)).pack(side="left", padx=(6, 0))
+    win.bind("<Return>", lambda e: done(True))
+    win.bind("<Escape>", lambda e: done(False))
+    win.protocol("WM_DELETE_WINDOW", lambda: done(False))
+    win.update_idletasks()
+    top = root.winfo_toplevel()
+    x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
+    y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(f"+{max(0, x)}+{max(0, y)}")
+    win.deiconify()
+    entry.focus_set()
+    entry.select_range(0, "end")
+    win.grab_set()
+    root.wait_window(win)
+    return result["text"]
+
+
 def keep_on_screen(win):
     """Ragt das Fenster nach einer Größenänderung unten aus dem Bildschirm, nach oben schieben (Taskleiste frei)"""
     win.update_idletasks()
     h, y, sh = win.winfo_height(), win.winfo_y(), win.winfo_screenheight()
     if y + h + 80 > sh:
         win.geometry(f"+{win.winfo_x()}+{max(0, sh - h - 80)}")
+
+
+def lang_selector(parent, current, on_change):
+    """Auswahl der Sprache (oben rechts); on_change(code) nach einer Änderung"""
+    from i18n import LANGS
+    codes = [c for c, _n in LANGS]
+    box = ttk.Combobox(parent, values=[n for _c, n in LANGS], state="readonly", width=10)
+    box.set(dict(LANGS).get(current, "English"))
+    box.bind("<<ComboboxSelected>>", lambda e: on_change(codes[box.current()]))
+    return box
+
+
+def help_source():
+    """Anleitung (help.html): in der exe mitgeliefert, in der Entwicklung aus der Weboberfläche des Payloads"""
+    path = resource_path("help.html")
+    if os.path.isfile(path):
+        return path
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "usb_format", "web", "help.html")
+
+
+def open_help(lang_code, parent=None):
+    """Anleitung im Standardbrowser öffnen, in der Sprache des Programms. Dafür eine Kopie mit dieser Sprache als
+    Vorgabe im Temp-Ordner - an Dateien reicht Windows ?lang=… bzw. #… nicht zuverlässig an den Browser weiter."""
+    try:
+        with open(help_source(), encoding="utf-8") as f:
+            page = f.read()
+        page = page.replace('data-default-lang=""', f'data-default-lang="{lang_code}"', 1)
+        path = os.path.join(tempfile.gettempdir(), f"USB-Formatierer-Anleitung-{lang_code}.html")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(page)
+        os.startfile(path)
+    except OSError as e:
+        messagebox.showerror(_("Hilfe"), _("Die Anleitung ließ sich nicht öffnen: {e}", e=e), parent=parent)
+
+
+def top_bar(parent, current, on_lang, on_help):
+    """Leiste oben rechts: Hilfe und Sprache"""
+    top = ttk.Frame(parent)
+    ttk.Button(top, text="? " + _("Hilfe"), command=on_help, width=0).pack(side="left", padx=(0, 10))
+    ttk.Label(top, text="🌐").pack(side="left", padx=(0, 4))
+    box = lang_selector(top, current, on_lang)
+    box.pack(side="left")
+    return top, box
 
 
 def hwnd_of(widget):

@@ -23,6 +23,7 @@
 
 #include "../devtest.h"
 #include "../extfs.h"
+#include "../i18n.h"
 #include "../mkfs.h"
 #include "../mkfs_int.h"
 #include "../vollabel.h"
@@ -56,20 +57,20 @@ static void json_str(FILE *f, const char *s) {
 }
 
 static const char *size_text(uint64_t b, char *buf, size_t n) {
-    static const char *const unit[] = {"Bytes", "KB", "MB", "GB", "TB"};
+    static const char *const unit[] = {N_("Bytes"), N_("KB"), N_("MB"), N_("GB"), N_("TB")};
     double v = (double)b;
     int i = 0;
     while (v >= 1024 && i < 4) { v /= 1024; i++; }
-    snprintf(buf, n, i ? "%.1f %s" : "%.0f %s", v, unit[i]);
+    snprintf(buf, n, i ? "%.1f %s" : "%.0f %s", v, T(unit[i]));
     char *dot = strchr(buf, '.');
-    if (dot) *dot = ',';
+    if (dot && i18n_get() != LANG_EN) *dot = ',';   /* Dezimalkomma außer im Englischen */
     return buf;
 }
 
 static const char *rating_text(double read_mbps) {
     const char *r = dt_rating(read_mbps);
-    return !strcmp(r, "schnell") ? "schnell genug für Spiele" : !strcmp(r, "ausreichend") ? "für Spiele ausreichend"
-                                                                                          : "langsam – Spiele laden länger";
+    return !strcmp(r, "schnell") ? T("schnell genug für Spiele") : !strcmp(r, "ausreichend")
+           ? T("für Spiele ausreichend") : T("langsam – Spiele laden länger");
 }
 
 static void win_error(char *buf, size_t n, const char *what) {
@@ -80,11 +81,13 @@ static void win_error(char *buf, size_t n, const char *what) {
         utf8(w, m, sizeof(m));
     size_t l = strlen(m);
     while (l && strchr("\r\n. ", m[l - 1])) m[--l] = 0;
-    snprintf(buf, n, "%s: %s (Windows-Fehler %lu)", what, m, (unsigned long)code);
+    snprintf(buf, n, T("%s: %s (Windows-Fehler %lu)"), T(what), m, (unsigned long)code);
 }
 
+/* step ist der deutsche Schrittname (oder schon übersetzt) - ausgegeben wird er in der gewählten Sprache */
 static void on_progress(const char *step, int pct) {
     static char last_step[96];
+    step = T(step);
     static int last_pct = -1;
     if (pct == last_pct && !strcmp(step, last_step)) return;
     last_pct = pct;
@@ -94,7 +97,7 @@ static void on_progress(const char *step, int pct) {
 }
 
 static void finish(int ok, const char *msg, const char *json) {
-    fprintf(out, "R\t%d\t%s\t%s\n", ok, msg, json && *json ? json : "{}");
+    fprintf(out, "R\t%d\t%s\t%s\n", ok, T(msg), json && *json ? json : "{}");
     fflush(out);
 }
 
@@ -290,7 +293,7 @@ static int lock_volumes(session_t *s, char *err, size_t n) {
         HANDLE h = CreateFileW(bare, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                OPEN_EXISTING, 0, NULL);
         if (h == INVALID_HANDLE_VALUE) {
-            win_error(err, n, v[i].letters[0] ? v[i].letters : "Volume öffnen");
+            win_error(err, n, v[i].letters[0] ? v[i].letters : N_("Volume öffnen"));
             return -1;
         }
         s->vols[s->nvols++] = h;
@@ -302,8 +305,8 @@ static int lock_volumes(session_t *s, char *err, size_t n) {
         }
         DeviceIoControl(h, FSCTL_DISMOUNT_VOLUME, NULL, 0, NULL, 0, &r, NULL);
         if (!locked && !DeviceIoControl(h, FSCTL_LOCK_VOLUME, NULL, 0, NULL, 0, &r, NULL)) {
-            snprintf(err, n, "Laufwerk %s wird gerade benutzt. Bitte Explorer-Fenster und Programme schließen, die "
-                             "darauf zugreifen, und es noch einmal versuchen.", v[i].letters[0] ? v[i].letters : "");
+            snprintf(err, n, T("Laufwerk %s wird gerade benutzt. Bitte Explorer-Fenster und Programme schließen, die "
+                             "darauf zugreifen, und es noch einmal versuchen."), v[i].letters[0] ? v[i].letters : "");
             return -1;
         }
     }
@@ -344,7 +347,7 @@ static int session_open(session_t *s, int disk, uint64_t size, int write, char *
         s->disk = CreateFileW(image_path, GENERIC_READ | (write ? GENERIC_WRITE : 0), FILE_SHARE_READ, NULL,
                               OPEN_EXISTING, 0, NULL);
         if (s->disk == INVALID_HANDLE_VALUE || !GetFileSizeEx(s->disk, &sz) || (uint64_t)sz.QuadPart != size) {
-            snprintf(err, n, "Abbild nicht passend");
+            snprintf(err, n, "%s", T("Abbild nicht passend"));
             session_close(s, 0);
             return -1;
         }
@@ -355,33 +358,33 @@ static int session_open(session_t *s, int disk, uint64_t size, int write, char *
         return 0;
     }
 #endif
-    if (disk_info(disk, &s->info)) { snprintf(err, n, "Datenträger %d nicht gefunden – bitte die Liste aktualisieren.", disk); return -1; }
-    if (!usb_bus(s->info.bus)) { snprintf(err, n, "Datenträger %d ist kein USB-Datenträger – abgelehnt.", disk); return -1; }
-    if (system_disk(disk)) { snprintf(err, n, "Datenträger %d enthält Windows – abgelehnt.", disk); return -1; }
+    if (disk_info(disk, &s->info)) { snprintf(err, n, T("Datenträger %d nicht gefunden – bitte die Liste aktualisieren."), disk); return -1; }
+    if (!usb_bus(s->info.bus)) { snprintf(err, n, T("Datenträger %d ist kein USB-Datenträger – abgelehnt."), disk); return -1; }
+    if (system_disk(disk)) { snprintf(err, n, T("Datenträger %d enthält Windows – abgelehnt."), disk); return -1; }
     if (s->info.size != size) {
-        snprintf(err, n, "Datenträger %d hat sich geändert (andere Größe) – bitte die Liste aktualisieren.", disk);
+        snprintf(err, n, T("Datenträger %d hat sich geändert (andere Größe) – bitte die Liste aktualisieren."), disk);
         return -1;
     }
     if (write && lock_volumes(s, err, n)) { session_close(s, 0); return -1; }
     s->disk = open_disk(disk, write ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ);
     if (s->disk == INVALID_HANDLE_VALUE) {
-        if (GetLastError() == ERROR_ACCESS_DENIED) snprintf(err, n, "Zugriff verweigert – Administratorrechte nötig.");
+        if (GetLastError() == ERROR_ACCESS_DENIED) snprintf(err, n, "%s", T("Zugriff verweigert – Administratorrechte nötig."));
         else win_error(err, n, "Datenträger öffnen");
         session_close(s, 0);
         return -1;
     }
     DWORD r;
     if (write && !DeviceIoControl(s->disk, IOCTL_DISK_IS_WRITABLE, NULL, 0, NULL, 0, &r, NULL)) {
-        snprintf(err, n, "Der Datenträger ist schreibgeschützt (Schalter am Stick oder an der SD-Karte?).");
+        snprintf(err, n, "%s", T("Der Datenträger ist schreibgeschützt (Schalter am Stick oder an der SD-Karte?)."));
         session_close(s, 0);
         return -1;
     }
     s->fd = _open_osfhandle((intptr_t)s->disk, write ? _O_RDWR | _O_BINARY : _O_RDONLY | _O_BINARY);
-    if (s->fd < 0) { snprintf(err, n, "Datenträger öffnen fehlgeschlagen."); session_close(s, 0); return -1; }
+    if (s->fd < 0) { snprintf(err, n, "%s", T("Datenträger öffnen fehlgeschlagen.")); session_close(s, 0); return -1; }
     return 0;
 }
 
-static const char *title(const session_t *s) { return s->info.model[0] ? s->info.model : "USB-Datenträger"; }
+static const char *title(const session_t *s) { return s->info.model[0] ? s->info.model : T("USB-Datenträger"); }
 
 /* ------------------------------------------------------------------ Aufträge */
 
@@ -393,19 +396,21 @@ enum { WFS_FAT16 = 100 };   /* nur im Helfer: FAT (FAT12/FAT16) schreibt Windows
  * format.com. Nummern der Rückmeldungen wie in ReactOS und Rufus. */
 enum {
     FCC_PROGRESS = 0, FCC_INCOMPATIBLE_FILE_SYSTEM = 3, FCC_ACCESS_DENIED = 6, FCC_MEDIA_WRITE_PROTECTED = 7,
-    FCC_VOLUME_IN_USE = 8, FCC_CANT_QUICK_FORMAT = 9, FCC_DONE = 11, FCC_BAD_LABEL = 12,
+    FCC_VOLUME_IN_USE = 8, FCC_CANT_QUICK_FORMAT = 9, FCC_DONE = 11, FCC_BAD_LABEL = 12, FCC_OUTPUT = 14,
     FCC_CLUSTER_SIZE_TOO_SMALL = 16, FCC_CLUSTER_SIZE_TOO_BIG = 17, FCC_VOLUME_TOO_SMALL = 18,
     FCC_VOLUME_TOO_BIG = 19, FCC_NO_MEDIA_IN_DRIVE = 20, FCC_DEVICE_NOT_READY = 24, FCC_READ_ONLY_MODE = 32
 };
 typedef BOOLEAN (WINAPI *fmifs_cb_t)(int cmd, DWORD action, PVOID data);
 typedef VOID (WINAPI *format_ex_t)(PWCHAR root, DWORD media, PWCHAR fs, PWCHAR label, BOOL quick, ULONG cluster,
                                     fmifs_cb_t cb);
+typedef struct { DWORD lines; PCHAR text; } fmifs_text_t;   /* FCC_OUTPUT: Meldung im OEM-Zeichensatz */
 
 static struct {
     const char *step;
     int         lo, hi;        /* Bereich des Gesamtfortschritts für diesen Schritt */
     int         done, ok, in_use;
     char        err[200];
+    char        out[300];      /* letzte Textmeldung von Windows (UTF-8) - Grund, falls es ohne Fehlercode scheitert */
 } fx;
 
 static BOOLEAN WINAPI fx_callback(int cmd, DWORD action, PVOID data) {
@@ -421,25 +426,42 @@ static BOOLEAN WINAPI fx_callback(int cmd, DWORD action, PVOID data) {
         fx.done = 1;
         fx.ok = data && *(const BOOLEAN *)data;
         return TRUE;
+    case FCC_OUTPUT: {
+        const fmifs_text_t *t = data;
+        WCHAR w[300];
+        if (t && t->text && MultiByteToWideChar(CP_OEMCP, 0, t->text, -1, w, 300)) {
+            w[299] = 0;
+            char u[300];
+            if (WideCharToMultiByte(CP_UTF8, 0, w, -1, u, sizeof(u), NULL, NULL)) {
+                u[sizeof(u) - 1] = 0;
+                char *e = u + strlen(u);
+                while (e > u && strchr("\r\n ", e[-1])) *--e = 0;
+                char *b = u;
+                while (*b == '\r' || *b == '\n' || *b == ' ') b++;
+                if (*b) snprintf(fx.out, sizeof(fx.out), "%s", b);
+            }
+        }
+        return TRUE;
+    }
     case FCC_VOLUME_IN_USE:
         fx.in_use = 1;
-        e = "Das Laufwerk wird gerade benutzt. Bitte Explorer-Fenster und Programme schließen, die darauf zugreifen.";
+        e = N_("Das Laufwerk wird gerade benutzt. Bitte Explorer-Fenster und Programme schließen, die darauf zugreifen.");
         break;
-    case FCC_ACCESS_DENIED:           e = "Zugriff verweigert."; break;
-    case FCC_MEDIA_WRITE_PROTECTED:   e = "Schreibgeschützt oder Dateisystem nicht unterstützt."; break;
-    case FCC_READ_ONLY_MODE:          e = "Der Datenträger ist schreibgeschützt."; break;
-    case FCC_INCOMPATIBLE_FILE_SYSTEM: e = "Windows kann dieses Dateisystem hier nicht anlegen."; break;
-    case FCC_CANT_QUICK_FORMAT:       e = "Schnellformatierung ist hier nicht möglich."; break;
-    case FCC_BAD_LABEL:               e = "Windows lehnt die Bezeichnung ab."; break;
-    case FCC_CLUSTER_SIZE_TOO_SMALL:  e = "Die Zuordnungseinheit ist für diese Größe zu klein."; break;
-    case FCC_CLUSTER_SIZE_TOO_BIG:    e = "Die Zuordnungseinheit ist für diese Größe zu groß."; break;
-    case FCC_VOLUME_TOO_SMALL:        e = "Der Datenträger ist für dieses Dateisystem zu klein."; break;
-    case FCC_VOLUME_TOO_BIG:          e = "Der Datenträger ist für dieses Dateisystem zu groß."; break;
+    case FCC_ACCESS_DENIED:           e = N_("Zugriff verweigert."); break;
+    case FCC_MEDIA_WRITE_PROTECTED:   e = N_("Schreibgeschützt oder Dateisystem nicht unterstützt."); break;
+    case FCC_READ_ONLY_MODE:          e = N_("Der Datenträger ist schreibgeschützt."); break;
+    case FCC_INCOMPATIBLE_FILE_SYSTEM: e = N_("Windows kann dieses Dateisystem hier nicht anlegen."); break;
+    case FCC_CANT_QUICK_FORMAT:       e = N_("Schnellformatierung ist hier nicht möglich."); break;
+    case FCC_BAD_LABEL:               e = N_("Windows lehnt die Bezeichnung ab."); break;
+    case FCC_CLUSTER_SIZE_TOO_SMALL:  e = N_("Die Zuordnungseinheit ist für diese Größe zu klein."); break;
+    case FCC_CLUSTER_SIZE_TOO_BIG:    e = N_("Die Zuordnungseinheit ist für diese Größe zu groß."); break;
+    case FCC_VOLUME_TOO_SMALL:        e = N_("Der Datenträger ist für dieses Dateisystem zu klein."); break;
+    case FCC_VOLUME_TOO_BIG:          e = N_("Der Datenträger ist für dieses Dateisystem zu groß."); break;
     case FCC_NO_MEDIA_IN_DRIVE:
-    case FCC_DEVICE_NOT_READY:        e = "Der Datenträger ist nicht bereit (abgezogen?)."; break;
+    case FCC_DEVICE_NOT_READY:        e = N_("Der Datenträger ist nicht bereit (abgezogen?)."); break;
     default: return TRUE;   /* Textausgaben, Zwischenstände */
     }
-    if (!fx.err[0]) snprintf(fx.err, sizeof(fx.err), "%s", e);
+    if (!fx.err[0]) snprintf(fx.err, sizeof(fx.err), "%s", T(e));
     return FALSE;           /* abbrechen */
 }
 
@@ -489,12 +511,12 @@ static int windows_format(const diskinfo_t *di, int fs, const char *label, uint3
                           int lo, int hi, char *summary, size_t sn, char *err, size_t n) {
     HMODULE m = LoadLibraryExW(L"fmifs.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
     format_ex_t format_ex = m ? (format_ex_t)(void *)GetProcAddress(m, "FormatEx") : NULL;
-    if (!format_ex) { snprintf(err, n, "Die Formatierfunktion von Windows (fmifs.dll) fehlt."); return -1; }
+    if (!format_ex) { snprintf(err, n, "%s", T("Die Formatierfunktion von Windows (fmifs.dll) fehlt.")); return -1; }
     const char *name = fs == FS_NTFS ? "NTFS" : "FAT";
     volinfo_t v;
     on_progress("Warten, bis Windows die Partition einbindet", lo);
     if (wait_volume(di->disk, "exFAT", serial, &v, 30)) {
-        snprintf(err, n, "Windows hat die neue Partition nicht eingebunden.");
+        snprintf(err, n, "%s", T("Windows hat die neue Partition nicht eingebunden."));
         return -1;
     }
     WCHAR wfs[8], wlabel[40];
@@ -502,17 +524,23 @@ static int windows_format(const diskinfo_t *di, int fs, const char *label, uint3
     if (!MultiByteToWideChar(CP_UTF8, 0, label, -1, wlabel, 40)) wlabel[0] = 0;
     DWORD media = di->media == RemovableMedia || di->media == FixedMedia ? di->media
                 : di->removable ? RemovableMedia : FixedMedia;
+    /* FormatEx will den GUID-Pfad OHNE \ am Ende (mit \ endet es sofort erfolglos - am echten Stick gesehen, Rufus
+     * vermerkt dasselbe); GetVolumeInformationW unten braucht ihn dagegen MIT \ */
+    WCHAR bare[64];
+    strip_slash(v.guid, bare, 64);
     for (int attempt = 0;; attempt++) {
         memset(&fx, 0, sizeof(fx));
-        fx.step = fs == FS_NTFS ? "NTFS schreiben" : "FAT schreiben";
+        fx.step = fs == FS_NTFS ? N_("NTFS schreiben") : N_("FAT schreiben");
         fx.lo = lo + (hi - lo) / 10;
         fx.hi = hi - (hi - lo) / 20;
         on_progress(fx.step, fx.lo);
         dismount(&v);
-        format_ex(v.guid, media, wfs, wlabel, TRUE, cluster, fx_callback);   /* GUID-Pfad mit \ am Ende */
+        format_ex(bare, media, wfs, wlabel, TRUE, cluster, fx_callback);
         if (fx.done && fx.ok && !fx.err[0]) break;
         if (!fx.in_use || attempt == 2) {
-            snprintf(err, n, "%s", fx.err[0] ? fx.err : "Windows hat das Formatieren nicht abgeschlossen.");
+            if (fx.err[0]) snprintf(err, n, "%s", fx.err);
+            else if (fx.out[0]) snprintf(err, n, T("Windows hat das Formatieren nicht abgeschlossen: %s"), fx.out);
+            else snprintf(err, n, "%s", T("Windows hat das Formatieren nicht abgeschlossen."));
             return -1;
         }
         Sleep(1500);   /* Explorer hatte das Laufwerk gerade geöffnet: kurz warten, erneut */
@@ -525,12 +553,12 @@ static int windows_format(const diskinfo_t *di, int fs, const char *label, uint3
         got[0] = 0;
         Sleep(250);
     }
-    if (!got[0]) { snprintf(err, n, "Windows meldet das neue Dateisystem nicht."); return -1; }
+    if (!got[0]) { snprintf(err, n, "%s", T("Windows meldet das neue Dateisystem nicht.")); return -1; }
     DWORD spc = 0, bps = 0, nfree = 0, ntotal = 0;
     char cs[24];
     if (!GetDiskFreeSpaceW(v.guid, &spc, &bps, &nfree, &ntotal)) spc = bps = 0;
     const char *kind = fs == FS_NTFS ? "NTFS" : ntotal && ntotal < 4085 ? "FAT12" : "FAT16";
-    if (spc && bps) snprintf(summary, sn, "%s, %s Cluster", kind, size_text((uint64_t)spc * bps, cs, sizeof(cs)));
+    if (spc && bps) snprintf(summary, sn, T("%s, %s Cluster"), kind, size_text((uint64_t)spc * bps, cs, sizeof(cs)));
     else snprintf(summary, sn, "%s", kind);
     on_progress(fx.step, hi);
     return 0;
@@ -588,21 +616,21 @@ static int run_mke2fs(const WCHAR *dev, uint64_t offset, uint64_t bytes, const c
 #ifndef MKE2FS_SHA256
     (void)dev; (void)offset; (void)bytes; (void)type; (void)block; (void)label; (void)lo; (void)hi; (void)summary;
     (void)sn;
-    snprintf(err, n, "Diese Fassung kann kein ext2/ext3/ext4 (mke2fs.exe fehlt).");
+    snprintf(err, n, "%s", T("Diese Fassung kann kein ext2/ext3/ext4 (mke2fs.exe fehlt)."));
     return -1;
 #else
     WCHAR exe[MAX_PATH + 16];
     DWORD len = GetModuleFileNameW(NULL, exe, MAX_PATH);
     WCHAR *slash = len && len < MAX_PATH ? wcsrchr(exe, L'\\') : NULL;
-    if (!slash) { snprintf(err, n, "Ordner des Helfers unbekannt."); return -1; }
+    if (!slash) { snprintf(err, n, "%s", T("Ordner des Helfers unbekannt.")); return -1; }
     wcscpy(slash + 1, L"mke2fs.exe");
     /* nur lesend teilen: bis der Prozess läuft, kann niemand die Datei austauschen */
     HANDLE f = CreateFileW(exe, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-    if (f == INVALID_HANDLE_VALUE) { snprintf(err, n, "mke2fs.exe fehlt neben dem Helfer."); return -1; }
+    if (f == INVALID_HANDLE_VALUE) { snprintf(err, n, "%s", T("mke2fs.exe fehlt neben dem Helfer.")); return -1; }
     char hex[65] = "";
     if (file_sha256(f, hex) || strcmp(hex, MKE2FS_SHA256)) {
         CloseHandle(f);
-        snprintf(err, n, "mke2fs.exe wurde verändert – aus Sicherheitsgründen nicht gestartet.");
+        snprintf(err, n, "%s", T("mke2fs.exe wurde verändert – aus Sicherheitsgründen nicht gestartet."));
         return -1;
     }
 
@@ -703,14 +731,14 @@ static int run_mke2fs(const WCHAR *dev, uint64_t offset, uint64_t bytes, const c
         while (e > out && strchr("\r\n\b ", e[-1])) *--e = 0;
         char *ln = e;
         while (ln > out && ln[-1] != '\n' && ln[-1] != '\r' && ln[-1] != '\b') ln--;
-        snprintf(err, n, "mke2fs: %s", *ln ? ln : "unbekannter Fehler");
+        snprintf(err, n, "mke2fs: %s", *ln ? ln : T("unbekannter Fehler"));
         return -1;
     }
     unsigned long long blocks = 0;
     unsigned kb = block ? block / 1024 : 0;
     const char *p = strstr(out, "Creating filesystem with ");
     if (!kb && p) sscanf(p + 25, "%llu %uk", &blocks, &kb);
-    snprintf(summary, sn, "%s, %u KB Blöcke", type, kb ? kb : 4);
+    snprintf(summary, sn, T("%s, %u KB Blöcke"), type, kb ? kb : 4);
     return 0;
 #endif
 }
@@ -740,19 +768,28 @@ static int by_windows(int fs) { return fs == FS_NTFS || fs == WFS_FAT16; }
 static const char *ext_name(int fs) { return fs == WFS_EXT2 ? "ext2" : fs == WFS_EXT3 ? "ext3" : "ext4"; }
 static const char *fs_title(int fs) {
     return fs == FS_EXFAT ? "exFAT" : fs == FS_FAT32 ? "FAT32" : fs == FS_NTFS ? "NTFS" : fs == WFS_FAT16 ? "FAT"
-         : fs == FS_HFSPLUS ? "HFS+" : is_ext(fs) ? ext_name(fs) : "ohne Dateisystem";
+         : fs == FS_HFSPLUS ? "HFS+" : is_ext(fs) ? ext_name(fs) : T("ohne Dateisystem");
 }
 
 /* Bezeichnung und Zuordnungseinheit passend zum Dateisystem? (exFAT/FAT32/HFS+ prüft mkfs selbst genauer) */
 static const char *check_part(const wpart_t *p) {
     int lfs = p->fs == FS_NTFS ? FS_NTFS : is_ext(p->fs) ? FS_EXT4 : p->fs == FS_HFSPLUS ? FS_HFSPLUS : FS_FAT32;
-    if (p->fs != WFS_NONE && !label_valid(p->label, lfs)) return "Ungültige Bezeichnung.";
+    if (p->fs != WFS_NONE && !label_valid(p->label, lfs)) return N_("Ungültige Bezeichnung.");
     uint32_t c = p->cluster;
     if (!c) return NULL;
-    if (c & (c - 1)) return "Ungültige Zuordnungseinheit.";
-    if (is_ext(p->fs) && (c < 1024 || c > 4096)) return "Blockgröße für ext: 1, 2 oder 4 KB.";
-    if (by_windows(p->fs) && (c < 512 || c > (p->fs == FS_NTFS ? 2 * MIB : 64 * 1024))) return "Ungültige Zuordnungseinheit.";
+    if (c & (c - 1)) return N_("Ungültige Zuordnungseinheit.");
+    if (is_ext(p->fs) && (c < 1024 || c > 4096)) return N_("Blockgröße für ext: 1, 2 oder 4 KB.");
+    if (by_windows(p->fs) && (c < 512 || c > (p->fs == FS_NTFS ? 2 * MIB : 64 * 1024))) return N_("Ungültige Zuordnungseinheit.");
     return NULL;
+}
+
+/* Baustein der Ergebnismeldung anhängen (fmt: deutscher Text, ausgegeben in der gewählten Sprache) */
+static int add_text(char *buf, size_t n, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int r = vsnprintf(buf, n, T(fmt), ap);
+    va_end(ap);
+    return r < 0 ? 0 : r;
 }
 
 /* Fortschritt eines Einzelschritts (mkfs_*) in den Bereich prog_lo..prog_hi einpassen */
@@ -768,8 +805,8 @@ static int cmd_format(int disk, uint64_t size, fmtreq_t *q) {
     for (int i = 0; i < q->n; i++) {
         const char *e = check_part(&q->p[i]);
         if (e) {
-            if (q->n > 1) snprintf(msg, sizeof(msg), "Partition %d: %s", i + 1, e);
-            else snprintf(msg, sizeof(msg), "%s", e);
+            if (q->n > 1) snprintf(msg, sizeof(msg), T("Partition %d: %s"), i + 1, T(e));
+            else snprintf(msg, sizeof(msg), "%s", T(e));
             finish(0, msg, NULL);
             return 1;
         }
@@ -807,15 +844,15 @@ static int cmd_format(int disk, uint64_t size, fmtreq_t *q) {
                      t.bad ? "true" : "false", (unsigned long long)size, (unsigned long long)t.real_bytes,
                      (unsigned long long)t.bad_at);
             if (rc != 0)
-                snprintf(msg, sizeof(msg), "Prüfung fehlgeschlagen: %s Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.", err);
+                snprintf(msg, sizeof(msg), T("Prüfung fehlgeschlagen: %s Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben."), err);
             else if (t.fake)
-                snprintf(msg, sizeof(msg), "%s meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben – "
-                         "%s, höchstens den echten Bereich nutzen.", title(&s), size_text(size, s1, sizeof(s1)),
+                snprintf(msg, sizeof(msg), T("%s meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben – "
+                         "%s, höchstens den echten Bereich nutzen."), title(&s), size_text(size, s1, sizeof(s1)),
                          size_text(t.real_bytes, s2, sizeof(s2)),
-                         q->plain ? "für wichtige Daten nicht empfohlen" : "für Spiele an der PS5 nicht empfohlen");
+                         q->plain ? T("für wichtige Daten nicht empfohlen") : T("für Spiele an der PS5 nicht empfohlen"));
             else
-                snprintf(msg, sizeof(msg), "Fehlerhafte Bereiche ab %llu MB: %s arbeitet nicht zuverlässig. "
-                         "Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.", (unsigned long long)(t.bad_at / MIB), title(&s));
+                snprintf(msg, sizeof(msg), T("Fehlerhafte Bereiche ab %llu MB: %s arbeitet nicht zuverlässig. "
+                         "Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben."), (unsigned long long)(t.bad_at / MIB), title(&s));
             finish(0, msg, json);
             return 1;
         }
@@ -860,7 +897,7 @@ static int cmd_format(int disk, uint64_t size, fmtreq_t *q) {
             if (is_ext(w->fs) || w->fs == WFS_NONE) continue;
             prog_lo = 10 + (span_hi - 10) * i / q->n;
             prog_hi = 10 + (span_hi - 10) * (i + 1) / q->n;
-            prog_name = by_windows(w->fs) ? "Partition anlegen" : NULL;
+            prog_name = by_windows(w->fs) ? N_("Partition anlegen") : NULL;
             d.progress = on_scaled;
             d.base = parts[i].start * d.ss;
             mkfs_progress_reset();
@@ -881,7 +918,7 @@ static int cmd_format(int disk, uint64_t size, fmtreq_t *q) {
     }
     session_close(&s, 1);
     if (rc != 0) {
-        snprintf(msg, sizeof(msg), "Formatieren fehlgeschlagen: %s", mkfs_error());
+        snprintf(msg, sizeof(msg), T("Formatieren fehlgeschlagen: %s"), mkfs_error());
         finish(0, msg, NULL);
         return 1;
     }
@@ -908,31 +945,31 @@ static int cmd_format(int disk, uint64_t size, fmtreq_t *q) {
         if (r) {
             failed++;
             size_t fl = strlen(failmsg);
-            if (q->n > 1) snprintf(failmsg + fl, sizeof(failmsg) - fl, "%sPartition %d (%s): %s", fl ? " " : "", i + 1,
+            if (q->n > 1) snprintf(failmsg + fl, sizeof(failmsg) - fl, T("%sPartition %d (%s): %s"), fl ? " " : "", i + 1,
                                    fs_title(w->fs), err);
-            else snprintf(failmsg + fl, sizeof(failmsg) - fl, "%s konnte nicht angelegt werden: %s", fs_title(w->fs), err);
+            else snprintf(failmsg + fl, sizeof(failmsg) - fl, T("%s konnte nicht angelegt werden: %s"), fs_title(w->fs), err);
         }
     }
     if (failed) {
         snprintf(msg, sizeof(msg), "%s%s", failmsg, q->n == 1 && by_windows(q->p[0].fs)
-                 ? " Der Datenträger ist jetzt leer und vorläufig mit exFAT formatiert." : "");
+                 ? T(" Der Datenträger ist jetzt leer und vorläufig mit exFAT formatiert.") : "");
         finish(0, msg, NULL);
         return 1;
     }
     on_progress("Fertig", 100);
 
     int l;
-#define ADD(...) do { if (l < (int)sizeof(msg)) l += snprintf(msg + l, sizeof(msg) - l, __VA_ARGS__); } while (0)
+#define ADD(...) do { if (l < (int)sizeof(msg)) l += add_text(msg + l, sizeof(msg) - l, __VA_ARGS__); } while (0)
     if (q->n == 1) {
-        l = snprintf(msg, sizeof(msg), "%s erfolgreich formatiert: %s", title(&s),
-                     q->p[0].fs == WFS_NONE ? "Partition ohne Dateisystem" : summary[0]);
+        l = snprintf(msg, sizeof(msg), T("%s erfolgreich formatiert: %s"), title(&s),
+                     q->p[0].fs == WFS_NONE ? T("Partition ohne Dateisystem") : summary[0]);
         if (q->p[0].label[0]) ADD(", Bezeichnung %s", q->p[0].label);
         if (q->plain) ADD(", Partitionstabelle %s", gpt ? "GPT" : "MBR");
         else if (gpt) ADD(", Partitionstabelle GPT");
     } else {
-        l = snprintf(msg, sizeof(msg), "%s: %d Partitionen angelegt (%s):", title(&s), q->n, gpt ? "GPT" : "MBR");
+        l = snprintf(msg, sizeof(msg), T("%s: %d Partitionen angelegt (%s):"), title(&s), q->n, gpt ? "GPT" : "MBR");
         for (int i = 0; i < q->n; i++) {
-            ADD(" %d) %s, %s", i + 1, q->p[i].fs == WFS_NONE ? "ohne Dateisystem" : summary[i],
+            ADD(" %d) %s, %s", i + 1, q->p[i].fs == WFS_NONE ? T("ohne Dateisystem") : summary[i],
                 size_text(parts[i].count * s.info.ss, s1, sizeof(s1)));
             if (q->p[i].label[0]) ADD(", „%s“", q->p[i].label);
             if (i + 1 < q->n) ADD(";");
@@ -941,15 +978,17 @@ static int cmd_format(int disk, uint64_t size, fmtreq_t *q) {
     if (q->limit) ADD(", nur die echten %s genutzt", size_text(q->limit, s1, sizeof(s1)));
     if (o.dirs) ADD(", Ordner homebrew, etaHEN/games und pkg angelegt");
     ADD(".");
-    for (int i = 0; i < q->n; i++)
-        if (is_ext(q->p[i].fs) || q->p[i].fs == FS_HFSPLUS) {
-            ADD(" Windows selbst kann %s nicht öffnen – dafür erscheint kein Laufwerksbuchstabe.",
-                q->n > 1 ? "ext und HFS+" : fs_title(q->p[i].fs));
-            break;
-        }
+    int has_ext = 0, has_hfs = 0, first_ext = 0;
+    for (int i = q->n - 1; i >= 0; i--) {
+        if (is_ext(q->p[i].fs)) { has_ext = 1; first_ext = q->p[i].fs; }
+        has_hfs |= q->p[i].fs == FS_HFSPLUS;
+    }
+    if (has_ext || has_hfs)   /* nur, was wirklich angelegt wurde */
+        ADD(" Windows selbst kann %s nicht öffnen – dafür erscheint kein Laufwerksbuchstabe.",
+            has_ext && has_hfs ? T("ext und HFS+") : has_hfs ? "HFS+" : q->n > 1 ? "ext" : fs_title(first_ext));
     if (tested && !test_cancelled && t.read_mbps > 0) {
-        ADD(" %s: echt%s, lesen %.0f MB/s, schreiben %.0f MB/s", tested == 2 ? "Jede Stelle geprüft" : "Prüfung",
-            tested == 2 ? ", keine Fehler" : "", t.read_mbps, t.write_mbps);
+        ADD(" %s: echt%s, lesen %.0f MB/s, schreiben %.0f MB/s", tested == 2 ? T("Jede Stelle geprüft") : T("Prüfung"),
+            tested == 2 ? T(", keine Fehler") : "", t.read_mbps, t.write_mbps);
         if (q->plain) ADD(".");
         else ADD(" – %s.", rating_text(t.read_mbps));
     }
@@ -970,10 +1009,10 @@ static int cmd_speed(int disk, uint64_t size, int plain) {
     devtest_t t;
     int rc = dt_read_speed(s.fd, s.info.ss, size, on_progress, &cancel_requested, &t, err, sizeof(err));
     session_close(&s, 0);
-    if (rc != 0) { snprintf(msg, sizeof(msg), "Tempo messen fehlgeschlagen: %s", err); finish(0, msg, NULL); return 1; }
+    if (rc != 0) { snprintf(msg, sizeof(msg), T("Tempo messen fehlgeschlagen: %s"), err); finish(0, msg, NULL); return 1; }
     if (t.cancelled) { finish(0, "Abgebrochen.", NULL); return 1; }
-    if (plain) snprintf(msg, sizeof(msg), "Lesetempo von %s: %.0f MB/s.", title(&s), t.read_mbps);
-    else snprintf(msg, sizeof(msg), "Lesetempo von %s: %.0f MB/s – %s.", title(&s), t.read_mbps, rating_text(t.read_mbps));
+    if (plain) snprintf(msg, sizeof(msg), T("Lesetempo von %s: %.0f MB/s."), title(&s), t.read_mbps);
+    else snprintf(msg, sizeof(msg), T("Lesetempo von %s: %.0f MB/s – %s."), title(&s), t.read_mbps, rating_text(t.read_mbps));
     snprintf(json, sizeof(json), "{\"read\":%.1f,\"rating\":\"%s\"}", t.read_mbps, dt_rating(t.read_mbps));
     finish(1, msg, json);
     return 0;
@@ -985,20 +1024,20 @@ static int is_windows_fs(const char *fs) { return !strcmp(fs, "NTFS") || !strcmp
  * Öffnen zum Schreiben: nur USB, nie die Systemplatte, Größe unverändert. */
 static int label_by_windows(int disk, uint64_t size, const char *label, diskinfo_t *di, char *err, size_t n) {
     if (disk_info(disk, di) || !usb_bus(di->bus) || system_disk(disk) || di->size != size) {
-        snprintf(err, n, "Datenträger %d hat sich geändert – bitte die Liste aktualisieren.", disk);
+        snprintf(err, n, T("Datenträger %d hat sich geändert – bitte die Liste aktualisieren."), disk);
         return -1;
     }
     volinfo_t v[MAX_VOLS];
     int nv = disk_volumes(disk, v, MAX_VOLS), hit = -1;
     for (int i = 0; i < nv; i++) {
         if (!is_windows_fs(v[i].fs)) continue;
-        if (hit != -1) { snprintf(err, n, "Mehrere NTFS-/FAT-Laufwerke auf dem Datenträger."); return -1; }
+        if (hit != -1) { snprintf(err, n, "%s", T("Mehrere NTFS-/FAT-Laufwerke auf dem Datenträger.")); return -1; }
         hit = i;
     }
-    if (hit < 0) { snprintf(err, n, "Kein NTFS- oder FAT-Laufwerk gefunden."); return -1; }
+    if (hit < 0) { snprintf(err, n, "%s", T("Kein NTFS- oder FAT-Laufwerk gefunden.")); return -1; }
     const int ntfs = !strcmp(v[hit].fs, "NTFS");
     if (!label_valid(label, ntfs ? FS_NTFS : FS_FAT32)) {
-        snprintf(err, n, "Ungültige Bezeichnung: max. %d Zeichen, nur A-Z, 0-9, Leerzeichen, - und _", ntfs ? 32 : 11);
+        snprintf(err, n, T("Ungültige Bezeichnung: max. %d Zeichen, nur A-Z, 0-9, Leerzeichen, - und _"), ntfs ? 32 : 11);
         return -1;
     }
     WCHAR wl[40];
@@ -1022,9 +1061,9 @@ static int cmd_label(int disk, uint64_t size, const char *label) {
         rc = vol_set_label(s.fd, s.info.ss, s.info.size, label, err, sizeof(err));
         session_close(&s, 1);
     }
-    if (rc != 0) { snprintf(msg, sizeof(msg), "Umbenennen fehlgeschlagen: %s", err); finish(0, msg, NULL); return 1; }
-    if (label[0]) snprintf(msg, sizeof(msg), "Neue Bezeichnung für %s: „%s“.", title(&s), label);
-    else snprintf(msg, sizeof(msg), "Bezeichnung von %s entfernt.", title(&s));
+    if (rc != 0) { snprintf(msg, sizeof(msg), T("Umbenennen fehlgeschlagen: %s"), err); finish(0, msg, NULL); return 1; }
+    if (label[0]) snprintf(msg, sizeof(msg), T("Neue Bezeichnung für %s: „%s“."), title(&s), label);
+    else snprintf(msg, sizeof(msg), T("Bezeichnung von %s entfernt."), title(&s));
     finish(1, msg, NULL);
     return 0;
 }
@@ -1132,6 +1171,8 @@ int wmain(int argc, WCHAR **wargv) {
             out = f;
         } else if (!strcmp(argv[i], "--cancel")) {
             cancel_path = wargv[i + 1];
+        } else if (!strcmp(argv[i], "--lang")) {
+            i18n_set(i18n_parse(argv[i + 1]) < 0 ? LANG_DE : i18n_parse(argv[i + 1]));
 #ifdef USBFMT_TEST
         } else if (!strcmp(argv[i], "--image")) {
             image_path = wargv[i + 1];

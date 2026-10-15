@@ -9,7 +9,7 @@ export MTOOLS_SKIP_CHECK=1
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
 
-gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c || exit 1
+gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c src/i18n.c src/i18n_table.c || exit 1
 gcc -Wall -Wextra -Werror -O2 -o "$W/fsread_test" test/fsread_test.c src/fsread.c || exit 1
 
 fails=0
@@ -112,7 +112,7 @@ fi
 
 echo "== Bezeichnung ändern ohne Formatieren =="
 gcc -Wall -Wextra -Werror -O2 -o "$W/label_test" test/label_test.c src/vollabel.c src/fsdetect.c src/fsread.c \
-    src/mkfs.c src/hfsplus.c src/upcase.c || exit 1
+    src/mkfs.c src/hfsplus.c src/upcase.c src/i18n.c src/i18n_table.c || exit 1
 SZ=$((512 * MIB))
 lab() { "$W/label_test" get "$1" $SZ | sed -n 's/.*bezeichnung=//p'; }
 for fs in exfat fat32; do

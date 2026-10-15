@@ -31,6 +31,7 @@
 #include "extfs.h"
 #include "fsdetect.h"
 #include "geom_xml.h"
+#include "i18n.h"
 #include "platform.h"
 #include "smpapi.h"
 
@@ -102,7 +103,7 @@ int plat_open_browser(const char *url, char *err, size_t errlen) {
 
     fn_browser_t browser = (fn_browser_t)dynsym("libSceSystemService.sprx", "sceSystemServiceLaunchWebBrowser");
     if (!browser) {
-        snprintf(err, errlen, "sceSystemServiceLaunchWebBrowser nicht gefunden");
+        snprintf(err, errlen, "%s", T("sceSystemServiceLaunchWebBrowser nicht gefunden"));
         return -1;
     }
     pthread_mutex_lock(&open_lock);
@@ -114,7 +115,7 @@ int plat_open_browser(const char *url, char *err, size_t errlen) {
     int rc = browser(url, NULL);
     pthread_mutex_unlock(&open_lock);
     if (rc != 0) {
-        snprintf(err, errlen, "Browser ließ sich nicht öffnen (0x%08x)", (unsigned)rc);
+        snprintf(err, errlen, T("Browser ließ sich nicht öffnen (0x%08x)"), (unsigned)rc);
         return -1;
     }
     return 0;
@@ -232,7 +233,7 @@ int plat_open_rw(const usbdev_t *d, char *err, size_t errlen) {
     /* O_EXCL: GEOM verweigert das Öffnen, solange noch ein Dateisystem darauf hängt */
     int fd = open(d->path, O_RDWR | O_EXCL);
     if (fd < 0)
-        snprintf(err, errlen, "%s kann nicht geöffnet werden (%s). Ist der Stick noch in Benutzung?",
+        snprintf(err, errlen, T("%s kann nicht geöffnet werden (%s). Ist der Stick noch in Benutzung?"),
                  d->path, strerror(errno));
     return fd;
 }
@@ -240,7 +241,7 @@ int plat_open_rw(const usbdev_t *d, char *err, size_t errlen) {
 /* Nur lesen geht auch, während die PS5 den Datenträger nutzt (Tempo messen) */
 int plat_open_ro(const usbdev_t *d, char *err, size_t errlen) {
     int fd = open(d->path, O_RDONLY);
-    if (fd < 0) snprintf(err, errlen, "%s kann nicht gelesen werden (%s)", d->path, strerror(errno));
+    if (fd < 0) snprintf(err, errlen, T("%s kann nicht gelesen werden (%s)"), d->path, strerror(errno));
     return fd;
 }
 
@@ -402,12 +403,13 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
             if (strncmp(cur, "/dev/", 5) != 0 || soft_unplug(cur + 5) != 0) soft = 0;
         }
         if (!soft) {
-            progress(attempt ? "Die PS5 war schneller – Stick bitte noch einmal abziehen" : "Stick jetzt abziehen", 0);
+            progress(attempt ? N_("Die PS5 war schneller – Stick bitte noch einmal abziehen") : N_("Stick jetzt abziehen"),
+                     0);
             long t0 = now_ms();
             while (dev_exists(cur)) {
-                if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { snprintf(err, errlen, "Abgebrochen."); return -1; }
+                if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { snprintf(err, errlen, "%s", T("Abgebrochen.")); return -1; }
                 if (now_ms() - t0 > REPLUG_WAIT_MS) {
-                    snprintf(err, errlen, "Der Stick wurde nicht abgezogen (2 Minuten gewartet).");
+                    snprintf(err, errlen, "%s", T("Der Stick wurde nicht abgezogen (2 Minuten gewartet)."));
                     return -1;
                 }
                 usleep(50 * 1000);
@@ -420,10 +422,10 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
         long t0 = now_ms();
         int lost = 0, fallback = 0;
         while (!lost && !fallback) {
-            if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { snprintf(err, errlen, "Abgebrochen."); return -1; }
+            if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { snprintf(err, errlen, "%s", T("Abgebrochen.")); return -1; }
             if (soft && now_ms() - t0 > SOFT_BACK_MS) { fallback = 1; break; }
             if (!soft && now_ms() - t0 > REPLUG_WAIT_MS) {
-                snprintf(err, errlen, "Der Stick wurde nicht wieder eingesteckt (2 Minuten gewartet).");
+                snprintf(err, errlen, "%s", T("Der Stick wurde nicht wieder eingesteckt (2 Minuten gewartet)."));
                 return -1;
             }
             for (int k = 0; k < REPLUG_UNITS && !lost; k++) {
@@ -479,7 +481,7 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
             attempt--;
         }
     }
-    snprintf(err, errlen, "Die PS5 hat den Stick %d-mal schneller eingebunden. Bitte erneut versuchen.",
+    snprintf(err, errlen, T("Die PS5 hat den Stick %d-mal schneller eingebunden. Bitte erneut versuchen."),
              REPLUG_ATTEMPTS);
     return -1;
 }
@@ -510,7 +512,7 @@ static int ensure_tool(const char *path, const unsigned char *data, size_t len, 
     if (f && fclose(f) != 0) ok = 0;
     if (!ok || rename(tmp, path) != 0) {
         unlink(tmp);
-        snprintf(err, errlen, "%s ließ sich nicht ablegen: %s", path, strerror(errno));
+        snprintf(err, errlen, T("%s ließ sich nicht ablegen: %s"), path, strerror(errno));
         return -1;
     }
     return 0;
@@ -559,8 +561,8 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     progress("Partition suchen", 0);
     for (int i = 0; i < 50 && stat(part, &st) != 0; i++) usleep(200 * 1000);
     if (stat(part, &st) != 0) {
-        snprintf(err, errlen, "Die neue Partition %s ist nicht erschienen. Stick abziehen, neu einstecken und erneut "
-                 "versuchen.", part);
+        snprintf(err, errlen, T("Die neue Partition %s ist nicht erschienen. Stick abziehen, neu einstecken und erneut "
+                 "versuchen."), part);
         return -1;
     }
 
@@ -581,7 +583,7 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s < 0 || connect(s, (struct sockaddr *)&sa, sizeof(sa)) != 0) {
         if (s >= 0) close(s);
-        snprintf(err, errlen, "ELF-Loader (Port %d) nicht erreichbar – läuft der Jailbreak noch?", LOADER_PORT);
+        snprintf(err, errlen, T("ELF-Loader (Port %d) nicht erreichbar – läuft der Jailbreak noch?"), LOADER_PORT);
         return -1;
     }
     struct timeval tv = {300, 0};
@@ -590,7 +592,7 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     int rl = snprintf(req, sizeof(req), "file:%s?args=%s\n", path, args);
     if (send(s, req, (size_t)rl, 0) != rl) {
         close(s);
-        snprintf(err, errlen, "%s ließ sich nicht starten", tool);
+        snprintf(err, errlen, T("%s ließ sich nicht starten"), tool);
         return -1;
     }
     shutdown(s, SHUT_WR);   /* Rückfragen des Werkzeugs bekommen sofort "Ende der Eingabe" */
@@ -598,7 +600,7 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     /* Ausgabe sammeln (Ende = Werkzeug beendet) und für den Fortschritt zeilenweise auswerten */
     static char out[65536];
     size_t olen = 0, ll = 0;
-    progress(fs == FS_NTFS ? "NTFS schreiben (mkntfs)" : "ext4 schreiben (mke2fs)", 5);
+    progress(fs == FS_NTFS ? N_("NTFS schreiben (mkntfs)") : N_("ext4 schreiben (mke2fs)"), 5);
     for (;;) {
         char buf[1024];
         ssize_t n = recv(s, buf, sizeof(buf), 0);
@@ -625,7 +627,7 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
         char last[200] = "";
         for (char *p = strtok(out, "\r\n\b"); p; p = strtok(NULL, "\r\n\b"))
             if (strlen(p) > 3) snprintf(last, sizeof(last), "%s", p);
-        snprintf(err, errlen, "%s ist fehlgeschlagen%s%s", tool, last[0] ? ": " : "", last);
+        snprintf(err, errlen, T("%s ist fehlgeschlagen%s%s"), tool, last[0] ? ": " : "", last);
         return -1;
     }
 
@@ -635,7 +637,7 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     int ok = fd >= 0 && pread(fd, head, sizeof(head), 0) == (ssize_t)sizeof(head) && extfs_signature_ok(fs, head);
     if (fd >= 0) close(fd);
     if (!ok) {
-        snprintf(err, errlen, "%s meldete Erfolg, aber auf %s steht kein gültiges Dateisystem", tool, part);
+        snprintf(err, errlen, T("%s meldete Erfolg, aber auf %s steht kein gültiges Dateisystem"), tool, part);
         return -1;
     }
     extfs_summary(fs, cluster, out, summary, sumlen);

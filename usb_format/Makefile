@@ -9,7 +9,7 @@ endif
 
 ELF := usb_format.elf
 
-SRCS := src/main.c src/server.c src/mkfs.c src/hfsplus.c src/upcase.c src/geom_xml.c src/extfs.c src/fsdetect.c src/fsread.c \
+SRCS := src/main.c src/server.c src/i18n.c src/i18n_table.c src/mkfs.c src/hfsplus.c src/upcase.c src/geom_xml.c src/extfs.c src/fsdetect.c src/fsread.c \
         src/vollabel.c src/devtest.c src/library.c src/exfat_fsck.c src/smpapi.c src/platform_ps5.c
 
 # mkntfs (ntfs-3g) und mke2fs (e2fsprogs) für NTFS/ext4, gebaut mit tools/build_fstools.sh
@@ -33,8 +33,11 @@ CFLAGS := -Wall -Werror -O2
 
 all: $(ELF)
 
-# server.c bettet web/index.html, platform_ps5.c die Werkzeuge per .incbin ein -> aus dem Projektordner bauen
-$(ELF): $(SRCS) $(HDRS) web/index.html web/bg.jpg web/page-dark.jpg web/page-light.jpg $(TOOLS) $(EXFAT_OBJS)
+# server.c bettet web/index.html und web/help.html, platform_ps5.c die Werkzeuge per .incbin ein -> aus dem
+# Projektordner bauen. Vorher: Übersetzungen vollständig (Meldungen und Weboberfläche)?
+$(ELF): $(SRCS) $(HDRS) web/index.html web/help.html web/bg.jpg web/page-dark.jpg web/page-light.jpg $(TOOLS) \
+        $(EXFAT_OBJS) i18n/core.json i18n/web.json
+	@if command -v python3 >/dev/null; then python3 tools/i18n_gen.py && python3 tools/web_i18n.py --check; fi
 	$(CC) $(CFLAGS) $(EXFAT_INC) -o $@ $(SRCS) $(EXFAT_OBJS) $(LIBS)
 
 # libexfat.c: die Linux-Geräteabfrage ersetzt exfat_fsck.c; fsck.c: main() heißt exfatprogs_fsck_main()

@@ -9,7 +9,7 @@ export MTOOLS_SKIP_CHECK=1
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
 
-gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c || exit 1
+gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c src/i18n.c src/i18n_table.c || exit 1
 gcc -Wall -Wextra -Werror -O2 -o "$W/geom_xml_test" test/geom_xml_test.c src/geom_xml.c || exit 1
 
 fails=0

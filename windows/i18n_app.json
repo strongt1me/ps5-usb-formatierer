@@ -1,0 +1,1454 @@
+{
+ "USB-Laufwerk": {
+  "en": "USB drive",
+  "it": "Unità USB",
+  "es": "Unidad USB",
+  "fr": "Lecteur USB"
+ },
+ "PS5:": {
+  "en": "PS5:",
+  "it": "PS5:",
+  "es": "PS5:",
+  "fr": "PS5 :"
+ },
+ "Laufwerk:": {
+  "en": "Drive:",
+  "it": "Unità:",
+  "es": "Unidad:",
+  "fr": "Lecteur :"
+ },
+ "Dateisystem:": {
+  "en": "File system:",
+  "it": "File system:",
+  "es": "Sistema de archivos:",
+  "fr": "Système de fichiers :"
+ },
+ "Größe der Zuordnungseinheiten:": {
+  "en": "Allocation unit size:",
+  "it": "Dimensione unità di allocazione:",
+  "es": "Tamaño de unidad de asignación:",
+  "fr": "Taille d'unité d'allocation :"
+ },
+ "Volumebezeichnung:": {
+  "en": "Volume label:",
+  "it": "Etichetta volume:",
+  "es": "Etiqueta del volumen:",
+  "fr": "Nom de volume :"
+ },
+ "PS5-USB formatieren": {
+  "en": "Format PS5 USB",
+  "it": "Formatta USB per PS5",
+  "es": "Formatear USB para PS5",
+  "fr": "Formater un USB pour PS5"
+ },
+ "gesperrt": {
+  "en": "locked",
+  "it": "bloccato",
+  "es": "bloqueado",
+  "fr": "verrouillé"
+ },
+ "Spiele auf diesem Datenträger: {n}": {
+  "en": "Games on this drive: {n}",
+  "it": "Giochi su questa unità: {n}",
+  "es": "Juegos en esta unidad: {n}",
+  "fr": "Jeux sur ce support : {n}"
+ },
+ "exFAT mit 64 KB Zuordnungseinheiten": {
+  "en": "exFAT with 64 KB allocation units",
+  "it": "exFAT con unità di allocazione da 64 KB",
+  "es": "exFAT con unidades de asignación de 64 KB",
+  "fr": "exFAT avec unités d'allocation de 64 Ko"
+ },
+ "Ich weiß, dass diese Spiele unwiderruflich gelöscht werden": {
+  "en": "I understand that these games will be deleted permanently",
+  "it": "So che questi giochi verranno eliminati definitivamente",
+  "es": "Sé que estos juegos se borrarán de forma permanente",
+  "fr": "Je sais que ces jeux seront supprimés définitivement"
+ },
+ "Dieses Spiel wird von {name} ({dev}) gelöscht:": {
+  "en": "This game will be deleted from {name} ({dev}):",
+  "it": "Questo gioco verrà eliminato da {name} ({dev}):",
+  "es": "Este juego se borrará de {name} ({dev}):",
+  "fr": "Ce jeu sera supprimé de {name} ({dev}) :"
+ },
+ "Diese {n} Spiele werden von {name} ({dev}) gelöscht:": {
+  "en": "These {n} games will be deleted from {name} ({dev}):",
+  "it": "Questi {n} giochi verranno eliminati da {name} ({dev}):",
+  "es": "Estos {n} juegos se borrarán de {name} ({dev}):",
+  "fr": "Ces {n} jeux seront supprimés de {name} ({dev}) :"
+ },
+ "Die Kacheln werden auch von der PS5-Startseite entfernt.": {
+  "en": "The tiles will also be removed from the PS5 home screen.",
+  "it": "Le icone verranno rimosse anche dalla schermata Home della PS5.",
+  "es": "Los iconos también se quitarán de la pantalla de inicio de la PS5.",
+  "fr": "Les vignettes seront aussi retirées de l'écran d'accueil de la PS5."
+ },
+ "Die Kacheln bleiben auf der Startseite (ohne Spiel).": {
+  "en": "The tiles stay on the home screen (without the game).",
+  "it": "Le icone restano nella schermata Home (senza gioco).",
+  "es": "Los iconos se quedan en la pantalla de inicio (sin el juego).",
+  "fr": "Les vignettes restent sur l'écran d'accueil (sans le jeu)."
+ },
+ "Datenträger erfolgreich formatiert.": {
+  "en": "Drive formatted successfully.",
+  "it": "Unità formattata correttamente.",
+  "es": "Unidad formateada correctamente.",
+  "fr": "Support formaté avec succès."
+ },
+ "Windows fragt nach Administratorrechten …": {
+  "en": "Windows is asking for administrator rights …",
+  "it": "Windows chiede i diritti di amministratore …",
+  "es": "Windows solicita permisos de administrador …",
+  "fr": "Windows demande les droits d'administrateur …"
+ },
+ "{model} (Datenträger {disk}, {size})": {
+  "en": "{model} (disk {disk}, {size})",
+  "it": "{model} (disco {disk}, {size})",
+  "es": "{model} (disco {disk}, {size})",
+  "fr": "{model} (disque {disk}, {size})"
+ },
+ "Umbenennen": {
+  "en": "Rename",
+  "it": "Rinomina",
+  "es": "Renombrar",
+  "fr": "Renommer"
+ },
+ "Neue Bezeichnung (bis zu 11 Zeichen: A–Z, 0–9, Leerzeichen, - und _; leer = Bezeichnung entfernen):": {
+  "en": "New label (up to 11 characters: A–Z, 0–9, space, - and _; empty = remove the label):",
+  "it": "Nuova etichetta (fino a 11 caratteri: A–Z, 0–9, spazio, - e _; vuota = rimuove l'etichetta):",
+  "es": "Nueva etiqueta (hasta 11 caracteres: A–Z, 0–9, espacio, - y _; vacía = quitar la etiqueta):",
+  "fr": "Nouveau nom (jusqu'à 11 caractères : A–Z, 0–9, espace, - et _ ; vide = supprimer le nom) :"
+ },
+ "keine Bezeichnung (wird entfernt)": {
+  "en": "no label (will be removed)",
+  "it": "nessuna etichetta (verrà rimossa)",
+  "es": "sin etiqueta (se quitará)",
+  "fr": "aucun nom (sera supprimé)"
+ },
+ "Wird abgebrochen …": {
+  "en": "Cancelling …",
+  "it": "Annullamento in corso …",
+  "es": "Cancelando …",
+  "fr": "Annulation …"
+ },
+ "Unerwarteter Fehler: {e}": {
+  "en": "Unexpected error: {e}",
+  "it": "Errore imprevisto: {e}",
+  "es": "Error inesperado: {e}",
+  "fr": "Erreur inattendue : {e}"
+ },
+ "Nicht verbunden": {
+  "en": "Not connected",
+  "it": "Non connesso",
+  "es": "No conectado",
+  "fr": "Non connecté"
+ },
+ "Suchen": {
+  "en": "Search",
+  "it": "Cerca",
+  "es": "Buscar",
+  "fr": "Rechercher"
+ },
+ "Aktualisieren": {
+  "en": "Refresh",
+  "it": "Aggiorna",
+  "es": "Actualizar",
+  "fr": "Actualiser"
+ },
+ "Spiele auf diesem Datenträger:": {
+  "en": "Games on this drive:",
+  "it": "Giochi su questa unità:",
+  "es": "Juegos en esta unidad:",
+  "fr": "Jeux sur ce support :"
+ },
+ "Titel": {
+  "en": "Title",
+  "it": "Titolo",
+  "es": "Título",
+  "fr": "Titre"
+ },
+ "Titel-ID": {
+  "en": "Title ID",
+  "it": "ID titolo",
+  "es": "ID del título",
+  "fr": "ID du titre"
+ },
+ "Format": {
+  "en": "Format",
+  "it": "Formato",
+  "es": "Formato",
+  "fr": "Format"
+ },
+ "Größe": {
+  "en": "Size",
+  "it": "Dimensione",
+  "es": "Tamaño",
+  "fr": "Taille"
+ },
+ "Markierte Spiele löschen …": {
+  "en": "Delete selected games …",
+  "it": "Elimina i giochi selezionati …",
+  "es": "Borrar los juegos seleccionados …",
+  "fr": "Supprimer les jeux sélectionnés …"
+ },
+ "Kachel auch von der Startseite entfernen": {
+  "en": "Also remove the tile from the home screen",
+  "it": "Rimuovi anche l'icona dalla schermata Home",
+  "es": "Quitar también el icono de la pantalla de inicio",
+  "fr": "Retirer aussi la vignette de l'écran d'accueil"
+ },
+ "Vorher Echtheit und Tempo prüfen (ca. 2–10 Minuten)": {
+  "en": "Check authenticity and speed first (about 2–10 minutes)",
+  "it": "Verifica prima autenticità e velocità (circa 2–10 minuti)",
+  "es": "Comprobar antes autenticidad y velocidad (unos 2–10 minutos)",
+  "fr": "Vérifier d'abord l'authenticité et la vitesse (environ 2 à 10 minutes)"
+ },
+ "Ordner homebrew, etaHEN/games und pkg anlegen": {
+  "en": "Create the folders homebrew, etaHEN/games and pkg",
+  "it": "Crea le cartelle homebrew, etaHEN/games e pkg",
+  "es": "Crear las carpetas homebrew, etaHEN/games y pkg",
+  "fr": "Créer les dossiers homebrew, etaHEN/games et pkg"
+ },
+ "Tempo messen": {
+  "en": "Measure speed",
+  "it": "Misura velocità",
+  "es": "Medir velocidad",
+  "fr": "Mesurer la vitesse"
+ },
+ "Formatieren …": {
+  "en": "Format …",
+  "it": "Formatta …",
+  "es": "Formatear …",
+  "fr": "Formater …"
+ },
+ "Abbrechen": {
+  "en": "Cancel",
+  "it": "Annulla",
+  "es": "Cancelar",
+  "fr": "Annuler"
+ },
+ "Die Sprache lässt sich nach dem laufenden Auftrag wechseln.": {
+  "en": "The language can be changed once the current job has finished.",
+  "it": "La lingua si può cambiare al termine dell'operazione in corso.",
+  "es": "El idioma se puede cambiar cuando termine la tarea en curso.",
+  "fr": "La langue pourra être changée à la fin de l'opération en cours."
+ },
+ "Verbunden mit {host}": {
+  "en": "Connected to {host}",
+  "it": "Connesso a {host}",
+  "es": "Conectado a {host}",
+  "fr": "Connecté à {host}"
+ },
+ "64 Kilobytes": {
+  "en": "64 kilobytes",
+  "it": "64 kilobyte",
+  "es": "64 kilobytes",
+  "fr": "64 kilo-octets"
+ },
+ "USB-Datenträger formatieren": {
+  "en": "Format USB drive",
+  "it": "Formatta unità USB",
+  "es": "Formatear unidad USB",
+  "fr": "Formater un support USB"
+ },
+ "eingebunden": {
+  "en": "mounted",
+  "it": "montato",
+  "es": "montado",
+  "fr": "monté"
+ },
+ "frei": {
+  "en": "free",
+  "it": "libero",
+  "es": "libre",
+  "fr": "libre"
+ },
+ "GEFÄLSCHT – echt nur {size}": {
+  "en": "FAKE – only {size} real",
+  "it": "FALSIFICATO – reali solo {size}",
+  "es": "FALSO – solo {size} reales",
+  "fr": "CONTREFAIT – seulement {size} réels"
+ },
+ "Spiele auf diesem Datenträger: werden gesucht …": {
+  "en": "Games on this drive: searching …",
+  "it": "Giochi su questa unità: ricerca in corso …",
+  "es": "Juegos en esta unidad: buscando …",
+  "fr": "Jeux sur ce support : recherche en cours …"
+ },
+ "Spiele auf diesem Datenträger: keine gefunden": {
+  "en": "Games on this drive: none found",
+  "it": "Giochi su questa unità: nessuno trovato",
+  "es": "Juegos en esta unidad: no se encontró ninguno",
+  "fr": "Jeux sur ce support : aucun trouvé"
+ },
+ "Kein USB-Datenträger am PC gefunden. Stick einstecken und „Aktualisieren“ klicken.": {
+  "en": "No USB drive found on this PC. Plug in a stick and click “Refresh”.",
+  "it": "Nessuna unità USB trovata sul PC. Inserisci una chiavetta e fai clic su «Aggiorna».",
+  "es": "No se encontró ninguna unidad USB en el PC. Conecta una memoria y haz clic en «Actualizar».",
+  "fr": "Aucun support USB trouvé sur ce PC. Branchez une clé et cliquez sur « Actualiser »."
+ },
+ "{n} USB-Datenträger am PC gefunden – bitte oben auswählen.": {
+  "en": "{n} USB drive(s) found on this PC – please select one above.",
+  "it": "{n} unità USB trovate sul PC – selezionane una qui sopra.",
+  "es": "{n} unidad(es) USB encontrada(s) en el PC – elige una arriba.",
+  "fr": "{n} support(s) USB trouvé(s) sur ce PC – veuillez en choisir un ci-dessus."
+ },
+ "Kein USB-Stick an der PS5 gefunden. Stick einstecken und „Aktualisieren“ klicken.": {
+  "en": "No USB stick found on the PS5. Plug in a stick and click “Refresh”.",
+  "it": "Nessuna chiavetta USB trovata sulla PS5. Inserisci una chiavetta e fai clic su «Aggiorna».",
+  "es": "No se encontró ninguna memoria USB en la PS5. Conecta una memoria y haz clic en «Actualizar».",
+  "fr": "Aucune clé USB trouvée sur la PS5. Branchez une clé et cliquez sur « Actualiser »."
+ },
+ "Bitte eine gefundene PS5 auswählen oder ihre IP-Adresse eingeben, z. B. 192.168.178.40.\n\nSie steht auf der PS5 unter Einstellungen › Netzwerk › Verbindungsstatus.": {
+  "en": "Please select a PS5 that was found or enter its IP address, e.g. 192.168.178.40.\n\nYou can find it on the PS5 under Settings › Network › Connection Status.",
+  "it": "Seleziona una PS5 trovata oppure inserisci il suo indirizzo IP, ad es. 192.168.178.40.\n\nLo trovi sulla PS5 in Impostazioni › Rete › Stato della connessione.",
+  "es": "Elige una PS5 encontrada o introduce su dirección IP, p. ej. 192.168.178.40.\n\nLa encontrarás en la PS5 en Ajustes › Red › Estado de la conexión.",
+  "fr": "Veuillez choisir une PS5 trouvée ou saisir son adresse IP, par ex. 192.168.178.40.\n\nElle se trouve sur la PS5 dans Paramètres › Réseau › État de la connexion."
+ },
+ "{name} ist im Ruhemodus. Bitte die PS5 einschalten, den ELF-Loader starten und dann „Suchen“ klicken.": {
+  "en": "{name} is in rest mode. Please switch the PS5 on, start the ELF loader and then click “Search”.",
+  "it": "{name} è in modalità riposo. Accendi la PS5, avvia l'ELF loader e poi fai clic su «Cerca».",
+  "es": "{name} está en modo de reposo. Enciende la PS5, inicia el ELF loader y luego haz clic en «Buscar».",
+  "fr": "{name} est en mode repos. Allumez la PS5, lancez l'ELF loader puis cliquez sur « Rechercher »."
+ },
+ "Die PS5 nutzt diesen Datenträger gerade. Der Formatierer meldet ihn per Software kurz ab und übernimmt ihn, bevor die PS5 ihn wieder einbindet. Klappt das nicht, bittet er, den Stick an der PS5 abzuziehen und wieder einzustecken. Spiele und Apps, die davon laufen, vorher beenden.": {
+  "en": "The PS5 is using this drive right now. The formatter briefly disconnects it by software and takes it over before the PS5 mounts it again. If that does not work, it will ask you to unplug the stick from the PS5 and plug it back in. Close games and apps running from it first.",
+  "it": "La PS5 sta usando questa unità. Il formattatore la scollega brevemente via software e la acquisisce prima che la PS5 la rimonti. Se non funziona, ti chiederà di scollegare la chiavetta dalla PS5 e di reinserirla. Chiudi prima i giochi e le app avviati da essa.",
+  "es": "La PS5 está usando esta unidad. El formateador la desconecta brevemente por software y la toma antes de que la PS5 vuelva a montarla. Si no funciona, te pedirá que desconectes la memoria de la PS5 y la vuelvas a conectar. Cierra antes los juegos y aplicaciones que se ejecuten desde ella.",
+  "fr": "La PS5 utilise ce support en ce moment. Le formateur le déconnecte brièvement par logiciel et le reprend avant que la PS5 ne le remonte. Si cela échoue, il vous demandera de débrancher la clé de la PS5 puis de la rebrancher. Fermez d'abord les jeux et applications lancés depuis ce support."
+ },
+ "Darauf liegt 1 Spiel, das gelöscht wird:": {
+  "en": "It contains 1 game, which will be deleted:",
+  "it": "Contiene 1 gioco, che verrà eliminato:",
+  "es": "Contiene 1 juego, que se borrará:",
+  "fr": "Il contient 1 jeu, qui sera supprimé :"
+ },
+ "Darauf liegen {n} Spiele, die gelöscht werden:": {
+  "en": "It contains {n} games, which will be deleted:",
+  "it": "Contiene {n} giochi, che verranno eliminati:",
+  "es": "Contiene {n} juegos, que se borrarán:",
+  "fr": "Il contient {n} jeux, qui seront supprimés :"
+ },
+ "Ich weiß, dass alles darauf unwiderruflich gelöscht wird": {
+  "en": "I understand that everything on it will be deleted permanently",
+  "it": "So che tutto il contenuto verrà eliminato definitivamente",
+  "es": "Sé que todo su contenido se borrará de forma permanente",
+  "fr": "Je sais que tout son contenu sera supprimé définitivement"
+ },
+ "Vorher werden Echtheit und Tempo geprüft (einige Minuten).": {
+  "en": "Authenticity and speed will be checked first (a few minutes).",
+  "it": "Prima verranno verificate autenticità e velocità (alcuni minuti).",
+  "es": "Antes se comprobarán la autenticidad y la velocidad (unos minutos).",
+  "fr": "L'authenticité et la vitesse seront d'abord vérifiées (quelques minutes)."
+ },
+ "Alle Daten werden gelöscht": {
+  "en": "All data will be deleted",
+  "it": "Tutti i dati verranno eliminati",
+  "es": "Se borrarán todos los datos",
+  "fr": "Toutes les données seront supprimées"
+ },
+ "Formatieren": {
+  "en": "Format",
+  "it": "Formatta",
+  "es": "Formatear",
+  "fr": "Formater"
+ },
+ "… und {n} weitere": {
+  "en": "… and {n} more",
+  "it": "… e altri {n}",
+  "es": "… y {n} más",
+  "fr": "… et {n} autres"
+ },
+ "Spiele löschen": {
+  "en": "Delete games",
+  "it": "Elimina giochi",
+  "es": "Borrar juegos",
+  "fr": "Supprimer des jeux"
+ },
+ "Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (höchstens {n} Zeichen).": {
+  "en": "Only A–Z, 0–9, space, - and _ are allowed (at most {n} characters).",
+  "it": "Sono ammessi solo A–Z, 0–9, spazio, - e _ (al massimo {n} caratteri).",
+  "es": "Solo se permiten A–Z, 0–9, espacio, - y _ (como máximo {n} caracteres).",
+  "fr": "Seuls A–Z, 0–9, l'espace, - et _ sont autorisés ({n} caractères au maximum)."
+ },
+ "Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu anschließen: Die PS5 bindet sie in laufende Spiele und Apps ein – danach starten diese oft erst nach einem Neustart der Konsole wieder. Abziehen nur, wenn der Formatierer ausdrücklich dazu auffordert.": {
+  "en": "Do not unplug or reconnect USB drives on the PS5 while it is in use: the PS5 attaches them to running games and apps – afterwards these often only start again after restarting the console. Only unplug when the formatter explicitly asks you to.",
+  "it": "Durante l'uso non scollegare né ricollegare unità USB alla PS5: la PS5 le collega ai giochi e alle app in esecuzione – dopo spesso questi ripartono solo dopo un riavvio della console. Scollega solo quando il formattatore te lo chiede esplicitamente.",
+  "es": "Mientras se usa, no desconectes ni vuelvas a conectar unidades USB en la PS5: la PS5 las vincula a los juegos y aplicaciones en ejecución – después, a menudo solo vuelven a iniciarse tras reiniciar la consola. Desconecta solo cuando el formateador te lo pida expresamente.",
+  "fr": "Pendant l'utilisation, ne débranchez ni ne rebranchez de support USB sur la PS5 : elle les rattache aux jeux et applications en cours – ceux-ci ne redémarrent souvent qu'après un redémarrage de la console. Ne débranchez que si le formateur vous le demande expressément."
+ },
+ "Bis zu {n} Zeichen: A–Z, 0–9, Leerzeichen, - und _": {
+  "en": "Up to {n} characters: A–Z, 0–9, space, - and _",
+  "it": "Fino a {n} caratteri: A–Z, 0–9, spazio, - e _",
+  "es": "Hasta {n} caracteres: A–Z, 0–9, espacio, - y _",
+  "fr": "Jusqu'à {n} caractères : A–Z, 0–9, espace, - et _"
+ },
+ "{n} Kilobytes (Standard)": {
+  "en": "{n} kilobytes (default)",
+  "it": "{n} kilobyte (predefinito)",
+  "es": "{n} kilobytes (predeterminado)",
+  "fr": "{n} kilo-octets (par défaut)"
+ },
+ "Standardgröße": {
+  "en": "Default size",
+  "it": "Dimensione predefinita",
+  "es": "Tamaño predeterminado",
+  "fr": "Taille par défaut"
+ },
+ "Bis zu 11 Zeichen, wird bei FAT32 großgeschrieben": {
+  "en": "Up to 11 characters, written in capitals for FAT32",
+  "it": "Fino a 11 caratteri, in maiuscolo con FAT32",
+  "es": "Hasta 11 caracteres, en mayúsculas con FAT32",
+  "fr": "Jusqu'à 11 caractères, en majuscules pour FAT32"
+ },
+ "leer": {
+  "en": "empty",
+  "it": "vuoto",
+  "es": "vacío",
+  "fr": "vide"
+ },
+ "ohne Partition": {
+  "en": "no partition",
+  "it": "senza partizione",
+  "es": "sin partición",
+  "fr": "sans partition"
+ },
+ "Format unbekannt": {
+  "en": "unknown format",
+  "it": "formato sconosciuto",
+  "es": "formato desconocido",
+  "fr": "format inconnu"
+ },
+ "1 Spiel": {
+  "en": "1 game",
+  "it": "1 gioco",
+  "es": "1 juego",
+  "fr": "1 jeu"
+ },
+ "{n} Spiele": {
+  "en": "{n} games",
+  "it": "{n} giochi",
+  "es": "{n} juegos",
+  "fr": "{n} jeux"
+ },
+ "Formatierer läuft": {
+  "en": "formatter running",
+  "it": "formattatore attivo",
+  "es": "formateador en marcha",
+  "fr": "formateur actif"
+ },
+ "Suche PS5 im Netzwerk …": {
+  "en": "Searching for the PS5 on the network …",
+  "it": "Ricerca della PS5 in rete …",
+  "es": "Buscando la PS5 en la red …",
+  "fr": "Recherche de la PS5 sur le réseau …"
+ },
+ "{n} PS5 gefunden – bitte oben auswählen.": {
+  "en": "{n} PS5 found – please select one above.",
+  "it": "{n} PS5 trovate – selezionane una qui sopra.",
+  "es": "{n} PS5 encontradas – elige una arriba.",
+  "fr": "{n} PS5 trouvées – veuillez en choisir une ci-dessus."
+ },
+ "Verbinde mit {host} …": {
+  "en": "Connecting to {host} …",
+  "it": "Connessione a {host} …",
+  "es": "Conectando con {host} …",
+  "fr": "Connexion à {host} …"
+ },
+ "Formatierer läuft noch nicht – sende Payload an die PS5 …": {
+  "en": "Formatter is not running yet – sending the payload to the PS5 …",
+  "it": "Il formattatore non è ancora attivo – invio del payload alla PS5 …",
+  "es": "El formateador aún no está en marcha – enviando el payload a la PS5 …",
+  "fr": "Le formateur n'est pas encore lancé – envoi du payload à la PS5 …"
+ },
+ "Der Payload wurde gesendet, antwortet aber nicht. Bitte die PS5-Benachrichtigungen prüfen.": {
+  "en": "The payload was sent but does not respond. Please check the PS5 notifications.",
+  "it": "Il payload è stato inviato ma non risponde. Controlla le notifiche della PS5.",
+  "es": "El payload se envió pero no responde. Revisa las notificaciones de la PS5.",
+  "fr": "Le payload a été envoyé mais ne répond pas. Vérifiez les notifications de la PS5."
+ },
+ "GEFÄLSCHTER STICK: Er meldet {size}, hat aber nur {real} echten Speicher. Es wird nur dieser Bereich formatiert. Für Spiele an der PS5 besser einen echten Datenträger verwenden.": {
+  "en": "FAKE STICK: it reports {size} but has only {real} of real storage. Only this area will be formatted. For PS5 games, better use a genuine drive.",
+  "it": "CHIAVETTA FALSIFICATA: dichiara {size} ma ha solo {real} di memoria reale. Verrà formattata solo questa area. Per i giochi PS5 è meglio usare un'unità autentica.",
+  "es": "MEMORIA FALSA: indica {size} pero solo tiene {real} de almacenamiento real. Solo se formateará esa zona. Para juegos de PS5 es mejor usar una unidad auténtica.",
+  "fr": "CLÉ CONTREFAITE : elle annonce {size} mais n'a que {real} de mémoire réelle. Seule cette zone sera formatée. Pour les jeux PS5, mieux vaut utiliser un support authentique."
+ },
+ "Das lässt sich nicht rückgängig machen.": {
+  "en": "This cannot be undone.",
+  "it": "L'operazione non può essere annullata.",
+  "es": "Esto no se puede deshacer.",
+  "fr": "Cette opération est irréversible."
+ },
+ "Laufende Spiele vorher beenden. Das lässt sich nicht rückgängig machen.": {
+  "en": "Close running games first. This cannot be undone.",
+  "it": "Chiudi prima i giochi in esecuzione. L'operazione non può essere annullata.",
+  "es": "Cierra antes los juegos en ejecución. Esto no se puede deshacer.",
+  "fr": "Fermez d'abord les jeux en cours. Cette opération est irréversible."
+ },
+ "Spiele gelöscht.": {
+  "en": "Games deleted.",
+  "it": "Giochi eliminati.",
+  "es": "Juegos borrados.",
+  "fr": "Jeux supprimés."
+ },
+ "Suche USB-Datenträger am PC …": {
+  "en": "Searching for USB drives on this PC …",
+  "it": "Ricerca di unità USB sul PC …",
+  "es": "Buscando unidades USB en el PC …",
+  "fr": "Recherche des supports USB sur ce PC …"
+ },
+ "Auf dem Datenträger liegen {size} Daten – sie sind danach weg.": {
+  "en": "The drive holds {size} of data – it will be gone afterwards.",
+  "it": "L'unità contiene {size} di dati – andranno persi.",
+  "es": "La unidad contiene {size} de datos – se perderán.",
+  "fr": "Le support contient {size} de données – elles seront perdues."
+ },
+ "USB-Datenträger am PC": {
+  "en": "USB drive on this PC",
+  "it": "Unità USB sul PC",
+  "es": "Unidad USB en el PC",
+  "fr": "Support USB sur ce PC"
+ },
+ "Die Daten bleiben erhalten. Das Laufwerk wird dafür kurz abgemeldet – geöffnete Dateien darauf vorher schließen.": {
+  "en": "The data is kept. The drive is briefly disconnected for this – close any open files on it first.",
+  "it": "I dati restano intatti. L'unità viene scollegata brevemente – chiudi prima i file aperti su di essa.",
+  "es": "Los datos se conservan. La unidad se desconecta brevemente – cierra antes los archivos abiertos en ella.",
+  "fr": "Les données sont conservées. Le lecteur est brièvement déconnecté – fermez d'abord les fichiers ouverts dessus."
+ },
+ "Entfernen": {
+  "en": "Remove",
+  "it": "Rimuovi",
+  "es": "Quitar",
+  "fr": "Supprimer"
+ },
+ "HTTP-Fehler {code}": {
+  "en": "HTTP error {code}",
+  "it": "Errore HTTP {code}",
+  "es": "Error HTTP {code}",
+  "fr": "Erreur HTTP {code}"
+ },
+ "Schließen": {
+  "en": "Close",
+  "it": "Chiudi",
+  "es": "Cerrar",
+  "fr": "Fermer"
+ },
+ "Ruhemodus": {
+  "en": "rest mode",
+  "it": "modalità riposo",
+  "es": "modo de reposo",
+  "fr": "mode repos"
+ },
+ "Keine PS5 gefunden – versuche zuletzt verwendete Adresse {host} …": {
+  "en": "No PS5 found – trying the last used address {host} …",
+  "it": "Nessuna PS5 trovata – provo l'ultimo indirizzo usato {host} …",
+  "es": "No se encontró ninguna PS5 – probando la última dirección usada {host} …",
+  "fr": "Aucune PS5 trouvée – essai de la dernière adresse utilisée {host} …"
+ },
+ "Keine PS5 gefunden. Ist sie eingeschaltet und im selben Netzwerk? Die IP-Adresse kann auch oben eingegeben werden (Enter).": {
+  "en": "No PS5 found. Is it switched on and on the same network? You can also enter the IP address above (Enter).",
+  "it": "Nessuna PS5 trovata. È accesa e nella stessa rete? Puoi anche inserire l'indirizzo IP qui sopra (Invio).",
+  "es": "No se encontró ninguna PS5. ¿Está encendida y en la misma red? También puedes introducir la dirección IP arriba (Intro).",
+  "fr": "Aucune PS5 trouvée. Est-elle allumée et sur le même réseau ? Vous pouvez aussi saisir l'adresse IP ci-dessus (Entrée)."
+ },
+ "usb_format.elf nicht gefunden. Sie muss neben dem Programm liegen.": {
+  "en": "usb_format.elf not found. It must be next to the program.",
+  "it": "usb_format.elf non trovato. Deve trovarsi accanto al programma.",
+  "es": "No se encontró usb_format.elf. Debe estar junto al programa.",
+  "fr": "usb_format.elf introuvable. Il doit se trouver à côté du programme."
+ },
+ "Der Inhalt wird noch durchsucht – möglicherweise liegen Spiele darauf.": {
+  "en": "The contents are still being scanned – there may be games on it.",
+  "it": "Il contenuto è ancora in fase di analisi – potrebbero esserci dei giochi.",
+  "es": "El contenido aún se está analizando – puede haber juegos.",
+  "fr": "Le contenu est encore en cours d'analyse – il peut contenir des jeux."
+ },
+ "Gefälschter Speicher erkannt": {
+  "en": "Fake storage detected",
+  "it": "Memoria falsificata rilevata",
+  "es": "Almacenamiento falso detectado",
+  "fr": "Mémoire contrefaite détectée"
+ },
+ "Nur echte {size} formatieren": {
+  "en": "Format only the real {size}",
+  "it": "Formatta solo i {size} reali",
+  "es": "Formatear solo los {size} reales",
+  "fr": "Formater seulement les {size} réels"
+ },
+ "Der Formatierer auf der PS5 wurde zwischendurch neu gestartet – das Ergebnis ist unbekannt. Bitte den Datenträger prüfen bzw. erneut formatieren.": {
+  "en": "The formatter on the PS5 was restarted in the meantime – the result is unknown. Please check the drive or format it again.",
+  "it": "Nel frattempo il formattatore sulla PS5 è stato riavviato – il risultato è sconosciuto. Controlla l'unità o formattala di nuovo.",
+  "es": "Mientras tanto se reinició el formateador de la PS5 – el resultado es desconocido. Comprueba la unidad o vuelve a formatearla.",
+  "fr": "Le formateur de la PS5 a redémarré entre-temps – le résultat est inconnu. Vérifiez le support ou formatez-le à nouveau."
+ },
+ "USB-Datenträger": {
+  "en": "USB drive",
+  "it": "Unità USB",
+  "es": "Unidad USB",
+  "fr": "Support USB"
+ },
+ "Das lässt sich nicht rückgängig machen. Windows fragt anschließend nach Administratorrechten.": {
+  "en": "This cannot be undone. Windows will then ask for administrator rights.",
+  "it": "L'operazione non può essere annullata. Windows chiederà poi i diritti di amministratore.",
+  "es": "Esto no se puede deshacer. Después Windows solicitará permisos de administrador.",
+  "fr": "Cette opération est irréversible. Windows demandera ensuite les droits d'administrateur."
+ },
+ "Ich weiß, dass die {size} Daten unwiderruflich gelöscht werden": {
+  "en": "I understand that the {size} of data will be deleted permanently",
+  "it": "So che i {size} di dati verranno eliminati definitivamente",
+  "es": "Sé que los {size} de datos se borrarán de forma permanente",
+  "fr": "Je sais que les {size} de données seront supprimés définitivement"
+ },
+ "Gefälschte Größe": {
+  "en": "Fake size",
+  "it": "Capacità falsificata",
+  "es": "Capacidad falsa",
+  "fr": "Capacité contrefaite"
+ },
+ "Fenster trotzdem schließen?": {
+  "en": "Close the window anyway?",
+  "it": "Chiudere comunque la finestra?",
+  "es": "¿Cerrar la ventana de todos modos?",
+  "fr": "Fermer quand même la fenêtre ?"
+ },
+ "Keine Verbindung zu {host}. Läuft auf der PS5 ein ELF-Loader (Port {port}) und ist die IP-Adresse richtig?": {
+  "en": "No connection to {host}. Is an ELF loader (port {port}) running on the PS5 and is the IP address correct?",
+  "it": "Nessuna connessione a {host}. Sulla PS5 è attivo un ELF loader (porta {port}) e l'indirizzo IP è corretto?",
+  "es": "Sin conexión con {host}. ¿Hay un ELF loader (puerto {port}) en marcha en la PS5 y la dirección IP es correcta?",
+  "fr": "Pas de connexion à {host}. Un ELF loader (port {port}) tourne-t-il sur la PS5 et l'adresse IP est-elle correcte ?"
+ },
+ "Geräteliste konnte nicht geladen werden: {e}": {
+  "en": "Could not load the device list: {e}",
+  "it": "Impossibile caricare l'elenco dei dispositivi: {e}",
+  "es": "No se pudo cargar la lista de dispositivos: {e}",
+  "fr": "Impossible de charger la liste des périphériques : {e}"
+ },
+ "{name} ({dev}, {size}) wird als {fs} formatiert.": {
+  "en": "{name} ({dev}, {size}) will be formatted as {fs}.",
+  "it": "{name} ({dev}, {size}) verrà formattata come {fs}.",
+  "es": "{name} ({dev}, {size}) se formateará como {fs}.",
+  "fr": "{name} ({dev}, {size}) sera formaté en {fs}."
+ },
+ "Nur die echten {size} formatieren? Für Spiele an der PS5 besser einen echten Datenträger verwenden.": {
+  "en": "Format only the real {size}? For PS5 games, better use a genuine drive.",
+  "it": "Formattare solo i {size} reali? Per i giochi PS5 è meglio usare un'unità autentica.",
+  "es": "¿Formatear solo los {size} reales? Para juegos de PS5 es mejor usar una unidad auténtica.",
+  "fr": "Formater seulement les {size} réels ? Pour les jeux PS5, mieux vaut utiliser un support authentique."
+ },
+ "Formatieren konnte nicht gestartet werden: {e}": {
+  "en": "Could not start formatting: {e}",
+  "it": "Impossibile avviare la formattazione: {e}",
+  "es": "No se pudo iniciar el formateo: {e}",
+  "fr": "Impossible de lancer le formatage : {e}"
+ },
+ "Löschen konnte nicht gestartet werden: {e}": {
+  "en": "Could not start deleting: {e}",
+  "it": "Impossibile avviare l'eliminazione: {e}",
+  "es": "No se pudo iniciar el borrado: {e}",
+  "fr": "Impossible de lancer la suppression : {e}"
+ },
+ "USB-Datenträger konnten nicht gelesen werden: {e}": {
+  "en": "Could not read the USB drives: {e}",
+  "it": "Impossibile leggere le unità USB: {e}",
+  "es": "No se pudieron leer las unidades USB: {e}",
+  "fr": "Impossible de lire les supports USB : {e}"
+ },
+ "Nur den echten Bereich ({size}) formatieren? Dann gehen keine Daten verloren, die über diese Grenze hinaus geschrieben würden.": {
+  "en": "Format only the real area ({size})? Then no data is lost that would be written beyond this limit.",
+  "it": "Formattare solo l'area reale ({size})? Così non si perdono dati scritti oltre questo limite.",
+  "es": "¿Formatear solo la zona real ({size})? Así no se pierden datos escritos más allá de este límite.",
+  "fr": "Formater seulement la zone réelle ({size}) ? Ainsi aucune donnée écrite au-delà de cette limite n'est perdue."
+ },
+ "Neue Bezeichnung: {label}": {
+  "en": "New label: {label}",
+  "it": "Nuova etichetta: {label}",
+  "es": "Nueva etiqueta: {label}",
+  "fr": "Nouveau nom : {label}"
+ },
+ "Keine Verbindung zur PS5 seit 3 Minuten. Der Auftrag läuft dort vermutlich weiter – den Stick NICHT abziehen. Später „Suchen“ klicken, um das Ergebnis zu sehen.": {
+  "en": "No connection to the PS5 for 3 minutes. The job is probably still running there – do NOT unplug the stick. Click “Search” later to see the result.",
+  "it": "Nessuna connessione alla PS5 da 3 minuti. L'operazione probabilmente continua lì – NON scollegare la chiavetta. Più tardi fai clic su «Cerca» per vedere il risultato.",
+  "es": "Sin conexión con la PS5 desde hace 3 minutos. Probablemente la tarea sigue allí – NO desconectes la memoria. Más tarde haz clic en «Buscar» para ver el resultado.",
+  "fr": "Pas de connexion à la PS5 depuis 3 minutes. L'opération continue probablement – NE débranchez PAS la clé. Cliquez plus tard sur « Rechercher » pour voir le résultat."
+ },
+ "Verbindung zur PS5 unterbrochen – der Auftrag läuft dort weiter, frage weiter nach …": {
+  "en": "Connection to the PS5 interrupted – the job continues there, still asking …",
+  "it": "Connessione alla PS5 interrotta – l'operazione continua lì, riprovo …",
+  "es": "Conexión con la PS5 interrumpida – la tarea continúa allí, sigo preguntando …",
+  "fr": "Connexion à la PS5 interrompue – l'opération continue, nouvelle tentative …"
+ },
+ "Der Auftrag läuft am PC im Hintergrund weiter.": {
+  "en": "The job continues on this PC in the background.",
+  "it": "L'operazione continua sul PC in background.",
+  "es": "La tarea continúa en el PC en segundo plano.",
+  "fr": "L'opération continue sur ce PC en arrière-plan."
+ },
+ "Die Formatierung läuft auf der PS5 weiter.": {
+  "en": "Formatting continues on the PS5.",
+  "it": "La formattazione continua sulla PS5.",
+  "es": "El formateo continúa en la PS5.",
+  "fr": "Le formatage continue sur la PS5."
+ },
+ "wird als {fs} für die PS5 formatiert.": {
+  "en": "will be formatted as {fs} for the PS5.",
+  "it": "verrà formattata come {fs} per la PS5.",
+  "es": "se formateará como {fs} para la PS5.",
+  "fr": "sera formaté en {fs} pour la PS5."
+ },
+ "Abbrechen nicht möglich: {e}": {
+  "en": "Cannot cancel: {e}",
+  "it": "Impossibile annullare: {e}",
+  "es": "No se puede cancelar: {e}",
+  "fr": "Annulation impossible : {e}"
+ },
+ "Auf der PS5 läuft ein Auftrag …": {
+  "en": "A job is running on the PS5 …",
+  "it": "Sulla PS5 è in corso un'operazione …",
+  "es": "Hay una tarea en curso en la PS5 …",
+  "fr": "Une opération est en cours sur la PS5 …"
+ },
+ "Fertig": {
+  "en": "Done",
+  "it": "Completato",
+  "es": "Listo",
+  "fr": "Terminé"
+ },
+ "Partitionsschema:": {
+  "en": "Partition scheme:",
+  "it": "Schema di partizione:",
+  "es": "Esquema de particiones:",
+  "fr": "Schéma de partition :"
+ },
+ "Formatierungsoptionen:": {
+  "en": "Format options:",
+  "it": "Opzioni di formattazione:",
+  "es": "Opciones de formato:",
+  "fr": "Options de formatage :"
+ },
+ "Schnellformatierung": {
+  "en": "Quick format",
+  "it": "Formattazione rapida",
+  "es": "Formato rápido",
+  "fr": "Formatage rapide"
+ },
+ "vollständig – jede Stelle wird beschrieben und geprüft (dauert lange)": {
+  "en": "full – every location is written and checked (takes long)",
+  "it": "completa – ogni posizione viene scritta e verificata (richiede tempo)",
+  "es": "completo – se escribe y comprueba cada posición (tarda mucho)",
+  "fr": "complet – chaque emplacement est écrit et vérifié (long)"
+ },
+ "wird formatiert:": {
+  "en": "will be formatted:",
+  "it": "verrà formattata:",
+  "es": "se formateará:",
+  "fr": "sera formaté :"
+ },
+ "Art: {how}": {
+  "en": "Type: {how}",
+  "it": "Tipo: {how}",
+  "es": "Tipo: {how}",
+  "fr": "Type : {how}"
+ },
+ "Neue Bezeichnung für {drive} ({fs}) – bis zu {n} Zeichen: A–Z, 0–9, Leerzeichen, - und _; leer = Bezeichnung entfernen:": {
+  "en": "New label for {drive} ({fs}) – up to {n} characters: A–Z, 0–9, space, - and _; empty = remove the label:",
+  "it": "Nuova etichetta per {drive} ({fs}) – fino a {n} caratteri: A–Z, 0–9, spazio, - e _; vuota = rimuove l'etichetta:",
+  "es": "Nueva etiqueta para {drive} ({fs}) – hasta {n} caracteres: A–Z, 0–9, espacio, - y _; vacía = quitar la etiqueta:",
+  "fr": "Nouveau nom pour {drive} ({fs}) – jusqu'à {n} caractères : A–Z, 0–9, espace, - et _ ; vide = supprimer le nom :"
+ },
+ "Expertenmodus – Partitionen selbst festlegen (Größen, Typen, startfähig)": {
+  "en": "Expert mode – define partitions yourself (sizes, types, bootable)",
+  "it": "Modalità esperto – definisci tu le partizioni (dimensioni, tipi, avviabile)",
+  "es": "Modo experto – definir tú mismo las particiones (tamaños, tipos, arrancable)",
+  "fr": "Mode expert – définir soi-même les partitions (tailles, types, amorçable)"
+ },
+ "Standard (nach Wahl des Laufwerks)": {
+  "en": "Default (after choosing the drive)",
+  "it": "Predefinito (dopo aver scelto l'unità)",
+  "es": "Predeterminado (tras elegir la unidad)",
+  "fr": "Par défaut (après le choix du lecteur)"
+ },
+ "MBR fasst hier höchstens {size} – der Rest des Datenträgers bliebe ungenutzt.": {
+  "en": "MBR holds at most {size} here – the rest of the drive would remain unused.",
+  "it": "Qui MBR gestisce al massimo {size} – il resto dell'unità resterebbe inutilizzato.",
+  "es": "Aquí MBR admite como máximo {size} – el resto de la unidad quedaría sin usar.",
+  "fr": "Ici, MBR gère au maximum {size} – le reste du support resterait inutilisé."
+ },
+ "wird großgeschrieben": {
+  "en": "written in capitals",
+  "it": "in maiuscolo",
+  "es": "en mayúsculas",
+  "fr": "écrit en majuscules"
+ },
+ "auf {n} Zeichen gekürzt": {
+  "en": "shortened to {n} characters",
+  "it": "ridotta a {n} caratteri",
+  "es": "acortada a {n} caracteres",
+  "fr": "raccourci à {n} caractères"
+ },
+ "Vollständig: Jede Stelle wird beschrieben und geprüft – findet defekte Bereiche und gefälschte Größen, dauert aber je nach Größe bis zu mehreren Stunden.": {
+  "en": "Full: every location is written and checked – finds defective areas and fake capacities, but depending on the size takes up to several hours.",
+  "it": "Completa: ogni posizione viene scritta e verificata – trova aree difettose e capacità falsificate, ma a seconda della dimensione richiede anche diverse ore.",
+  "es": "Completo: se escribe y comprueba cada posición – detecta zonas defectuosas y capacidades falsas, pero según el tamaño tarda hasta varias horas.",
+  "fr": "Complet : chaque emplacement est écrit et vérifié – détecte les zones défectueuses et les capacités contrefaites, mais peut durer plusieurs heures selon la taille."
+ },
+ "automatisch ({scheme})": {
+  "en": "automatic ({scheme})",
+  "it": "automatico ({scheme})",
+  "es": "automático ({scheme})",
+  "fr": "automatique ({scheme})"
+ },
+ "Die Bezeichnung enthält unerlaubte Zeichen.": {
+  "en": "The label contains characters that are not allowed.",
+  "it": "L'etichetta contiene caratteri non ammessi.",
+  "es": "La etiqueta contiene caracteres no permitidos.",
+  "fr": "Le nom contient des caractères non autorisés."
+ },
+ "Dateisystem: {fs}": {
+  "en": "File system: {fs}",
+  "it": "File system: {fs}",
+  "es": "Sistema de archivos: {fs}",
+  "fr": "Système de fichiers : {fs}"
+ },
+ "Zuordnungseinheit: {size}": {
+  "en": "Allocation unit: {size}",
+  "it": "Unità di allocazione: {size}",
+  "es": "Unidad de asignación: {size}",
+  "fr": "Unité d'allocation : {size}"
+ },
+ "Partitionsschema: {scheme}": {
+  "en": "Partition scheme: {scheme}",
+  "it": "Schema di partizione: {scheme}",
+  "es": "Esquema de particiones: {scheme}",
+  "fr": "Schéma de partition : {scheme}"
+ },
+ "Bezeichnung: {label}": {
+  "en": "Label: {label}",
+  "it": "Etichetta: {label}",
+  "es": "Etiqueta: {label}",
+  "fr": "Nom : {label}"
+ },
+ "{fs} passt nicht zu diesem Datenträger – exFAT gewählt.": {
+  "en": "{fs} does not suit this drive – exFAT selected.",
+  "it": "{fs} non è adatto a questa unità – scelto exFAT.",
+  "es": "{fs} no es adecuado para esta unidad – se eligió exFAT.",
+  "fr": "{fs} ne convient pas à ce support – exFAT choisi."
+ },
+ "Größer, als MBR fassen kann ({size}): Es wird GPT.": {
+  "en": "Larger than MBR can hold ({size}): GPT will be used.",
+  "it": "Più grande di quanto MBR possa gestire ({size}): verrà usato GPT.",
+  "es": "Mayor de lo que admite MBR ({size}): se usará GPT.",
+  "fr": "Plus grand que ce que MBR peut gérer ({size}) : GPT sera utilisé."
+ },
+ "Windows zeigt dafür keinen Laufwerksbuchstaben": {
+  "en": "Windows shows no drive letter for it",
+  "it": "Windows non le assegna una lettera di unità",
+  "es": "Windows no le asigna letra de unidad",
+  "fr": "Windows ne lui attribue pas de lettre de lecteur"
+ },
+ "{n} USB-Datenträger gefunden – bitte oben auswählen.": {
+  "en": "{n} USB drive(s) found – please select one above.",
+  "it": "{n} unità USB trovate – selezionane una qui sopra.",
+  "es": "{n} unidad(es) USB encontrada(s) – elige una arriba.",
+  "fr": "{n} support(s) USB trouvé(s) – veuillez en choisir un ci-dessus."
+ },
+ "{fs} passt nicht auf den echten Bereich ({size}).": {
+  "en": "{fs} does not fit the real area ({size}).",
+  "it": "{fs} non è adatto all'area reale ({size}).",
+  "es": "{fs} no cabe en la zona real ({size}).",
+  "fr": "{fs} ne tient pas dans la zone réelle ({size})."
+ },
+ "Die Aufteilung ist noch nicht vollständig.": {
+  "en": "The partition layout is not complete yet.",
+  "it": "Lo schema delle partizioni non è ancora completo.",
+  "es": "La distribución de particiones aún no está completa.",
+  "fr": "Le partitionnement n'est pas encore complet."
+ },
+ "Die Aufteilung passt nicht auf den echten Bereich ({size}): {error}": {
+  "en": "The partition layout does not fit the real area ({size}): {error}",
+  "it": "Lo schema delle partizioni non entra nell'area reale ({size}): {error}",
+  "es": "La distribución de particiones no cabe en la zona real ({size}): {error}",
+  "fr": "Le partitionnement ne tient pas dans la zone réelle ({size}) : {error}"
+ },
+ "Die Daten bleiben erhalten. Windows fragt anschließend nach Administratorrechten.": {
+  "en": "The data is kept. Windows will then ask for administrator rights.",
+  "it": "I dati restano intatti. Windows chiederà poi i diritti di amministratore.",
+  "es": "Los datos se conservan. Después Windows solicitará permisos de administrador.",
+  "fr": "Les données sont conservées. Windows demandera ensuite les droits d'administrateur."
+ },
+ "Der Auftrag läuft am PC im Hintergrund weiter. Fenster trotzdem schließen?": {
+  "en": "The job continues on this PC in the background. Close the window anyway?",
+  "it": "L'operazione continua sul PC in background. Chiudere comunque la finestra?",
+  "es": "La tarea continúa en el PC en segundo plano. ¿Cerrar la ventana de todos modos?",
+  "fr": "L'opération continue sur ce PC en arrière-plan. Fermer quand même la fenêtre ?"
+ },
+ "Dieser Datenträger hat 4K-Sektoren: MBR fasst damit bis 16 TB – manche älteren Geräte kommen damit aber nicht zurecht.": {
+  "en": "This drive has 4K sectors: MBR can then hold up to 16 TB – but some older devices cannot handle that.",
+  "it": "Questa unità ha settori da 4K: così MBR gestisce fino a 16 TB – ma alcuni dispositivi più vecchi non lo supportano.",
+  "es": "Esta unidad tiene sectores de 4K: así MBR admite hasta 16 TB – pero algunos dispositivos antiguos no lo soportan.",
+  "fr": "Ce support a des secteurs de 4K : MBR gère alors jusqu'à 16 To – mais certains appareils anciens ne le supportent pas."
+ },
+ "vorher Echtheit und Tempo prüfen": {
+  "en": "check authenticity and speed first",
+  "it": "verifica prima autenticità e velocità",
+  "es": "comprobar antes autenticidad y velocidad",
+  "fr": "vérifier d'abord l'authenticité et la vitesse"
+ },
+ "wird neu aufgeteilt (Partitionsschema {scheme}):": {
+  "en": "will be repartitioned (partition scheme {scheme}):",
+  "it": "verrà ripartizionata (schema di partizione {scheme}):",
+  "es": "se volverá a particionar (esquema de particiones {scheme}):",
+  "fr": "sera repartitionné (schéma de partition {scheme}) :"
+ },
+ "das Laufwerk": {
+  "en": "the drive",
+  "it": "l'unità",
+  "es": "la unidad",
+  "fr": "le lecteur"
+ },
+ "keine": {
+  "en": "none",
+  "it": "nessuna",
+  "es": "ninguna",
+  "fr": "aucun"
+ },
+ "Standard": {
+  "en": "default",
+  "it": "predefinito",
+  "es": "estándar",
+  "fr": "par défaut"
+ },
+ "aktiv": {
+  "en": "active",
+  "it": "attiva",
+  "es": "activa",
+  "fr": "active"
+ },
+ "Partition": {
+  "en": "Partition",
+  "it": "Partizione",
+  "es": "Partición",
+  "fr": "Partition"
+ },
+ "Größe:": {
+  "en": "Size:",
+  "it": "Dimensione:",
+  "es": "Tamaño:",
+  "fr": "Taille :"
+ },
+ "Zuordnungseinheit:": {
+  "en": "Allocation unit:",
+  "it": "Unità di allocazione:",
+  "es": "Unidad de asignación:",
+  "fr": "Unité d'allocation :"
+ },
+ "Bezeichnung:": {
+  "en": "Label:",
+  "it": "Etichetta:",
+  "es": "Etiqueta:",
+  "fr": "Nom :"
+ },
+ "Partitionstyp:": {
+  "en": "Partition type:",
+  "it": "Tipo di partizione:",
+  "es": "Tipo de partición:",
+  "fr": "Type de partition :"
+ },
+ "Erst oben ein Laufwerk wählen.": {
+  "en": "Choose a drive above first.",
+  "it": "Scegli prima un'unità qui sopra.",
+  "es": "Elige primero una unidad arriba.",
+  "fr": "Choisissez d'abord un lecteur ci-dessus."
+ },
+ "den ganzen Rest ({size})": {
+  "en": "all the rest ({size})",
+  "it": "tutto il resto ({size})",
+  "es": "todo el resto ({size})",
+  "fr": "tout le reste ({size})"
+ },
+ "Startfähig (aktiv) – nur bei MBR": {
+  "en": "Bootable (active) – MBR only",
+  "it": "Avviabile (attiva) – solo con MBR",
+  "es": "Arrancable (activa) – solo con MBR",
+  "fr": "Amorçable (active) – MBR uniquement"
+ },
+ "Bitte eine Größe ab 1 MB angeben.": {
+  "en": "Please enter a size of at least 1 MB.",
+  "it": "Indica una dimensione di almeno 1 MB.",
+  "es": "Indica un tamaño de al menos 1 MB.",
+  "fr": "Veuillez indiquer une taille d'au moins 1 Mo."
+ },
+ "Es sind nur noch {size} frei.": {
+  "en": "Only {size} is still free.",
+  "it": "Restano liberi solo {size}.",
+  "es": "Solo quedan libres {size}.",
+  "fr": "Il ne reste que {size} de libre."
+ },
+ "{fs} passt nicht auf diese Größe.": {
+  "en": "{fs} does not fit this size.",
+  "it": "{fs} non è adatto a questa dimensione.",
+  "es": "{fs} no cabe en este tamaño.",
+  "fr": "{fs} ne convient pas à cette taille."
+ },
+ "Nr.": {
+  "en": "No.",
+  "it": "N.",
+  "es": "N.º",
+  "fr": "N°"
+ },
+ "Dateisystem": {
+  "en": "File system",
+  "it": "File system",
+  "es": "Sistema de archivos",
+  "fr": "Système de fichiers"
+ },
+ "Bezeichnung": {
+  "en": "Label",
+  "it": "Etichetta",
+  "es": "Etiqueta",
+  "fr": "Nom"
+ },
+ "Einheit": {
+  "en": "Unit",
+  "it": "Unità",
+  "es": "Unidad",
+  "fr": "Unité"
+ },
+ "Typ": {
+  "en": "Type",
+  "it": "Tipo",
+  "es": "Tipo",
+  "fr": "Type"
+ },
+ "Hinzufügen …": {
+  "en": "Add …",
+  "it": "Aggiungi …",
+  "es": "Añadir …",
+  "fr": "Ajouter …"
+ },
+ "Bearbeiten …": {
+  "en": "Edit …",
+  "it": "Modifica …",
+  "es": "Editar …",
+  "fr": "Modifier …"
+ },
+ "nach vorn": {
+  "en": "move up",
+  "it": "sposta su",
+  "es": "subir",
+  "fr": "monter"
+ },
+ "nach hinten": {
+  "en": "move down",
+  "it": "sposta giù",
+  "es": "bajar",
+  "fr": "descendre"
+ },
+ "Rest ({size})": {
+  "en": "rest ({size})",
+  "it": "resto ({size})",
+  "es": "resto ({size})",
+  "fr": "reste ({size})"
+ },
+ "Rest": {
+  "en": "rest",
+  "it": "resto",
+  "es": "resto",
+  "fr": "reste"
+ },
+ "{n} Partition(en), noch frei: {size}. Doppelklick auf eine Partition zum Bearbeiten.": {
+  "en": "{n} partition(s), still free: {size}. Double-click a partition to edit it.",
+  "it": "{n} partizione/i, ancora libero: {size}. Doppio clic su una partizione per modificarla.",
+  "es": "{n} partición(es), aún libre: {size}. Haz doble clic en una partición para editarla.",
+  "fr": "{n} partition(s), encore libre : {size}. Double-cliquez sur une partition pour la modifier."
+ },
+ "{n} Partition(en), Datenträger voll aufgeteilt. Doppelklick auf eine Partition zum Bearbeiten.": {
+  "en": "{n} partition(s), drive fully allocated. Double-click a partition to edit it.",
+  "it": "{n} partizione/i, unità interamente suddivisa. Doppio clic su una partizione per modificarla.",
+  "es": "{n} partición(es), unidad totalmente repartida. Haz doble clic en una partición para editarla.",
+  "fr": "{n} partition(s), support entièrement réparti. Double-cliquez sur une partition pour la modifier."
+ },
+ "Kein Platz mehr frei.": {
+  "en": "No free space left.",
+  "it": "Non c'è più spazio libero.",
+  "es": "No queda espacio libre.",
+  "fr": "Plus d'espace libre."
+ },
+ "Aufteilung erscheint nach Wahl des Laufwerks": {
+  "en": "The layout appears after choosing a drive",
+  "it": "Lo schema appare dopo aver scelto l'unità",
+  "es": "La distribución aparece tras elegir la unidad",
+  "fr": "Le partitionnement apparaît après le choix du lecteur"
+ },
+ "Einheit {size}": {
+  "en": "unit {size}",
+  "it": "unità {size}",
+  "es": "unidad {size}",
+  "fr": "unité {size}"
+ },
+ "Typ {name}": {
+  "en": "type {name}",
+  "it": "tipo {name}",
+  "es": "tipo {name}",
+  "fr": "type {name}"
+ },
+ "startfähig": {
+  "en": "bootable",
+  "it": "avviabile",
+  "es": "arrancable",
+  "fr": "amorçable"
+ },
+ "Übernehmen": {
+  "en": "Apply",
+  "it": "Applica",
+  "es": "Aplicar",
+  "fr": "Appliquer"
+ },
+ "frei {size}": {
+  "en": "free {size}",
+  "it": "libero {size}",
+  "es": "libre {size}",
+  "fr": "libre {size}"
+ },
+ "{fs} passt nicht auf {size}": {
+  "en": "{fs} does not fit {size}",
+  "it": "{fs} non è adatto a {size}",
+  "es": "{fs} no cabe en {size}",
+  "fr": "{fs} ne tient pas sur {size}"
+ },
+ "{model} (Datenträger {disk}) – {size} – {vols}": {
+  "en": "{model} (disk {disk}) – {size} – {vols}",
+  "it": "{model} (disco {disk}) – {size} – {vols}",
+  "es": "{model} (disco {disk}) – {size} – {vols}",
+  "fr": "{model} (disque {disk}) – {size} – {vols}"
+ },
+ "kein Windows-Laufwerk (leer, Linux oder Mac)": {
+  "en": "no Windows drive (empty, Linux or Mac)",
+  "it": "nessuna unità Windows (vuota, Linux o Mac)",
+  "es": "ninguna unidad de Windows (vacía, Linux o Mac)",
+  "fr": "aucun lecteur Windows (vide, Linux ou Mac)"
+ },
+ "Laufwerk {letters}": {
+  "en": "Drive {letters}",
+  "it": "Unità {letters}",
+  "es": "Unidad {letters}",
+  "fr": "Lecteur {letters}"
+ },
+ "Der Helfer usbfmt_win.exe lässt sich nicht öffnen (wird er gerade verändert?).": {
+  "en": "The helper usbfmt_win.exe cannot be opened (is it being modified?).",
+  "it": "Impossibile aprire l'helper usbfmt_win.exe (è in corso di modifica?).",
+  "es": "No se puede abrir el asistente usbfmt_win.exe (¿se está modificando?).",
+  "fr": "Impossible d'ouvrir l'assistant usbfmt_win.exe (est-il en cours de modification ?)."
+ },
+ "Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. Bitte das Programm neu herunterladen.": {
+  "en": "The helper usbfmt_win.exe has been modified – not started for security reasons. Please download the program again.",
+  "it": "L'helper usbfmt_win.exe è stato modificato – non avviato per motivi di sicurezza. Scarica di nuovo il programma.",
+  "es": "El asistente usbfmt_win.exe ha sido modificado – no se inició por motivos de seguridad. Vuelve a descargar el programa.",
+  "fr": "L'assistant usbfmt_win.exe a été modifié – non lancé pour des raisons de sécurité. Veuillez retélécharger le programme."
+ },
+ "usbfmt_win.exe fehlt neben dem Programm.": {
+  "en": "usbfmt_win.exe is missing next to the program.",
+  "it": "usbfmt_win.exe manca accanto al programma.",
+  "es": "Falta usbfmt_win.exe junto al programa.",
+  "fr": "usbfmt_win.exe est absent à côté du programme."
+ },
+ "Helfer meldet Fehler {code}: {text}": {
+  "en": "Helper reports error {code}: {text}",
+  "it": "L'helper segnala l'errore {code}: {text}",
+  "es": "El asistente informa del error {code}: {text}",
+  "fr": "L'assistant signale l'erreur {code} : {text}"
+ },
+ "ohne Buchstaben": {
+  "en": "no letter",
+  "it": "senza lettera",
+  "es": "sin letra",
+  "fr": "sans lettre"
+ },
+ "Der Helfer usbfmt_win.exe lässt sich nicht lesen: {e}": {
+  "en": "The helper usbfmt_win.exe cannot be read: {e}",
+  "it": "Impossibile leggere l'helper usbfmt_win.exe: {e}",
+  "es": "No se puede leer el asistente usbfmt_win.exe: {e}",
+  "fr": "Impossible de lire l'assistant usbfmt_win.exe : {e}"
+ },
+ "{size} belegt": {
+  "en": "{size} used",
+  "it": "{size} occupati",
+  "es": "{size} ocupados",
+  "fr": "{size} utilisés"
+ },
+ "Arbeitsordner im Temp-Verzeichnis ließ sich nicht anlegen.": {
+  "en": "Could not create a working folder in the Temp directory.",
+  "it": "Impossibile creare una cartella di lavoro nella cartella Temp.",
+  "es": "No se pudo crear una carpeta de trabajo en el directorio Temp.",
+  "fr": "Impossible de créer un dossier de travail dans le répertoire Temp."
+ },
+ "Helfer wurde gestartet, aber Windows liefert keinen Prozess dazu.": {
+  "en": "The helper was started, but Windows returned no process for it.",
+  "it": "L'helper è stato avviato, ma Windows non ha restituito alcun processo.",
+  "es": "El asistente se inició, pero Windows no devolvió ningún proceso.",
+  "fr": "L'assistant a été lancé, mais Windows n'a renvoyé aucun processus."
+ },
+ "(ohne Buchstaben)": {
+  "en": "(no letter)",
+  "it": "(senza lettera)",
+  "es": "(sin letra)",
+  "fr": "(sans lettre)"
+ },
+ "Helfer konnte nicht gestartet werden (Windows-Fehler {code}).": {
+  "en": "The helper could not be started (Windows error {code}).",
+  "it": "Impossibile avviare l'helper (errore Windows {code}).",
+  "es": "No se pudo iniciar el asistente (error de Windows {code}).",
+  "fr": "Impossible de lancer l'assistant (erreur Windows {code})."
+ },
+ "OK": {
+  "en": "OK",
+  "it": "OK",
+  "es": "Aceptar",
+  "fr": "OK"
+ },
+ "keine Angabe": {
+  "en": "no details",
+  "it": "nessun dettaglio",
+  "es": "sin detalles",
+  "fr": "aucun détail"
+ },
+ "Ohne Administratorrechte lässt Windows keine Datenträger bearbeiten.": {
+  "en": "Without administrator rights Windows does not allow drives to be modified.",
+  "it": "Senza diritti di amministratore Windows non consente di modificare le unità.",
+  "es": "Sin permisos de administrador, Windows no permite modificar unidades.",
+  "fr": "Sans droits d'administrateur, Windows ne permet pas de modifier les supports."
+ },
+ "Der Helfer wurde unerwartet beendet (Code {code}).": {
+  "en": "The helper ended unexpectedly (code {code}).",
+  "it": "L'helper si è chiuso in modo imprevisto (codice {code}).",
+  "es": "El asistente terminó de forma inesperada (código {code}).",
+  "fr": "L'assistant s'est arrêté de façon inattendue (code {code})."
+ },
+ "Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen.": {
+  "en": "The helper has not reported anything for 30 minutes – cancelled.",
+  "it": "L'helper non segnala nulla da 30 minuti – interrotto.",
+  "es": "El asistente no informa nada desde hace 30 minutos – cancelado.",
+  "fr": "L'assistant ne signale plus rien depuis 30 minutes – annulé."
+ },
+ "Bleibt leer (z. B. für ein späteres Betriebssystem). Windows zeigt sie nicht an.": {
+  "en": "Stays empty (e.g. for an operating system later). Windows does not show it.",
+  "it": "Resta vuota (ad es. per un sistema operativo da installare). Windows non la mostra.",
+  "es": "Queda vacía (p. ej. para un sistema operativo posterior). Windows no la muestra.",
+  "fr": "Reste vide (par ex. pour un futur système d'exploitation). Windows ne l'affiche pas."
+ },
+ "Mindestens eine Partition anlegen.": {
+  "en": "Create at least one partition.",
+  "it": "Crea almeno una partizione.",
+  "es": "Crea al menos una partición.",
+  "fr": "Créez au moins une partition."
+ },
+ "MBR fasst höchstens 4 Partitionen – bitte GPT wählen.": {
+  "en": "MBR holds at most 4 partitions – please choose GPT.",
+  "it": "MBR gestisce al massimo 4 partizioni – scegli GPT.",
+  "es": "MBR admite como máximo 4 particiones – elige GPT.",
+  "fr": "MBR gère au maximum 4 partitions – veuillez choisir GPT."
+ },
+ "Höchstens {n} Partitionen.": {
+  "en": "At most {n} partitions.",
+  "it": "Al massimo {n} partizioni.",
+  "es": "Como máximo {n} particiones.",
+  "fr": "{n} partitions au maximum."
+ },
+ "Partition {n} ist kleiner als 1 MB.": {
+  "en": "Partition {n} is smaller than 1 MB.",
+  "it": "La partizione {n} è più piccola di 1 MB.",
+  "es": "La partición {n} es menor de 1 MB.",
+  "fr": "La partition {n} fait moins de 1 Mo."
+ },
+ "Nur die letzte Partition darf den Rest bekommen.": {
+  "en": "Only the last partition may take the rest.",
+  "it": "Solo l'ultima partizione può occupare il resto.",
+  "es": "Solo la última partición puede ocupar el resto.",
+  "fr": "Seule la dernière partition peut prendre le reste."
+ },
+ "Partition {n} passt nicht mehr – es fehlen {size}.": {
+  "en": "Partition {n} no longer fits – {size} is missing.",
+  "it": "La partizione {n} non entra più – mancano {size}.",
+  "es": "La partición {n} ya no cabe – faltan {size}.",
+  "fr": "La partition {n} ne tient plus – il manque {size}."
+ },
+ "Für Partition {n} ist kein Platz mehr.": {
+  "en": "There is no space left for partition {n}.",
+  "it": "Non c'è più spazio per la partizione {n}.",
+  "es": "No queda espacio para la partición {n}.",
+  "fr": "Il n'y a plus de place pour la partition {n}."
+ },
+ "Für USB-Sticks und Speicherkarten: Windows, macOS, Linux, Kameras und Konsolen – Dateien beliebig groß.": {
+  "en": "For USB sticks and memory cards: Windows, macOS, Linux, cameras and consoles – files of any size.",
+  "it": "Per chiavette USB e schede di memoria: Windows, macOS, Linux, fotocamere e console – file di qualsiasi dimensione.",
+  "es": "Para memorias USB y tarjetas: Windows, macOS, Linux, cámaras y consolas – archivos de cualquier tamaño.",
+  "fr": "Pour clés USB et cartes mémoire : Windows, macOS, Linux, appareils photo et consoles – fichiers de toute taille."
+ },
+ "Läuft fast überall (Autoradio, Fernseher, ältere Geräte) – Dateien aber höchstens 4 GB.": {
+  "en": "Works almost everywhere (car radio, TV, older devices) – but files are limited to 4 GB.",
+  "it": "Funziona quasi ovunque (autoradio, TV, dispositivi più vecchi) – ma file al massimo di 4 GB.",
+  "es": "Funciona casi en todas partes (radio del coche, televisor, equipos antiguos) – pero archivos de 4 GB como máximo.",
+  "fr": "Fonctionne presque partout (autoradio, téléviseur, appareils anciens) – mais fichiers limités à 4 Go."
+ },
+ "Für Windows: Dateien beliebig groß, mit Journal und Zugriffsrechten. macOS kann NTFS nur lesen, viele Fernseher und Autoradios gar nicht.": {
+  "en": "For Windows: files of any size, with journal and access rights. macOS can only read NTFS, many TVs and car radios not at all.",
+  "it": "Per Windows: file di qualsiasi dimensione, con journal e permessi. macOS può solo leggere NTFS, molti TV e autoradio per niente.",
+  "es": "Para Windows: archivos de cualquier tamaño, con registro (journal) y permisos. macOS solo puede leer NTFS, muchos televisores y radios de coche ni eso.",
+  "fr": "Pour Windows : fichiers de toute taille, avec journal et droits d'accès. macOS ne peut que lire NTFS, beaucoup de téléviseurs et d'autoradios pas du tout."
+ },
+ "Für sehr alte Geräte: nur für Datenträger bis 4 GB, Dateien höchstens 2 GB.": {
+  "en": "For very old devices: only for drives up to 4 GB, files at most 2 GB.",
+  "it": "Per dispositivi molto vecchi: solo per unità fino a 4 GB, file al massimo di 2 GB.",
+  "es": "Para equipos muy antiguos: solo para unidades de hasta 4 GB, archivos de 2 GB como máximo.",
+  "fr": "Pour les appareils très anciens : seulement pour les supports jusqu'à 4 Go, fichiers de 2 Go au maximum."
+ },
+ "Das Linux-Dateisystem (auch Raspberry Pi, Steam Deck, NAS) – mit Journal, Dateien beliebig groß. Windows und macOS lesen es ohne Zusatzprogramm nicht.": {
+  "en": "The Linux file system (also Raspberry Pi, Steam Deck, NAS) – with journal, files of any size. Windows and macOS cannot read it without extra software.",
+  "it": "Il file system di Linux (anche Raspberry Pi, Steam Deck, NAS) – con journal, file di qualsiasi dimensione. Windows e macOS non lo leggono senza programmi aggiuntivi.",
+  "es": "El sistema de archivos de Linux (también Raspberry Pi, Steam Deck, NAS) – con registro (journal), archivos de cualquier tamaño. Windows y macOS no lo leen sin programas adicionales.",
+  "fr": "Le système de fichiers de Linux (aussi Raspberry Pi, Steam Deck, NAS) – avec journal, fichiers de toute taille. Windows et macOS ne le lisent pas sans logiciel supplémentaire."
+ },
+ "Älteres Linux-Dateisystem mit Journal – für ältere Linux-Geräte.": {
+  "en": "Older Linux file system with journal – for older Linux devices.",
+  "it": "File system Linux meno recente con journal – per dispositivi Linux più vecchi.",
+  "es": "Sistema de archivos de Linux anterior, con registro (journal) – para equipos Linux antiguos.",
+  "fr": "Ancien système de fichiers Linux avec journal – pour les appareils Linux anciens."
+ },
+ "Linux ohne Journal – für sehr alte Geräte oder kleine Speicher.": {
+  "en": "Linux without journal – for very old devices or small storage.",
+  "it": "Linux senza journal – per dispositivi molto vecchi o memorie piccole.",
+  "es": "Linux sin registro (journal) – para equipos muy antiguos o memorias pequeñas.",
+  "fr": "Linux sans journal – pour les appareils très anciens ou les petites mémoires."
+ },
+ "Für Macs (Mac OS Extended, ohne Journal – macOS kann es im Festplattendienstprogramm zuschalten). Windows liest es nicht, Linux schon.": {
+  "en": "For Macs (Mac OS Extended, without journal – macOS can enable it in Disk Utility). Windows cannot read it, Linux can.",
+  "it": "Per Mac (Mac OS esteso, senza journal – macOS può attivarlo in Utility Disco). Windows non lo legge, Linux sì.",
+  "es": "Para Mac (Mac OS Plus, sin registro – macOS puede activarlo en Utilidad de Discos). Windows no lo lee, Linux sí.",
+  "fr": "Pour Mac (Mac OS étendu, sans journal – macOS peut l'activer dans Utilitaire de disque). Windows ne le lit pas, Linux si."
+ },
+ "Automatisch – MBR, GPT erst wenn MBR nicht reicht (über 2 TB)": {
+  "en": "Automatic – MBR, GPT only when MBR is not enough (over 2 TB)",
+  "it": "Automatico – MBR, GPT solo se MBR non basta (oltre 2 TB)",
+  "es": "Automático – MBR, GPT solo si MBR no basta (más de 2 TB)",
+  "fr": "Automatique – MBR, GPT seulement si MBR ne suffit pas (plus de 2 To)"
+ },
+ "MBR – auch für ältere Geräte und Autoradios": {
+  "en": "MBR – also for older devices and car radios",
+  "it": "MBR – anche per dispositivi più vecchi e autoradio",
+  "es": "MBR – también para equipos antiguos y radios de coche",
+  "fr": "MBR – aussi pour les appareils anciens et les autoradios"
+ },
+ "GPT – für aktuelle PCs, auch für sehr große Datenträger": {
+  "en": "GPT – for current PCs, also for very large drives",
+  "it": "GPT – per PC attuali, anche per unità molto grandi",
+  "es": "GPT – para PC actuales, también para unidades muy grandes",
+  "fr": "GPT – pour les PC actuels, aussi pour les très gros supports"
+ },
+ "Automatisch (passend zum Dateisystem)": {
+  "en": "Automatic (matching the file system)",
+  "it": "Automatico (in base al file system)",
+  "es": "Automático (según el sistema de archivos)",
+  "fr": "Automatique (selon le système de fichiers)"
+ },
+ "Windows-Daten (Basic Data / 0x07)": {
+  "en": "Windows data (Basic Data / 0x07)",
+  "it": "Dati Windows (Basic Data / 0x07)",
+  "es": "Datos de Windows (Basic Data / 0x07)",
+  "fr": "Données Windows (Basic Data / 0x07)"
+ },
+ "Linux-Dateisystem (0x83)": {
+  "en": "Linux file system (0x83)",
+  "it": "File system Linux (0x83)",
+  "es": "Sistema de archivos Linux (0x83)",
+  "fr": "Système de fichiers Linux (0x83)"
+ },
+ "Linux-Auslagerung / Swap (0x82)": {
+  "en": "Linux swap (0x82)",
+  "it": "Swap Linux (0x82)",
+  "es": "Intercambio de Linux / swap (0x82)",
+  "fr": "Échange Linux / swap (0x82)"
+ },
+ "EFI-Systempartition (0xEF)": {
+  "en": "EFI system partition (0xEF)",
+  "it": "Partizione di sistema EFI (0xEF)",
+  "es": "Partición de sistema EFI (0xEF)",
+  "fr": "Partition système EFI (0xEF)"
+ },
+ "Apple HFS+ (0xAF)": {
+  "en": "Apple HFS+ (0xAF)",
+  "it": "Apple HFS+ (0xAF)",
+  "es": "Apple HFS+ (0xAF)",
+  "fr": "Apple HFS+ (0xAF)"
+ },
+ "automatisch": {
+  "en": "automatic",
+  "it": "automatico",
+  "es": "automático",
+  "fr": "automatique"
+ },
+ "Windows-Daten": {
+  "en": "Windows data",
+  "it": "Dati Windows",
+  "es": "Datos de Windows",
+  "fr": "Données Windows"
+ },
+ "Linux": {
+  "en": "Linux",
+  "it": "Linux",
+  "es": "Linux",
+  "fr": "Linux"
+ },
+ "Swap": {
+  "en": "Swap",
+  "it": "Swap",
+  "es": "Swap",
+  "fr": "Swap"
+ },
+ "EFI-System": {
+  "en": "EFI system",
+  "it": "Sistema EFI",
+  "es": "Sistema EFI",
+  "fr": "Système EFI"
+ },
+ "Apple HFS+": {
+  "en": "Apple HFS+",
+  "it": "Apple HFS+",
+  "es": "Apple HFS+",
+  "fr": "Apple HFS+"
+ },
+ "USB an der PS5": {
+  "en": "USB on the PS5",
+  "it": "USB sulla PS5",
+  "es": "USB en la PS5",
+  "fr": "USB sur la PS5"
+ },
+ "USB am PC (für PS5)": {
+  "en": "USB on PC (for PS5)",
+  "it": "USB sul PC (per PS5)",
+  "es": "USB en el PC (para PS5)",
+  "fr": "USB sur PC (pour PS5)"
+ },
+ "Am PC Standard": {
+  "en": "PC standard",
+  "it": "PC standard",
+  "es": "PC estándar",
+  "fr": "PC standard"
+ },
+ "Ohne Dateisystem": {
+  "en": "No file system",
+  "it": "Senza file system",
+  "es": "Sin sistema de archivos",
+  "fr": "Sans système de fichiers"
+ },
+ "Hilfe": {
+  "en": "Help",
+  "it": "Aiuto",
+  "es": "Ayuda",
+  "fr": "Aide"
+ },
+ "Die Anleitung ließ sich nicht öffnen: {e}": {
+  "en": "Could not open the guide: {e}",
+  "it": "Impossibile aprire la guida: {e}",
+  "es": "No se pudo abrir la guía: {e}",
+  "fr": "Impossible d'ouvrir le guide : {e}"
+ }
+}

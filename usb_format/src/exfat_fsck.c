@@ -28,6 +28,7 @@
 #include "fsck.h"
 
 #include "exfat_fsck.h"
+#include "i18n.h"
 
 int exfatprogs_fsck_main(int argc, char *const argv[]);
 
@@ -204,15 +205,15 @@ int exfat_fsck_run(int fd, uint64_t start, uint64_t size, uint32_t ss, int repai
 
 void exfat_fsck_summary(const fsck_result_t *r, int repair, char *out, size_t n) {
     char counts[64] = "";
-    if (r->dirs >= 0 && r->files >= 0) snprintf(counts, sizeof(counts), " (%ld Ordner, %ld Dateien)", r->dirs, r->files);
+    if (r->dirs >= 0 && r->files >= 0) snprintf(counts, sizeof(counts), T(" (%ld Ordner, %ld Dateien)"), r->dirs, r->files);
     if (r->code == 0)
-        snprintf(out, n, "Keine Fehler gefunden%s.", counts);
+        snprintf(out, n, T("Keine Fehler gefunden%s."), counts);
     else if (r->code == 1)
-        snprintf(out, n, "Fehler gefunden und behoben%s.", counts);
+        snprintf(out, n, T("Fehler gefunden und behoben%s."), counts);
     else if (r->code & 4)
-        snprintf(out, n, repair ? "Es sind Fehler übrig geblieben, die sich nicht beheben ließen%s. "
-                                  "Wichtige Daten sichern und neu formatieren."
-                                : "Fehler gefunden%s. Mit „Reparieren“ beheben.", counts);
+        snprintf(out, n, repair ? T("Es sind Fehler übrig geblieben, die sich nicht beheben ließen%s. "
+                                    "Wichtige Daten sichern und neu formatieren.")
+                                : T("Fehler gefunden%s. Mit „Reparieren“ beheben."), counts);
     else
-        snprintf(out, n, "Prüfen war nicht möglich (exFAT-Dateisystem nicht lesbar oder beschädigt).");
+        snprintf(out, n, "%s", T("Prüfen war nicht möglich (exFAT-Dateisystem nicht lesbar oder beschädigt)."));
 }

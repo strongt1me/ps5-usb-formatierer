@@ -3,6 +3,8 @@ rem Baut beide Windows-Programme (benoetigt: pip install pyinstaller pillow zigl
 rem   PS5-USB-Formatierer.exe  PS5 im Netz, USB am PC fuer die PS5 und "Am PC Standard"
 rem   USB-Formatierer.exe      nur "Am PC Standard": frei formatieren, ohne PS5-Funktionen
 rem usb_format.elf muss vorher gebaut sein und wird in die PS5-Fassung eingebettet.
+rem In beiden: Helfer usbfmt_win.exe, mke2fs.exe (ext2/3/4, GPL) samt Lizenzhinweis, Uebersetzungen und die
+rem Anleitung (usb_format\web\help.html, dieselbe wie in der Weboberflaeche).
 setlocal
 cd /d "%~dp0"
 if not exist "..\usb_format\usb_format.elf" (
@@ -10,15 +12,19 @@ if not exist "..\usb_format\usb_format.elf" (
     exit /b 1
 )
 if not exist app.ico python make_icon.py || exit /b 1
-rem Windows-Helfer fuer die Arbeit am PC (benoetigt: pip install ziglang)
+rem Uebersetzungen vollstaendig?
+python i18n_check.py || exit /b 1
+rem Windows-Helfer fuer die Arbeit am PC (benoetigt: pip install ziglang); baut bei Bedarf auch mke2fs.exe
 powershell -NoProfile -ExecutionPolicy Bypass -File build_helper.ps1 || exit /b 1
+set COMMON=--add-data "app.ico;." --add-binary "usbfmt_win.exe;." --add-binary "mke2fs.exe;." ^
+    --add-data "mke2fs\NOTICE.txt;lizenzen\mke2fs" --add-data "i18n_app.json;." ^
+    --add-data "..\usb_format\web\help.html;."
 python -m PyInstaller --noconfirm --clean --windowed --onefile ^
-    --name "PS5-USB-Formatierer" --icon app.ico ^
-    --add-data "app.ico;." --add-data "..\usb_format\usb_format.elf;." --add-binary "usbfmt_win.exe;." ^
+    --name "PS5-USB-Formatierer" --icon app.ico %COMMON% ^
+    --add-data "..\usb_format\usb_format.elf;." ^
     usb_formatierer.py || exit /b 1
 python -m PyInstaller --noconfirm --clean --windowed --onefile ^
-    --name "USB-Formatierer" --icon app.ico ^
-    --add-data "app.ico;." --add-binary "usbfmt_win.exe;." ^
+    --name "USB-Formatierer" --icon app.ico %COMMON% ^
     usb_standard.py || exit /b 1
 echo.
 echo Fertig: "%~dp0dist\PS5-USB-Formatierer.exe"

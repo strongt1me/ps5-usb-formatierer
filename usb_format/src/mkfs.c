@@ -13,6 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "i18n.h"
 #include "mkfs.h"
 #include "mkfs_int.h"
 #include "upcase.h"
@@ -30,10 +31,11 @@ static uint8_t *zbuf;
 const char *mkfs_error(void) { return errbuf; }
 const char *mkfs_summary(void) { return sumbuf; }
 
+/* Fehlertext in der Sprache des Threads (fmt ist der deutsche Text, siehe i18n.h) */
 static int fail(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
+    vsnprintf(errbuf, sizeof(errbuf), T(fmt), ap);
     va_end(ap);
     return -1;
 }
@@ -50,9 +52,9 @@ static int log2u(uint32_t v) {
 
 /* 512 -> "512 Byte", 65536 -> "64 KB", 33554432 -> "32 MB" */
 static const char *size_text(uint32_t bytes, char *buf, size_t n) {
-    if (bytes >= MIB && bytes % MIB == 0) snprintf(buf, n, "%u MB", bytes / MIB);
-    else if (bytes >= 1024 && bytes % 1024 == 0) snprintf(buf, n, "%u KB", bytes / 1024);
-    else snprintf(buf, n, "%u Byte", bytes);
+    if (bytes >= MIB && bytes % MIB == 0) snprintf(buf, n, "%u %s", bytes / MIB, T("MB"));
+    else if (bytes >= 1024 && bytes % 1024 == 0) snprintf(buf, n, "%u %s", bytes / 1024, T("KB"));
+    else snprintf(buf, n, "%u %s", bytes, T("Byte"));
     return buf;
 }
 
@@ -67,7 +69,7 @@ static void report(blkdev_t *d, const char *step, int pct) {
     int all = ph_lo + pct * (ph_hi - ph_lo) / 100;
     if (all < ph_last) all = ph_last;
     ph_last = all;
-    if (d->progress) d->progress(step, all);
+    if (d->progress) d->progress(T(step), all);   /* Schrittname in der Sprache des Threads */
 }
 
 static int dev_write(blkdev_t *d, uint64_t sec, const void *buf, uint64_t nsec) {
@@ -445,7 +447,7 @@ int mkfs_fat32(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
     report(d, "Dateisystem schreiben", 100);
 
     char cs[24];
-    snprintf(sumbuf, sizeof(sumbuf), "FAT32, %s Cluster, %llu Cluster", size_text(csize, cs, sizeof(cs)),
+    snprintf(sumbuf, sizeof(sumbuf), T("FAT32, %s Cluster, %llu Cluster"), size_text(csize, cs, sizeof(cs)),
              (unsigned long long)clusters);
     rc = 0;
 out:
@@ -697,7 +699,7 @@ int mkfs_exfat(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
 #undef CLUSTER_SEC
 
     char cs[24];
-    snprintf(sumbuf, sizeof(sumbuf), "exFAT, %s Cluster, %llu Cluster", size_text(csize, cs, sizeof(cs)),
+    snprintf(sumbuf, sizeof(sumbuf), T("exFAT, %s Cluster, %llu Cluster"), size_text(csize, cs, sizeof(cs)),
              (unsigned long long)count);
     rc = 0;
 out:
@@ -1019,7 +1021,7 @@ int layout_disk(blkdev_t *d, int scheme, uint64_t limit, part_t *p, int n, uint3
 int mk_fail(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
+    vsnprintf(errbuf, sizeof(errbuf), T(fmt), ap);
     va_end(ap);
     return -1;
 }
@@ -1027,7 +1029,7 @@ int mk_fail(const char *fmt, ...) {
 void mk_summary(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(sumbuf, sizeof(sumbuf), fmt, ap);
+    vsnprintf(sumbuf, sizeof(sumbuf), T(fmt), ap);
     va_end(ap);
 }
 

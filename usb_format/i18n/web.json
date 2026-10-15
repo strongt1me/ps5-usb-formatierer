@@ -1,0 +1,1160 @@
+{
+ "QR-Code für {url}": {
+  "en": "QR code for {url}",
+  "it": "Codice QR per {url}",
+  "es": "Código QR para {url}",
+  "fr": "Code QR pour {url}"
+ },
+ "USB-Laufwerk": {
+  "en": "USB drive",
+  "it": "Unità USB",
+  "es": "Unidad USB",
+  "fr": "Lecteur USB"
+ },
+ "exFAT (empfohlen)": {
+  "en": "exFAT (recommended)",
+  "it": "exFAT (consigliato)",
+  "es": "exFAT (recomendado)",
+  "fr": "exFAT (recommandé)"
+ },
+ "FAT32 – Dateien höchstens 4 GB": {
+  "en": "FAT32 – files up to 4 GB",
+  "it": "FAT32 – file al massimo 4 GB",
+  "es": "FAT32 – archivos de 4 GB como máximo",
+  "fr": "FAT32 – fichiers de 4 Go maximum"
+ },
+ "exFAT – freie Zuordnungseinheit": {
+  "en": "exFAT – any allocation unit",
+  "it": "exFAT – unità di allocazione libera",
+  "es": "exFAT – unidad de asignación libre",
+  "fr": "exFAT – unité d'allocation libre"
+ },
+ "FAT32 – freie Zuordnungseinheit": {
+  "en": "FAT32 – any allocation unit",
+  "it": "FAT32 – unità di allocazione libera",
+  "es": "FAT32 – unidad de asignación libre",
+  "fr": "FAT32 – unité d'allocation libre"
+ },
+ "{n} Megabyte": {
+  "en": "{n} megabyte",
+  "it": "{n} megabyte",
+  "es": "{n} megabyte",
+  "fr": "{n} mégaoctet"
+ },
+ "{n} Megabytes": {
+  "en": "{n} megabytes",
+  "it": "{n} megabyte",
+  "es": "{n} megabytes",
+  "fr": "{n} mégaoctets"
+ },
+ "{n} Kilobyte": {
+  "en": "{n} kilobyte",
+  "it": "{n} kilobyte",
+  "es": "{n} kilobyte",
+  "fr": "{n} kilooctet"
+ },
+ "{n} Kilobytes": {
+  "en": "{n} kilobytes",
+  "it": "{n} kilobyte",
+  "es": "{n} kilobytes",
+  "fr": "{n} kilooctets"
+ },
+ "{n} Bytes": {
+  "en": "{n} bytes",
+  "it": "{n} byte",
+  "es": "{n} bytes",
+  "fr": "{n} octets"
+ },
+ "(Standard)": {
+  "en": "(default)",
+  "it": "(predefinita)",
+  "es": "(predeterminado)",
+  "fr": "(par défaut)"
+ },
+ "Standardgröße": {
+  "en": "Default size",
+  "it": "Dimensione predefinita",
+  "es": "Tamaño predeterminado",
+  "fr": "Taille par défaut"
+ },
+ "Windows-Größe": {
+  "en": "Windows size",
+  "it": "Dimensione di Windows",
+  "es": "Tamaño de Windows",
+  "fr": "Taille Windows"
+ },
+ "Automatisch (Standard: {size})": {
+  "en": "Automatic (default: {size})",
+  "it": "Automatica (predefinita: {size})",
+  "es": "Automático (predeterminado: {size})",
+  "fr": "Automatique (par défaut : {size})"
+ },
+ "Blockgröße": {
+  "en": "Block size",
+  "it": "Dimensione blocco",
+  "es": "Tamaño de bloque",
+  "fr": "Taille de bloc"
+ },
+ "Größe der Zuordnungseinheiten": {
+  "en": "Allocation unit size",
+  "it": "Dimensione unità di allocazione",
+  "es": "Tamaño de unidad de asignación",
+  "fr": "Taille d'unité d'allocation"
+ },
+ "Keine Verbindung zum Formatierer. Läuft er noch auf der PS5? Dann „Aktualisieren“ wählen.": {
+  "en": "No connection to the formatter. Is it still running on the PS5? Then choose “Refresh”.",
+  "it": "Nessuna connessione al formattatore. È ancora attivo sulla PS5? Allora scegli «Aggiorna».",
+  "es": "Sin conexión con el formateador. ¿Sigue en marcha en la PS5? Entonces elige «Actualizar».",
+  "fr": "Pas de connexion au formateur. Tourne-t-il encore sur la PS5 ? Choisissez alors « Actualiser »."
+ },
+ "leer": {
+  "en": "empty",
+  "it": "vuota",
+  "es": "vacía",
+  "fr": "vide"
+ },
+ "ohne Partition": {
+  "en": "no partition",
+  "it": "senza partizione",
+  "es": "sin partición",
+  "fr": "sans partition"
+ },
+ "Format unbekannt": {
+  "en": "unknown format",
+  "it": "formato sconosciuto",
+  "es": "formato desconocido",
+  "fr": "format inconnu"
+ },
+ "Kein USB-Laufwerk gefunden. Laufwerk einstecken und „Aktualisieren“ wählen.": {
+  "en": "No USB drive found. Plug in a drive and choose “Refresh”.",
+  "it": "Nessuna unità USB trovata. Collega un'unità e scegli «Aggiorna».",
+  "es": "No se encontró ninguna unidad USB. Conecta una unidad y elige «Actualizar».",
+  "fr": "Aucun lecteur USB trouvé. Branchez un lecteur et choisissez « Actualiser »."
+ },
+ "SSD im USB-Gehäuse": {
+  "en": "SSD in USB enclosure",
+  "it": "SSD in box USB",
+  "es": "SSD en caja USB",
+  "fr": "SSD en boîtier USB"
+ },
+ "No-Name-Stick": {
+  "en": "no-name stick",
+  "it": "chiavetta senza marca",
+  "es": "pendrive sin marca",
+  "fr": "clé sans marque"
+ },
+ "vom System gesperrt": {
+  "en": "locked by the system",
+  "it": "bloccata dal sistema",
+  "es": "bloqueada por el sistema",
+  "fr": "verrouillé par le système"
+ },
+ "eingebunden": {
+  "en": "mounted",
+  "it": "montata",
+  "es": "montada",
+  "fr": "monté"
+ },
+ "Gefälscht": {
+  "en": "Fake",
+  "it": "Contraffatta",
+  "es": "Falsificada",
+  "fr": "Contrefaite"
+ },
+ "Meldet {size}, echt nur {real} – für Spiele nicht empfohlen": {
+  "en": "Reports {size}, really only {real} – not recommended for games",
+  "it": "Dichiara {size}, in realtà solo {real} – sconsigliata per i giochi",
+  "es": "Indica {size}, en realidad solo {real} – no recomendada para juegos",
+  "fr": "Annonce {size}, réellement {real} seulement – déconseillée pour les jeux"
+ },
+ "von {total} belegt": {
+  "en": "of {total} used",
+  "it": "di {total} occupati",
+  "es": "de {total} ocupados",
+  "fr": "sur {total} utilisés"
+ },
+ "Spiel": {
+  "en": "game",
+  "it": "gioco",
+  "es": "juego",
+  "fr": "jeu"
+ },
+ "Spiele": {
+  "en": "games",
+  "it": "giochi",
+  "es": "juegos",
+  "fr": "jeux"
+ },
+ "von der PS5 eingebunden": {
+  "en": "mounted by the PS5",
+  "it": "montata dalla PS5",
+  "es": "montada por la PS5",
+  "fr": "monté par la PS5"
+ },
+ "frei – bereit zum Formatieren": {
+  "en": "free – ready to format",
+  "it": "libera – pronta per la formattazione",
+  "es": "libre – lista para formatear",
+  "fr": "libre – prêt à formater"
+ },
+ "Oben ein Laufwerk wählen.": {
+  "en": "Choose a drive above.",
+  "it": "Scegli un'unità qui sopra.",
+  "es": "Elige una unidad arriba.",
+  "fr": "Choisissez un lecteur ci-dessus."
+ },
+ "Gefälschter Speicher: echt nur {real}": {
+  "en": "Fake capacity: really only {real}",
+  "it": "Memoria contraffatta: in realtà solo {real}",
+  "es": "Memoria falsificada: en realidad solo {real}",
+  "fr": "Capacité contrefaite : réellement {real} seulement"
+ },
+ "Meldet {size}, hat aber nur {real} echten Speicher. Was darüber hinaus gespeichert wird, geht unbemerkt verloren.": {
+  "en": "Reports {size} but has only {real} of real storage. Anything stored beyond that is silently lost.",
+  "it": "Dichiara {size} ma ha solo {real} di memoria reale. Ciò che viene salvato oltre va perso senza avviso.",
+  "es": "Indica {size} pero solo tiene {real} de memoria real. Lo que se guarde más allá se pierde sin aviso.",
+  "fr": "Annonce {size} mais n'a que {real} de mémoire réelle. Ce qui est enregistré au-delà est perdu sans avertissement."
+ },
+ "Die Partition nutzt nur den echten Bereich.": {
+  "en": "The partition only uses the real area.",
+  "it": "La partizione usa solo l'area reale.",
+  "es": "La partición solo usa la zona real.",
+  "fr": "La partition n'utilise que la zone réelle."
+ },
+ "Die jetzige Partition reicht darüber hinaus – neu formatieren, dann wird nur der echte Bereich genutzt.": {
+  "en": "The current partition extends beyond it – format again, then only the real area is used.",
+  "it": "La partizione attuale va oltre – formatta di nuovo, così verrà usata solo l'area reale.",
+  "es": "La partición actual va más allá – vuelve a formatear y solo se usará la zona real.",
+  "fr": "La partition actuelle dépasse cette zone – reformatez, seule la zone réelle sera alors utilisée."
+ },
+ "Für Spiele an der PS5 besser nicht verwenden: Gefälschte Sticks haben meist minderwertigen Speicher, sind langsam und können auch im echten Bereich Daten verlieren – höchstens für unwichtige Dateien.": {
+  "en": "Better not use it for PS5 games: fake sticks usually have low-quality memory, are slow and can lose data even in the real area – at most for unimportant files.",
+  "it": "Meglio non usarla per i giochi PS5: le chiavette contraffatte hanno di solito memoria scadente, sono lente e possono perdere dati anche nell'area reale – al massimo per file non importanti.",
+  "es": "Mejor no usarla para juegos de PS5: los pendrives falsificados suelen tener memoria de baja calidad, son lentos y pueden perder datos incluso en la zona real – como mucho para archivos sin importancia.",
+  "fr": "Mieux vaut ne pas l'utiliser pour les jeux PS5 : les clés contrefaites ont souvent une mémoire de mauvaise qualité, sont lentes et peuvent perdre des données même dans la zone réelle – au plus pour des fichiers sans importance."
+ },
+ "Inhalt nicht sichtbar": {
+  "en": "Content not visible",
+  "it": "Contenuto non visibile",
+  "es": "Contenido no visible",
+  "fr": "Contenu non visible"
+ },
+ "Die PS5 hat dieses Laufwerk nicht eingebunden ({format}) – seinen Inhalt kann der Formatierer nur bei eingebundenen Laufwerken zeigen.": {
+  "en": "The PS5 has not mounted this drive ({format}) – the formatter can only show the content of mounted drives.",
+  "it": "La PS5 non ha montato questa unità ({format}) – il formattatore può mostrare il contenuto solo delle unità montate.",
+  "es": "La PS5 no ha montado esta unidad ({format}) – el formateador solo puede mostrar el contenido de unidades montadas.",
+  "fr": "La PS5 n'a pas monté ce lecteur ({format}) – le formateur ne peut afficher que le contenu des lecteurs montés."
+ },
+ "PKG-Dateien": {
+  "en": "PKG files",
+  "it": "file PKG",
+  "es": "archivos PKG",
+  "fr": "fichiers PKG"
+ },
+ "frei": {
+  "en": "free",
+  "it": "liberi",
+  "es": "libres",
+  "fr": "libres"
+ },
+ "Laufwerk wird durchsucht …": {
+  "en": "Scanning drive …",
+  "it": "Ricerca nell'unità …",
+  "es": "Buscando en la unidad …",
+  "fr": "Analyse du lecteur …"
+ },
+ "Fertig": {
+  "en": "Done",
+  "it": "Fatto",
+  "es": "Listo",
+  "fr": "Terminé"
+ },
+ "Spiele löschen …": {
+  "en": "Delete games …",
+  "it": "Elimina giochi …",
+  "es": "Borrar juegos …",
+  "fr": "Supprimer des jeux …"
+ },
+ "Weniger anzeigen ▴": {
+  "en": "Show less ▴",
+  "it": "Mostra meno ▴",
+  "es": "Mostrar menos ▴",
+  "fr": "Afficher moins ▴"
+ },
+ "Alle {n} Spiele anzeigen ▾": {
+  "en": "Show all {n} games ▾",
+  "it": "Mostra tutti i {n} giochi ▾",
+  "es": "Mostrar los {n} juegos ▾",
+  "fr": "Afficher les {n} jeux ▾"
+ },
+ "{n} ausgewählt": {
+  "en": "{n} selected",
+  "it": "{n} selezionati",
+  "es": "{n} seleccionados",
+  "fr": "{n} sélectionnés"
+ },
+ "Spiele zum Löschen anhaken": {
+  "en": "Tick games to delete",
+  "it": "Seleziona i giochi da eliminare",
+  "es": "Marca los juegos que quieras borrar",
+  "fr": "Cochez les jeux à supprimer"
+ },
+ "Keine": {
+  "en": "None",
+  "it": "Nessuno",
+  "es": "Ninguno",
+  "fr": "Aucun"
+ },
+ "Alle": {
+  "en": "All",
+  "it": "Tutti",
+  "es": "Todos",
+  "fr": "Tous"
+ },
+ "{n} Spiele löschen": {
+  "en": "Delete {n} games",
+  "it": "Elimina {n} giochi",
+  "es": "Borrar {n} juegos",
+  "fr": "Supprimer {n} jeux"
+ },
+ "Löschen": {
+  "en": "Delete",
+  "it": "Elimina",
+  "es": "Borrar",
+  "fr": "Supprimer"
+ },
+ "Titel-ID unbekannt": {
+  "en": "title ID unknown",
+  "it": "ID titolo sconosciuto",
+  "es": "ID de título desconocido",
+  "fr": "ID de titre inconnu"
+ },
+ "Ordner": {
+  "en": "folder",
+  "it": "cartella",
+  "es": "carpeta",
+  "fr": "dossier"
+ },
+ "Abbild {kind}": {
+  "en": "image {kind}",
+  "it": "immagine {kind}",
+  "es": "imagen {kind}",
+  "fr": "image {kind}"
+ },
+ "Höchstens {n} Spiele auf einmal.": {
+  "en": "At most {n} games at once.",
+  "it": "Al massimo {n} giochi alla volta.",
+  "es": "Como máximo {n} juegos a la vez.",
+  "fr": "{n} jeux au maximum à la fois."
+ },
+ "Doppelt: {name} ({id})": {
+  "en": "Duplicate: {name} ({id})",
+  "it": "Doppione: {name} ({id})",
+  "es": "Duplicado: {name} ({id})",
+  "fr": "En double : {name} ({id})"
+ },
+ "ShadowMountPlus wechselt ständig zwischen diesen Fundorten – einen davon entfernen (über „Spiele löschen …“):": {
+  "en": "ShadowMountPlus keeps switching between these locations – remove one of them (via “Delete games …”):",
+  "it": "ShadowMountPlus passa di continuo tra queste posizioni – rimuovine una (con «Elimina giochi …»):",
+  "es": "ShadowMountPlus cambia constantemente entre estas ubicaciones – quita una de ellas (con «Borrar juegos …»):",
+  "fr": "ShadowMountPlus bascule sans cesse entre ces emplacements – supprimez-en un (via « Supprimer des jeux … ») :"
+ },
+ "Ordner: {list}": {
+  "en": "Folders: {list}",
+  "it": "Cartelle: {list}",
+  "es": "Carpetas: {list}",
+  "fr": "Dossiers : {list}"
+ },
+ "Lesen": {
+  "en": "Read",
+  "it": "Lettura",
+  "es": "Lectura",
+  "fr": "Lecture"
+ },
+ "schnell genug für Spiele": {
+  "en": "fast enough for games",
+  "it": "abbastanza veloce per i giochi",
+  "es": "suficientemente rápida para juegos",
+  "fr": "assez rapide pour les jeux"
+ },
+ "ausreichend": {
+  "en": "adequate",
+  "it": "sufficiente",
+  "es": "suficiente",
+  "fr": "suffisante"
+ },
+ "langsam": {
+  "en": "slow",
+  "it": "lenta",
+  "es": "lenta",
+  "fr": "lente"
+ },
+ "Schreiben": {
+  "en": "Write",
+  "it": "Scrittura",
+  "es": "Escritura",
+  "fr": "Écriture"
+ },
+ "Prüfen und Reparieren gibt es für exFAT.": {
+  "en": "Check and repair is available for exFAT.",
+  "it": "Controllo e riparazione sono disponibili per exFAT.",
+  "es": "Comprobar y reparar está disponible para exFAT.",
+  "fr": "La vérification et la réparation existent pour exFAT."
+ },
+ "Umbenennen geht bei exFAT und FAT32.": {
+  "en": "Renaming works with exFAT and FAT32.",
+  "it": "La rinomina funziona con exFAT e FAT32.",
+  "es": "Cambiar el nombre funciona con exFAT y FAT32.",
+  "fr": "Le renommage fonctionne avec exFAT et FAT32."
+ },
+ "Prüfen, Reparieren und Umbenennen melden das Laufwerk kurz ab; das Tempo wird nur gelesen.": {
+  "en": "Check, repair and rename briefly detach the drive; the speed test only reads.",
+  "it": "Controllo, riparazione e rinomina scollegano brevemente l'unità; la velocità viene solo letta.",
+  "es": "Comprobar, reparar y cambiar el nombre desconectan brevemente la unidad; la velocidad solo se lee.",
+  "fr": "La vérification, la réparation et le renommage déconnectent brièvement le lecteur ; la vitesse est seulement lue."
+ },
+ "Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (max. {n} Zeichen).": {
+  "en": "Only A–Z, 0–9, space, - and _ allowed (max. {n} characters).",
+  "it": "Consentiti solo A–Z, 0–9, spazio, - e _ (max. {n} caratteri).",
+  "es": "Solo se permiten A–Z, 0–9, espacio, - y _ (máx. {n} caracteres).",
+  "fr": "Seuls A–Z, 0–9, espace, - et _ sont autorisés ({n} caractères max.)."
+ },
+ "Bis zu {n} Zeichen: A–Z, 0–9, Leerzeichen, - und _": {
+  "en": "Up to {n} characters: A–Z, 0–9, space, - and _",
+  "it": "Fino a {n} caratteri: A–Z, 0–9, spazio, - e _",
+  "es": "Hasta {n} caracteres: A–Z, 0–9, espacio, - y _",
+  "fr": "Jusqu'à {n} caractères : A–Z, 0–9, espace, - et _"
+ },
+ "Bis zu 11 Zeichen: A–Z, 0–9, Leerzeichen, - und _": {
+  "en": "Up to 11 characters: A–Z, 0–9, space, - and _",
+  "it": "Fino a 11 caratteri: A–Z, 0–9, spazio, - e _",
+  "es": "Hasta 11 caracteres: A–Z, 0–9, espacio, - y _",
+  "fr": "Jusqu'à 11 caractères : A–Z, 0–9, espace, - et _"
+ },
+ "wird bei FAT32 großgeschrieben": {
+  "en": "converted to upper case with FAT32",
+  "it": "in maiuscolo con FAT32",
+  "es": "se escribe en mayúsculas con FAT32",
+  "fr": "mis en majuscules avec FAT32"
+ },
+ "Gefälschter Stick: Es wird nur der echte Bereich ({real} von {size}) formatiert.": {
+  "en": "Fake stick: only the real area ({real} of {size}) is formatted.",
+  "it": "Chiavetta contraffatta: viene formattata solo l'area reale ({real} di {size}).",
+  "es": "Pendrive falsificado: solo se formatea la zona real ({real} de {size}).",
+  "fr": "Clé contrefaite : seule la zone réelle ({real} sur {size}) est formatée."
+ },
+ "Gefälschter Stick: Die Prüfung testet den ganzen Stick erneut – danach lässt sich nur der echte Bereich nutzen.": {
+  "en": "Fake stick: the check tests the whole stick again – afterwards only the real area can be used.",
+  "it": "Chiavetta contraffatta: il controllo verifica di nuovo tutta la chiavetta – poi si potrà usare solo l'area reale.",
+  "es": "Pendrive falsificado: la comprobación vuelve a probar todo el pendrive – después solo se podrá usar la zona real.",
+  "fr": "Clé contrefaite : la vérification teste à nouveau toute la clé – ensuite seule la zone réelle sera utilisable."
+ },
+ "Für Spiele an der PS5 besser einen echten Datenträger verwenden.": {
+  "en": "For PS5 games, better use a genuine drive.",
+  "it": "Per i giochi PS5 meglio usare un'unità autentica.",
+  "es": "Para juegos de PS5, mejor usa una unidad auténtica.",
+  "fr": "Pour les jeux PS5, utilisez plutôt un support authentique."
+ },
+ "jede Stelle beschreiben und prüfen": {
+  "en": "write and verify every sector",
+  "it": "scrive e verifica ogni settore",
+  "es": "escribir y comprobar cada sector",
+  "fr": "écrire et vérifier chaque secteur"
+ },
+ "ca. {n} Stunden": {
+  "en": "approx. {n} hours",
+  "it": "circa {n} ore",
+  "es": "aprox. {n} horas",
+  "fr": "env. {n} heures"
+ },
+ "ca. {n} Minuten": {
+  "en": "approx. {n} minutes",
+  "it": "circa {n} minuti",
+  "es": "aprox. {n} minutos",
+  "fr": "env. {n} minutes"
+ },
+ "Verbindung zur PS5 fehlgeschlagen: {err}": {
+  "en": "Connection to the PS5 failed: {err}",
+  "it": "Connessione alla PS5 non riuscita: {err}",
+  "es": "Error de conexión con la PS5: {err}",
+  "fr": "Échec de la connexion à la PS5 : {err}"
+ },
+ "Abbrechen": {
+  "en": "Cancel",
+  "it": "Annulla",
+  "es": "Cancelar",
+  "fr": "Annuler"
+ },
+ "Verbindung zur PS5 unterbrochen – der Auftrag läuft dort weiter, Fortschritt wird weiter abgefragt …": {
+  "en": "Connection to the PS5 lost – the job continues there, still polling progress …",
+  "it": "Connessione alla PS5 interrotta – l'operazione prosegue lì, continuo a chiedere l'avanzamento …",
+  "es": "Conexión con la PS5 interrumpida – la tarea sigue allí, se sigue consultando el progreso …",
+  "fr": "Connexion à la PS5 interrompue – la tâche continue là-bas, la progression est toujours interrogée …"
+ },
+ "Ergebnis unbekannt": {
+  "en": "Result unknown",
+  "it": "Risultato sconosciuto",
+  "es": "Resultado desconocido",
+  "fr": "Résultat inconnu"
+ },
+ "Der Formatierer auf der PS5 wurde zwischendurch neu gestartet. Ob der Auftrag fertig wurde, ist nicht bekannt – bitte den Datenträger prüfen bzw. erneut formatieren.": {
+  "en": "The formatter on the PS5 was restarted in the meantime. Whether the job finished is unknown – please check the drive or format it again.",
+  "it": "Nel frattempo il formattatore sulla PS5 è stato riavviato. Non si sa se l'operazione è terminata – controlla l'unità o formattala di nuovo.",
+  "es": "Mientras tanto se reinició el formateador de la PS5. No se sabe si la tarea terminó – comprueba la unidad o vuelve a formatearla.",
+  "fr": "Le formateur de la PS5 a redémarré entre-temps. On ne sait pas si la tâche a abouti – vérifiez le support ou formatez-le à nouveau."
+ },
+ "Datenträger erfolgreich formatiert": {
+  "en": "Drive formatted successfully",
+  "it": "Unità formattata correttamente",
+  "es": "Unidad formateada correctamente",
+  "fr": "Support formaté avec succès"
+ },
+ "Formatieren abgebrochen": {
+  "en": "Formatting cancelled",
+  "it": "Formattazione annullata",
+  "es": "Formateo cancelado",
+  "fr": "Formatage annulé"
+ },
+ "Formatieren fehlgeschlagen": {
+  "en": "Formatting failed",
+  "it": "Formattazione non riuscita",
+  "es": "Error al formatear",
+  "fr": "Échec du formatage"
+ },
+ "exFAT geprüft: keine Fehler": {
+  "en": "exFAT checked: no errors",
+  "it": "exFAT controllato: nessun errore",
+  "es": "exFAT comprobado: sin errores",
+  "fr": "exFAT vérifié : aucune erreur"
+ },
+ "Fehler gefunden und behoben": {
+  "en": "Errors found and fixed",
+  "it": "Errori trovati e corretti",
+  "es": "Errores encontrados y corregidos",
+  "fr": "Erreurs trouvées et corrigées"
+ },
+ "Fehler ließen sich nicht beheben": {
+  "en": "Errors could not be fixed",
+  "it": "Impossibile correggere gli errori",
+  "es": "No se pudieron corregir los errores",
+  "fr": "Les erreurs n'ont pas pu être corrigées"
+ },
+ "Fehler gefunden": {
+  "en": "Errors found",
+  "it": "Errori trovati",
+  "es": "Errores encontrados",
+  "fr": "Erreurs trouvées"
+ },
+ "Spiele gelöscht": {
+  "en": "Games deleted",
+  "it": "Giochi eliminati",
+  "es": "Juegos borrados",
+  "fr": "Jeux supprimés"
+ },
+ "Nicht alles gelöscht": {
+  "en": "Not everything deleted",
+  "it": "Non tutto è stato eliminato",
+  "es": "No se borró todo",
+  "fr": "Tout n'a pas été supprimé"
+ },
+ "Nichts gelöscht": {
+  "en": "Nothing deleted",
+  "it": "Nulla eliminato",
+  "es": "No se borró nada",
+  "fr": "Rien supprimé"
+ },
+ "Prüfen nicht möglich": {
+  "en": "Check not possible",
+  "it": "Controllo impossibile",
+  "es": "No es posible comprobar",
+  "fr": "Vérification impossible"
+ },
+ "Startet": {
+  "en": "Starting",
+  "it": "Avvio",
+  "es": "Iniciando",
+  "fr": "Démarrage"
+ },
+ "OK": {
+  "en": "OK",
+  "it": "OK",
+  "es": "Aceptar",
+  "fr": "OK"
+ },
+ "gemeldet": {
+  "en": "reported",
+  "it": "dichiarati",
+  "es": "indicados",
+  "fr": "annoncés"
+ },
+ "echt": {
+  "en": "real",
+  "it": "reali",
+  "es": "reales",
+  "fr": "réels"
+ },
+ "lesen": {
+  "en": "read",
+  "it": "lettura",
+  "es": "lectura",
+  "fr": "lecture"
+ },
+ "Gefälschter Speicher erkannt": {
+  "en": "Fake capacity detected",
+  "it": "Rilevata memoria contraffatta",
+  "es": "Memoria falsificada detectada",
+  "fr": "Capacité contrefaite détectée"
+ },
+ "{name} meldet {size}, hat aber nur etwa {real} echten Speicher. Was darüber hinaus gespeichert wird, geht verloren – Spiele würden unbemerkt beschädigt.": {
+  "en": "{name} reports {size} but has only about {real} of real storage. Anything stored beyond that is lost – games would be damaged without notice.",
+  "it": "{name} dichiara {size} ma ha solo circa {real} di memoria reale. Ciò che viene salvato oltre va perso – i giochi verrebbero danneggiati senza avviso.",
+  "es": "{name} indica {size} pero solo tiene unos {real} de memoria real. Lo que se guarde más allá se pierde – los juegos se dañarían sin aviso.",
+  "fr": "{name} annonce {size} mais n'a qu'environ {real} de mémoire réelle. Ce qui est enregistré au-delà est perdu – les jeux seraient endommagés sans avertissement."
+ },
+ "Der Stick": {
+  "en": "The stick",
+  "it": "La chiavetta",
+  "es": "El pendrive",
+  "fr": "La clé"
+ },
+ "Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben. Für Spiele an der PS5 besser einen echten Datenträger verwenden – wenn überhaupt, dann nur den echten Bereich nutzen.": {
+  "en": "Nothing has been formatted yet – but the previous data was already overwritten by the check. For PS5 games, better use a genuine drive – if at all, only use the real area.",
+  "it": "Non è stato ancora formattato nulla – ma i dati precedenti sono già stati sovrascritti dal controllo. Per i giochi PS5 meglio usare un'unità autentica – se proprio, usa solo l'area reale.",
+  "es": "Todavía no se ha formateado nada – pero la comprobación ya sobrescribió los datos anteriores. Para juegos de PS5, mejor usa una unidad auténtica – y si acaso, solo la zona real.",
+  "fr": "Rien n'a encore été formaté – mais les données précédentes ont déjà été écrasées par la vérification. Pour les jeux PS5, utilisez plutôt un support authentique – ou à la rigueur uniquement la zone réelle."
+ },
+ "Schließen": {
+  "en": "Close",
+  "it": "Chiudi",
+  "es": "Cerrar",
+  "fr": "Fermer"
+ },
+ "Nur echte {real} formatieren": {
+  "en": "Format only the real {real}",
+  "it": "Formatta solo i {real} reali",
+  "es": "Formatear solo los {real} reales",
+  "fr": "Formater seulement les {real} réels"
+ },
+ "Fehlerhafte Bereiche gefunden": {
+  "en": "Bad areas found",
+  "it": "Trovate aree difettose",
+  "es": "Zonas defectuosas encontradas",
+  "fr": "Zones défectueuses trouvées"
+ },
+ "Auf diesem Datenträger können Daten verloren gehen. Besser einen anderen verwenden.": {
+  "en": "Data may be lost on this drive. Better use a different one.",
+  "it": "Su questa unità i dati possono andare persi. Meglio usarne un'altra.",
+  "es": "En esta unidad se pueden perder datos. Mejor usa otra.",
+  "fr": "Des données peuvent être perdues sur ce support. Utilisez-en plutôt un autre."
+ },
+ "Trotzdem formatieren": {
+  "en": "Format anyway",
+  "it": "Formatta comunque",
+  "es": "Formatear de todos modos",
+  "fr": "Formater quand même"
+ },
+ "Reparieren behebt die Fehler im Dateisystem. Beschädigte Dateien können dabei entfernt werden.": {
+  "en": "Repair fixes the errors in the file system. Damaged files may be removed in the process.",
+  "it": "La riparazione corregge gli errori del file system. I file danneggiati possono essere rimossi.",
+  "es": "Reparar corrige los errores del sistema de archivos. Los archivos dañados pueden eliminarse.",
+  "fr": "La réparation corrige les erreurs du système de fichiers. Les fichiers endommagés peuvent être supprimés."
+ },
+ "Später": {
+  "en": "Later",
+  "it": "Più tardi",
+  "es": "Más tarde",
+  "fr": "Plus tard"
+ },
+ "Jetzt reparieren": {
+  "en": "Repair now",
+  "it": "Ripara ora",
+  "es": "Reparar ahora",
+  "fr": "Réparer maintenant"
+ },
+ "derzeit {format}": {
+  "en": "currently {format}",
+  "it": "attualmente {format}",
+  "es": "actualmente {format}",
+  "fr": "actuellement {format}"
+ },
+ "Darauf liegen {what}": {
+  "en": "It contains {what}",
+  "it": "Contiene {what}",
+  "es": "Contiene {what}",
+  "fr": "Il contient {what}"
+ },
+ "PKG-Datei": {
+  "en": "PKG file",
+  "it": "file PKG",
+  "es": "archivo PKG",
+  "fr": "fichier PKG"
+ },
+ "und": {
+  "en": "and",
+  "it": "e",
+  "es": "y",
+  "fr": "et"
+ },
+ "{size} belegt": {
+  "en": "{size} used",
+  "it": "{size} occupati",
+  "es": "{size} ocupados",
+  "fr": "{size} utilisés"
+ },
+ "… und {n} weitere": {
+  "en": "… and {n} more",
+  "it": "… e altri {n}",
+  "es": "… y {n} más",
+  "fr": "… et {n} autres"
+ },
+ "Ich weiß, dass diese Spiele unwiderruflich gelöscht werden": {
+  "en": "I understand that these games will be deleted permanently",
+  "it": "So che questi giochi verranno eliminati definitivamente",
+  "es": "Sé que estos juegos se borrarán definitivamente",
+  "fr": "Je sais que ces jeux seront définitivement supprimés"
+ },
+ "Ich weiß, dass diese Dateien gelöscht werden": {
+  "en": "I understand that these files will be deleted",
+  "it": "So che questi file verranno eliminati",
+  "es": "Sé que estos archivos se borrarán",
+  "fr": "Je sais que ces fichiers seront supprimés"
+ },
+ "Der Inhalt wird noch durchsucht – möglicherweise liegen Spiele darauf": {
+  "en": "The content is still being scanned – there may be games on it",
+  "it": "Il contenuto è ancora in fase di ricerca – potrebbero esserci dei giochi",
+  "es": "Todavía se está buscando en el contenido – puede que haya juegos",
+  "fr": "Le contenu est encore en cours d'analyse – il contient peut-être des jeux"
+ },
+ "Ich weiß, dass alles darauf unwiderruflich gelöscht wird": {
+  "en": "I understand that everything on it will be deleted permanently",
+  "it": "So che tutto il contenuto verrà eliminato definitivamente",
+  "es": "Sé que todo su contenido se borrará definitivamente",
+  "fr": "Je sais que tout son contenu sera définitivement supprimé"
+ },
+ "Die PS5 nutzt das Laufwerk gerade – der Formatierer meldet es kurz per Software ab (klappt das nicht, bittet er, es abzuziehen und wieder einzustecken).": {
+  "en": "The PS5 is using the drive right now – the formatter briefly detaches it by software (if that fails, it will ask you to unplug it and plug it back in).",
+  "it": "La PS5 sta usando l'unità – il formattatore la scollega brevemente via software (se non funziona, ti chiederà di scollegarla e ricollegarla).",
+  "es": "La PS5 está usando la unidad – el formateador la desconecta brevemente por software (si no funciona, te pedirá que la desconectes y la vuelvas a conectar).",
+  "fr": "La PS5 utilise ce lecteur – le formateur le déconnecte brièvement par logiciel (si cela échoue, il vous demandera de le débrancher puis de le rebrancher)."
+ },
+ "Vollständig: jede Stelle wird beschrieben und geprüft – {time}.": {
+  "en": "Full: every sector is written and verified – {time}.",
+  "it": "Completa: ogni settore viene scritto e verificato – {time}.",
+  "es": "Completo: se escribe y comprueba cada sector – {time}.",
+  "fr": "Complet : chaque secteur est écrit et vérifié – {time}."
+ },
+ "Vorher werden Echtheit und Tempo geprüft.": {
+  "en": "Authenticity and speed are checked first.",
+  "it": "Prima vengono controllate autenticità e velocità.",
+  "es": "Antes se comprueban la autenticidad y la velocidad.",
+  "fr": "L'authenticité et la vitesse sont vérifiées d'abord."
+ },
+ "Gefälschter Stick: Nur die echten {real} werden genutzt.": {
+  "en": "Fake stick: only the real {real} are used.",
+  "it": "Chiavetta contraffatta: vengono usati solo i {real} reali.",
+  "es": "Pendrive falsificado: solo se usan los {real} reales.",
+  "fr": "Clé contrefaite : seuls les {real} réels sont utilisés."
+ },
+ "Dieses Format ist nicht für die Nutzung an der PS5 gedacht.": {
+  "en": "This format is not intended for use on the PS5.",
+  "it": "Questo formato non è pensato per l'uso con la PS5.",
+  "es": "Este formato no está pensado para usarse en la PS5.",
+  "fr": "Ce format n'est pas prévu pour la PS5."
+ },
+ "Das lässt sich nicht rückgängig machen.": {
+  "en": "This cannot be undone.",
+  "it": "Non è possibile annullare l'operazione.",
+  "es": "Esto no se puede deshacer.",
+  "fr": "Cette opération est irréversible."
+ },
+ "Alle Daten werden gelöscht": {
+  "en": "All data will be erased",
+  "it": "Tutti i dati verranno cancellati",
+  "es": "Se borrarán todos los datos",
+  "fr": "Toutes les données seront effacées"
+ },
+ "{dev} wird als {fs} formatiert.": {
+  "en": "{dev} will be formatted as {fs}.",
+  "it": "{dev} verrà formattata come {fs}.",
+  "es": "{dev} se formateará como {fs}.",
+  "fr": "{dev} sera formaté en {fs}."
+ },
+ "Formatieren": {
+  "en": "Format",
+  "it": "Formatta",
+  "es": "Formatear",
+  "fr": "Formater"
+ },
+ "Reparieren": {
+  "en": "Repair",
+  "it": "Ripara",
+  "es": "Reparar",
+  "fr": "Réparer"
+ },
+ "Prüfen": {
+  "en": "Check",
+  "it": "Controlla",
+  "es": "Comprobar",
+  "fr": "Vérifier"
+ },
+ "{dev} wird dafür kurz abgemeldet und danach von der PS5 wieder eingebunden.": {
+  "en": "{dev} is briefly detached for this and then mounted again by the PS5.",
+  "it": "{dev} viene scollegata brevemente e poi rimontata dalla PS5.",
+  "es": "{dev} se desconecta brevemente para ello y después la PS5 la vuelve a montar.",
+  "fr": "{dev} est brièvement déconnecté puis remonté par la PS5."
+ },
+ "Spiele und Apps, die von diesem Laufwerk laufen, vorher beenden.": {
+  "en": "Close games and apps running from this drive first.",
+  "it": "Chiudi prima i giochi e le app avviati da questa unità.",
+  "es": "Cierra antes los juegos y aplicaciones que se ejecuten desde esta unidad.",
+  "fr": "Fermez d'abord les jeux et applications lancés depuis ce lecteur."
+ },
+ "Auch die Kachel von der PS5-Startseite entfernen": {
+  "en": "Also remove the tile from the PS5 home screen",
+  "it": "Rimuovi anche il riquadro dalla schermata iniziale della PS5",
+  "es": "Quitar también el icono de la pantalla de inicio de la PS5",
+  "fr": "Retirer aussi la vignette de l'écran d'accueil de la PS5"
+ },
+ "Sonst bleibt eine Kachel ohne Spiel zurück": {
+  "en": "Otherwise a tile without a game remains",
+  "it": "Altrimenti resta un riquadro senza gioco",
+  "es": "Si no, queda un icono sin juego",
+  "fr": "Sinon une vignette sans jeu reste affichée"
+ },
+ "Spiel löschen": {
+  "en": "Delete game",
+  "it": "Elimina gioco",
+  "es": "Borrar juego",
+  "fr": "Supprimer le jeu"
+ },
+ "Dieses Spiel wird von {dev} gelöscht:": {
+  "en": "This game will be deleted from {dev}:",
+  "it": "Questo gioco verrà eliminato da {dev}:",
+  "es": "Este juego se borrará de {dev}:",
+  "fr": "Ce jeu sera supprimé de {dev} :"
+ },
+ "Diese Spiele werden von {dev} gelöscht:": {
+  "en": "These games will be deleted from {dev}:",
+  "it": "Questi giochi verranno eliminati da {dev}:",
+  "es": "Estos juegos se borrarán de {dev}:",
+  "fr": "Ces jeux seront supprimés de {dev} :"
+ },
+ "Laufende Spiele vorher beenden. Das lässt sich nicht rückgängig machen.": {
+  "en": "Close running games first. This cannot be undone.",
+  "it": "Chiudi prima i giochi in esecuzione. Non è possibile annullare l'operazione.",
+  "es": "Cierra antes los juegos en ejecución. Esto no se puede deshacer.",
+  "fr": "Fermez d'abord les jeux en cours. Cette opération est irréversible."
+ },
+ "Die Bezeichnung wird entfernt.": {
+  "en": "The label will be removed.",
+  "it": "L'etichetta verrà rimossa.",
+  "es": "Se quitará la etiqueta.",
+  "fr": "Le nom sera supprimé."
+ },
+ "Umbenennen": {
+  "en": "Rename",
+  "it": "Rinomina",
+  "es": "Renombrar",
+  "fr": "Renommer"
+ },
+ "Bezeichnung entfernen?": {
+  "en": "Remove label?",
+  "it": "Rimuovere l'etichetta?",
+  "es": "¿Quitar la etiqueta?",
+  "fr": "Supprimer le nom ?"
+ },
+ "Die Daten auf dem Laufwerk bleiben erhalten.": {
+  "en": "The data on the drive is kept.",
+  "it": "I dati sull'unità vengono mantenuti.",
+  "es": "Los datos de la unidad se conservan.",
+  "fr": "Les données du lecteur sont conservées."
+ },
+ "Entfernen": {
+  "en": "Remove",
+  "it": "Rimuovi",
+  "es": "Quitar",
+  "fr": "Supprimer"
+ },
+ "Wird abgebrochen …": {
+  "en": "Cancelling …",
+  "it": "Annullamento …",
+  "es": "Cancelando …",
+  "fr": "Annulation …"
+ },
+ "Formatierer beenden?": {
+  "en": "Quit the formatter?",
+  "it": "Chiudere il formattatore?",
+  "es": "¿Cerrar el formateador?",
+  "fr": "Fermer le formateur ?"
+ },
+ "Der Formatierer läuft danach nicht mehr auf der PS5.": {
+  "en": "The formatter will then no longer run on the PS5.",
+  "it": "Il formattatore poi non sarà più attivo sulla PS5.",
+  "es": "El formateador dejará de ejecutarse en la PS5.",
+  "fr": "Le formateur ne tournera alors plus sur la PS5."
+ },
+ "Zum erneuten Benutzen einfach die App „USB-Formatierer“ starten.": {
+  "en": "To use it again, simply start the “USB-Formatierer” app.",
+  "it": "Per usarlo di nuovo, avvia semplicemente l'app «USB-Formatierer».",
+  "es": "Para volver a usarlo, inicia la aplicación «USB-Formatierer».",
+  "fr": "Pour l'utiliser à nouveau, lancez simplement l'application « USB-Formatierer »."
+ },
+ "Beenden": {
+  "en": "Quit",
+  "it": "Chiudi",
+  "es": "Cerrar",
+  "fr": "Fermer"
+ },
+ "Der Formatierer wurde beendet. Diese Seite kann geschlossen werden.": {
+  "en": "The formatter has been closed. You can close this page.",
+  "it": "Il formattatore è stato chiuso. Puoi chiudere questa pagina.",
+  "es": "El formateador se ha cerrado. Puedes cerrar esta página.",
+  "fr": "Le formateur a été fermé. Vous pouvez fermer cette page."
+ },
+ "USB-Formatierer": {
+  "en": "USB Formatter",
+  "it": "Formattatore USB",
+  "es": "Formateador USB",
+  "fr": "Formateur USB"
+ },
+ "Suche …": {
+  "en": "Searching …",
+  "it": "Ricerca …",
+  "es": "Buscando …",
+  "fr": "Recherche …"
+ },
+ "Aktualisieren": {
+  "en": "Refresh",
+  "it": "Aggiorna",
+  "es": "Actualizar",
+  "fr": "Actualiser"
+ },
+ "Auf dieser PS5": {
+  "en": "On this PS5",
+  "it": "Su questa PS5",
+  "es": "En esta PS5",
+  "fr": "Sur cette PS5"
+ },
+ "Mit dem Handy scannen oder im Browser am PC öffnen:": {
+  "en": "Scan with your phone or open in a browser on your PC:",
+  "it": "Scansiona con lo smartphone o apri nel browser del PC:",
+  "es": "Escanea con el móvil o ábrelo en el navegador del PC:",
+  "fr": "Scannez avec votre téléphone ou ouvrez dans le navigateur du PC :"
+ },
+ "Größe": {
+  "en": "Size",
+  "it": "Dimensione",
+  "es": "Tamaño",
+  "fr": "Taille"
+ },
+ "Kleiner": {
+  "en": "Smaller",
+  "it": "Più piccolo",
+  "es": "Más pequeño",
+  "fr": "Plus petit"
+ },
+ "Größer": {
+  "en": "Larger",
+  "it": "Più grande",
+  "es": "Más grande",
+  "fr": "Plus grand"
+ },
+ "Sprache": {
+  "en": "Language",
+  "it": "Lingua",
+  "es": "Idioma",
+  "fr": "Langue"
+ },
+ "Während der Nutzung keine USB-Datenträger abziehen oder neu anschließen": {
+  "en": "Do not unplug or reconnect USB drives while in use",
+  "it": "Durante l'uso non scollegare né ricollegare unità USB",
+  "es": "No desconectes ni vuelvas a conectar unidades USB mientras se usan",
+  "fr": "Ne débranchez ni ne rebranchez aucun support USB pendant l'utilisation"
+ },
+ "Die PS5 bindet USB-Laufwerke in laufende Spiele und Apps ein. Wird ein Laufwerk abgezogen oder neu angeschlossen, starten Spiele und Apps danach oft erst wieder nach einem Neustart der Konsole. Zum Formatieren meldet der Formatierer Laufwerke selbst per Software ab – abziehen nur, wenn er ausdrücklich dazu auffordert.": {
+  "en": "The PS5 attaches USB drives to running games and apps. If a drive is unplugged or reconnected, games and apps often only start again after restarting the console. For formatting, the formatter detaches drives itself by software – only unplug when it explicitly asks you to.",
+  "it": "La PS5 collega le unità USB ai giochi e alle app in esecuzione. Se un'unità viene scollegata o ricollegata, spesso giochi e app ripartono solo dopo un riavvio della console. Per la formattazione il formattatore scollega da solo le unità via software – scollega solo quando te lo chiede esplicitamente.",
+  "es": "La PS5 vincula las unidades USB a los juegos y aplicaciones en ejecución. Si se desconecta o vuelve a conectar una unidad, a menudo los juegos y aplicaciones solo vuelven a iniciarse tras reiniciar la consola. Para formatear, el formateador desconecta él mismo las unidades por software – desconecta solo cuando te lo pida expresamente.",
+  "fr": "La PS5 rattache les lecteurs USB aux jeux et applications en cours. Si un lecteur est débranché ou rebranché, les jeux et applications ne redémarrent souvent qu'après un redémarrage de la console. Pour formater, le formateur déconnecte lui-même les lecteurs par logiciel – ne débranchez que s'il vous le demande expressément."
+ },
+ "Hilfe": {
+  "en": "Help",
+  "it": "Aiuto",
+  "es": "Ayuda",
+  "fr": "Aide"
+ },
+ "Laufwerk": {
+  "en": "Drive",
+  "it": "Unità",
+  "es": "Unidad",
+  "fr": "Lecteur"
+ },
+ "Suche USB-Geräte …": {
+  "en": "Searching for USB devices …",
+  "it": "Ricerca dispositivi USB …",
+  "es": "Buscando dispositivos USB …",
+  "fr": "Recherche de périphériques USB …"
+ },
+ "Inhalt": {
+  "en": "Content",
+  "it": "Contenuto",
+  "es": "Contenido",
+  "fr": "Contenu"
+ },
+ "Auswählen": {
+  "en": "Select",
+  "it": "Seleziona",
+  "es": "Seleccionar",
+  "fr": "Sélectionner"
+ },
+ "Tempo messen": {
+  "en": "Measure speed",
+  "it": "Misura velocità",
+  "es": "Medir velocidad",
+  "fr": "Mesurer la vitesse"
+ },
+ "Prüfen & reparieren": {
+  "en": "Check & repair",
+  "it": "Controlla e ripara",
+  "es": "Comprobar y reparar",
+  "fr": "Vérifier et réparer"
+ },
+ "Neue Bezeichnung": {
+  "en": "New label",
+  "it": "Nuova etichetta",
+  "es": "Nueva etiqueta",
+  "fr": "Nouveau nom"
+ },
+ "Übernehmen": {
+  "en": "Apply",
+  "it": "Applica",
+  "es": "Aplicar",
+  "fr": "Appliquer"
+ },
+ "Dateisystem": {
+  "en": "File system",
+  "it": "File system",
+  "es": "Sistema de archivos",
+  "fr": "Système de fichiers"
+ },
+ "Spiele-Abbilder sind meist größer als 4 GB – für Spiele exFAT wählen.": {
+  "en": "Game images are usually larger than 4 GB – choose exFAT for games.",
+  "it": "Le immagini dei giochi superano di solito i 4 GB – per i giochi scegli exFAT.",
+  "es": "Las imágenes de juegos suelen superar los 4 GB – para juegos elige exFAT.",
+  "fr": "Les images de jeux dépassent souvent 4 Go – choisissez exFAT pour les jeux."
+ },
+ "Andere Dateisysteme (nicht für die PS5)": {
+  "en": "Other file systems (not for the PS5)",
+  "it": "Altri file system (non per la PS5)",
+  "es": "Otros sistemas de archivos (no para la PS5)",
+  "fr": "Autres systèmes de fichiers (pas pour la PS5)"
+ },
+ "Nicht für die PS5 gedacht.": {
+  "en": "Not intended for the PS5.",
+  "it": "Non pensato per la PS5.",
+  "es": "No pensado para la PS5.",
+  "fr": "Pas prévu pour la PS5."
+ },
+ "Diese Formate sind für PC, Mac, Linux, Kameras und Co. NTFS und ext4 erkennt die PS5 gar nicht; exFAT und FAT32 mit anderer Zuordnungseinheit liest sie zwar, für Spiele ist aber exFAT mit 64 KB (ohne Haken) die richtige Wahl.": {
+  "en": "These formats are for PC, Mac, Linux, cameras and the like. The PS5 does not recognise NTFS and ext4 at all; it does read exFAT and FAT32 with a different allocation unit, but for games exFAT with 64 KB (unticked) is the right choice.",
+  "it": "Questi formati sono per PC, Mac, Linux, fotocamere e simili. La PS5 non riconosce affatto NTFS ed ext4; legge exFAT e FAT32 con un'altra unità di allocazione, ma per i giochi la scelta giusta è exFAT con 64 KB (senza spunta).",
+  "es": "Estos formatos son para PC, Mac, Linux, cámaras y similares. La PS5 no reconoce NTFS ni ext4; sí lee exFAT y FAT32 con otra unidad de asignación, pero para juegos la opción correcta es exFAT con 64 KB (sin marcar).",
+  "fr": "Ces formats sont destinés aux PC, Mac, Linux, appareils photo, etc. La PS5 ne reconnaît pas du tout NTFS et ext4 ; elle lit exFAT et FAT32 avec une autre unité d'allocation, mais pour les jeux, exFAT avec 64 Ko (case décochée) est le bon choix."
+ },
+ "Partitionstabelle": {
+  "en": "Partition table",
+  "it": "Tabella delle partizioni",
+  "es": "Tabla de particiones",
+  "fr": "Table de partitions"
+ },
+ "Automatisch (MBR, ab 2 TB GPT)": {
+  "en": "Automatic (MBR, GPT from 2 TB)",
+  "it": "Automatica (MBR, GPT da 2 TB)",
+  "es": "Automático (MBR, GPT a partir de 2 TB)",
+  "fr": "Automatique (MBR, GPT à partir de 2 To)"
+ },
+ "Volumebezeichnung": {
+  "en": "Volume label",
+  "it": "Etichetta volume",
+  "es": "Etiqueta del volumen",
+  "fr": "Nom de volume"
+ },
+ "Optionen": {
+  "en": "Options",
+  "it": "Opzioni",
+  "es": "Opciones",
+  "fr": "Options"
+ },
+ "Ordner für Spiele anlegen": {
+  "en": "Create folders for games",
+  "it": "Crea cartelle per i giochi",
+  "es": "Crear carpetas para juegos",
+  "fr": "Créer les dossiers pour les jeux"
+ },
+ "homebrew, etaHEN/games und pkg – sofort bereit für ShadowMountPlus": {
+  "en": "homebrew, etaHEN/games and pkg – ready for ShadowMountPlus right away",
+  "it": "homebrew, etaHEN/games e pkg – subito pronte per ShadowMountPlus",
+  "es": "homebrew, etaHEN/games y pkg – listas para ShadowMountPlus al instante",
+  "fr": "homebrew, etaHEN/games et pkg – prêts pour ShadowMountPlus tout de suite"
+ },
+ "Vorher Echtheit und Tempo prüfen": {
+  "en": "Check authenticity and speed first",
+  "it": "Controlla prima autenticità e velocità",
+  "es": "Comprobar antes autenticidad y velocidad",
+  "fr": "Vérifier d'abord l'authenticité et la vitesse"
+ },
+ "empfohlen": {
+  "en": "recommended",
+  "it": "consigliato",
+  "es": "recomendado",
+  "fr": "recommandé"
+ },
+ "Schnelltest mit Stichproben · ca. 2–10 Minuten, je nach Stick": {
+  "en": "Quick test with samples · approx. 2–10 minutes, depending on the stick",
+  "it": "Test rapido a campione · circa 2–10 minuti, a seconda della chiavetta",
+  "es": "Prueba rápida por muestreo · aprox. 2–10 minutos, según el pendrive",
+  "fr": "Test rapide par échantillons · env. 2 à 10 minutes selon la clé"
+ },
+ "Vollständig formatieren": {
+  "en": "Full format",
+  "it": "Formattazione completa",
+  "es": "Formateo completo",
+  "fr": "Formatage complet"
+ },
+ "jede Stelle beschreiben und prüfen · dauert lange": {
+  "en": "write and verify every sector · takes a long time",
+  "it": "scrive e verifica ogni settore · richiede molto tempo",
+  "es": "escribir y comprobar cada sector · tarda mucho",
+  "fr": "écrire et vérifier chaque secteur · prend du temps"
+ },
+ "Design": {
+  "en": "Theme",
+  "it": "Tema",
+  "es": "Tema",
+  "fr": "Thème"
+ },
+ "Automatisch": {
+  "en": "Automatic",
+  "it": "Automatico",
+  "es": "Automático",
+  "fr": "Automatique"
+ },
+ "Hell": {
+  "en": "Light",
+  "it": "Chiaro",
+  "es": "Claro",
+  "fr": "Clair"
+ },
+ "Dunkel": {
+  "en": "Dark",
+  "it": "Scuro",
+  "es": "Oscuro",
+  "fr": "Sombre"
+ },
+ "Formatierer auf der PS5 beenden": {
+  "en": "Quit the formatter on the PS5",
+  "it": "Chiudi il formattatore sulla PS5",
+  "es": "Cerrar el formateador en la PS5",
+  "fr": "Fermer le formateur sur la PS5"
+ }
+}

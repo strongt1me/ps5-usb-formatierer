@@ -4,12 +4,20 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 import fsinfo
-from fsinfo import FS_EXPERT, MB, NO_FS, PTYPES, GB, size_text, unit_text
+from fsinfo import FS_EXPERT, GB, MB, NO_FS, PTYPES, fs_display, size_text, unit_text
+from i18n import _, number, quote, unit
 
 COLORS = {"exFAT": "#2f6fb5", "FAT32": "#2a8c8c", "NTFS": "#5b5fc7", "FAT (FAT16)": "#6b7f99",
           "ext4 (Linux)": "#3c8d40", "ext3 (Linux)": "#5a9a3c", "ext2 (Linux)": "#7aa53a",
           "HFS+ (Mac OS Extended)": "#8e6bbf", NO_FS: "#8a8a8a"}
-PTYPE_TEXT = dict(PTYPES)
+# Kurzname des Partitionstyps für die Tabelle
+PTYPE_SHORT = {"auto": "automatisch", "windows": "Windows-Daten", "linux": "Linux", "swap": "Swap",
+               "efi": "EFI-System", "apple": "Apple HFS+"}
+
+
+def ptype_text(key, active=False):
+    t = _(PTYPE_SHORT[key])
+    return t + ", " + _("aktiv") if active else t
 
 
 class PartitionDialog(tk.Toplevel):
@@ -18,7 +26,7 @@ class PartitionDialog(tk.Toplevel):
     def __init__(self, master, part, room, ss, is_last, scheme_mbr):
         super().__init__(master)
         self.withdraw()
-        self.title("Partition")
+        self.title(_("Partition"))
         self.transient(master.winfo_toplevel())
         self.resizable(False, False)
         self.result = None
@@ -27,28 +35,33 @@ class PartitionDialog(tk.Toplevel):
         frm.pack(fill="both", expand=True)
         frm.columnconfigure(1, weight=1)
 
+        def label(text, r):
+            ttk.Label(frm, text=text).grid(row=r, column=0, sticky="w", pady=4, padx=(0, 10))
+
         r = 0
-        ttk.Label(frm, text="Größe:").grid(row=r, column=0, sticky="w", pady=4)
+        label(_("Größe:"), r)
         sz = ttk.Frame(frm)
         sz.grid(row=r, column=1, sticky="w")
         unit_gb = part["bytes"] >= 10 * GB
         self.size_var = tk.StringVar(value=self._num(part["bytes"] or room, unit_gb))
-        self.unit_var = tk.StringVar(value="GB" if unit_gb else "MB")
+        self.units = ["MB", "GB"]
+        self.unit_combo = ttk.Combobox(sz, values=[unit(u) for u in self.units], state="readonly", width=5)
+        self.unit_combo.current(1 if unit_gb else 0)
         self.size_entry = ttk.Spinbox(sz, textvariable=self.size_var, from_=1, to=10 ** 9, width=12, increment=1)
         self.size_entry.pack(side="left")
-        ttk.Combobox(sz, textvariable=self.unit_var, values=["MB", "GB"], state="readonly", width=5).pack(
-            side="left", padx=(6, 0))
+        self.unit_combo.pack(side="left", padx=(6, 0))
+        self.unit_combo.bind("<<ComboboxSelected>>", lambda e: self._changed())
         self.rest_var = tk.BooleanVar(value=part["bytes"] == 0 and is_last)
-        self.rest_chk = ttk.Checkbutton(sz, text=f"den ganzen Rest ({size_text(room)})", variable=self.rest_var,
-                                        command=self._changed)
+        self.rest_chk = ttk.Checkbutton(sz, text=_("den ganzen Rest ({size})", size=size_text(room)),
+                                        variable=self.rest_var, command=self._changed)
         self.rest_chk.pack(side="left", padx=(12, 0))
         if not is_last:
             self.rest_chk.state(["disabled"])
         r += 1
 
-        ttk.Label(frm, text="Dateisystem:").grid(row=r, column=0, sticky="w", pady=4)
-        self.fs_var = tk.StringVar(value=part["fs"])
-        self.fs_combo = ttk.Combobox(frm, textvariable=self.fs_var, values=FS_EXPERT, state="readonly", width=34)
+        label(_("Dateisystem:"), r)
+        self.fs_combo = ttk.Combobox(frm, values=[fs_display(n) for n in FS_EXPERT], state="readonly", width=34)
+        self.fs_combo.current(FS_EXPERT.index(part["fs"]) if part["fs"] in FS_EXPERT else 0)
         self.fs_combo.grid(row=r, column=1, sticky="ew")
         self.fs_combo.bind("<<ComboboxSelected>>", lambda e: self._changed())
         r += 1
@@ -56,16 +69,16 @@ class PartitionDialog(tk.Toplevel):
         self.fs_hint.grid(row=r, column=1, sticky="w")
         r += 1
 
-        ttk.Label(frm, text="Zuordnungseinheit:").grid(row=r, column=0, sticky="w", pady=4)
+        label(_("Zuordnungseinheit:"), r)
         self.cluster_combo = ttk.Combobox(frm, state="readonly", width=34)
         self.cluster_combo.grid(row=r, column=1, sticky="ew")
         self.cluster_vals = []
         self.cluster_want = part.get("cluster", 0)
         r += 1
 
-        ttk.Label(frm, text="Bezeichnung:").grid(row=r, column=0, sticky="w", pady=4)
+        label(_("Bezeichnung:"), r)
         self.label_var = tk.StringVar(value=part.get("label", ""))
-        vcmd = (self.register(lambda p: len(p) <= max(1, fsinfo.label_max(self.fs_var.get())) and
+        vcmd = (self.register(lambda p: len(p) <= max(1, fsinfo.label_max(self._fs())) and
                               bool(fsinfo.LABEL_CHARS.match(p))), "%P")
         self.label_entry = ttk.Entry(frm, textvariable=self.label_var, validate="key", validatecommand=vcmd)
         self.label_entry.grid(row=r, column=1, sticky="ew")
@@ -74,13 +87,13 @@ class PartitionDialog(tk.Toplevel):
         self.label_hint.grid(row=r, column=1, sticky="w")
         r += 1
 
-        ttk.Label(frm, text="Partitionstyp:").grid(row=r, column=0, sticky="w", pady=4)
-        self.ptype_combo = ttk.Combobox(frm, values=[t for _, t in PTYPES], state="readonly", width=34)
-        self.ptype_combo.current([k for k, _ in PTYPES].index(part.get("ptype", "auto")))
+        label(_("Partitionstyp:"), r)
+        self.ptype_combo = ttk.Combobox(frm, values=[_(t) for _k, t in PTYPES], state="readonly", width=34)
+        self.ptype_combo.current([k for k, _t in PTYPES].index(part.get("ptype", "auto")))
         self.ptype_combo.grid(row=r, column=1, sticky="ew")
         r += 1
         self.active_var = tk.BooleanVar(value=part.get("active", False))
-        self.active_chk = ttk.Checkbutton(frm, text="Startfähig (aktiv) – nur bei MBR", variable=self.active_var)
+        self.active_chk = ttk.Checkbutton(frm, text=_("Startfähig (aktiv) – nur bei MBR"), variable=self.active_var)
         self.active_chk.grid(row=r, column=1, sticky="w", pady=(4, 0))
         if not scheme_mbr:
             self.active_var.set(False)
@@ -89,10 +102,9 @@ class PartitionDialog(tk.Toplevel):
 
         btns = ttk.Frame(frm)
         btns.grid(row=r, column=0, columnspan=2, sticky="e", pady=(14, 0))
-        ttk.Button(btns, text="Übernehmen", command=self._ok).pack(side="left")
-        ttk.Button(btns, text="Abbrechen", command=self.destroy).pack(side="left", padx=(6, 0))
+        ttk.Button(btns, text=_("Übernehmen"), command=self._ok).pack(side="left")
+        ttk.Button(btns, text=_("Abbrechen"), command=self.destroy).pack(side="left", padx=(6, 0))
         self.size_var.trace_add("write", lambda *a: self._changed())
-        self.unit_var.trace_add("write", lambda *a: self._changed())
         self.bind("<Escape>", lambda e: self.destroy())
         self.bind("<Return>", lambda e: self._ok())
         self._changed()
@@ -109,7 +121,11 @@ class PartitionDialog(tk.Toplevel):
     @staticmethod
     def _num(b, gb):
         v = b / (GB if gb else MB)
-        return f"{v:.1f}".rstrip("0").rstrip(".").replace(".", ",") if gb else str(int(v))
+        return number(f"{v:.1f}".rstrip("0").rstrip(".")) if gb else str(int(v))
+
+    def _fs(self):
+        i = self.fs_combo.current()
+        return FS_EXPERT[i] if 0 <= i < len(FS_EXPERT) else FS_EXPERT[0]
 
     def _bytes(self):
         if self.rest_var.get():
@@ -118,16 +134,15 @@ class PartitionDialog(tk.Toplevel):
             v = float(self.size_var.get().replace(",", ".").strip())
         except ValueError:
             return None
-        b = int(v * (GB if self.unit_var.get() == "GB" else MB)) // MB * MB
+        b = int(v * (GB if self.unit_combo.current() == 1 else MB)) // MB * MB
         return b if b >= MB else None
 
     def _changed(self):
         self.size_entry.state(["disabled"] if self.rest_var.get() else ["!disabled"])
-        name = self.fs_var.get()
+        name = self._fs()
         b = self._bytes()
         part = self.room if b in (0, None) else min(b, self.room)
-        self.fs_hint.configure(text="Bleibt leer (z. B. für ein späteres Betriebssystem). Windows zeigt sie nicht an."
-                               if name == NO_FS else fsinfo.FILESYSTEMS[name][2])
+        self.fs_hint.configure(text=fsinfo.fs_hint(name))
         vals, std = fsinfo.cluster_choices(fsinfo.helper_fs(name), part, self.ss)
         if name == NO_FS:
             self.cluster_vals = [0]
@@ -137,19 +152,20 @@ class PartitionDialog(tk.Toplevel):
         elif vals:
             prev = self._cluster() or self.cluster_want
             self.cluster_vals = vals
-            self.cluster_combo.configure(values=[unit_text(v) + (" (Standard)" if v == std else "") for v in vals])
+            self.cluster_combo.configure(values=[unit_text(v) + (" (" + _("Standard") + ")" if v == std else "")
+                                                 for v in vals])
             self.cluster_combo.current(vals.index(prev) if prev in vals else vals.index(std))
             self.cluster_combo.state(["!disabled", "readonly"])
         else:
             self.cluster_vals = []
-            self.cluster_combo.configure(values=[f"{name} passt nicht auf {size_text(part)}"])
+            self.cluster_combo.configure(values=[_("{fs} passt nicht auf {size}", fs=name, size=size_text(part))])
             self.cluster_combo.current(0)
             self.cluster_combo.state(["disabled"])
         m = fsinfo.label_max(name)
         if len(self.label_var.get()) > m:
             self.label_var.set(self.label_var.get()[:m])
         self.label_entry.state(["!disabled"] if m else ["disabled"])
-        self.label_hint.configure(text=f"Bis zu {m} Zeichen: A–Z, 0–9, Leerzeichen, - und _" if m else "")
+        self.label_hint.configure(text=_("Bis zu {n} Zeichen: A–Z, 0–9, Leerzeichen, - und _", n=m) if m else "")
 
     def _cluster(self):
         i = self.cluster_combo.current()
@@ -158,15 +174,17 @@ class PartitionDialog(tk.Toplevel):
     def _ok(self):
         b = self._bytes()
         if b is None:
-            messagebox.showerror("Partition", "Bitte eine Größe ab 1 MB angeben.", parent=self)
+            messagebox.showerror(_("Partition"), _("Bitte eine Größe ab 1 MB angeben."), parent=self)
             return
         if b > self.room:
-            messagebox.showerror("Partition", f"Es sind nur noch {size_text(self.room)} frei.", parent=self)
+            messagebox.showerror(_("Partition"), _("Es sind nur noch {size} frei.", size=size_text(self.room)),
+                                 parent=self)
             return
         if not self.cluster_vals:
-            messagebox.showerror("Partition", f"{self.fs_var.get()} passt nicht auf diese Größe.", parent=self)
+            messagebox.showerror(_("Partition"), _("{fs} passt nicht auf diese Größe.", fs=fs_display(self._fs())),
+                                 parent=self)
             return
-        self.result = {"bytes": b, "fs": self.fs_var.get(), "cluster": self._cluster(),
+        self.result = {"bytes": b, "fs": self._fs(), "cluster": self._cluster(),
                        "label": self.label_var.get(), "ptype": PTYPES[max(0, self.ptype_combo.current())][0],
                        "active": bool(self.active_var.get())}
         self.destroy()
@@ -191,9 +209,9 @@ class PartitionEditor(ttk.Frame):
 
         cols = ("nr", "size", "fs", "label", "cluster", "type")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=5, selectmode="browse")
-        for c, text, w, anchor in (("nr", "Nr.", 36, "center"), ("size", "Größe", 95, "e"), ("fs", "Dateisystem", 170, "w"),
-                                   ("label", "Bezeichnung", 120, "w"), ("cluster", "Einheit", 70, "e"),
-                                   ("type", "Typ", 110, "w")):
+        for c, text, w, anchor in (("nr", _("Nr."), 36, "center"), ("size", _("Größe"), 120, "e"),
+                                   ("fs", _("Dateisystem"), 160, "w"), ("label", _("Bezeichnung"), 110, "w"),
+                                   ("cluster", _("Einheit"), 90, "e"), ("type", _("Typ"), 110, "w")):
             self.tree.heading(c, text=text, anchor=anchor)
             self.tree.column(c, width=w, minwidth=30, anchor=anchor, stretch=c == "fs")
         self.tree.grid(row=1, column=0, sticky="ew", pady=(6, 0))
@@ -201,11 +219,11 @@ class PartitionEditor(ttk.Frame):
         self.tree.bind("<<TreeviewSelect>>", lambda e: (self._buttons(), self._draw()))
         side = ttk.Frame(self)
         side.grid(row=1, column=1, sticky="n", padx=(6, 0), pady=(6, 0))
-        self.add_btn = ttk.Button(side, text="Hinzufügen …", command=self.add)
-        self.edit_btn = ttk.Button(side, text="Bearbeiten …", command=self.edit)
-        self.del_btn = ttk.Button(side, text="Entfernen", command=self.remove)
-        self.up_btn = ttk.Button(side, text="▲ nach vorn", command=lambda: self.move(-1))
-        self.down_btn = ttk.Button(side, text="▼ nach hinten", command=lambda: self.move(1))
+        self.add_btn = ttk.Button(side, text=_("Hinzufügen …"), command=self.add)
+        self.edit_btn = ttk.Button(side, text=_("Bearbeiten …"), command=self.edit)
+        self.del_btn = ttk.Button(side, text=_("Entfernen"), command=self.remove)
+        self.up_btn = ttk.Button(side, text="▲ " + _("nach vorn"), command=lambda: self.move(-1))
+        self.down_btn = ttk.Button(side, text="▼ " + _("nach hinten"), command=lambda: self.move(1))
         for b in (self.add_btn, self.edit_btn, self.del_btn, self.up_btn, self.down_btn):
             b.pack(fill="x", pady=(0, 3))
         self.info = ttk.Label(self, foreground="#666666", wraplength=560, justify="left")
@@ -240,23 +258,22 @@ class PartitionEditor(ttk.Frame):
         for i, p in enumerate(self.parts):
             size = size_text(self.sizes[i]) if i < len(self.sizes) else "?"
             if not p["bytes"]:
-                size = f"Rest ({size})" if i < len(self.sizes) else "Rest"
-            ptype = "automatisch" if p["ptype"] == "auto" else PTYPE_TEXT[p["ptype"]].split(" (")[0]
-            if p.get("active"):
-                ptype += ", aktiv"
+                size = _("Rest ({size})", size=size) if i < len(self.sizes) else _("Rest")
+            cluster = unit_text(p["cluster"]) if p["cluster"] else "–" if p["fs"] == NO_FS else _("Standard")
             self.tree.insert("", "end", iid=str(i), values=(
-                i + 1, size, p["fs"], p["label"] or "–",
-                unit_text(p["cluster"]) if p["cluster"] else "–" if p["fs"] == NO_FS else "Standard", ptype))
+                i + 1, size, fs_display(p["fs"]), p["label"] or "–", cluster, ptype_text(p["ptype"], p.get("active"))))
         if 0 <= sel < len(self.parts):
             self.tree.selection_set(str(sel))
         if not self.dev:
-            text = "Erst oben ein Laufwerk wählen."
+            text = _("Erst oben ein Laufwerk wählen.")
         elif self.error:
             text = "⚠ " + self.error
+        elif self.free >= MB:
+            text = _("{n} Partition(en), noch frei: {size}. Doppelklick auf eine Partition zum Bearbeiten.",
+                     n=len(self.parts), size=size_text(self.free))
         else:
-            text = (f"{len(self.parts)} Partition{'en' if len(self.parts) != 1 else ''}"
-                    f"{', noch frei: ' + size_text(self.free) if self.free >= MB else ', Datenträger voll aufgeteilt'}."
-                    " Doppelklick auf eine Partition zum Bearbeiten.")
+            text = _("{n} Partition(en), Datenträger voll aufgeteilt. Doppelklick auf eine Partition zum Bearbeiten.",
+                     n=len(self.parts))
         self.info.configure(text=text, foreground="#b3261e" if self.error else "#666666")
         self._buttons()
         self._draw()
@@ -302,7 +319,7 @@ class PartitionEditor(ttk.Frame):
         if last is not None and not last["bytes"]:
             room_last = self.sizes[-1] if len(self.sizes) == len(self.parts) else 0
             if room_last < 2 * MB:
-                messagebox.showerror("Partition", "Kein Platz mehr frei.", parent=self)
+                messagebox.showerror(_("Partition"), _("Kein Platz mehr frei."), parent=self)
                 return
             last["bytes"] = room_last // 2 // MB * MB
         new = {"bytes": 0, "fs": "exFAT", "cluster": 0, "label": "", "ptype": "auto", "active": False}
@@ -331,7 +348,7 @@ class PartitionEditor(ttk.Frame):
         i = self._selected()
         if i < 0 or len(self.parts) <= 1:
             return
-        del self.parts[i]
+        self.parts.pop(i)
         self.refresh()
 
     def move(self, d):
@@ -357,7 +374,7 @@ class PartitionEditor(ttk.Frame):
         c.delete("all")
         w, h = c.winfo_width(), c.winfo_height()
         if w < 10 or not self.dev:
-            c.create_text(w // 2, h // 2, text="Aufteilung erscheint nach Wahl des Laufwerks", fill="#777777")
+            c.create_text(w // 2, h // 2, text=_("Aufteilung erscheint nach Wahl des Laufwerks"), fill="#777777")
             return
         total = max(1, self.dev["size"])
         x, sel = 2.0, self._selected()
@@ -368,7 +385,7 @@ class PartitionEditor(ttk.Frame):
             color = COLORS.get(p["fs"], "#777777")
             c.create_rectangle(x, 3, x + pw - 1, h - 3, fill=color, outline="#202020" if i == sel else color,
                                width=2 if i == sel else 1, tags=(f"p{i}",))
-            text = f"{i + 1}: {p['fs'].split(' ')[0]} {size_text(n)}"
+            text = f"{i + 1}: {fs_display(p['fs']).split(' ')[0]} {size_text(n)}"
             if pw > 60:
                 c.create_text(x + pw / 2, h / 2, text=text if pw > len(text) * 6.5 else str(i + 1), fill="white",
                               tags=(f"p{i}",))
@@ -376,7 +393,7 @@ class PartitionEditor(ttk.Frame):
         if self.free >= MB:
             c.create_rectangle(x, 3, w - 2, h - 3, fill="#e3e3e3", outline="#c8c8c8", dash=(3, 2))
             if w - x > 70:
-                c.create_text((x + w) / 2, h / 2, text=f"frei {size_text(self.free)}", fill="#555555")
+                c.create_text((x + w) / 2, h / 2, text=_("frei {size}", size=size_text(self.free)), fill="#555555")
 
     def _bar_click(self, event):
         hit = self.bar.find_overlapping(event.x, event.y, event.x, event.y)
@@ -402,15 +419,15 @@ class PartitionEditor(ttk.Frame):
     def describe(self):
         lines = []
         for i, p in enumerate(self.parts):
-            t = f"   {i + 1}) {p['fs']}, {size_text(self.sizes[i]) if i < len(self.sizes) else '?'}"
+            t = f"   {i + 1}) {fs_display(p['fs'])}, {size_text(self.sizes[i]) if i < len(self.sizes) else '?'}"
             c = self.cluster_of(i)
             if c:
-                t += f", Einheit {unit_text(c)}"
+                t += ", " + _("Einheit {size}", size=unit_text(c))
             if p["label"]:
-                t += f", „{p['label']}“"
+                t += ", " + quote(p["label"])
             if p["ptype"] != "auto":
-                t += f", Typ {PTYPE_TEXT[p['ptype']].split(' (')[0]}"
+                t += ", " + _("Typ {name}", name=_(PTYPE_SHORT[p["ptype"]]))
             if p.get("active"):
-                t += ", startfähig"
+                t += ", " + _("startfähig")
             lines.append(t)
         return "\n".join(lines)

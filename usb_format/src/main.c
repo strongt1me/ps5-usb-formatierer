@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdio.h>
 
+#include "i18n.h"
 #include "platform.h"
 #include "server.h"
 
@@ -15,19 +16,19 @@ int main(void) {
     signal(SIGPIPE, SIG_IGN);
 
     if ((s = server_listen(SERVER_PORT)) < 0) {
-        snprintf(msg, sizeof(msg), "USB-Formatierer: Port %d belegt (läuft er schon?)", SERVER_PORT);
+        snprintf(msg, sizeof(msg), T("USB-Formatierer: Port %d belegt (läuft er schon?)"), SERVER_PORT);
         printf("%s\n", msg);
         plat_notify(msg);
         return 1;
     }
 
     plat_local_ip(ip, sizeof(ip));
-    snprintf(msg, sizeof(msg), "USB-Formatierer bereit: http://%s:%d", ip, SERVER_PORT);
+    snprintf(msg, sizeof(msg), T("USB-Formatierer bereit: http://%s:%d"), ip, SERVER_PORT);
     printf("%s\n", msg);
     fflush(stdout);
     plat_notify(msg);
 
     server_serve(s);
-    plat_notify("USB-Formatierer beendet");
+    plat_notify(T("USB-Formatierer beendet"));
     return 0;
 }

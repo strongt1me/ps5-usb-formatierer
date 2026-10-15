@@ -11,8 +11,8 @@ fail=0
 run() { local name=$1; shift; if "$@" >"$W/out" 2>&1; then echo "OK      $name"; else echo "FEHLER  $name"; tail -15 "$W/out"; fail=1; fi; }
 expect_fail() { local name=$1; shift; if "$@" >"$W/out" 2>&1; then echo "FEHLER  $name (hätte abgelehnt werden müssen)"; fail=1; else echo "OK      $name: $(tail -1 "$W/out")"; fi; }
 
-gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c || exit 1
-gcc -Wall -Wextra -Werror -O2 -o "$W/parts_test" test/parts_test.c src/mkfs.c src/hfsplus.c src/upcase.c || exit 1
+gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c src/i18n.c src/i18n_table.c || exit 1
+gcc -Wall -Wextra -Werror -O2 -o "$W/parts_test" test/parts_test.c src/mkfs.c src/hfsplus.c src/upcase.c src/i18n.c src/i18n_table.c || exit 1
 
 # Partition <nr> aus <image> nach $W/p.img holen (Sektorgröße ss)
 extract() { local img=$1 nr=$2 ss=$3; read -r s c < <(awk -v n="$nr" '$1=="P" && $2==n {print $3, $4}' "$W/layout.txt")

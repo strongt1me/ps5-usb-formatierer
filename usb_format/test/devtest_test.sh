@@ -5,7 +5,7 @@ set -u
 cd "$(dirname "$0")/.."
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
-gcc -Wall -Wextra -Werror -O2 -DUSBFMT_HOST -o "$W/dt" test/devtest_test.c src/devtest.c || exit 1
+gcc -Wall -Wextra -Werror -O2 -DUSBFMT_HOST -o "$W/dt" test/devtest_test.c src/devtest.c src/i18n.c src/i18n_table.c || exit 1
 
 fails=0
 ok()  { echo "OK      $1"; }

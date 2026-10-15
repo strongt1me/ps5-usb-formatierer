@@ -8,8 +8,8 @@ export PATH="$T/usr/sbin:$T/usr/bin:$PATH"
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
 OBJS=$(bash test/build_exfatprogs.sh "$W/obj" | tail -1) || exit 1
-gcc -O2 -Wall -Wextra -Werror -o "$W/fsck" test/fsck_test.c $OBJS || exit 1
-gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c || exit 1
+gcc -O2 -Wall -Wextra -Werror -o "$W/fsck" test/fsck_test.c $OBJS src/i18n.c src/i18n_table.c -lpthread || exit 1
+gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c src/i18n.c src/i18n_table.c || exit 1
 
 fails=0
 ok()  { echo "OK      $1"; }

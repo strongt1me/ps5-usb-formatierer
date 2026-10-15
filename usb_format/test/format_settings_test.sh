@@ -41,11 +41,36 @@ grep -q '"scale_tv":160' "$W/s" && grep -q '"scale_pc":100' "$W/s" && ok "Standa
 [ "$(post '{"scale_pc":300}' settings)" = 400 ] && ok "Größe 300 abgelehnt" || bad "Größe 300 nicht abgelehnt: $(cat "$W/body")"
 [ "$(post '{"scale_pc":"abc"}' settings)" = 400 ] && ok "Größe abc abgelehnt" || bad "Größe abc nicht abgelehnt"
 [ "$(post '{}' settings)" = 400 ] && ok "leere Einstellung abgelehnt" || bad "leere Einstellung nicht abgelehnt"
+
+# Sprache: Meldungen nach ?lang=, sonst gespeicherter Wahl, sonst Accept-Language, sonst Deutsch
+curl -s "$U/api/settings" >"$W/s"
+grep -q '"lang":""' "$W/s" && ok "Sprache anfangs nicht gewählt" || bad "Sprache anfangs: $(cat "$W/s")"
+post '{"scale_pc":300}' settings >/dev/null
+grep -q 'Größe muss' "$W/body" && ok "ohne Angabe: Deutsch" || bad "ohne Angabe: $(cat "$W/body")"
+post '{"scale_pc":300}' 'settings?lang=en' >/dev/null
+grep -q 'Size must be' "$W/body" && ok "?lang=en: Englisch" || bad "?lang=en: $(cat "$W/body")"
+curl -s -o "$W/body" -H 'Content-Type: application/json' -H 'Accept-Language: pt-BR,es;q=0.8,en;q=0.5' \
+    -d '{"scale_pc":300}' "$U/api/settings"
+grep -q 'El tamaño' "$W/body" && ok "Accept-Language: erste unterstützte (es)" || bad "Accept-Language: $(cat "$W/body")"
+[ "$(post '{"lang":"xx"}' settings)" = 400 ] && ok "Sprache xx abgelehnt" || bad "Sprache xx nicht abgelehnt: $(cat "$W/body")"
+[ "$(post '{"lang":"fr"}' settings)" = 200 ] && grep -q '"lang":"fr"' "$W/body" && ok "Sprache fr gespeichert" \
+    || bad "Sprache fr: $(cat "$W/body")"
+curl -s -o "$W/body" -H 'Content-Type: application/json' -H 'Accept-Language: es' -d '{"scale_pc":300}' "$U/api/settings"
+grep -q 'La taille' "$W/body" && ok "gespeicherte Sprache vor Accept-Language" || bad "gespeichert vs. Browser: $(cat "$W/body")"
+post '{"scale_pc":300}' 'settings?lang=it' >/dev/null
+grep -q 'La dimensione' "$W/body" && ok "?lang= vor gespeicherter Sprache" || bad "?lang= vs. gespeichert: $(cat "$W/body")"
+code=$(curl -s -o "$W/help" -w '%{http_code}' "$U/help?lang=en")
+[ "$code" = 200 ] && [ "$(grep -c '<article' "$W/help")" = 5 ] && ok "Anleitung /help mit fünf Sprachen" \
+    || bad "Anleitung: $code, $(grep -c '<article' "$W/help") Sprachen"
+curl -s "$U/api/status" | grep -q '"cancelled":false' && ok "Status meldet cancelled" || bad "Status ohne cancelled"
+
 kill $PID; wait $PID 2>/dev/null
 start
 curl -s "$U/api/settings" >"$W/s"
-grep -q '"scale_tv":120' "$W/s" && grep -q '"theme":"dark"' "$W/s" && ok "nach Neustart noch gespeichert: $(cat "$W/s")" \
-    || bad "nach Neustart: $(cat "$W/s")"
+grep -q '"scale_tv":120' "$W/s" && grep -q '"theme":"dark"' "$W/s" && grep -q '"lang":"fr"' "$W/s" \
+    && ok "nach Neustart noch gespeichert: $(cat "$W/s")" || bad "nach Neustart: $(cat "$W/s")"
+[ "$(post '{"lang":""}' settings)" = 200 ] && grep -q '"lang":""' "$W/body" && ok "Sprache zurück auf Browser" \
+    || bad "Sprache zurücksetzen: $(cat "$W/body")"
 
 echo
 [ $fails -eq 0 ] && echo "Alle Format-/Einstellungs-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."

@@ -1,0 +1,1706 @@
+{
+ "Laufwerk nicht mehr erreichbar (bei %llu MB) – abgezogen oder USB-Verbindung unterbrochen? Die Prüfung ist ungültig.": {
+  "en": "Drive no longer reachable (at %llu MB) – unplugged or USB connection interrupted? The check is invalid.",
+  "it": "Unità non più raggiungibile (a %llu MB) – scollegata o connessione USB interrotta? La verifica non è valida.",
+  "es": "La unidad ya no responde (en %llu MB) – ¿desconectada o conexión USB interrumpida? La comprobación no es válida.",
+  "fr": "Lecteur plus accessible (à %llu Mo) – débranché ou connexion USB interrompue ? La vérification n'est pas valable."
+ },
+ "Kein Speicher": {
+  "en": "Out of memory",
+  "it": "Memoria esaurita",
+  "es": "Sin memoria",
+  "fr": "Mémoire insuffisante"
+ },
+ "%s – noch < 1 Min.": {
+  "en": "%s – less than 1 min left",
+  "it": "%s – meno di 1 min rimanente",
+  "es": "%s – queda menos de 1 min",
+  "fr": "%s – moins d'1 min restante"
+ },
+ "%s – noch ca. %d Min.": {
+  "en": "%s – about %d min left",
+  "it": "%s – circa %d min rimanenti",
+  "es": "%s – quedan unos %d min",
+  "fr": "%s – environ %d min restantes"
+ },
+ "%s – noch ca. %d Std. %d Min.": {
+  "en": "%s – about %d h %d min left",
+  "it": "%s – circa %d h %d min rimanenti",
+  "es": "%s – quedan unas %d h %d min",
+  "fr": "%s – environ %d h %d min restantes"
+ },
+ "Lesefehler bei %llu MB: %s": {
+  "en": "Read error at %llu MB: %s",
+  "it": "Errore di lettura a %llu MB: %s",
+  "es": "Error de lectura en %llu MB: %s",
+  "fr": "Erreur de lecture à %llu Mo : %s"
+ },
+ "Lesetempo messen": {
+  "en": "Measuring read speed",
+  "it": "Misurazione velocità di lettura",
+  "es": "Midiendo velocidad de lectura",
+  "fr": "Mesure de la vitesse de lecture"
+ },
+ "Schreibfehler bei %llu MB: %s": {
+  "en": "Write error at %llu MB: %s",
+  "it": "Errore di scrittura a %llu MB: %s",
+  "es": "Error de escritura en %llu MB: %s",
+  "fr": "Erreur d'écriture à %llu Mo : %s"
+ },
+ "Schreibtempo messen": {
+  "en": "Measuring write speed",
+  "it": "Misurazione velocità di scrittura",
+  "es": "Midiendo velocidad de escritura",
+  "fr": "Mesure de la vitesse d'écriture"
+ },
+ "Echtheit prüfen": {
+  "en": "Checking authenticity",
+  "it": "Verifica autenticità",
+  "es": "Comprobando autenticidad",
+  "fr": "Vérification de l'authenticité"
+ },
+ "Echtheit prüfen: lesen": {
+  "en": "Checking authenticity: reading",
+  "it": "Verifica autenticità: lettura",
+  "es": "Comprobando autenticidad: leyendo",
+  "fr": "Vérification de l'authenticité : lecture"
+ },
+ "Echtheit prüfen: Grenze suchen": {
+  "en": "Checking authenticity: finding the limit",
+  "it": "Verifica autenticità: ricerca del limite",
+  "es": "Comprobando autenticidad: buscando el límite",
+  "fr": "Vérification de l'authenticité : recherche de la limite"
+ },
+ "Schreibfehler bei %llu MB: %s – der Datenträger ist vermutlich defekt": {
+  "en": "Write error at %llu MB: %s – the drive is probably defective",
+  "it": "Errore di scrittura a %llu MB: %s – l'unità è probabilmente difettosa",
+  "es": "Error de escritura en %llu MB: %s – probablemente la unidad está defectuosa",
+  "fr": "Erreur d'écriture à %llu Mo : %s – le support est probablement défectueux"
+ },
+ "Beschreiben": {
+  "en": "Writing",
+  "it": "Scrittura",
+  "es": "Escribiendo",
+  "fr": "Écriture"
+ },
+ "Prüfen": {
+  "en": "Checking",
+  "it": "Verifica",
+  "es": "Comprobando",
+  "fr": "Vérification"
+ },
+ " (%ld Ordner, %ld Dateien)": {
+  "en": " (%ld folders, %ld files)",
+  "it": " (%ld cartelle, %ld file)",
+  "es": " (%ld carpetas, %ld archivos)",
+  "fr": " (%ld dossiers, %ld fichiers)"
+ },
+ "Keine Fehler gefunden%s.": {
+  "en": "No errors found%s.",
+  "it": "Nessun errore trovato%s.",
+  "es": "No se encontraron errores%s.",
+  "fr": "Aucune erreur trouvée%s."
+ },
+ "Fehler gefunden und behoben%s.": {
+  "en": "Errors found and fixed%s.",
+  "it": "Errori trovati e corretti%s.",
+  "es": "Errores encontrados y corregidos%s.",
+  "fr": "Erreurs trouvées et corrigées%s."
+ },
+ "Es sind Fehler übrig geblieben, die sich nicht beheben ließen%s. Wichtige Daten sichern und neu formatieren.": {
+  "en": "Some errors remain that could not be fixed%s. Back up important data and format again.",
+  "it": "Sono rimasti errori che non è stato possibile correggere%s. Salva i dati importanti e formatta di nuovo.",
+  "es": "Quedan errores que no se pudieron corregir%s. Haz copia de los datos importantes y vuelve a formatear.",
+  "fr": "Il reste des erreurs impossibles à corriger%s. Sauvegardez les données importantes et reformatez."
+ },
+ "Fehler gefunden%s. Mit „Reparieren“ beheben.": {
+  "en": "Errors found%s. Fix them with “Repair”.",
+  "it": "Errori trovati%s. Correggili con «Ripara».",
+  "es": "Errores encontrados%s. Corrígelos con «Reparar».",
+  "fr": "Erreurs trouvées%s. Corrigez-les avec « Réparer »."
+ },
+ "Prüfen war nicht möglich (exFAT-Dateisystem nicht lesbar oder beschädigt).": {
+  "en": "Checking was not possible (exFAT file system unreadable or damaged).",
+  "it": "Verifica non possibile (file system exFAT illeggibile o danneggiato).",
+  "es": "No fue posible comprobar (sistema de archivos exFAT ilegible o dañado).",
+  "fr": "Vérification impossible (système de fichiers exFAT illisible ou endommagé)."
+ },
+ "NTFS vorbereiten": {
+  "en": "Preparing NTFS",
+  "it": "Preparazione NTFS",
+  "es": "Preparando NTFS",
+  "fr": "Préparation de NTFS"
+ },
+ "NTFS-Strukturen schreiben": {
+  "en": "Writing NTFS structures",
+  "it": "Scrittura strutture NTFS",
+  "es": "Escribiendo estructuras NTFS",
+  "fr": "Écriture des structures NTFS"
+ },
+ "Wurzelverzeichnis anlegen": {
+  "en": "Creating root directory",
+  "it": "Creazione directory principale",
+  "es": "Creando directorio raíz",
+  "fr": "Création du répertoire racine"
+ },
+ "NTFS fertig": {
+  "en": "NTFS done",
+  "it": "NTFS completato",
+  "es": "NTFS listo",
+  "fr": "NTFS terminé"
+ },
+ "Dateisystem vorbereiten": {
+  "en": "Preparing file system",
+  "it": "Preparazione file system",
+  "es": "Preparando el sistema de archivos",
+  "fr": "Préparation du système de fichiers"
+ },
+ "Gruppentabellen anlegen": {
+  "en": "Creating group tables",
+  "it": "Creazione tabelle dei gruppi",
+  "es": "Creando tablas de grupos",
+  "fr": "Création des tables de groupes"
+ },
+ "Inode-Tabellen schreiben": {
+  "en": "Writing inode tables",
+  "it": "Scrittura tabelle inode",
+  "es": "Escribiendo tablas de inodos",
+  "fr": "Écriture des tables d'inodes"
+ },
+ "Journal anlegen": {
+  "en": "Creating journal",
+  "it": "Creazione journal",
+  "es": "Creando el registro (journal)",
+  "fr": "Création du journal"
+ },
+ "Superblöcke schreiben": {
+  "en": "Writing superblocks",
+  "it": "Scrittura superblocchi",
+  "es": "Escribiendo superbloques",
+  "fr": "Écriture des superblocs"
+ },
+ "KB": {
+  "en": "KB",
+  "it": "KB",
+  "es": "KB",
+  "fr": "Ko"
+ },
+ "Cluster": {
+  "en": "clusters",
+  "it": "cluster",
+  "es": "clústeres",
+  "fr": "clusters"
+ },
+ "Blöcke": {
+  "en": "blocks",
+  "it": "blocchi",
+  "es": "bloques",
+  "fr": "blocs"
+ },
+ "Byte": {
+  "en": "bytes",
+  "it": "byte",
+  "es": "bytes",
+  "fr": "octets"
+ },
+ "Nicht unterstützte Sektorgröße %u": {
+  "en": "Unsupported sector size %u",
+  "it": "Dimensione settore non supportata %u",
+  "es": "Tamaño de sector no admitido %u",
+  "fr": "Taille de secteur non prise en charge %u"
+ },
+ "Ungültiger Zuordnungsblock für HFS+ (%u Bytes)": {
+  "en": "Invalid allocation block for HFS+ (%u bytes)",
+  "it": "Blocco di allocazione non valido per HFS+ (%u byte)",
+  "es": "Bloque de asignación no válido para HFS+ (%u bytes)",
+  "fr": "Bloc d'allocation non valide pour HFS+ (%u octets)"
+ },
+ "Zuordnungsblock kleiner als ein Sektor": {
+  "en": "Allocation block smaller than a sector",
+  "it": "Blocco di allocazione più piccolo di un settore",
+  "es": "Bloque de asignación menor que un sector",
+  "fr": "Bloc d'allocation plus petit qu'un secteur"
+ },
+ "Bezeichnung zu lang": {
+  "en": "Label too long",
+  "it": "Etichetta troppo lunga",
+  "es": "Etiqueta demasiado larga",
+  "fr": "Nom trop long"
+ },
+ "Zuordnungsblock zu klein für diese Größe – bitte einen größeren wählen": {
+  "en": "Allocation block too small for this size – please choose a larger one",
+  "it": "Blocco di allocazione troppo piccolo per questa dimensione – scegline uno più grande",
+  "es": "Bloque de asignación demasiado pequeño para este tamaño – elige uno mayor",
+  "fr": "Bloc d'allocation trop petit pour cette taille – veuillez en choisir un plus grand"
+ },
+ "Partition zu klein für HFS+": {
+  "en": "Partition too small for HFS+",
+  "it": "Partizione troppo piccola per HFS+",
+  "es": "Partición demasiado pequeña para HFS+",
+  "fr": "Partition trop petite pour HFS+"
+ },
+ "Interner Fehler: B-Baum zu groß": {
+  "en": "Internal error: B-tree too large",
+  "it": "Errore interno: B-tree troppo grande",
+  "es": "Error interno: árbol B demasiado grande",
+  "fr": "Erreur interne : arbre B trop grand"
+ },
+ "HFS+ (Mac OS Extended), %s Blöcke": {
+  "en": "HFS+ (Mac OS Extended), %s blocks",
+  "it": "HFS+ (Mac OS esteso), blocchi da %s",
+  "es": "HFS+ (Mac OS Plus), bloques de %s",
+  "fr": "HFS+ (Mac OS étendu), blocs de %s"
+ },
+ "Zuordnungs-Bitmap schreiben": {
+  "en": "Writing allocation bitmap",
+  "it": "Scrittura bitmap di allocazione",
+  "es": "Escribiendo mapa de bits de asignación",
+  "fr": "Écriture du bitmap d'allocation"
+ },
+ "B-Bäume schreiben": {
+  "en": "Writing B-trees",
+  "it": "Scrittura B-tree",
+  "es": "Escribiendo árboles B",
+  "fr": "Écriture des arbres B"
+ },
+ "Volume-Header schreiben": {
+  "en": "Writing volume header",
+  "it": "Scrittura intestazione del volume",
+  "es": "Escribiendo cabecera del volumen",
+  "fr": "Écriture de l'en-tête du volume"
+ },
+ "MB": {
+  "en": "MB",
+  "it": "MB",
+  "es": "MB",
+  "fr": "Mo"
+ },
+ "Schreibfehler bei Byte %llu: %s": {
+  "en": "Write error at byte %llu: %s",
+  "it": "Errore di scrittura al byte %llu: %s",
+  "es": "Error de escritura en el byte %llu: %s",
+  "fr": "Erreur d'écriture à l'octet %llu : %s"
+ },
+ "Ungültiger Ordner- oder Dateiname: %.*s": {
+  "en": "Invalid folder or file name: %.*s",
+  "it": "Nome di cartella o file non valido: %.*s",
+  "es": "Nombre de carpeta o archivo no válido: %.*s",
+  "fr": "Nom de dossier ou de fichier non valide : %.*s"
+ },
+ "Ungültiges Zeichen im Namen %.*s": {
+  "en": "Invalid character in the name %.*s",
+  "it": "Carattere non valido nel nome %.*s",
+  "es": "Carácter no válido en el nombre %.*s",
+  "fr": "Caractère non valide dans le nom %.*s"
+ },
+ "Name doppelt vergeben: %.*s": {
+  "en": "Name used twice: %.*s",
+  "it": "Nome usato due volte: %.*s",
+  "es": "Nombre repetido: %.*s",
+  "fr": "Nom utilisé deux fois : %.*s"
+ },
+ "Zu viele Ordner und Dateien": {
+  "en": "Too many folders and files",
+  "it": "Troppe cartelle e file",
+  "es": "Demasiadas carpetas y archivos",
+  "fr": "Trop de dossiers et de fichiers"
+ },
+ "Zu viele Einträge in einem Ordner": {
+  "en": "Too many entries in one folder",
+  "it": "Troppe voci in una cartella",
+  "es": "Demasiadas entradas en una carpeta",
+  "fr": "Trop d'entrées dans un dossier"
+ },
+ "Dateien gleich beim Formatieren gibt es nur für exFAT": {
+  "en": "Files during formatting are only possible with exFAT",
+  "it": "I file durante la formattazione sono possibili solo con exFAT",
+  "es": "Los archivos durante el formateo solo son posibles con exFAT",
+  "fr": "Les fichiers lors du formatage ne sont possibles qu'avec exFAT"
+ },
+ "Partition zu groß für FAT32 (max. 2^32 Sektoren). Bitte exFAT verwenden.": {
+  "en": "Partition too large for FAT32 (max. 2^32 sectors). Please use exFAT.",
+  "it": "Partizione troppo grande per FAT32 (max. 2^32 settori). Usa exFAT.",
+  "es": "Partición demasiado grande para FAT32 (máx. 2^32 sectores). Usa exFAT.",
+  "fr": "Partition trop grande pour FAT32 (max. 2^32 secteurs). Veuillez utiliser exFAT."
+ },
+ "Partitionsbeginn außerhalb des FAT32-Bereichs": {
+  "en": "Partition start outside the FAT32 range",
+  "it": "Inizio della partizione fuori dall'intervallo FAT32",
+  "es": "Inicio de la partición fuera del rango de FAT32",
+  "fr": "Début de partition hors de la plage FAT32"
+ },
+ "Datenträger zu klein für FAT32": {
+  "en": "Drive too small for FAT32",
+  "it": "Unità troppo piccola per FAT32",
+  "es": "Unidad demasiado pequeña para FAT32",
+  "fr": "Support trop petit pour FAT32"
+ },
+ "Ungültige Zuordnungseinheit für FAT32 (%u Bytes)": {
+  "en": "Invalid allocation unit for FAT32 (%u bytes)",
+  "it": "Unità di allocazione non valida per FAT32 (%u byte)",
+  "es": "Unidad de asignación no válida para FAT32 (%u bytes)",
+  "fr": "Unité d'allocation non valide pour FAT32 (%u octets)"
+ },
+ "Zuordnungseinheit %u KB ist für diese Datenträgergröße zu groß (FAT32 braucht mind. 65.525 Cluster). Bitte eine kleinere wählen.": {
+  "en": "Allocation unit %u KB is too large for this drive size (FAT32 needs at least 65,525 clusters). Please choose a smaller one.",
+  "it": "L'unità di allocazione da %u KB è troppo grande per questa unità (FAT32 richiede almeno 65.525 cluster). Scegline una più piccola.",
+  "es": "La unidad de asignación de %u KB es demasiado grande para esta unidad (FAT32 necesita al menos 65.525 clústeres). Elige una más pequeña.",
+  "fr": "L'unité d'allocation de %u Ko est trop grande pour ce support (FAT32 exige au moins 65 525 clusters). Veuillez en choisir une plus petite."
+ },
+ "Zuordnungseinheit ist für diese Datenträgergröße zu klein (zu viele Cluster für FAT32). Bitte eine größere wählen.": {
+  "en": "Allocation unit is too small for this drive size (too many clusters for FAT32). Please choose a larger one.",
+  "it": "L'unità di allocazione è troppo piccola per questa unità (troppi cluster per FAT32). Scegline una più grande.",
+  "es": "La unidad de asignación es demasiado pequeña para esta unidad (demasiados clústeres para FAT32). Elige una mayor.",
+  "fr": "L'unité d'allocation est trop petite pour ce support (trop de clusters pour FAT32). Veuillez en choisir une plus grande."
+ },
+ "Datenträger zu klein für FAT32 (min. ca. 33 MB). Bitte exFAT verwenden.": {
+  "en": "Drive too small for FAT32 (min. about 33 MB). Please use exFAT.",
+  "it": "Unità troppo piccola per FAT32 (min. circa 33 MB). Usa exFAT.",
+  "es": "Unidad demasiado pequeña para FAT32 (mín. unos 33 MB). Usa exFAT.",
+  "fr": "Support trop petit pour FAT32 (min. environ 33 Mo). Veuillez utiliser exFAT."
+ },
+ "Datenträger zu groß für FAT32. Bitte exFAT verwenden.": {
+  "en": "Drive too large for FAT32. Please use exFAT.",
+  "it": "Unità troppo grande per FAT32. Usa exFAT.",
+  "es": "Unidad demasiado grande para FAT32. Usa exFAT.",
+  "fr": "Support trop grand pour FAT32. Veuillez utiliser exFAT."
+ },
+ "Datenträger zu klein für die Ordner": {
+  "en": "Drive too small for the folders",
+  "it": "Unità troppo piccola per le cartelle",
+  "es": "Unidad demasiado pequeña para las carpetas",
+  "fr": "Support trop petit pour les dossiers"
+ },
+ "FAT32, %s Cluster, %llu Cluster": {
+  "en": "FAT32, %s clusters, %llu clusters",
+  "it": "FAT32, cluster da %s, %llu cluster",
+  "es": "FAT32, clústeres de %s, %llu clústeres",
+  "fr": "FAT32, clusters de %s, %llu clusters"
+ },
+ "Ungültige Zuordnungseinheit für exFAT (%u Bytes)": {
+  "en": "Invalid allocation unit for exFAT (%u bytes)",
+  "it": "Unità di allocazione non valida per exFAT (%u byte)",
+  "es": "Unidad de asignación no válida para exFAT (%u bytes)",
+  "fr": "Unité d'allocation non valide pour exFAT (%u octets)"
+ },
+ "Datenträger zu klein für exFAT": {
+  "en": "Drive too small for exFAT",
+  "it": "Unità troppo piccola per exFAT",
+  "es": "Unidad demasiado pequeña para exFAT",
+  "fr": "Support trop petit pour exFAT"
+ },
+ "Ungültige exFAT-Geometrie": {
+  "en": "Invalid exFAT geometry",
+  "it": "Geometria exFAT non valida",
+  "es": "Geometría exFAT no válida",
+  "fr": "Géométrie exFAT non valide"
+ },
+ "Zu viele Cluster für exFAT – bitte eine größere Zuordnungseinheit wählen": {
+  "en": "Too many clusters for exFAT – please choose a larger allocation unit",
+  "it": "Troppi cluster per exFAT – scegli un'unità di allocazione più grande",
+  "es": "Demasiados clústeres para exFAT – elige una unidad de asignación mayor",
+  "fr": "Trop de clusters pour exFAT – veuillez choisir une unité d'allocation plus grande"
+ },
+ "exFAT, %s Cluster, %llu Cluster": {
+  "en": "exFAT, %s clusters, %llu clusters",
+  "it": "exFAT, cluster da %s, %llu cluster",
+  "es": "exFAT, clústeres de %s, %llu clústeres",
+  "fr": "exFAT, clusters de %s, %llu clusters"
+ },
+ "Unbekanntes Dateisystem": {
+  "en": "Unknown file system",
+  "it": "File system sconosciuto",
+  "es": "Sistema de archivos desconocido",
+  "fr": "Système de fichiers inconnu"
+ },
+ "Ungültige Bezeichnung (max. %d Zeichen: A-Z, 0-9, Leerzeichen, - _)": {
+  "en": "Invalid label (max. %d characters: A-Z, 0-9, space, - _)",
+  "it": "Etichetta non valida (max. %d caratteri: A-Z, 0-9, spazio, - _)",
+  "es": "Etiqueta no válida (máx. %d caracteres: A-Z, 0-9, espacio, - _)",
+  "fr": "Nom non valide (max. %d caractères : A-Z, 0-9, espace, - _)"
+ },
+ "Datenträger zu klein": {
+  "en": "Drive too small",
+  "it": "Unità troppo piccola",
+  "es": "Unidad demasiado pequeña",
+  "fr": "Support trop petit"
+ },
+ "fsync: %s": {
+  "en": "fsync: %s",
+  "it": "fsync: %s",
+  "es": "fsync: %s",
+  "fr": "fsync : %s"
+ },
+ "Dieses Dateisystem schreibt ein externes Werkzeug": {
+  "en": "This file system is written by an external tool",
+  "it": "Questo file system viene scritto da uno strumento esterno",
+  "es": "Este sistema de archivos lo escribe una herramienta externa",
+  "fr": "Ce système de fichiers est écrit par un outil externe"
+ },
+ "Zwischen 1 und %d Partitionen möglich": {
+  "en": "Between 1 and %d partitions possible",
+  "it": "Possibili da 1 a %d partizioni",
+  "es": "Se admiten entre 1 y %d particiones",
+  "fr": "Entre 1 et %d partitions possibles"
+ },
+ "MBR fasst höchstens 4 Partitionen – bitte GPT wählen": {
+  "en": "MBR holds at most 4 partitions – please choose GPT",
+  "it": "MBR gestisce al massimo 4 partizioni – scegli GPT",
+  "es": "MBR admite como máximo 4 particiones – elige GPT",
+  "fr": "MBR gère au maximum 4 partitions – veuillez choisir GPT"
+ },
+ "Partition %d passt nicht mehr auf den Datenträger": {
+  "en": "Partition %d no longer fits on the drive",
+  "it": "La partizione %d non entra più nell'unità",
+  "es": "La partición %d ya no cabe en la unidad",
+  "fr": "La partition %d ne tient plus sur le support"
+ },
+ "Partition %d ist kleiner als 1 MB": {
+  "en": "Partition %d is smaller than 1 MB",
+  "it": "La partizione %d è più piccola di 1 MB",
+  "es": "La partición %d es menor de 1 MB",
+  "fr": "La partition %d fait moins de 1 Mo"
+ },
+ "Partition %d ist zu groß – es fehlen %llu MB": {
+  "en": "Partition %d is too large – %llu MB are missing",
+  "it": "La partizione %d è troppo grande – mancano %llu MB",
+  "es": "La partición %d es demasiado grande – faltan %llu MB",
+  "fr": "La partition %d est trop grande – il manque %llu Mo"
+ },
+ "Nur die letzte Partition darf den Rest bekommen": {
+  "en": "Only the last partition may take the rest",
+  "it": "Solo l'ultima partizione può occupare il resto",
+  "es": "Solo la última partición puede ocupar el resto",
+  "fr": "Seule la dernière partition peut prendre le reste"
+ },
+ "Ordner anlegen": {
+  "en": "Creating folders",
+  "it": "Creazione cartelle",
+  "es": "Creando carpetas",
+  "fr": "Création des dossiers"
+ },
+ "Dateisystem schreiben": {
+  "en": "Writing file system",
+  "it": "Scrittura file system",
+  "es": "Escribiendo el sistema de archivos",
+  "fr": "Écriture du système de fichiers"
+ },
+ "Partitionstabelle schreiben": {
+  "en": "Writing partition table",
+  "it": "Scrittura tabella delle partizioni",
+  "es": "Escribiendo la tabla de particiones",
+  "fr": "Écriture de la table de partitions"
+ },
+ "Partitionstabelle (GPT) schreiben": {
+  "en": "Writing partition table (GPT)",
+  "it": "Scrittura tabella delle partizioni (GPT)",
+  "es": "Escribiendo la tabla de particiones (GPT)",
+  "fr": "Écriture de la table de partitions (GPT)"
+ },
+ "Fertig": {
+  "en": "Done",
+  "it": "Completato",
+  "es": "Listo",
+  "fr": "Terminé"
+ },
+ "Partition vorbereiten": {
+  "en": "Preparing partition",
+  "it": "Preparazione partizione",
+  "es": "Preparando la partición",
+  "fr": "Préparation de la partition"
+ },
+ "Bootbereich vorbereiten": {
+  "en": "Preparing boot area",
+  "it": "Preparazione area di avvio",
+  "es": "Preparando el área de arranque",
+  "fr": "Préparation de la zone d'amorçage"
+ },
+ "FAT-Tabellen schreiben": {
+  "en": "Writing FAT tables",
+  "it": "Scrittura tabelle FAT",
+  "es": "Escribiendo tablas FAT",
+  "fr": "Écriture des tables FAT"
+ },
+ "Ordner vorbereiten": {
+  "en": "Preparing folders",
+  "it": "Preparazione cartelle",
+  "es": "Preparando carpetas",
+  "fr": "Préparation des dossiers"
+ },
+ "FAT schreiben": {
+  "en": "Writing FAT",
+  "it": "Scrittura FAT",
+  "es": "Escribiendo FAT",
+  "fr": "Écriture de la FAT"
+ },
+ "Zuordnungstabelle schreiben": {
+  "en": "Writing allocation bitmap",
+  "it": "Scrittura tabella di allocazione",
+  "es": "Escribiendo tabla de asignación",
+  "fr": "Écriture de la table d'allocation"
+ },
+ "Alte Partitionstabellen löschen": {
+  "en": "Erasing old partition tables",
+  "it": "Cancellazione vecchie tabelle delle partizioni",
+  "es": "Borrando tablas de particiones antiguas",
+  "fr": "Effacement des anciennes tables de partitions"
+ },
+ "Partitionen vorbereiten": {
+  "en": "Preparing partitions",
+  "it": "Preparazione partizioni",
+  "es": "Preparando particiones",
+  "fr": "Préparation des partitions"
+ },
+ "Stick jetzt abziehen": {
+  "en": "Unplug the stick now",
+  "it": "Scollega ora la chiavetta",
+  "es": "Desconecta ahora la memoria",
+  "fr": "Débranchez la clé maintenant"
+ },
+ "Stick jetzt wieder einstecken": {
+  "en": "Plug the stick back in now",
+  "it": "Reinserisci ora la chiavetta",
+  "es": "Vuelve a conectar ahora la memoria",
+  "fr": "Rebranchez la clé maintenant"
+ },
+ "Stick wird per Software neu angemeldet": {
+  "en": "Stick is being reconnected by software",
+  "it": "La chiavetta viene ricollegata via software",
+  "es": "La memoria se vuelve a conectar por software",
+  "fr": "La clé est reconnectée par logiciel"
+ },
+ "Partition suchen": {
+  "en": "Finding partition",
+  "it": "Ricerca partizione",
+  "es": "Buscando partición",
+  "fr": "Recherche de la partition"
+ },
+ "Laufwerk öffnen": {
+  "en": "Opening drive",
+  "it": "Apertura unità",
+  "es": "Abriendo la unidad",
+  "fr": "Ouverture du lecteur"
+ },
+ "Bezeichnung schreiben": {
+  "en": "Writing label",
+  "it": "Scrittura etichetta",
+  "es": "Escribiendo etiqueta",
+  "fr": "Écriture du nom"
+ },
+ "Spiele löschen": {
+  "en": "Deleting games",
+  "it": "Eliminazione giochi",
+  "es": "Borrando juegos",
+  "fr": "Suppression des jeux"
+ },
+ "Spiele löschen: Dateien zählen": {
+  "en": "Deleting games: counting files",
+  "it": "Eliminazione giochi: conteggio file",
+  "es": "Borrando juegos: contando archivos",
+  "fr": "Suppression des jeux : comptage des fichiers"
+ },
+ "Interner Fehler: Eintrag über Sektorgrenze": {
+  "en": "Internal error: entry crosses a sector boundary",
+  "it": "Errore interno: voce oltre il limite di settore",
+  "es": "Error interno: entrada sobre el límite de sector",
+  "fr": "Erreur interne : entrée à cheval sur une limite de secteur"
+ },
+ "exFAT-Dateisystem nicht lesbar": {
+  "en": "exFAT file system not readable",
+  "it": "File system exFAT illeggibile",
+  "es": "Sistema de archivos exFAT ilegible",
+  "fr": "Système de fichiers exFAT illisible"
+ },
+ "Im Wurzelordner ist kein Platz für die Bezeichnung": {
+  "en": "No room for the label in the root folder",
+  "it": "Nella cartella principale non c'è spazio per l'etichetta",
+  "es": "No hay espacio para la etiqueta en la carpeta raíz",
+  "fr": "Pas de place pour le nom dans le dossier racine"
+ },
+ "FAT32-Bootsektor nicht lesbar": {
+  "en": "FAT32 boot sector not readable",
+  "it": "Settore di avvio FAT32 illeggibile",
+  "es": "Sector de arranque FAT32 ilegible",
+  "fr": "Secteur d'amorçage FAT32 illisible"
+ },
+ "Umbenennen geht nur bei exFAT und FAT32 (dieser Datenträger: %s)": {
+  "en": "Renaming only works with exFAT and FAT32 (this drive: %s)",
+  "it": "La rinomina funziona solo con exFAT e FAT32 (questa unità: %s)",
+  "es": "Renombrar solo funciona con exFAT y FAT32 (esta unidad: %s)",
+  "fr": "Le renommage ne fonctionne qu'avec exFAT et FAT32 (ce support : %s)"
+ },
+ "Ungültige Bezeichnung: max. 11 Zeichen, nur A-Z, 0-9, Leerzeichen, - und _": {
+  "en": "Invalid label: max. 11 characters, only A-Z, 0-9, space, - and _",
+  "it": "Etichetta non valida: max. 11 caratteri, solo A-Z, 0-9, spazio, - e _",
+  "es": "Etiqueta no válida: máx. 11 caracteres, solo A-Z, 0-9, espacio, - y _",
+  "fr": "Nom non valide : max. 11 caractères, seulement A-Z, 0-9, espace, - et _"
+ },
+ "Bytes": {
+  "en": "bytes",
+  "it": "byte",
+  "es": "bytes",
+  "fr": "octets"
+ },
+ "GB": {
+  "en": "GB",
+  "it": "GB",
+  "es": "GB",
+  "fr": "Go"
+ },
+ "TB": {
+  "en": "TB",
+  "it": "TB",
+  "es": "TB",
+  "fr": "To"
+ },
+ "schnell genug für Spiele": {
+  "en": "fast enough for games",
+  "it": "abbastanza veloce per i giochi",
+  "es": "suficientemente rápida para juegos",
+  "fr": "assez rapide pour les jeux"
+ },
+ "für Spiele ausreichend": {
+  "en": "adequate for games",
+  "it": "sufficiente per i giochi",
+  "es": "suficiente para juegos",
+  "fr": "suffisant pour les jeux"
+ },
+ "langsam – Spiele laden länger": {
+  "en": "slow – games load longer",
+  "it": "lenta – i giochi caricano più lentamente",
+  "es": "lenta – los juegos tardan más en cargar",
+  "fr": "lent – les jeux chargent plus longtemps"
+ },
+ "%s: %s (Windows-Fehler %lu)": {
+  "en": "%s: %s (Windows error %lu)",
+  "it": "%s: %s (errore Windows %lu)",
+  "es": "%s: %s (error de Windows %lu)",
+  "fr": "%s : %s (erreur Windows %lu)"
+ },
+ "Laufwerk %s wird gerade benutzt. Bitte Explorer-Fenster und Programme schließen, die darauf zugreifen, und es noch einmal versuchen.": {
+  "en": "Drive %s is in use. Please close Explorer windows and programs that access it and try again.",
+  "it": "L'unità %s è in uso. Chiudi le finestre di Esplora risorse e i programmi che vi accedono e riprova.",
+  "es": "La unidad %s está en uso. Cierra las ventanas del Explorador y los programas que accedan a ella e inténtalo de nuevo.",
+  "fr": "Le lecteur %s est utilisé. Fermez les fenêtres de l'Explorateur et les programmes qui y accèdent, puis réessayez."
+ },
+ "Abbild nicht passend": {
+  "en": "Image does not match",
+  "it": "Immagine non corrispondente",
+  "es": "La imagen no coincide",
+  "fr": "L'image ne correspond pas"
+ },
+ "Datenträger %d nicht gefunden – bitte die Liste aktualisieren.": {
+  "en": "Disk %d not found – please refresh the list.",
+  "it": "Disco %d non trovato – aggiorna l'elenco.",
+  "es": "No se encontró el disco %d – actualiza la lista.",
+  "fr": "Disque %d introuvable – veuillez actualiser la liste."
+ },
+ "Datenträger %d ist kein USB-Datenträger – abgelehnt.": {
+  "en": "Disk %d is not a USB drive – refused.",
+  "it": "Il disco %d non è un'unità USB – rifiutato.",
+  "es": "El disco %d no es una unidad USB – rechazado.",
+  "fr": "Le disque %d n'est pas un support USB – refusé."
+ },
+ "Datenträger %d enthält Windows – abgelehnt.": {
+  "en": "Disk %d contains Windows – refused.",
+  "it": "Il disco %d contiene Windows – rifiutato.",
+  "es": "El disco %d contiene Windows – rechazado.",
+  "fr": "Le disque %d contient Windows – refusé."
+ },
+ "Datenträger %d hat sich geändert (andere Größe) – bitte die Liste aktualisieren.": {
+  "en": "Disk %d has changed (different size) – please refresh the list.",
+  "it": "Il disco %d è cambiato (dimensione diversa) – aggiorna l'elenco.",
+  "es": "El disco %d ha cambiado (otro tamaño) – actualiza la lista.",
+  "fr": "Le disque %d a changé (autre taille) – veuillez actualiser la liste."
+ },
+ "Zugriff verweigert – Administratorrechte nötig.": {
+  "en": "Access denied – administrator rights required.",
+  "it": "Accesso negato – sono necessari i diritti di amministratore.",
+  "es": "Acceso denegado – se necesitan permisos de administrador.",
+  "fr": "Accès refusé – droits d'administrateur nécessaires."
+ },
+ "Der Datenträger ist schreibgeschützt (Schalter am Stick oder an der SD-Karte?).": {
+  "en": "The drive is write-protected (switch on the stick or SD card?).",
+  "it": "L'unità è protetta da scrittura (interruttore sulla chiavetta o sulla scheda SD?).",
+  "es": "La unidad está protegida contra escritura (¿interruptor en la memoria o en la tarjeta SD?).",
+  "fr": "Le support est protégé en écriture (interrupteur sur la clé ou la carte SD ?)."
+ },
+ "Datenträger öffnen fehlgeschlagen.": {
+  "en": "Opening the drive failed.",
+  "it": "Apertura dell'unità non riuscita.",
+  "es": "No se pudo abrir la unidad.",
+  "fr": "L'ouverture du support a échoué."
+ },
+ "USB-Datenträger": {
+  "en": "USB drive",
+  "it": "Unità USB",
+  "es": "Unidad USB",
+  "fr": "Support USB"
+ },
+ "Das Laufwerk wird gerade benutzt. Bitte Explorer-Fenster und Programme schließen, die darauf zugreifen.": {
+  "en": "The drive is in use. Please close Explorer windows and programs that access it.",
+  "it": "L'unità è in uso. Chiudi le finestre di Esplora risorse e i programmi che vi accedono.",
+  "es": "La unidad está en uso. Cierra las ventanas del Explorador y los programas que accedan a ella.",
+  "fr": "Le lecteur est utilisé. Fermez les fenêtres de l'Explorateur et les programmes qui y accèdent."
+ },
+ "Zugriff verweigert.": {
+  "en": "Access denied.",
+  "it": "Accesso negato.",
+  "es": "Acceso denegado.",
+  "fr": "Accès refusé."
+ },
+ "Schreibgeschützt oder Dateisystem nicht unterstützt.": {
+  "en": "Write-protected or file system not supported.",
+  "it": "Protetto da scrittura o file system non supportato.",
+  "es": "Protegido contra escritura o sistema de archivos no admitido.",
+  "fr": "Protégé en écriture ou système de fichiers non pris en charge."
+ },
+ "Der Datenträger ist schreibgeschützt.": {
+  "en": "The drive is write-protected.",
+  "it": "L'unità è protetta da scrittura.",
+  "es": "La unidad está protegida contra escritura.",
+  "fr": "Le support est protégé en écriture."
+ },
+ "Windows kann dieses Dateisystem hier nicht anlegen.": {
+  "en": "Windows cannot create this file system here.",
+  "it": "Windows non può creare questo file system qui.",
+  "es": "Windows no puede crear este sistema de archivos aquí.",
+  "fr": "Windows ne peut pas créer ce système de fichiers ici."
+ },
+ "Schnellformatierung ist hier nicht möglich.": {
+  "en": "Quick format is not possible here.",
+  "it": "La formattazione rapida non è possibile qui.",
+  "es": "El formato rápido no es posible aquí.",
+  "fr": "Le formatage rapide n'est pas possible ici."
+ },
+ "Windows lehnt die Bezeichnung ab.": {
+  "en": "Windows rejects the label.",
+  "it": "Windows rifiuta l'etichetta.",
+  "es": "Windows rechaza la etiqueta.",
+  "fr": "Windows refuse le nom."
+ },
+ "Die Zuordnungseinheit ist für diese Größe zu klein.": {
+  "en": "The allocation unit is too small for this size.",
+  "it": "L'unità di allocazione è troppo piccola per questa dimensione.",
+  "es": "La unidad de asignación es demasiado pequeña para este tamaño.",
+  "fr": "L'unité d'allocation est trop petite pour cette taille."
+ },
+ "Die Zuordnungseinheit ist für diese Größe zu groß.": {
+  "en": "The allocation unit is too large for this size.",
+  "it": "L'unità di allocazione è troppo grande per questa dimensione.",
+  "es": "La unidad de asignación es demasiado grande para este tamaño.",
+  "fr": "L'unité d'allocation est trop grande pour cette taille."
+ },
+ "Der Datenträger ist für dieses Dateisystem zu klein.": {
+  "en": "The drive is too small for this file system.",
+  "it": "L'unità è troppo piccola per questo file system.",
+  "es": "La unidad es demasiado pequeña para este sistema de archivos.",
+  "fr": "Le support est trop petit pour ce système de fichiers."
+ },
+ "Der Datenträger ist für dieses Dateisystem zu groß.": {
+  "en": "The drive is too large for this file system.",
+  "it": "L'unità è troppo grande per questo file system.",
+  "es": "La unidad es demasiado grande para este sistema de archivos.",
+  "fr": "Le support est trop grand pour ce système de fichiers."
+ },
+ "Der Datenträger ist nicht bereit (abgezogen?).": {
+  "en": "The drive is not ready (unplugged?).",
+  "it": "L'unità non è pronta (scollegata?).",
+  "es": "La unidad no está lista (¿desconectada?).",
+  "fr": "Le support n'est pas prêt (débranché ?)."
+ },
+ "Die Formatierfunktion von Windows (fmifs.dll) fehlt.": {
+  "en": "The Windows formatting function (fmifs.dll) is missing.",
+  "it": "Manca la funzione di formattazione di Windows (fmifs.dll).",
+  "es": "Falta la función de formateo de Windows (fmifs.dll).",
+  "fr": "La fonction de formatage de Windows (fmifs.dll) est absente."
+ },
+ "Warten, bis Windows die Partition einbindet": {
+  "en": "Waiting for Windows to mount the partition",
+  "it": "In attesa che Windows monti la partizione",
+  "es": "Esperando a que Windows monte la partición",
+  "fr": "Attente du montage de la partition par Windows"
+ },
+ "Windows hat die neue Partition nicht eingebunden.": {
+  "en": "Windows did not mount the new partition.",
+  "it": "Windows non ha montato la nuova partizione.",
+  "es": "Windows no montó la nueva partición.",
+  "fr": "Windows n'a pas monté la nouvelle partition."
+ },
+ "NTFS schreiben": {
+  "en": "Writing NTFS",
+  "it": "Scrittura NTFS",
+  "es": "Escribiendo NTFS",
+  "fr": "Écriture de NTFS"
+ },
+ "Windows hat das Formatieren nicht abgeschlossen.": {
+  "en": "Windows did not complete the formatting.",
+  "it": "Windows non ha completato la formattazione.",
+  "es": "Windows no completó el formateo.",
+  "fr": "Windows n'a pas terminé le formatage."
+ },
+ "Ergebnis prüfen": {
+  "en": "Checking the result",
+  "it": "Verifica del risultato",
+  "es": "Comprobando el resultado",
+  "fr": "Vérification du résultat"
+ },
+ "Windows meldet das neue Dateisystem nicht.": {
+  "en": "Windows does not report the new file system.",
+  "it": "Windows non segnala il nuovo file system.",
+  "es": "Windows no informa del nuevo sistema de archivos.",
+  "fr": "Windows ne signale pas le nouveau système de fichiers."
+ },
+ "%s, %s Cluster": {
+  "en": "%s, %s clusters",
+  "it": "%s, cluster da %s",
+  "es": "%s, clústeres de %s",
+  "fr": "%s, clusters de %s"
+ },
+ "Diese Fassung kann kein ext2/ext3/ext4 (mke2fs.exe fehlt).": {
+  "en": "This version cannot create ext2/ext3/ext4 (mke2fs.exe is missing).",
+  "it": "Questa versione non può creare ext2/ext3/ext4 (manca mke2fs.exe).",
+  "es": "Esta versión no puede crear ext2/ext3/ext4 (falta mke2fs.exe).",
+  "fr": "Cette version ne peut pas créer ext2/ext3/ext4 (mke2fs.exe absent)."
+ },
+ "Ordner des Helfers unbekannt.": {
+  "en": "Helper folder unknown.",
+  "it": "Cartella dell'helper sconosciuta.",
+  "es": "Carpeta del asistente desconocida.",
+  "fr": "Dossier de l'assistant inconnu."
+ },
+ "mke2fs.exe fehlt neben dem Helfer.": {
+  "en": "mke2fs.exe is missing next to the helper.",
+  "it": "mke2fs.exe manca accanto all'helper.",
+  "es": "Falta mke2fs.exe junto al asistente.",
+  "fr": "mke2fs.exe est absent à côté de l'assistant."
+ },
+ "mke2fs.exe wurde verändert – aus Sicherheitsgründen nicht gestartet.": {
+  "en": "mke2fs.exe has been modified – not started for security reasons.",
+  "it": "mke2fs.exe è stato modificato – non avviato per motivi di sicurezza.",
+  "es": "mke2fs.exe ha sido modificado – no se inició por motivos de seguridad.",
+  "fr": "mke2fs.exe a été modifié – non lancé pour des raisons de sécurité."
+ },
+ "unbekannter Fehler": {
+  "en": "unknown error",
+  "it": "errore sconosciuto",
+  "es": "error desconocido",
+  "fr": "erreur inconnue"
+ },
+ "%s, %u KB Blöcke": {
+  "en": "%s, %u KB blocks",
+  "it": "%s, blocchi da %u KB",
+  "es": "%s, bloques de %u KB",
+  "fr": "%s, blocs de %u Ko"
+ },
+ "ohne Dateisystem": {
+  "en": "no file system",
+  "it": "senza file system",
+  "es": "sin sistema de archivos",
+  "fr": "sans système de fichiers"
+ },
+ "Ungültige Bezeichnung.": {
+  "en": "Invalid label.",
+  "it": "Etichetta non valida.",
+  "es": "Etiqueta no válida.",
+  "fr": "Nom non valide."
+ },
+ "Ungültige Zuordnungseinheit.": {
+  "en": "Invalid allocation unit.",
+  "it": "Unità di allocazione non valida.",
+  "es": "Unidad de asignación no válida.",
+  "fr": "Unité d'allocation non valide."
+ },
+ "Blockgröße für ext: 1, 2 oder 4 KB.": {
+  "en": "Block size for ext: 1, 2 or 4 KB.",
+  "it": "Dimensione blocco per ext: 1, 2 o 4 KB.",
+  "es": "Tamaño de bloque para ext: 1, 2 o 4 KB.",
+  "fr": "Taille de bloc pour ext : 1, 2 ou 4 Ko."
+ },
+ "Partition %d: %s": {
+  "en": "Partition %d: %s",
+  "it": "Partizione %d: %s",
+  "es": "Partición %d: %s",
+  "fr": "Partition %d : %s"
+ },
+ "Datenträger vorbereiten": {
+  "en": "Preparing the drive",
+  "it": "Preparazione dell'unità",
+  "es": "Preparando la unidad",
+  "fr": "Préparation du support"
+ },
+ "Prüfung fehlgeschlagen: %s Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.": {
+  "en": "Check failed: %s Nothing has been formatted yet – but the previous data was already overwritten by the check.",
+  "it": "Verifica non riuscita: %s Non è stato ancora formattato nulla – ma i dati precedenti sono già stati sovrascritti dalla verifica.",
+  "es": "La comprobación falló: %s Aún no se ha formateado nada – pero la comprobación ya sobrescribió los datos anteriores.",
+  "fr": "Échec de la vérification : %s Rien n'a encore été formaté – mais les données précédentes ont déjà été écrasées par la vérification."
+ },
+ "%s meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben – %s, höchstens den echten Bereich nutzen.": {
+  "en": "%s reports %s but has only about %s of real storage. Nothing has been formatted yet – but the previous data was already overwritten by the check – %s, use only the real area at most.",
+  "it": "%s dichiara %s ma ha solo circa %s di memoria reale. Non è stato ancora formattato nulla – ma i dati precedenti sono già stati sovrascritti dalla verifica – %s, usa al massimo l'area reale.",
+  "es": "%s indica %s pero solo tiene unos %s de almacenamiento real. Aún no se ha formateado nada – pero la comprobación ya sobrescribió los datos anteriores – %s, usa como mucho la zona real.",
+  "fr": "%s annonce %s mais n'a qu'environ %s de mémoire réelle. Rien n'a encore été formaté – mais les données précédentes ont déjà été écrasées par la vérification – %s, n'utiliser au plus que la zone réelle."
+ },
+ "für wichtige Daten nicht empfohlen": {
+  "en": "not recommended for important data",
+  "it": "sconsigliata per dati importanti",
+  "es": "no recomendada para datos importantes",
+  "fr": "déconseillé pour des données importantes"
+ },
+ "für Spiele an der PS5 nicht empfohlen": {
+  "en": "not recommended for PS5 games",
+  "it": "sconsigliata per i giochi PS5",
+  "es": "no recomendada para juegos de PS5",
+  "fr": "déconseillé pour les jeux PS5"
+ },
+ "Fehlerhafte Bereiche ab %llu MB: %s arbeitet nicht zuverlässig. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.": {
+  "en": "Defective areas from %llu MB: %s does not work reliably. Nothing has been formatted yet – but the previous data was already overwritten by the check.",
+  "it": "Aree difettose da %llu MB: %s non funziona in modo affidabile. Non è stato ancora formattato nulla – ma i dati precedenti sono già stati sovrascritti dalla verifica.",
+  "es": "Zonas defectuosas desde %llu MB: %s no funciona de forma fiable. Aún no se ha formateado nada – pero la comprobación ya sobrescribió los datos anteriores.",
+  "fr": "Zones défectueuses à partir de %llu Mo : %s ne fonctionne pas de façon fiable. Rien n'a encore été formaté – mais les données précédentes ont déjà été écrasées par la vérification."
+ },
+ "Partition anlegen": {
+  "en": "Creating partition",
+  "it": "Creazione partizione",
+  "es": "Creando la partición",
+  "fr": "Création de la partition"
+ },
+ "Formatieren fehlgeschlagen: %s": {
+  "en": "Formatting failed: %s",
+  "it": "Formattazione non riuscita: %s",
+  "es": "El formateo falló: %s",
+  "fr": "Échec du formatage : %s"
+ },
+ "%sPartition %d (%s): %s": {
+  "en": "%sPartition %d (%s): %s",
+  "it": "%sPartizione %d (%s): %s",
+  "es": "%sPartición %d (%s): %s",
+  "fr": "%sPartition %d (%s) : %s"
+ },
+ "%s konnte nicht angelegt werden: %s": {
+  "en": "%s could not be created: %s",
+  "it": "Impossibile creare %s: %s",
+  "es": "No se pudo crear %s: %s",
+  "fr": "Impossible de créer %s : %s"
+ },
+ " Der Datenträger ist jetzt leer und vorläufig mit exFAT formatiert.": {
+  "en": " The drive is now empty and temporarily formatted with exFAT.",
+  "it": " L'unità ora è vuota e formattata provvisoriamente in exFAT.",
+  "es": " La unidad ahora está vacía y formateada provisionalmente con exFAT.",
+  "fr": " Le support est maintenant vide et formaté provisoirement en exFAT."
+ },
+ "%s erfolgreich formatiert: %s": {
+  "en": "%s formatted successfully: %s",
+  "it": "%s formattata correttamente: %s",
+  "es": "%s formateada correctamente: %s",
+  "fr": "%s formaté avec succès : %s"
+ },
+ "Partition ohne Dateisystem": {
+  "en": "partition without file system",
+  "it": "partizione senza file system",
+  "es": "partición sin sistema de archivos",
+  "fr": "partition sans système de fichiers"
+ },
+ ", Bezeichnung %s": {
+  "en": ", label %s",
+  "it": ", etichetta %s",
+  "es": ", etiqueta %s",
+  "fr": ", nom %s"
+ },
+ ", Partitionstabelle %s": {
+  "en": ", partition table %s",
+  "it": ", tabella delle partizioni %s",
+  "es": ", tabla de particiones %s",
+  "fr": ", table de partitions %s"
+ },
+ ", Partitionstabelle GPT": {
+  "en": ", partition table GPT",
+  "it": ", tabella delle partizioni GPT",
+  "es": ", tabla de particiones GPT",
+  "fr": ", table de partitions GPT"
+ },
+ "%s: %d Partitionen angelegt (%s):": {
+  "en": "%s: %d partitions created (%s):",
+  "it": "%s: %d partizioni create (%s):",
+  "es": "%s: %d particiones creadas (%s):",
+  "fr": "%s : %d partitions créées (%s) :"
+ },
+ ", „%s“": {
+  "en": ", “%s”",
+  "it": ", «%s»",
+  "es": ", «%s»",
+  "fr": ", « %s »"
+ },
+ ", nur die echten %s genutzt": {
+  "en": ", only the real %s used",
+  "it": ", usati solo i %s reali",
+  "es": ", solo se usan los %s reales",
+  "fr": ", seuls les %s réels utilisés"
+ },
+ ", Ordner homebrew, etaHEN/games und pkg angelegt": {
+  "en": ", folders homebrew, etaHEN/games and pkg created",
+  "it": ", cartelle homebrew, etaHEN/games e pkg create",
+  "es": ", carpetas homebrew, etaHEN/games y pkg creadas",
+  "fr": ", dossiers homebrew, etaHEN/games et pkg créés"
+ },
+ " Windows selbst kann %s nicht öffnen – dafür erscheint kein Laufwerksbuchstabe.": {
+  "en": " Windows itself cannot open %s – so no drive letter appears for it.",
+  "it": " Windows stesso non può aprire %s – quindi non compare alcuna lettera di unità.",
+  "es": " Windows no puede abrir %s por sí mismo – por eso no aparece letra de unidad.",
+  "fr": " Windows ne peut pas ouvrir %s lui-même – aucune lettre de lecteur n'apparaît donc."
+ },
+ "ext und HFS+": {
+  "en": "ext and HFS+",
+  "it": "ext e HFS+",
+  "es": "ext y HFS+",
+  "fr": "ext et HFS+"
+ },
+ " %s: echt%s, lesen %.0f MB/s, schreiben %.0f MB/s": {
+  "en": " %s: genuine%s, read %.0f MB/s, write %.0f MB/s",
+  "it": " %s: autentica%s, lettura %.0f MB/s, scrittura %.0f MB/s",
+  "es": " %s: auténtica%s, lectura %.0f MB/s, escritura %.0f MB/s",
+  "fr": " %s : authentique%s, lecture %.0f Mo/s, écriture %.0f Mo/s"
+ },
+ "Jede Stelle geprüft": {
+  "en": "Every location checked",
+  "it": "Ogni posizione verificata",
+  "es": "Cada posición comprobada",
+  "fr": "Chaque emplacement vérifié"
+ },
+ "Prüfung": {
+  "en": "Check",
+  "it": "Verifica",
+  "es": "Comprobación",
+  "fr": "Vérification"
+ },
+ ", keine Fehler": {
+  "en": ", no errors",
+  "it": ", nessun errore",
+  "es": ", sin errores",
+  "fr": ", aucune erreur"
+ },
+ " Die Prüfung wurde abgebrochen – formatiert wurde trotzdem.": {
+  "en": " The check was cancelled – formatting was done anyway.",
+  "it": " La verifica è stata annullata – la formattazione è stata eseguita comunque.",
+  "es": " La comprobación se canceló – el formateo se hizo de todos modos.",
+  "fr": " La vérification a été annulée – le formatage a quand même été effectué."
+ },
+ " Jetzt einfach abziehen und an die PS5 stecken.": {
+  "en": " Now simply unplug it and plug it into the PS5.",
+  "it": " Ora scollegala e inseriscila nella PS5.",
+  "es": " Ahora desconéctala y conéctala a la PS5.",
+  "fr": " Il suffit maintenant de la débrancher et de la brancher sur la PS5."
+ },
+ "Tempo messen fehlgeschlagen: %s": {
+  "en": "Measuring speed failed: %s",
+  "it": "Misurazione velocità non riuscita: %s",
+  "es": "La medición de velocidad falló: %s",
+  "fr": "Échec de la mesure de vitesse : %s"
+ },
+ "Lesetempo von %s: %.0f MB/s.": {
+  "en": "Read speed of %s: %.0f MB/s.",
+  "it": "Velocità di lettura di %s: %.0f MB/s.",
+  "es": "Velocidad de lectura de %s: %.0f MB/s.",
+  "fr": "Vitesse de lecture de %s : %.0f Mo/s."
+ },
+ "Lesetempo von %s: %.0f MB/s – %s.": {
+  "en": "Read speed of %s: %.0f MB/s – %s.",
+  "it": "Velocità di lettura di %s: %.0f MB/s – %s.",
+  "es": "Velocidad de lectura de %s: %.0f MB/s – %s.",
+  "fr": "Vitesse de lecture de %s : %.0f Mo/s – %s."
+ },
+ "Datenträger %d hat sich geändert – bitte die Liste aktualisieren.": {
+  "en": "Disk %d has changed – please refresh the list.",
+  "it": "Il disco %d è cambiato – aggiorna l'elenco.",
+  "es": "El disco %d ha cambiado – actualiza la lista.",
+  "fr": "Le disque %d a changé – veuillez actualiser la liste."
+ },
+ "Mehrere NTFS-/FAT-Laufwerke auf dem Datenträger.": {
+  "en": "Several NTFS/FAT drives on the disk.",
+  "it": "Diverse unità NTFS/FAT sul disco.",
+  "es": "Varias unidades NTFS/FAT en el disco.",
+  "fr": "Plusieurs lecteurs NTFS/FAT sur le disque."
+ },
+ "Kein NTFS- oder FAT-Laufwerk gefunden.": {
+  "en": "No NTFS or FAT drive found.",
+  "it": "Nessuna unità NTFS o FAT trovata.",
+  "es": "No se encontró ninguna unidad NTFS o FAT.",
+  "fr": "Aucun lecteur NTFS ou FAT trouvé."
+ },
+ "Ungültige Bezeichnung: max. %d Zeichen, nur A-Z, 0-9, Leerzeichen, - und _": {
+  "en": "Invalid label: max. %d characters, only A-Z, 0-9, space, - and _",
+  "it": "Etichetta non valida: max. %d caratteri, solo A-Z, 0-9, spazio, - e _",
+  "es": "Etiqueta no válida: máx. %d caracteres, solo A-Z, 0-9, espacio, - y _",
+  "fr": "Nom non valide : max. %d caractères, seulement A-Z, 0-9, espace, - et _"
+ },
+ "Umbenennen fehlgeschlagen: %s": {
+  "en": "Renaming failed: %s",
+  "it": "Rinomina non riuscita: %s",
+  "es": "No se pudo renombrar: %s",
+  "fr": "Échec du renommage : %s"
+ },
+ "Neue Bezeichnung für %s: „%s“.": {
+  "en": "New label for %s: “%s”.",
+  "it": "Nuova etichetta per %s: «%s».",
+  "es": "Nueva etiqueta para %s: «%s».",
+  "fr": "Nouveau nom pour %s : « %s »."
+ },
+ "Bezeichnung von %s entfernt.": {
+  "en": "Label of %s removed.",
+  "it": "Etichetta di %s rimossa.",
+  "es": "Se quitó la etiqueta de %s.",
+  "fr": "Nom de %s supprimé."
+ },
+ "NTFS/FAT schreibt Windows - im Abbild-Test nicht möglich.": {
+  "en": "NTFS/FAT is written by Windows - not possible in the image test.",
+  "it": "NTFS/FAT viene scritto da Windows - non possibile nel test con immagine.",
+  "es": "NTFS/FAT lo escribe Windows - no es posible en la prueba con imagen.",
+  "fr": "NTFS/FAT est écrit par Windows - impossible dans le test sur image."
+ },
+ "Ungültige Grenze für den echten Bereich.": {
+  "en": "Invalid limit for the real area.",
+  "it": "Limite non valido per l'area reale.",
+  "es": "Límite no válido para la zona real.",
+  "fr": "Limite non valide pour la zone réelle."
+ },
+ "Abgebrochen.": {
+  "en": "Cancelled.",
+  "it": "Annullato.",
+  "es": "Cancelado.",
+  "fr": "Annulé."
+ },
+ "Aufruf unvollständig.": {
+  "en": "Incomplete call.",
+  "it": "Chiamata incompleta.",
+  "es": "Llamada incompleta.",
+  "fr": "Appel incomplet."
+ },
+ "Unbekanntes Dateisystem.": {
+  "en": "Unknown file system.",
+  "it": "File system sconosciuto.",
+  "es": "Sistema de archivos desconocido.",
+  "fr": "Système de fichiers inconnu."
+ },
+ "Zu viele Partitionen.": {
+  "en": "Too many partitions.",
+  "it": "Troppe partizioni.",
+  "es": "Demasiadas particiones.",
+  "fr": "Trop de partitions."
+ },
+ "Ungültige Partitionsangabe.": {
+  "en": "Invalid partition specification.",
+  "it": "Indicazione della partizione non valida.",
+  "es": "Indicación de partición no válida.",
+  "fr": "Indication de partition non valide."
+ },
+ "Unbekannte Angabe beim Formatieren.": {
+  "en": "Unknown option for formatting.",
+  "it": "Opzione di formattazione sconosciuta.",
+  "es": "Opción de formateo desconocida.",
+  "fr": "Option de formatage inconnue."
+ },
+ "Keine Partition angegeben.": {
+  "en": "No partition specified.",
+  "it": "Nessuna partizione indicata.",
+  "es": "No se indicó ninguna partición.",
+  "fr": "Aucune partition indiquée."
+ },
+ "Unbekannter Auftrag.": {
+  "en": "Unknown job.",
+  "it": "Operazione sconosciuta.",
+  "es": "Tarea desconocida.",
+  "fr": "Opération inconnue."
+ },
+ "Datenträger öffnen": {
+  "en": "Opening the drive",
+  "it": "Apertura dell'unità",
+  "es": "Abrir la unidad",
+  "fr": "Ouverture du support"
+ },
+ "Pipe": {
+  "en": "Pipe",
+  "it": "Pipe",
+  "es": "Tubería",
+  "fr": "Tube"
+ },
+ "mke2fs starten": {
+  "en": "Starting mke2fs",
+  "it": "Avvio di mke2fs",
+  "es": "Iniciar mke2fs",
+  "fr": "Lancement de mke2fs"
+ },
+ "Bezeichnung setzen": {
+  "en": "Setting the label",
+  "it": "Impostazione dell'etichetta",
+  "es": "Establecer la etiqueta",
+  "fr": "Définition du nom"
+ },
+ "Volume öffnen": {
+  "en": "Opening the volume",
+  "it": "Apertura del volume",
+  "es": "Abrir el volumen",
+  "fr": "Ouverture du volume"
+ },
+ "USB-Formatierer: Port %d belegt (läuft er schon?)": {
+  "en": "USB Formatter: port %d in use (already running?)",
+  "it": "USB Formatter: porta %d occupata (è già in esecuzione?)",
+  "es": "USB Formatter: puerto %d ocupado (¿ya se está ejecutando?)",
+  "fr": "USB Formatter : port %d occupé (déjà lancé ?)"
+ },
+ "USB-Formatierer bereit: http://%s:%d": {
+  "en": "USB Formatter ready: http://%s:%d",
+  "it": "USB Formatter pronto: http://%s:%d",
+  "es": "USB Formatter listo: http://%s:%d",
+  "fr": "USB Formatter prêt : http://%s:%d"
+ },
+ "USB-Formatierer beendet": {
+  "en": "USB Formatter closed",
+  "it": "USB Formatter chiuso",
+  "es": "USB Formatter cerrado",
+  "fr": "USB Formatter fermé"
+ },
+ "sceSystemServiceLaunchWebBrowser nicht gefunden": {
+  "en": "sceSystemServiceLaunchWebBrowser not found",
+  "it": "sceSystemServiceLaunchWebBrowser non trovato",
+  "es": "sceSystemServiceLaunchWebBrowser no encontrado",
+  "fr": "sceSystemServiceLaunchWebBrowser introuvable"
+ },
+ "Browser ließ sich nicht öffnen (0x%08x)": {
+  "en": "Could not open the browser (0x%08x)",
+  "it": "Impossibile aprire il browser (0x%08x)",
+  "es": "No se pudo abrir el navegador (0x%08x)",
+  "fr": "Impossible d'ouvrir le navigateur (0x%08x)"
+ },
+ "%s kann nicht geöffnet werden (%s). Ist der Stick noch in Benutzung?": {
+  "en": "Cannot open %s (%s). Is the stick still in use?",
+  "it": "Impossibile aprire %s (%s). La chiavetta è ancora in uso?",
+  "es": "No se puede abrir %s (%s). ¿El pendrive sigue en uso?",
+  "fr": "Impossible d'ouvrir %s (%s). La clé est-elle encore utilisée ?"
+ },
+ "%s kann nicht gelesen werden (%s)": {
+  "en": "Cannot read %s (%s)",
+  "it": "Impossibile leggere %s (%s)",
+  "es": "No se puede leer %s (%s)",
+  "fr": "Impossible de lire %s (%s)"
+ },
+ "Die PS5 war schneller – Stick bitte noch einmal abziehen": {
+  "en": "The PS5 was faster – please unplug the stick once more",
+  "it": "La PS5 è stata più veloce – scollega di nuovo la chiavetta",
+  "es": "La PS5 fue más rápida – desconecta el pendrive otra vez",
+  "fr": "La PS5 a été plus rapide – débranchez la clé encore une fois"
+ },
+ "Der Stick wurde nicht abgezogen (2 Minuten gewartet).": {
+  "en": "The stick was not unplugged (waited 2 minutes).",
+  "it": "La chiavetta non è stata scollegata (attesi 2 minuti).",
+  "es": "El pendrive no se desconectó (2 minutos de espera).",
+  "fr": "La clé n'a pas été débranchée (2 minutes d'attente)."
+ },
+ "Der Stick wurde nicht wieder eingesteckt (2 Minuten gewartet).": {
+  "en": "The stick was not plugged back in (waited 2 minutes).",
+  "it": "La chiavetta non è stata ricollegata (attesi 2 minuti).",
+  "es": "El pendrive no se volvió a conectar (2 minutos de espera).",
+  "fr": "La clé n'a pas été rebranchée (2 minutes d'attente)."
+ },
+ "Die PS5 hat den Stick %d-mal schneller eingebunden. Bitte erneut versuchen.": {
+  "en": "The PS5 mounted the stick faster %d times. Please try again.",
+  "it": "La PS5 ha montato la chiavetta più velocemente per %d volte. Riprova.",
+  "es": "La PS5 montó el pendrive más rápido %d veces. Inténtalo de nuevo.",
+  "fr": "La PS5 a monté la clé plus vite %d fois. Réessayez."
+ },
+ "%s ließ sich nicht ablegen: %s": {
+  "en": "Could not save %s: %s",
+  "it": "Impossibile salvare %s: %s",
+  "es": "No se pudo guardar %s: %s",
+  "fr": "Impossible d'enregistrer %s : %s"
+ },
+ "Die neue Partition %s ist nicht erschienen. Stick abziehen, neu einstecken und erneut versuchen.": {
+  "en": "The new partition %s did not appear. Unplug the stick, plug it back in and try again.",
+  "it": "La nuova partizione %s non è comparsa. Scollega la chiavetta, ricollegala e riprova.",
+  "es": "La nueva partición %s no apareció. Desconecta el pendrive, vuelve a conectarlo e inténtalo de nuevo.",
+  "fr": "La nouvelle partition %s n'est pas apparue. Débranchez la clé, rebranchez-la et réessayez."
+ },
+ "ELF-Loader (Port %d) nicht erreichbar – läuft der Jailbreak noch?": {
+  "en": "ELF loader (port %d) not reachable – is the jailbreak still running?",
+  "it": "ELF loader (porta %d) non raggiungibile – il jailbreak è ancora attivo?",
+  "es": "Cargador ELF (puerto %d) inaccesible – ¿sigue activo el jailbreak?",
+  "fr": "Chargeur ELF (port %d) injoignable – le jailbreak est-il toujours actif ?"
+ },
+ "%s ließ sich nicht starten": {
+  "en": "Could not start %s",
+  "it": "Impossibile avviare %s",
+  "es": "No se pudo iniciar %s",
+  "fr": "Impossible de démarrer %s"
+ },
+ "NTFS schreiben (mkntfs)": {
+  "en": "Writing NTFS (mkntfs)",
+  "it": "Scrittura NTFS (mkntfs)",
+  "es": "Escribiendo NTFS (mkntfs)",
+  "fr": "Écriture NTFS (mkntfs)"
+ },
+ "ext4 schreiben (mke2fs)": {
+  "en": "Writing ext4 (mke2fs)",
+  "it": "Scrittura ext4 (mke2fs)",
+  "es": "Escribiendo ext4 (mke2fs)",
+  "fr": "Écriture ext4 (mke2fs)"
+ },
+ "%s ist fehlgeschlagen%s%s": {
+  "en": "%s failed%s%s",
+  "it": "%s non riuscito%s%s",
+  "es": "%s falló%s%s",
+  "fr": "%s a échoué%s%s"
+ },
+ "%s meldete Erfolg, aber auf %s steht kein gültiges Dateisystem": {
+  "en": "%s reported success, but %s has no valid file system",
+  "it": "%s ha segnalato successo, ma su %s non c'è un file system valido",
+  "es": "%s informó de éxito, pero %s no tiene un sistema de archivos válido",
+  "fr": "%s a signalé une réussite, mais %s n'a pas de système de fichiers valide"
+ },
+ "Fehler": {
+  "en": "Error",
+  "it": "Errore",
+  "es": "Error",
+  "fr": "Erreur"
+ },
+ "Die PS5 bindet ihn gleich selbst ein.": {
+  "en": "The PS5 will mount it by itself shortly.",
+  "it": "La PS5 lo monterà da sola tra poco.",
+  "es": "La PS5 lo montará sola en breve.",
+  "fr": "La PS5 va le monter elle-même dans un instant."
+ },
+ "Die PS5 kann dieses Format nicht nutzen.": {
+  "en": "The PS5 cannot use this format.",
+  "it": "La PS5 non può usare questo formato.",
+  "es": "La PS5 no puede usar este formato.",
+  "fr": "La PS5 ne peut pas utiliser ce format."
+ },
+ "Dateisystem reparieren": {
+  "en": "Repairing file system",
+  "it": "Riparazione del file system",
+  "es": "Reparando el sistema de archivos",
+  "fr": "Réparation du système de fichiers"
+ },
+ "Dateisystem prüfen": {
+  "en": "Checking file system",
+  "it": "Controllo del file system",
+  "es": "Comprobando el sistema de archivos",
+  "fr": "Vérification du système de fichiers"
+ },
+ "Der Formatierer wird gerade beendet": {
+  "en": "The formatter is shutting down",
+  "it": "Il formattatore si sta chiudendo",
+  "es": "El formateador se está cerrando",
+  "fr": "Le formateur est en cours de fermeture"
+ },
+ "Es läuft bereits ein Auftrag": {
+  "en": "A job is already running",
+  "it": "È già in corso un'operazione",
+  "es": "Ya hay una tarea en curso",
+  "fr": "Une tâche est déjà en cours"
+ },
+ "Startet": {
+  "en": "Starting",
+  "it": "Avvio",
+  "es": "Iniciando",
+  "fr": "Démarrage"
+ },
+ "ShadowMountPlus ist beschäftigt oder das Spiel läuft gerade – Spiel beenden und erneut versuchen": {
+  "en": "ShadowMountPlus is busy or the game is running – close the game and try again",
+  "it": "ShadowMountPlus è occupato o il gioco è in esecuzione – chiudi il gioco e riprova",
+  "es": "ShadowMountPlus está ocupado o el juego se está ejecutando – cierra el juego e inténtalo de nuevo",
+  "fr": "ShadowMountPlus est occupé ou le jeu est en cours – fermez le jeu et réessayez"
+ },
+ "ShadowMountPlus kann das nicht (ab Version 1.7 nötig)%s%s": {
+  "en": "ShadowMountPlus cannot do this (version 1.7 or newer needed)%s%s",
+  "it": "ShadowMountPlus non supporta questa funzione (serve la versione 1.7 o successiva)%s%s",
+  "es": "ShadowMountPlus no puede hacerlo (se necesita la versión 1.7 o superior)%s%s",
+  "fr": "ShadowMountPlus ne sait pas le faire (version 1.7 ou plus récente requise)%s%s"
+ },
+ "ShadowMountPlus meldet Fehler %d%s%s": {
+  "en": "ShadowMountPlus reports error %d%s%s",
+  "it": "ShadowMountPlus segnala l'errore %d%s%s",
+  "es": "ShadowMountPlus informa del error %d%s%s",
+  "fr": "ShadowMountPlus signale l'erreur %d%s%s"
+ },
+ "ShadowMountPlus nicht erreichbar": {
+  "en": "ShadowMountPlus not reachable",
+  "it": "ShadowMountPlus non raggiungibile",
+  "es": "ShadowMountPlus inaccesible",
+  "fr": "ShadowMountPlus injoignable"
+ },
+ "ShadowMountPlus antwortet nicht mehr": {
+  "en": "ShadowMountPlus stopped responding",
+  "it": "ShadowMountPlus non risponde più",
+  "es": "ShadowMountPlus ya no responde",
+  "fr": "ShadowMountPlus ne répond plus"
+ },
+ "ShadowMountPlus nicht erreichbar – zum Schutz eingebundener Spiele nichts gelöscht": {
+  "en": "ShadowMountPlus not reachable – nothing deleted to protect mounted games",
+  "it": "ShadowMountPlus non raggiungibile – nulla eliminato per proteggere i giochi montati",
+  "es": "ShadowMountPlus inaccesible – no se ha borrado nada para proteger los juegos montados",
+  "fr": "ShadowMountPlus injoignable – rien supprimé pour protéger les jeux montés"
+ },
+ "ShadowMountPlus kennt dieses Spiel noch nicht – bitte kurz warten und erneut versuchen": {
+  "en": "ShadowMountPlus does not know this game yet – please wait a moment and try again",
+  "it": "ShadowMountPlus non conosce ancora questo gioco – attendi un attimo e riprova",
+  "es": "ShadowMountPlus aún no conoce este juego – espera un momento e inténtalo de nuevo",
+  "fr": "ShadowMountPlus ne connaît pas encore ce jeu – patientez un instant et réessayez"
+ },
+ "Pfad liegt nicht auf dem USB-Laufwerk": {
+  "en": "Path is not on the USB drive",
+  "it": "Il percorso non è sull'unità USB",
+  "es": "La ruta no está en la unidad USB",
+  "fr": "Le chemin n'est pas sur le lecteur USB"
+ },
+ "Löschen fehlgeschlagen: %s": {
+  "en": "Delete failed: %s",
+  "it": "Eliminazione non riuscita: %s",
+  "es": "Error al borrar: %s",
+  "fr": "Échec de la suppression : %s"
+ },
+ "Nicht gelöscht – ": {
+  "en": "Not deleted – ",
+  "it": "Non eliminato – ",
+  "es": "No borrado – ",
+  "fr": "Non supprimé – "
+ },
+ "Auswahl nicht eindeutig – nichts gelöscht. Liste neu laden.": {
+  "en": "Selection is ambiguous – nothing deleted. Reload the list.",
+  "it": "Selezione ambigua – nulla eliminato. Ricarica l'elenco.",
+  "es": "Selección ambigua – no se ha borrado nada. Recarga la lista.",
+  "fr": "Sélection ambiguë – rien supprimé. Rechargez la liste."
+ },
+ "Spiele nicht gefunden – Liste neu laden": {
+  "en": "Games not found – reload the list",
+  "it": "Giochi non trovati – ricarica l'elenco",
+  "es": "Juegos no encontrados – recarga la lista",
+  "fr": "Jeux introuvables – rechargez la liste"
+ },
+ "Formatieren von %s fehlgeschlagen: %s": {
+  "en": "Formatting %s failed: %s",
+  "it": "Formattazione di %s non riuscita: %s",
+  "es": "Error al formatear %s: %s",
+  "fr": "Échec du formatage de %s : %s"
+ },
+ "Prüfen und Reparieren geht nur bei exFAT (dieser Datenträger: %s).": {
+  "en": "Check and repair only works with exFAT (this drive: %s).",
+  "it": "Controllo e riparazione funzionano solo con exFAT (questa unità: %s).",
+  "es": "Comprobar y reparar solo funciona con exFAT (esta unidad: %s).",
+  "fr": "La vérification et la réparation ne fonctionnent qu'avec exFAT (ce support : %s)."
+ },
+ "%s: gelöscht, aber Kachel nicht entfernt (%s)": {
+  "en": "%s: deleted, but tile not removed (%s)",
+  "it": "%s: eliminato, ma il riquadro non è stato rimosso (%s)",
+  "es": "%s: borrado, pero el icono no se quitó (%s)",
+  "fr": "%s : supprimé, mais la vignette n'a pas été retirée (%s)"
+ },
+ "1 Spiel gelöscht: %s.": {
+  "en": "1 game deleted: %s.",
+  "it": "1 gioco eliminato: %s.",
+  "es": "1 juego borrado: %s.",
+  "fr": "1 jeu supprimé : %s."
+ },
+ "%d Spiele gelöscht: %s.": {
+  "en": "%d games deleted: %s.",
+  "it": "%d giochi eliminati: %s.",
+  "es": "%d juegos borrados: %s.",
+  "fr": "%d jeux supprimés : %s."
+ },
+ " 1 Kachel von der Startseite entfernt.": {
+  "en": " 1 tile removed from the home screen.",
+  "it": " 1 riquadro rimosso dalla schermata iniziale.",
+  "es": " 1 icono quitado de la pantalla de inicio.",
+  "fr": " 1 vignette retirée de l'écran d'accueil."
+ },
+ " %d Kacheln von der Startseite entfernt.": {
+  "en": " %d tiles removed from the home screen.",
+  "it": " %d riquadri rimossi dalla schermata iniziale.",
+  "es": " %d iconos quitados de la pantalla de inicio.",
+  "fr": " %d vignettes retirées de l'écran d'accueil."
+ },
+ "theme, scale_tv, scale_pc oder lang angeben": {
+  "en": "Specify theme, scale_tv, scale_pc or lang",
+  "it": "Indica theme, scale_tv, scale_pc o lang",
+  "es": "Indica theme, scale_tv, scale_pc o lang",
+  "fr": "Indiquez theme, scale_tv, scale_pc ou lang"
+ },
+ "lang muss de, en, it, es oder fr sein": {
+  "en": "lang must be de, en, it, es or fr",
+  "it": "lang deve essere de, en, it, es o fr",
+  "es": "lang debe ser de, en, it, es o fr",
+  "fr": "lang doit être de, en, it, es ou fr"
+ },
+ "theme muss auto, light oder dark sein": {
+  "en": "theme must be auto, light or dark",
+  "it": "theme deve essere auto, light o dark",
+  "es": "theme debe ser auto, light o dark",
+  "fr": "theme doit être auto, light ou dark"
+ },
+ "Größe muss zwischen 50 und 250 Prozent liegen": {
+  "en": "Size must be between 50 and 250 percent",
+  "it": "La dimensione deve essere tra 50 e 250 percento",
+  "es": "El tamaño debe estar entre 50 y 250 por ciento",
+  "fr": "La taille doit être comprise entre 50 et 250 pour cent"
+ },
+ "Einstellung ließ sich nicht speichern": {
+  "en": "Could not save the setting",
+  "it": "Impossibile salvare l'impostazione",
+  "es": "No se pudo guardar el ajuste",
+  "fr": "Impossible d'enregistrer le réglage"
+ },
+ "device und size sind erforderlich": {
+  "en": "device and size are required",
+  "it": "device e size sono obbligatori",
+  "es": "device y size son obligatorios",
+  "fr": "device et size sont obligatoires"
+ },
+ "Gerätegröße hat sich geändert (anderer Stick?). Liste neu laden.": {
+  "en": "Device size has changed (different stick?). Reload the list.",
+  "it": "La dimensione del dispositivo è cambiata (altra chiavetta?). Ricarica l'elenco.",
+  "es": "El tamaño del dispositivo ha cambiado (¿otro pendrive?). Recarga la lista.",
+  "fr": "La taille du périphérique a changé (autre clé ?). Rechargez la liste."
+ },
+ "Dieses Gerät ist vom System eingehängt und wird nicht verändert.": {
+  "en": "This device is mounted by the system and will not be changed.",
+  "it": "Questo dispositivo è montato dal sistema e non verrà modificato.",
+  "es": "Este dispositivo está montado por el sistema y no se modificará.",
+  "fr": "Ce périphérique est monté par le système et ne sera pas modifié."
+ },
+ "Gerät nicht gefunden. Liste neu laden.": {
+  "en": "Device not found. Reload the list.",
+  "it": "Dispositivo non trovato. Ricarica l'elenco.",
+  "es": "Dispositivo no encontrado. Recarga la lista.",
+  "fr": "Périphérique introuvable. Rechargez la liste."
+ },
+ "Die PS5 hat diesen Stick eingebunden. Mit \"replug\":true senden - der Formatierer meldet ihn dann kurz ab.": {
+  "en": "The PS5 has mounted this stick. Send with \"replug\":true - the formatter then detaches it briefly.",
+  "it": "La PS5 ha montato questa chiavetta. Invia con \"replug\":true - il formattatore la scollega brevemente.",
+  "es": "La PS5 ha montado este pendrive. Envía con \"replug\":true - el formateador lo desconecta brevemente.",
+  "fr": "La PS5 a monté cette clé. Envoyez avec \"replug\":true - le formateur la déconnecte brièvement."
+ },
+ "Thread konnte nicht gestartet werden": {
+  "en": "Could not start thread",
+  "it": "Impossibile avviare il thread",
+  "es": "No se pudo iniciar el hilo",
+  "fr": "Impossible de démarrer le thread"
+ },
+ "Ungültige Anfrage": {
+  "en": "Invalid request",
+  "it": "Richiesta non valida",
+  "es": "Solicitud no válida",
+  "fr": "Requête invalide"
+ },
+ "fs ist erforderlich": {
+  "en": "fs is required",
+  "it": "fs è obbligatorio",
+  "es": "fs es obligatorio",
+  "fr": "fs est obligatoire"
+ },
+ "Dateisystem muss exfat, fat32, ntfs oder ext4 sein": {
+  "en": "File system must be exfat, fat32, ntfs or ext4",
+  "it": "Il file system deve essere exfat, fat32, ntfs o ext4",
+  "es": "El sistema de archivos debe ser exfat, fat32, ntfs o ext4",
+  "fr": "Le système de fichiers doit être exfat, fat32, ntfs ou ext4"
+ },
+ "scheme muss auto, mbr oder gpt sein": {
+  "en": "scheme must be auto, mbr or gpt",
+  "it": "scheme deve essere auto, mbr o gpt",
+  "es": "scheme debe ser auto, mbr o gpt",
+  "fr": "scheme doit être auto, mbr ou gpt"
+ },
+ "Diese Zuordnungseinheit passt nicht zum gewählten Dateisystem": {
+  "en": "This allocation unit does not fit the selected file system",
+  "it": "Questa unità di allocazione non è adatta al file system scelto",
+  "es": "Esta unidad de asignación no es válida para el sistema de archivos elegido",
+  "fr": "Cette unité d'allocation ne convient pas au système de fichiers choisi"
+ },
+ "limit muss zwischen 64 MB und der Größe des Datenträgers liegen": {
+  "en": "limit must be between 64 MB and the size of the drive",
+  "it": "limit deve essere tra 64 MB e la dimensione dell'unità",
+  "es": "limit debe estar entre 64 MB y el tamaño de la unidad",
+  "fr": "limit doit être compris entre 64 Mo et la taille du support"
+ },
+ "Prüfen und Reparieren geht nur bei exFAT": {
+  "en": "Check and repair only works with exFAT",
+  "it": "Controllo e riparazione funzionano solo con exFAT",
+  "es": "Comprobar y reparar solo funciona con exFAT",
+  "fr": "La vérification et la réparation ne fonctionnent qu'avec exFAT"
+ },
+ "label ist erforderlich": {
+  "en": "label is required",
+  "it": "label è obbligatorio",
+  "es": "label es obligatorio",
+  "fr": "label est obligatoire"
+ },
+ "Umbenennen geht nur bei exFAT und FAT32": {
+  "en": "Renaming only works with exFAT and FAT32",
+  "it": "La rinomina funziona solo con exFAT e FAT32",
+  "es": "Cambiar el nombre solo funciona con exFAT y FAT32",
+  "fr": "Le renommage ne fonctionne qu'avec exFAT et FAT32"
+ },
+ "keys ist erforderlich (höchstens 256 Spiele auf einmal)": {
+  "en": "keys is required (at most 256 games at once)",
+  "it": "keys è obbligatorio (al massimo 256 giochi alla volta)",
+  "es": "keys es obligatorio (como máximo 256 juegos a la vez)",
+  "fr": "keys est obligatoire (256 jeux au maximum à la fois)"
+ },
+ "Höchstens 256 Spiele auf einmal": {
+  "en": "At most 256 games at once",
+  "it": "Al massimo 256 giochi alla volta",
+  "es": "Como máximo 256 juegos a la vez",
+  "fr": "256 jeux au maximum à la fois"
+ },
+ "Anfrage zu groß": {
+  "en": "Request too large",
+  "it": "Richiesta troppo grande",
+  "es": "Solicitud demasiado grande",
+  "fr": "Requête trop volumineuse"
+ },
+ "Ungültiger Host. Bitte die PS5 über ihre IP-Adresse aufrufen.": {
+  "en": "Invalid host. Please open the PS5 via its IP address.",
+  "it": "Host non valido. Apri la PS5 tramite il suo indirizzo IP.",
+  "es": "Host no válido. Abre la PS5 mediante su dirección IP.",
+  "fr": "Hôte invalide. Ouvrez la PS5 via son adresse IP."
+ },
+ "Fremder Ursprung abgelehnt": {
+  "en": "Foreign origin rejected",
+  "it": "Origine esterna rifiutata",
+  "es": "Origen externo rechazado",
+  "fr": "Origine étrangère refusée"
+ },
+ "Content-Type muss application/json sein": {
+  "en": "Content-Type must be application/json",
+  "it": "Content-Type deve essere application/json",
+  "es": "Content-Type debe ser application/json",
+  "fr": "Content-Type doit être application/json"
+ },
+ "Es läuft noch ein Auftrag": {
+  "en": "A job is still running",
+  "it": "Un'operazione è ancora in corso",
+  "es": "Todavía hay una tarea en curso",
+  "fr": "Une tâche est encore en cours"
+ },
+ "Methode nicht erlaubt": {
+  "en": "Method not allowed",
+  "it": "Metodo non consentito",
+  "es": "Método no permitido",
+  "fr": "Méthode non autorisée"
+ },
+ "Nicht gefunden": {
+  "en": "Not found",
+  "it": "Non trovato",
+  "es": "No encontrado",
+  "fr": "Introuvable"
+ },
+ "Zu viele gleichzeitige Anfragen – bitte gleich noch einmal versuchen": {
+  "en": "Too many simultaneous requests – please try again in a moment",
+  "it": "Troppe richieste contemporanee – riprova tra un attimo",
+  "es": "Demasiadas solicitudes simultáneas – inténtalo de nuevo en un momento",
+  "fr": "Trop de requêtes simultanées – réessayez dans un instant"
+ },
+ "Windows hat das Formatieren nicht abgeschlossen: %s": {
+  "en": "Windows did not complete the formatting: %s",
+  "it": "Windows non ha completato la formattazione: %s",
+  "es": "Windows no completó el formateo: %s",
+  "fr": "Windows n'a pas terminé le formatage : %s"
+ }
+}

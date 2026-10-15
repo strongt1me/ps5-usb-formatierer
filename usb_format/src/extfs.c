@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "extfs.h"
+#include "i18n.h"
 #include "mkfs.h"
 
 const char *extfs_tool(int fs) { return fs == FS_NTFS ? "mkntfs" : "mke2fs"; }
@@ -69,20 +70,20 @@ int extfs_signature_ok(int fs, const uint8_t *head) {
 
 const char *extfs_step(int fs, const char *line, int *percent) {
     static const struct { int fs; const char *key, *step; int pct; } map[] = {
-        {FS_NTFS, "Cluster size has been automatically", "NTFS vorbereiten", 10},
-        {FS_NTFS, "Creating NTFS volume structures", "NTFS-Strukturen schreiben", 40},
-        {FS_NTFS, "creating root directory", "Wurzelverzeichnis anlegen", 80},
-        {FS_NTFS, "mkntfs completed successfully", "NTFS fertig", 100},
-        {FS_EXT4, "Creating filesystem with", "ext4 vorbereiten", 10},
-        {FS_EXT4, "Allocating group tables", "Gruppentabellen anlegen", 25},
-        {FS_EXT4, "Writing inode tables", "Inode-Tabellen schreiben", 45},
-        {FS_EXT4, "Creating journal", "Journal anlegen", 65},
-        {FS_EXT4, "Writing superblocks", "Superblöcke schreiben", 85},
+        {FS_NTFS, "Cluster size has been automatically", N_("NTFS vorbereiten"), 10},
+        {FS_NTFS, "Creating NTFS volume structures", N_("NTFS-Strukturen schreiben"), 40},
+        {FS_NTFS, "creating root directory", N_("Wurzelverzeichnis anlegen"), 80},
+        {FS_NTFS, "mkntfs completed successfully", N_("NTFS fertig"), 100},
+        {FS_EXT4, "Creating filesystem with", N_("Dateisystem vorbereiten"), 10},
+        {FS_EXT4, "Allocating group tables", N_("Gruppentabellen anlegen"), 25},
+        {FS_EXT4, "Writing inode tables", N_("Inode-Tabellen schreiben"), 45},
+        {FS_EXT4, "Creating journal", N_("Journal anlegen"), 65},
+        {FS_EXT4, "Writing superblocks", N_("Superblöcke schreiben"), 85},
     };
     for (unsigned i = 0; i < sizeof(map) / sizeof(map[0]); i++)
         if (map[i].fs == fs && strstr(line, map[i].key)) {
             *percent = map[i].pct;
-            return map[i].step;
+            return T(map[i].step);
         }
     return NULL;
 }
@@ -99,7 +100,7 @@ void extfs_summary(int fs, uint32_t cluster, const char *output, char *out, size
         if (sscanf(p + 25, "%llu %uk", &blocks, &k) == 2) size = k * 1024;
     }
     if (!size) size = 4096;
-    if (size >= 1024) snprintf(out, n, "%s, %u KB %s", fs == FS_NTFS ? "NTFS" : "ext4", size / 1024,
-                               fs == FS_NTFS ? "Cluster" : "Blöcke");
-    else snprintf(out, n, "NTFS, %u Byte Cluster", size);
+    if (size >= 1024) snprintf(out, n, "%s, %u %s %s", fs == FS_NTFS ? "NTFS" : "ext4", size / 1024, T("KB"),
+                               fs == FS_NTFS ? T("Cluster") : T("Blöcke"));
+    else snprintf(out, n, "NTFS, %u %s %s", size, T("Byte"), T("Cluster"));
 }

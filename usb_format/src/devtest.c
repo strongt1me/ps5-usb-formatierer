@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "devtest.h"
+#include "i18n.h"
 
 #define MIB         (1024u * 1024u)
 #define CHUNK       (4u * MIB)
@@ -105,8 +106,8 @@ static int dev_gone(int fd, uint32_t ss) {
 
 static int gone_error(int fd, uint32_t ss, uint64_t at, char *err, size_t errlen) {
     if (!io_failed || !dev_gone(fd, ss)) return 0;
-    snprintf(err, errlen, "Laufwerk nicht mehr erreichbar (bei %llu MB) – abgezogen oder USB-Verbindung "
-                          "unterbrochen? Die Prüfung ist ungültig.", (unsigned long long)(at / MIB));
+    snprintf(err, errlen, T("Laufwerk nicht mehr erreichbar (bei %llu MB) – abgezogen oder USB-Verbindung "
+                            "unterbrochen? Die Prüfung ist ungültig."), (unsigned long long)(at / MIB));
     return 1;
 }
 
@@ -151,7 +152,7 @@ static uint64_t nonce64(void) { return (uint64_t)arc4random() << 32 | arc4random
 
 static uint8_t *alloc_buf(size_t len, char *err, size_t errlen) {
     void *p = NULL;
-    if (posix_memalign(&p, 4096, len)) { snprintf(err, errlen, "Kein Speicher"); return NULL; }
+    if (posix_memalign(&p, 4096, len)) { snprintf(err, errlen, "%s", T("Kein Speicher")); return NULL; }
     return p;
 }
 
@@ -163,9 +164,9 @@ const char *dt_rating(double mbps) {
 static void eta_text(char *out, size_t n, const char *what, uint64_t left, double bps) {
     if (bps <= 0) { snprintf(out, n, "%s", what); return; }
     double s = (double)left / bps;
-    if (s < 60) snprintf(out, n, "%s – noch < 1 Min.", what);
-    else if (s < 5400) snprintf(out, n, "%s – noch ca. %d Min.", what, (int)(s / 60 + 0.5));
-    else snprintf(out, n, "%s – noch ca. %d Std. %d Min.", what, (int)(s / 3600), (int)(s / 60) % 60);
+    if (s < 60) snprintf(out, n, T("%s – noch < 1 Min."), what);
+    else if (s < 5400) snprintf(out, n, T("%s – noch ca. %d Min."), what, (int)(s / 60 + 0.5));
+    else snprintf(out, n, T("%s – noch ca. %d Std. %d Min."), what, (int)(s / 3600), (int)(s / 60) % 60);
 }
 
 /* Fortschritt einer Messung mit Mengen- und Zeitgrenze: der größere Anteil, höchstens 99 bis zum Ende */
@@ -187,7 +188,7 @@ int dt_read_speed(int fd, uint32_t ss, uint64_t size, progress_fn progress, vola
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; break; }
         size_t take = total - done < CHUNK ? (size_t)(total - done) : CHUNK;
         if (io_all(fd, 0, buf, take, start + done)) {
-            snprintf(err, errlen, "Lesefehler bei %llu MB: %s", (unsigned long long)((start + done) / MIB),
+            snprintf(err, errlen, T("Lesefehler bei %llu MB: %s"), (unsigned long long)((start + done) / MIB),
                      strerror(errno));
             r->bad = 1;
             r->bad_at = start + done;
@@ -196,7 +197,7 @@ int dt_read_speed(int fd, uint32_t ss, uint64_t size, progress_fn progress, vola
         }
         done += take;
         /* Ende nach Menge oder nach 8 s - was zuerst kommt; so läuft der Balken gleichmäßig bis zum Schluss */
-        progress("Lesetempo messen", time_pct(done, total, now_s() - t0, 8));
+        progress(T("Lesetempo messen"), time_pct(done, total, now_s() - t0, 8));
         if (now_s() - t0 > 8 && done >= 16ull * MIB) break;
     }
     double dt = now_s() - t0;
@@ -217,12 +218,12 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; return 0; }
         fill(a, CHUNK, nonce ^ (start + done));
         if (io_all(fd, 1, a, CHUNK, start + done)) {
-            snprintf(err, errlen, "Schreibfehler bei %llu MB: %s", (unsigned long long)((start + done) / MIB),
+            snprintf(err, errlen, T("Schreibfehler bei %llu MB: %s"), (unsigned long long)((start + done) / MIB),
                      strerror(errno));
             return -1;
         }
         done += CHUNK;
-        progress("Schreibtempo messen", time_pct(done, total, now_s() - t0, 15));
+        progress(T("Schreibtempo messen"), time_pct(done, total, now_s() - t0, 15));
         if (now_s() - t0 > 15 && done >= 16ull * MIB) break;
     }
     dev_sync(fd);
@@ -235,14 +236,14 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
     while (done < written) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; return 0; }
         if (io_all(fd, 0, b, CHUNK, start + done)) {
-            snprintf(err, errlen, "Lesefehler bei %llu MB: %s", (unsigned long long)((start + done) / MIB),
+            snprintf(err, errlen, T("Lesefehler bei %llu MB: %s"), (unsigned long long)((start + done) / MIB),
                      strerror(errno));
             return -1;
         }
         fill(a, CHUNK, nonce ^ (start + done));
         if (memcmp(a, b, CHUNK) != 0 && !r->bad) { r->bad = 1; r->bad_at = start + done; }
         done += CHUNK;
-        progress("Lesetempo messen", (int)(done * 100 / written));
+        progress(T("Lesetempo messen"), (int)(done * 100 / written));
     }
     dt = now_s() - t0;
     r->read_mbps = dt > 0 ? (double)written / dt / 1e6 : 0;
@@ -271,7 +272,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
     uint32_t n = 0;
     pos = malloc((MAX_SAMPLES + 2 + EXTRA_SAMPLES) * sizeof(*pos));
     state = calloc(MAX_SAMPLES + 2 + EXTRA_SAMPLES, 1);
-    if (!pos || !state) { snprintf(err, errlen, "Kein Speicher"); goto out; }
+    if (!pos || !state) { snprintf(err, errlen, "%s", T("Kein Speicher")); goto out; }
     for (uint64_t p = c; p + SAMPLE <= size && n < MAX_SAMPLES; p += G) pos[n++] = p;
     uint64_t end = (size - SAMPLE) / SAMPLE * SAMPLE;
     if (!n || end > pos[n - 1]) pos[n++] = end;
@@ -290,7 +291,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         tagged(a, SAMPLE, nonce, pos[i]);
         if (io_all(fd, 1, a, SAMPLE, pos[i])) state[i] = 3;
         double el = now_s() - t0;   /* Restzeit aus dem bisherigen Tempo je Stichprobe */
-        eta_text(step, sizeof(step), "Echtheit prüfen", (uint64_t)(n - i - 1), el > 0 ? (i + 1) / el : 0);
+        eta_text(step, sizeof(step), T("Echtheit prüfen"), (uint64_t)(n - i - 1), el > 0 ? (i + 1) / el : 0);
         progress(step, (int)((uint64_t)(i + 1) * 100 / n));
     }
     dev_sync(fd);
@@ -314,7 +315,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         }
         if (state[i] == 3 && !nlost++) first_lost = pos[i];
         if (state[i] == 1 && !nlost) last_good = pos[i] + SAMPLE;
-        if (i % 16 == 0) progress("Echtheit prüfen: lesen", (int)((uint64_t)i * 100 / n));
+        if (i % 16 == 0) progress(T("Echtheit prüfen: lesen"), (int)((uint64_t)i * 100 / n));
     }
     if (gone_error(fd, ss, first_lost, err, errlen)) goto out;
 
@@ -333,7 +334,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
                 uint64_t mid = (lo + (hi - lo) / 2) / MIB * MIB;
                 if (mid <= lo) mid = lo + MIB;
                 if (mid >= hi) break;
-                progress("Echtheit prüfen: Grenze suchen", 100);
+                progress(T("Echtheit prüfen: Grenze suchen"), 100);
                 tagged(a, SAMPLE, nonce ^ step, mid);
                 int good = io_all(fd, 1, a, SAMPLE, mid) == 0;
                 dev_sync(fd);
@@ -356,7 +357,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         r->real_bytes = real / MIB * MIB;
         if (r->bad && r->bad_at >= r->real_bytes) r->bad = 0;   /* nur die Fälschung, keine defekten Bereiche */
     }
-    progress("Echtheit prüfen: lesen", 100);
+    progress(T("Echtheit prüfen: lesen"), 100);
     rc = 0;
 out:
     free(a); free(b); free(pos); free(state);
@@ -384,7 +385,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
         tagged(a, take, nonce, done);
         if (io_all(fd, 1, a, take, done)) {
             if (gone_error(fd, ss, done, err, errlen)) goto out;   /* abgezogen, nicht defekt */
-            snprintf(err, errlen, "Schreibfehler bei %llu MB: %s – der Datenträger ist vermutlich defekt",
+            snprintf(err, errlen, T("Schreibfehler bei %llu MB: %s – der Datenträger ist vermutlich defekt"),
                      (unsigned long long)(done / MIB), strerror(errno));
             r->bad = 1;
             r->bad_at = done;
@@ -393,7 +394,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
         done += take;
         double t = now_s();
         if (t - last >= 1 || done == total) {
-            eta_text(step, sizeof(step), "Beschreiben", total - done, (double)done / (t - t0));
+            eta_text(step, sizeof(step), T("Beschreiben"), total - done, (double)done / (t - t0));
             progress(step, (int)(done * 100 / total));
             last = t;
         }
@@ -426,7 +427,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
         done += take;
         double t = now_s();
         if (t - last >= 1 || done == total) {
-            eta_text(step, sizeof(step), "Prüfen", total - done, (double)done / (t - t0));
+            eta_text(step, sizeof(step), T("Prüfen"), total - done, (double)done / (t - t0));
             progress(step, (int)(done * 100 / total));
             last = t;
         }

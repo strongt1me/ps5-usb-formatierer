@@ -13,21 +13,22 @@
 
 #include "fsdetect.h"
 #include "fsread.h"
+#include "i18n.h"
 #include "mkfs.h"
 #include "vollabel.h"
 
 static int patch(int fd, uint32_t ss, uint64_t off, const void *data, size_t len, char *err, size_t errlen) {
     uint64_t sec = off - off % ss;
     uint8_t *buf;
-    if (off % ss + len > ss) { snprintf(err, errlen, "Interner Fehler: Eintrag über Sektorgrenze"); return -1; }
-    if (posix_memalign((void **)&buf, 4096, ss)) { snprintf(err, errlen, "Kein Speicher"); return -1; }
+    if (off % ss + len > ss) { snprintf(err, errlen, "%s", T("Interner Fehler: Eintrag über Sektorgrenze")); return -1; }
+    if (posix_memalign((void **)&buf, 4096, ss)) { snprintf(err, errlen, "%s", T("Kein Speicher")); return -1; }
     int ok = pread(fd, buf, ss, (off_t)sec) == (ssize_t)ss;
     if (ok) {
         memcpy(buf + (off - sec), data, len);
         ok = pwrite(fd, buf, ss, (off_t)sec) == (ssize_t)ss;
     }
     free(buf);
-    if (!ok) snprintf(err, errlen, "Schreibfehler bei Byte %llu: %s", (unsigned long long)off, strerror(errno));
+    if (!ok) snprintf(err, errlen, T("Schreibfehler bei Byte %llu: %s"), (unsigned long long)off, strerror(errno));
     return ok ? 0 : -1;
 }
 
@@ -35,10 +36,10 @@ static int set_exfat(int fd, uint32_t ss, uint64_t start, const char *label, cha
     fsr_t *f = fsr_open(fd, start);
     uint64_t off;
     int found;
-    if (!f) { snprintf(err, errlen, "exFAT-Dateisystem nicht lesbar"); return -1; }
+    if (!f) { snprintf(err, errlen, "%s", T("exFAT-Dateisystem nicht lesbar")); return -1; }
     int rc = fsr_exfat_label_slot(f, &off, &found);
     fsr_close(f);
-    if (rc) { snprintf(err, errlen, "Im Wurzelordner ist kein Platz für die Bezeichnung"); return -1; }
+    if (rc) { snprintf(err, errlen, "%s", T("Im Wurzelordner ist kein Platz für die Bezeichnung")); return -1; }
     uint8_t e[32] = {0};
     size_t n = strlen(label);
     e[0] = 0x83;
@@ -55,11 +56,11 @@ static int set_fat32(int fd, uint32_t ss, uint64_t start, const char *label, cha
         lab[i] = (uint8_t)(label[i] >= 'a' && label[i] <= 'z' ? label[i] - 32 : label[i]);
 
     /* Bootsektor und Sicherungskopie (Sektor laut BPB_BkBootSec) */
-    if (posix_memalign((void **)&bs, 4096, ss)) { snprintf(err, errlen, "Kein Speicher"); return -1; }
+    if (posix_memalign((void **)&bs, 4096, ss)) { snprintf(err, errlen, "%s", T("Kein Speicher")); return -1; }
     int ok = pread(fd, bs, ss, (off_t)start) == (ssize_t)ss && memcmp(bs + 0x52, "FAT32   ", 8) == 0;
     unsigned backup = ok ? (unsigned)(bs[50] | bs[51] << 8) : 0;
     free(bs);
-    if (!ok) { snprintf(err, errlen, "FAT32-Bootsektor nicht lesbar"); return -1; }
+    if (!ok) { snprintf(err, errlen, "%s", T("FAT32-Bootsektor nicht lesbar")); return -1; }
     const uint8_t *boot_lab = label[0] ? lab : (const uint8_t *)"NO NAME    ";
     if (patch(fd, ss, start + 0x47, boot_lab, 11, err, errlen)) return -1;
     if (backup && backup < 32 && patch(fd, ss, start + (uint64_t)backup * ss + 0x47, boot_lab, 11, err, errlen))
@@ -84,11 +85,11 @@ int vol_set_label(int fd, uint32_t ss, uint64_t devsize, const char *label, char
     fs_probe(fd, ss, devsize, &fi);
     int fs = !strcmp(fi.fs, "exFAT") ? FS_EXFAT : !strcmp(fi.fs, "FAT32") ? FS_FAT32 : 0;
     if (!fs) {
-        snprintf(err, errlen, "Umbenennen geht nur bei exFAT und FAT32 (dieser Datenträger: %s)", fi.fs);
+        snprintf(err, errlen, T("Umbenennen geht nur bei exFAT und FAT32 (dieser Datenträger: %s)"), T(fi.fs));
         return -1;
     }
     if (!label_valid(label, fs)) {
-        snprintf(err, errlen, "Ungültige Bezeichnung: max. 11 Zeichen, nur A-Z, 0-9, Leerzeichen, - und _");
+        snprintf(err, errlen, "%s", T("Ungültige Bezeichnung: max. 11 Zeichen, nur A-Z, 0-9, Leerzeichen, - und _"));
         return -1;
     }
     int rc = fs == FS_EXFAT ? set_exfat(fd, ss, fi.start, label, err, errlen)

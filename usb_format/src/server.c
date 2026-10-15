@@ -17,8 +17,10 @@
  *   GET  /api/status     Fortschritt des laufenden/letzten Auftrags: "kind" und "result" (Einzelheiten)
  *   GET  /api/info       LAN-Adresse der PS5 (fuer den Hinweis im PS5-Browser)
  *   POST /api/open       {} Web-UI im PS5-Browser öffnen (für die App, app/title/starter.c)
- *   GET  /api/settings   {"theme":"auto|light|dark","scale_tv":160,"scale_pc":100}; POST ändert (einzeln
- *                         oder zusammen) und speichert es
+ *   GET  /api/settings   {"theme":"auto|light|dark","scale_tv":160,"scale_pc":100,"lang":"de|en|it|es|fr|"};
+ *                         POST ändert (einzeln oder zusammen) und speichert es
+ *   Sprache der Antworten und Meldungen: ?lang=de|en|it|es|fr an jeder Adresse, sonst Accept-Language, sonst die
+ *   gespeicherte Einstellung. Ein Auftrag meldet sich in der Sprache der Anfrage, die ihn gestartet hat.
  *   POST /api/diag       Darstellungsbericht der Seite ablegen; GET liefert {"tv":"...","pc":"..."}
  *   POST /api/quit       Server beenden
  */
@@ -42,6 +44,7 @@
 #include "devtest.h"
 #include "exfat_fsck.h"
 #include "fsdetect.h"
+#include "i18n.h"
 #include "library.h"
 #include "mkfs.h"
 #include "platform.h"
@@ -59,6 +62,10 @@ __asm__(".section .rodata\n"
         "web_index_html:\n"
         ".incbin \"web/index.html\"\n"
         ".byte 0\n"
+        ".global web_help_html\n"
+        "web_help_html:\n"
+        ".incbin \"web/help.html\"\n"
+        ".byte 0\n"
         ".global web_bg_jpg\n"
         "web_bg_jpg:\n"
         ".incbin \"web/bg.jpg\"\n"
@@ -75,7 +82,7 @@ __asm__(".section .rodata\n"
         ".global web_page_light_end\n"
         "web_page_light_end:\n"
         ".previous\n");
-extern const char web_index_html[];
+extern const char web_index_html[], web_help_html[];
 extern const char web_bg_jpg[], web_bg_jpg_end[];
 extern const char web_page_dark[], web_page_dark_end[], web_page_light[], web_page_light_end[];
 
@@ -86,7 +93,7 @@ typedef struct {
     size_t len, cap;
 } sbuf_t;
 
-static void sb_add(sbuf_t *b, const char *fmt, ...) {
+static void sb_vadd(sbuf_t *b, const char *fmt, va_list ap0) {
     va_list ap;
     if (!b->p) {
         b->p = malloc(256);
@@ -95,7 +102,7 @@ static void sb_add(sbuf_t *b, const char *fmt, ...) {
         b->p[0] = 0;
     }
     for (;;) {
-        va_start(ap, fmt);
+        va_copy(ap, ap0);
         int n = vsnprintf(b->p + b->len, b->cap - b->len, fmt, ap);
         va_end(ap);
         if (n < 0) return;
@@ -106,6 +113,21 @@ static void sb_add(sbuf_t *b, const char *fmt, ...) {
         b->p = np;
         b->cap = cap;
     }
+}
+
+static void sb_add(sbuf_t *b, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    sb_vadd(b, fmt, ap);
+    va_end(ap);
+}
+
+/* Meldungstext: fmt ist der deutsche Text, angehängt wird er in der Sprache des Threads (i18n.h) */
+static void sb_tr(sbuf_t *b, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    sb_vadd(b, T(fmt), ap);
+    va_end(ap);
 }
 
 static void sb_str(sbuf_t *b, const char *s) {
@@ -121,13 +143,13 @@ static void sb_str(sbuf_t *b, const char *s) {
 
 /* "58,6 GB" (1024er-Einheiten wie in der Oberfläche) */
 static const char *size_text(uint64_t b, char *buf, size_t n) {
-    static const char *const unit[] = {"Bytes", "KB", "MB", "GB", "TB"};
+    static const char *const unit[] = {N_("Bytes"), N_("KB"), N_("MB"), N_("GB"), N_("TB")};
     double v = (double)b;
     int i = 0;
     while (v >= 1024 && i < 4) { v /= 1024; i++; }
-    snprintf(buf, n, i ? "%.1f %s" : "%.0f %s", v, unit[i]);
+    snprintf(buf, n, i ? "%.1f %s" : "%.0f %s", v, T(unit[i]));
     char *dot = strchr(buf, '.');
-    if (dot) *dot = ',';
+    if (dot && i18n_get() != LANG_EN) *dot = ',';   /* Dezimalkomma außer im Englischen */
     return buf;
 }
 
@@ -142,6 +164,9 @@ static struct {
     int  percent;
     char message[512];
     char result[4096];    /* JSON-Objekt mit Einzelheiten oder leer */
+    int  cancellable;     /* "Abbrechen" möglich (Warten aufs Umstecken, Prüfung, Tempomessung) */
+    int  replug;          /* wartet auf Abziehen/Einstecken bzw. Software-Neuanmeldung des Sticks */
+    int  cancelled;       /* Auftrag endete, weil "Abbrechen" gewählt wurde */
 } st;
 
 static volatile int quit_requested;
@@ -152,12 +177,22 @@ static void lib_refresh(void);
 static uint64_t fake_get(const usbdev_t *d);
 static void fake_put(const usbdev_t *d, uint64_t real);
 
+/* step: deutscher Schrittname oder schon übersetzt (mkfs/devtest übersetzen selbst) */
 static void on_progress(const char *step, int pct) {
+    step = T(step);
     pthread_mutex_lock(&lock);
     snprintf(st.step, sizeof(st.step), "%s", step);
     st.percent = pct;
     pthread_mutex_unlock(&lock);
     plat_throttle();
+}
+
+/* Kennzeichen für die Oberflächen - die Schrittnamen sind übersetzt und taugen nicht mehr zum Erkennen */
+static void set_flags(int cancellable, int replug) {
+    pthread_mutex_lock(&lock);
+    st.cancellable = cancellable;
+    st.replug = replug;
+    pthread_mutex_unlock(&lock);
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE };
@@ -183,6 +218,7 @@ typedef struct {
     /* Spiele löschen */
     del_item_t *items;
     int      nitems, uninstall;
+    int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
 } job_t;
 
 static const char *const TEMPLATE_DIRS[] = {"homebrew", "etaHEN/games", "pkg", NULL};
@@ -193,7 +229,9 @@ static void finish(int ok, const char *msg, const char *result) {
     st.done = 1;
     st.ok = ok;
     st.percent = ok ? 100 : st.percent;
-    snprintf(st.step, sizeof(st.step), "%s", ok ? "Fertig" : "Fehler");
+    st.cancellable = st.replug = 0;
+    st.cancelled = !ok && __atomic_load_n(&cancel_requested, __ATOMIC_RELAXED);
+    snprintf(st.step, sizeof(st.step), "%s", ok ? T("Fertig") : T("Fehler"));
     snprintf(st.message, sizeof(st.message), "%s", msg ? msg : "");
     if (msg && strlen(msg) >= sizeof(st.message)) {   /* gekürzt: kein halbes UTF-8-Zeichen am Ende, dafür "…" */
         size_t n = sizeof(st.message) - 4;
@@ -207,9 +245,11 @@ static void finish(int ok, const char *msg, const char *result) {
     plat_notify(msg ? msg : "");
 }
 
-static void dev_title(const usbdev_t *d, sbuf_t *b) {
-    if (d->model[0]) sb_add(b, "%s (%s)", d->model, d->name);
-    else sb_add(b, "%s", d->name);
+/* "Modell (daN)" für Meldungen */
+static const char *dev_title(const usbdev_t *d, char *buf, size_t n) {
+    if (d->model[0]) snprintf(buf, n, "%s (%s)", d->model, d->name);
+    else snprintf(buf, n, "%s", d->name);
+    return buf;
 }
 
 /* Datenträger zum Schreiben übernehmen: eingebunden per Software-Abziehen (bzw. Abziehen von Hand), sonst
@@ -218,7 +258,9 @@ static int job_acquire(job_t *j, char *err, size_t n) {
     on_progress("Laufwerk öffnen", 0);
     if (!j->replug) return plat_open_rw(&j->dev, err, n);
     usbdev_t fresh;
+    set_flags(1, 1);   /* Warten aufs Umstecken: abbrechbar */
     int fd = plat_wait_replug(&j->dev, &fresh, on_progress, &cancel_requested, err, n);
+    set_flags(0, 0);
     if (fd >= 0) {
         if (!fresh.model[0]) snprintf(fresh.model, sizeof(fresh.model), "%s", j->dev.model);
         snprintf(fresh.label, sizeof(fresh.label), "%s", j->dev.label);
@@ -239,8 +281,8 @@ static void speed_json(sbuf_t *b, const devtest_t *t) {
 
 static const char *rating_text(double read_mbps) {
     const char *r = dt_rating(read_mbps);
-    return !strcmp(r, "schnell") ? "schnell genug für Spiele" : !strcmp(r, "ausreichend") ? "für Spiele ausreichend"
-                                                                                          : "langsam – Spiele laden länger";
+    return !strcmp(r, "schnell") ? T("schnell genug für Spiele") : !strcmp(r, "ausreichend")
+           ? T("für Spiele ausreichend") : T("langsam – Spiele laden länger");
 }
 
 static void job_done(job_t *j, int ok, sbuf_t *msg, sbuf_t *res, int refresh) {
@@ -256,7 +298,8 @@ static void ext_progress(const char *step, int pct) { on_progress(step, 10 + pct
 
 static void *format_worker(void *arg) {
     job_t *j = arg;
-    char err[256] = "", summary[160] = "", s1[24], s2[24];
+    i18n_set(j->lang);
+    char err[256] = "", summary[160] = "", s1[24], s2[24], title[160];
     sbuf_t msg = {0}, res = {0};
     devtest_t t;
     int tested = 0;
@@ -272,8 +315,10 @@ static void *format_worker(void *arg) {
     int test_cancelled = 0;
     if (j->verify || j->full) {
         tested = j->full ? 2 : 1;
+        set_flags(1, 0);
         int rc = j->full ? dt_full(fd, j->dev.ss, size, on_progress, &cancel_requested, &t, err, sizeof(err))
                          : dt_verify(fd, j->dev.ss, size, on_progress, &cancel_requested, &t, err, sizeof(err));
+        set_flags(0, 0);
         if (rc == 0 && t.cancelled) {
             test_cancelled = 1;
             __atomic_store_n(&cancel_requested, 0, __ATOMIC_RELAXED);
@@ -290,16 +335,18 @@ static void *format_worker(void *arg) {
             speed_json(&res, &t);
             sb_add(&res, "}");
             if (rc != 0) {
-                sb_add(&msg, "Prüfung fehlgeschlagen: %s Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.", err);
+                sb_tr(&msg, "Prüfung fehlgeschlagen: %s Formatiert wurde noch nicht – die bisherigen Daten wurden bei "
+                            "der Prüfung aber schon überschrieben.", err);
             } else if (t.fake) {
-                dev_title(&j->dev, &msg);
-                sb_add(&msg, " meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben – für Spiele an der PS5 "
-                             "nicht empfohlen, höchstens den echten Bereich nutzen.", size_text(j->dev.size, s1, sizeof(s1)),
-                       size_text(t.real_bytes, s2, sizeof(s2)));
+                sb_tr(&msg, "%s meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die "
+                            "bisherigen Daten wurden bei der Prüfung aber schon überschrieben – %s, höchstens den echten "
+                            "Bereich nutzen.", dev_title(&j->dev, title, sizeof(title)),
+                      size_text(j->dev.size, s1, sizeof(s1)), size_text(t.real_bytes, s2, sizeof(s2)),
+                      T("für Spiele an der PS5 nicht empfohlen"));
             } else {
-                sb_add(&msg, "Fehlerhafte Bereiche ab %llu MB: ", (unsigned long long)(t.bad_at / MIB));
-                dev_title(&j->dev, &msg);
-                sb_add(&msg, " arbeitet nicht zuverlässig. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.");
+                sb_tr(&msg, "Fehlerhafte Bereiche ab %llu MB: %s arbeitet nicht zuverlässig. Formatiert wurde noch "
+                            "nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben.",
+                      (unsigned long long)(t.bad_at / MIB), dev_title(&j->dev, title, sizeof(title)));
             }
             job_done(j, 0, &msg, &res, 1);
             return NULL;
@@ -332,25 +379,26 @@ static void *format_worker(void *arg) {
                                      summary, sizeof(summary), err, sizeof(err));
     }
     if (rc != 0) {
-        sb_add(&msg, "Formatieren von %s fehlgeschlagen: %s", j->dev.name, err);
+        sb_tr(&msg, "Formatieren von %s fehlgeschlagen: %s", j->dev.name, err);
         job_done(j, 0, &msg, &res, 1);
         return NULL;
     }
 
     /* auf den echten Bereich begrenzt formatiert: als gefälscht merken, falls noch nicht bekannt */
     if (j->limit && j->limit < j->dev.size && !fake_get(&j->dev)) fake_put(&j->dev, j->limit);
-    dev_title(&j->dev, &msg);
-    sb_add(&msg, " erfolgreich formatiert: %s", summary);
-    if (j->label[0]) sb_add(&msg, ", Bezeichnung %s", j->label);
-    if (o.is_gpt) sb_add(&msg, ", Partitionstabelle GPT");
-    if (j->limit) sb_add(&msg, ", nur die echten %s genutzt", size_text(j->limit, s1, sizeof(s1)));
-    if (o.dirs) sb_add(&msg, ", Ordner homebrew, etaHEN/games und pkg angelegt");
+    sb_tr(&msg, "%s erfolgreich formatiert: %s", dev_title(&j->dev, title, sizeof(title)), summary);
+    if (j->label[0]) sb_tr(&msg, ", Bezeichnung %s", j->label);
+    if (o.is_gpt) sb_tr(&msg, ", Partitionstabelle GPT");
+    if (j->limit) sb_tr(&msg, ", nur die echten %s genutzt", size_text(j->limit, s1, sizeof(s1)));
+    if (o.dirs) sb_tr(&msg, ", Ordner homebrew, etaHEN/games und pkg angelegt");
     sb_add(&msg, ".");
-    if (tested && !test_cancelled && t.read_mbps > 0)
-        sb_add(&msg, " %s: echt%s, lesen %.0f MB/s, schreiben %.0f MB/s – %s.", tested == 2 ? "Jede Stelle geprüft"
-               : "Prüfung", tested == 2 ? ", keine Fehler" : "", t.read_mbps, t.write_mbps, rating_text(t.read_mbps));
-    if (test_cancelled) sb_add(&msg, " Die Prüfung wurde abgebrochen – formatiert wurde trotzdem.");
-    sb_add(&msg, " %s", native ? "Die PS5 bindet ihn gleich selbst ein." : "Die PS5 kann dieses Format nicht nutzen.");
+    if (tested && !test_cancelled && t.read_mbps > 0) {
+        sb_tr(&msg, " %s: echt%s, lesen %.0f MB/s, schreiben %.0f MB/s", tested == 2 ? T("Jede Stelle geprüft")
+              : T("Prüfung"), tested == 2 ? T(", keine Fehler") : "", t.read_mbps, t.write_mbps);
+        sb_add(&msg, " – %s.", rating_text(t.read_mbps));
+    }
+    if (test_cancelled) sb_tr(&msg, " Die Prüfung wurde abgebrochen – formatiert wurde trotzdem.");
+    sb_add(&msg, " %s", native ? T("Die PS5 bindet ihn gleich selbst ein.") : T("Die PS5 kann dieses Format nicht nutzen."));
 
     sb_add(&res, "{\"test\":\"%s\",\"scheme\":\"%s\",\"folders\":%s,\"limit\":%llu",
            test_cancelled ? "cancelled" : tested == 2 ? "full" : tested ? "quick" : "none", o.is_gpt ? "GPT" : "MBR",
@@ -363,18 +411,20 @@ static void *format_worker(void *arg) {
 
 static void *speed_worker(void *arg) {
     job_t *j = arg;
-    char err[256] = "";
+    i18n_set(j->lang);
+    char err[256] = "", title[160];
     sbuf_t msg = {0}, res = {0};
     devtest_t t;
     int fd = plat_open_ro(&j->dev, err, sizeof(err));
     if (fd < 0) { sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
+    set_flags(1, 0);
     int rc = dt_read_speed(fd, j->dev.ss, j->dev.size, on_progress, &cancel_requested, &t, err, sizeof(err));
+    set_flags(0, 0);
     close(fd);
-    if (rc != 0) { sb_add(&msg, "Tempo messen fehlgeschlagen: %s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
-    if (t.cancelled) { sb_add(&msg, "Abgebrochen."); job_done(j, 0, &msg, &res, 0); return NULL; }
-    sb_add(&msg, "Lesetempo von ");
-    dev_title(&j->dev, &msg);
-    sb_add(&msg, ": %.0f MB/s – %s.", t.read_mbps, rating_text(t.read_mbps));
+    if (rc != 0) { sb_tr(&msg, "Tempo messen fehlgeschlagen: %s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
+    if (t.cancelled) { sb_tr(&msg, "Abgebrochen."); job_done(j, 0, &msg, &res, 0); return NULL; }
+    sb_tr(&msg, "Lesetempo von %s: %.0f MB/s – %s.", dev_title(&j->dev, title, sizeof(title)), t.read_mbps,
+          rating_text(t.read_mbps));
     sb_add(&res, "{\"x\":0");
     speed_json(&res, &t);
     sb_add(&res, "}");
@@ -384,7 +434,8 @@ static void *speed_worker(void *arg) {
 
 static void *check_worker(void *arg) {
     job_t *j = arg;
-    char err[256] = "", sum[256];
+    i18n_set(j->lang);
+    char err[256] = "", sum[256], title[160];
     sbuf_t msg = {0}, res = {0};
     int fd = job_acquire(j, err, sizeof(err));
     if (fd < 0) { sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
@@ -392,17 +443,16 @@ static void *check_worker(void *arg) {
     fs_probe(fd, j->dev.ss, j->dev.size, &fi);
     if (strcmp(fi.fs, "exFAT") != 0) {
         close(fd);
-        sb_add(&msg, "Prüfen und Reparieren geht nur bei exFAT (dieser Datenträger: %s).", fi.fs);
+        sb_tr(&msg, "Prüfen und Reparieren geht nur bei exFAT (dieser Datenträger: %s).", T(fi.fs));
         job_done(j, 0, &msg, &res, 0);
         return NULL;
     }
-    on_progress(j->repair ? "Dateisystem reparieren" : "Dateisystem prüfen", 0);   /* 0 %: Lauf-Balken */
+    on_progress(j->repair ? N_("Dateisystem reparieren") : N_("Dateisystem prüfen"), 0);   /* 0 %: Lauf-Balken */
     fsck_result_t r;
     exfat_fsck_run(fd, fi.start, fi.size ? fi.size : j->dev.size - fi.start, j->dev.ss, j->repair, &r);
     close(fd);
     exfat_fsck_summary(&r, j->repair, sum, sizeof(sum));
-    dev_title(&j->dev, &msg);
-    sb_add(&msg, ": %s", sum);
+    sb_add(&msg, "%s: %s", dev_title(&j->dev, title, sizeof(title)), sum);
     sb_add(&res, "{\"code\":%d,\"repair\":%s,\"dirs\":%ld,\"files\":%ld,\"log\":", r.code,
            j->repair ? "true" : "false", r.dirs, r.files);
     size_t loglen = strlen(r.log);
@@ -415,16 +465,17 @@ static void *check_worker(void *arg) {
 
 static void *label_worker(void *arg) {
     job_t *j = arg;
-    char err[256] = "";
+    i18n_set(j->lang);
+    char err[256] = "", title[160];
     sbuf_t msg = {0}, res = {0};
     int fd = job_acquire(j, err, sizeof(err));
     if (fd < 0) { sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
     on_progress("Bezeichnung schreiben", 50);
     int rc = vol_set_label(fd, j->dev.ss, j->dev.size, j->label, err, sizeof(err));
     close(fd);
-    if (rc != 0) { sb_add(&msg, "Umbenennen fehlgeschlagen: %s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
-    if (j->label[0]) { sb_add(&msg, "Neue Bezeichnung für "); dev_title(&j->dev, &msg); sb_add(&msg, ": „%s“.", j->label); }
-    else { sb_add(&msg, "Bezeichnung von "); dev_title(&j->dev, &msg); sb_add(&msg, " entfernt."); }
+    if (rc != 0) { sb_tr(&msg, "Umbenennen fehlgeschlagen: %s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
+    if (j->label[0]) sb_tr(&msg, "Neue Bezeichnung für %s: „%s“.", dev_title(&j->dev, title, sizeof(title)), j->label);
+    else sb_tr(&msg, "Bezeichnung von %s entfernt.", dev_title(&j->dev, title, sizeof(title)));
     sb_add(&res, "{\"label\":");
     sb_str(&res, j->label);
     sb_add(&res, "}");
@@ -631,10 +682,11 @@ static void respond_json(int c, int code, sbuf_t *b) {
     respond(c, code, "application/json; charset=utf-8", b->p ? b->p : "{}", b->p ? b->len : 2);
 }
 
+/* msg: deutscher Text (oder schon übersetzt) - gesendet in der Sprache der Anfrage */
 static void respond_error(int c, int code, const char *msg) {
     sbuf_t b = {0};
     sb_add(&b, "{\"error\":");
-    sb_str(&b, msg);
+    sb_str(&b, T(msg));
     sb_add(&b, "}");
     respond_json(c, code, &b);
     free(b.p);
@@ -823,6 +875,7 @@ static char theme[8] = "auto";
 #define SCALE_MIN 50
 #define SCALE_MAX 250
 static int scale_tv = 160, scale_pc = 100;
+static int lang_setting = -1;   /* in der Weboberfläche gewählte Sprache (LANG_*), -1 = Sprache des Browsers */
 
 /* "123" -> 123, sonst -1 (auch außerhalb SCALE_MIN..SCALE_MAX) */
 static int scale_parse(const char *s) {
@@ -864,6 +917,7 @@ static void settings_load(void) {
     if (v > 0) scale_tv = v;
     v = scale_parse(kv_get(kv, nkv, "scale_pc"));
     if (v > 0) scale_pc = v;
+    lang_setting = i18n_parse(kv_get(kv, nkv, "lang"));
 }
 
 /* erst vollständig in eine neue Datei, dann umbenennen: ist /data voll, bleiben die alten Einstellungen erhalten */
@@ -874,7 +928,8 @@ static int settings_save(void) {
     snprintf(tmp, sizeof(tmp), "%s.neu", path);
     FILE *f = fopen(tmp, "w");
     if (!f) return -1;
-    int ok = fprintf(f, "{\"theme\":\"%s\",\"scale_tv\":%d,\"scale_pc\":%d}\n", theme, scale_tv, scale_pc) > 0;
+    int ok = fprintf(f, "{\"theme\":\"%s\",\"scale_tv\":%d,\"scale_pc\":%d,\"lang\":\"%s\"}\n", theme, scale_tv,
+                     scale_pc, lang_setting >= 0 ? i18n_code(lang_setting) : "") > 0;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) { remove(tmp); return -1; }
     return 0;
@@ -882,21 +937,25 @@ static int settings_save(void) {
 
 static void api_settings(int c, int is_post, const char *body) {
     if (is_post) {
-        /* einzeln oder zusammen: theme (auto|light|dark), scale_tv / scale_pc (50..250 %) */
+        /* einzeln oder zusammen: theme (auto|light|dark), scale_tv / scale_pc (50..250 %), lang (de|en|it|es|fr,
+         * leer = Sprache des Browsers) */
         kv_t kv[KV_MAX];
         int n = json_parse(body, kv, KV_MAX);
         const char *t = n > 0 ? kv_get(kv, n, "theme") : NULL;
         const char *stv = n > 0 ? kv_get(kv, n, "scale_tv") : NULL, *spc = n > 0 ? kv_get(kv, n, "scale_pc") : NULL;
-        if (!t && !stv && !spc) { respond_error(c, 400, "theme, scale_tv oder scale_pc angeben"); return; }
+        const char *lg = n > 0 ? kv_get(kv, n, "lang") : NULL;
+        if (!t && !stv && !spc && !lg) { respond_error(c, 400, "theme, scale_tv, scale_pc oder lang angeben"); return; }
+        if (lg && *lg && i18n_parse(lg) < 0) { respond_error(c, 400, "lang muss de, en, it, es oder fr sein"); return; }
         if (t && !theme_valid(t)) { respond_error(c, 400, "theme muss auto, light oder dark sein"); return; }
         if ((stv && scale_parse(stv) < 0) || (spc && scale_parse(spc) < 0)) {
-            respond_error(c, 400, "Größe muss zwischen 50 und 250 % liegen");
+            respond_error(c, 400, "Größe muss zwischen 50 und 250 Prozent liegen");
             return;
         }
         pthread_mutex_lock(&lock);   /* Anfragen laufen parallel: setzen und speichern in einem Zug */
         if (t) theme_set(t);
         if (stv) scale_tv = scale_parse(stv);
         if (spc) scale_pc = scale_parse(spc);
+        if (lg) lang_setting = *lg ? i18n_parse(lg) : -1;
         int saved = settings_save();
         pthread_mutex_unlock(&lock);
         if (saved != 0) { respond_error(c, 500, "Einstellung ließ sich nicht speichern"); return; }
@@ -905,10 +964,35 @@ static void api_settings(int c, int is_post, const char *body) {
     pthread_mutex_lock(&lock);
     sb_add(&b, "{\"theme\":");
     sb_str(&b, theme);
-    sb_add(&b, ",\"scale_tv\":%d,\"scale_pc\":%d}", scale_tv, scale_pc);
+    sb_add(&b, ",\"scale_tv\":%d,\"scale_pc\":%d,\"lang\":\"%s\"}", scale_tv, scale_pc,
+           lang_setting >= 0 ? i18n_code(lang_setting) : "");
     pthread_mutex_unlock(&lock);
     respond_json(c, 200, &b);
     free(b.p);
+}
+
+/* Sprache einer Anfrage: ?lang=xx in der Adresse (Weboberfläche, Windows-Programm), sonst die gespeicherte Wahl,
+ * sonst die Sprache des Browsers (Accept-Language), sonst Deutsch */
+static int request_lang(const char *path, const char *hdrs) {
+    const char *q = strchr(path, '?');
+    for (const char *p = q; p && (p = strstr(p, "lang=")); p += 5)
+        if (p[-1] == '?' || p[-1] == '&') {
+            int l = i18n_parse(p + 5);
+            if (l >= 0) return l;
+        }
+    pthread_mutex_lock(&lock);
+    int saved = lang_setting;
+    pthread_mutex_unlock(&lock);
+    if (saved >= 0) return saved;
+    char al[128];
+    if (header(hdrs, "Accept-Language", al, sizeof(al)))
+        for (const char *p = al; *p; p++) {   /* "pt-BR,fr;q=0.8,en;q=0.5": erste unterstützte Sprache */
+            while (*p == ' ') p++;
+            int l = i18n_parse(p);
+            if (l >= 0) return l;
+            if (!(p = strchr(p, ','))) break;
+        }
+    return LANG_DE;
 }
 
 /* ------------------------------------------------------------ Gefälschte Sticks merken */
@@ -1019,6 +1103,8 @@ static void api_status(int c) {
     sb_str(&b, st.step);
     sb_add(&b, ",\"message\":");
     sb_str(&b, st.message);
+    sb_add(&b, ",\"cancellable\":%s,\"replug\":%s,\"cancelled\":%s", st.cancellable ? "true" : "false",
+           st.replug ? "true" : "false", st.cancelled ? "true" : "false");
     sb_add(&b, ",\"result\":%s}", st.result[0] ? st.result : "null");
     pthread_mutex_unlock(&lock);
     respond_json(c, 200, &b);
@@ -1084,14 +1170,14 @@ static void start_job(int c, job_t *j, void *(*fn)(void *)) {
         pthread_mutex_unlock(&lock);
         free(j->items);
         free(j);
-        respond_error(c, 409, q ? "Der Formatierer wird gerade beendet" : "Es läuft bereits ein Auftrag");
+        respond_error(c, 409, q ? N_("Der Formatierer wird gerade beendet") : N_("Es läuft bereits ein Auftrag"));
         return;
     }
     memset(&st, 0, sizeof(st));
     st.busy = 1;
     snprintf(st.kind, sizeof(st.kind), "%s", JOB_KIND[j->kind]);
     snprintf(st.device, sizeof(st.device), "%s", j->dev.name);
-    snprintf(st.step, sizeof(st.step), "Startet");
+    snprintf(st.step, sizeof(st.step), "%s", T("Startet"));
     __atomic_store_n(&cancel_requested, 0, __ATOMIC_RELAXED);
     pthread_mutex_unlock(&lock);
 
@@ -1117,7 +1203,7 @@ static void start_job(int c, job_t *j, void *(*fn)(void *)) {
 static job_t *new_job(int c, int kind) {
     job_t *j = calloc(1, sizeof(*j));
     if (!j) respond_error(c, 500, "Kein Speicher");
-    else j->kind = kind;
+    else { j->kind = kind; j->lang = i18n_get(); }
     return j;
 }
 
@@ -1135,7 +1221,7 @@ static void api_format(int c, const char *body) {
     if (!fstype) { respond_error(c, 400, "Dateisystem muss exfat, fat32, ntfs oder ext4 sein"); return; }
     if (!label_valid(label, fstype)) {
         char m[160];
-        snprintf(m, sizeof(m), "Ungültige Bezeichnung: max. %d Zeichen, nur A-Z, 0-9, Leerzeichen, - und _",
+        snprintf(m, sizeof(m), T("Ungültige Bezeichnung: max. %d Zeichen, nur A-Z, 0-9, Leerzeichen, - und _"),
                  label_max(fstype));
         respond_error(c, 400, m);
         return;
@@ -1231,11 +1317,11 @@ static void api_label(int c, const char *body) {
 static void smp_error(const char *resp, size_t len, int http, char *out, size_t n) {
     char e[160] = "";
     if (resp) lib_json_str(resp, len, "error", e, sizeof(e));
-    if (http == 409) snprintf(out, n, "ShadowMountPlus ist beschäftigt oder das Spiel läuft gerade – Spiel beenden und "
-                                     "erneut versuchen");
-    else if (http == 400 || http == 501) snprintf(out, n, "ShadowMountPlus kann das nicht (ab Version 1.7 nötig)%s%s",
+    if (http == 409) snprintf(out, n, "%s", T("ShadowMountPlus ist beschäftigt oder das Spiel läuft gerade – Spiel beenden und "
+                                     "erneut versuchen"));
+    else if (http == 400 || http == 501) snprintf(out, n, T("ShadowMountPlus kann das nicht (ab Version 1.7 nötig)%s%s"),
                                                   e[0] ? ": " : "", e);
-    else snprintf(out, n, "ShadowMountPlus meldet Fehler %d%s%s", http, e[0] ? ": " : "", e);
+    else snprintf(out, n, T("ShadowMountPlus meldet Fehler %d%s%s"), http, e[0] ? ": " : "", e);
 }
 
 /* Löschen über ShadowMountPlus: Auftrag starten und bis zum Ende verfolgen (es hält dabei Scanner und Startseite an
@@ -1247,7 +1333,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
     long long job = 0, v;
     snprintf(body, sizeof(body), "{\"title_id\":\"%s\",\"confirm\":true}", it->id);
     char *r = plat_smp_post("/api/v1/games/delete", body, &http, &len);
-    if (!r) { snprintf(err, n, "ShadowMountPlus nicht erreichbar"); return -1; }
+    if (!r) { snprintf(err, n, "%s", T("ShadowMountPlus nicht erreichbar")); return -1; }
     if (http != 202 || lib_json_num(r, len, "job_id", &job) != 0) {
         smp_error(r, len, http, err, n);
         free(r);
@@ -1269,7 +1355,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
             cancel_sent = 1;
         }
         if (!(r = plat_smp_post("/api/v1/games/storage/status", body, &http, &len))) {
-            if (++silent >= 60) { snprintf(err, n, "ShadowMountPlus antwortet nicht mehr"); return -1; }
+            if (++silent >= 60) { snprintf(err, n, "%s", T("ShadowMountPlus antwortet nicht mehr")); return -1; }
             continue;
         }
         silent = 0;
@@ -1291,13 +1377,13 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
         if (!strcmp(state, "failed") || !strcmp(state, "cancelled") || http != 200) {
             resp_err[0] = 0;
             lib_json_str(r, len, "result_error", resp_err, sizeof(resp_err));
-            snprintf(err, n, "ShadowMountPlus: %s", resp_err[0] ? resp_err : state[0] ? state : "Fehler");
+            snprintf(err, n, "ShadowMountPlus: %s", resp_err[0] ? resp_err : state[0] ? state : T("Fehler"));
             free(r);
             return -1;
         }
         free(r);
     }
-    snprintf(err, n, "ShadowMountPlus antwortet nicht mehr");
+    snprintf(err, n, "%s", T("ShadowMountPlus antwortet nicht mehr"));
     return -1;
 }
 
@@ -1375,6 +1461,7 @@ static int remove_tree(const char *path, int depth, rm_prog_t *p) {
 
 static void *delete_worker(void *arg) {
     job_t *j = arg;
+    i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0}, done_names = {0}, errs = {0};
     char err[256];
     int ok_n = 0, fail_n = 0, tiles = 0;
@@ -1434,33 +1521,34 @@ static void *delete_worker(void *arg) {
                 else if (!r || http != 404) {
                     char e2[200];
                     smp_error(r, len, http, e2, sizeof(e2));
-                    sb_add(&errs, "%s%s: gelöscht, aber Kachel nicht entfernt (%s)", errs.len ? "; " : "", it->name, e2);
+                    sb_add(&errs, "%s", errs.len ? "; " : "");
+                    sb_tr(&errs, "%s: gelöscht, aber Kachel nicht entfernt (%s)", it->name, e2);
                 }
                 free(r);
             }
         } else if (!smp_ok) {
             rc = -1;
-            snprintf(err, sizeof(err), "ShadowMountPlus nicht erreichbar – zum Schutz eingebundener Spiele nichts "
-                                       "gelöscht");
+            snprintf(err, sizeof(err), "%s", T("ShadowMountPlus nicht erreichbar – zum Schutz eingebundener Spiele nichts "
+                                       "gelöscht"));
         } else if (!other_copy) {
             /* ShadowMountPlus kennt das Spiel (noch) nicht - etwa direkt nach einem Neustart, solange es sucht. Ob es
              * eingebunden ist, lässt sich dann nicht sicher sagen: lieber nicht selbst löschen. */
             rc = -1;
-            snprintf(err, sizeof(err), "ShadowMountPlus kennt dieses Spiel noch nicht – bitte kurz warten und erneut "
-                                       "versuchen");
+            snprintf(err, sizeof(err), "%s", T("ShadowMountPlus kennt dieses Spiel noch nicht – bitte kurz warten und erneut "
+                                       "versuchen"));
         } else {
             /* nicht von ShadowMountPlus genutzt (z. B. zweite Kopie): selbst löschen - nur innerhalb der Wurzel des
              * USB-Laufwerks, auf dem die Suche es fand (api_delete übernimmt nur Spiele von USB-Laufwerken) */
             if (!path_inside(it->path, it->root)) {
                 rc = -1;
-                snprintf(err, sizeof(err), "Pfad liegt nicht auf dem USB-Laufwerk");
+                snprintf(err, sizeof(err), "%s", T("Pfad liegt nicht auf dem USB-Laufwerk"));
             } else {
                 on_progress("Spiele löschen: Dateien zählen", base);
                 rm_prog_t rp = {tree_weight(it->path, 0), 0, base, span, -1};
                 rc = remove_tree(it->path, 0, &rp);
             }
             if (rc != 0 && !err[0]) {
-                snprintf(err, sizeof(err), "Löschen fehlgeschlagen: %s", strerror(errno));
+                snprintf(err, sizeof(err), T("Löschen fehlgeschlagen: %s"), strerror(errno));
             }
         }
         if (rc != 0 && fail_n < 8) {   /* nur die ersten Fehlschläge einzeln - st.result ist begrenzt */
@@ -1480,9 +1568,11 @@ static void *delete_worker(void *arg) {
     free(failed.p);
     free(smp);
 
-    if (ok_n) sb_add(&msg, "%d Spiel%s gelöscht: %s.", ok_n, ok_n == 1 ? "" : "e", done_names.p);
-    if (tiles) sb_add(&msg, " %d Kachel%s von der Startseite entfernt.", tiles, tiles == 1 ? "" : "n");
-    if (errs.len) sb_add(&msg, "%s%s.", ok_n ? " " : "Nicht gelöscht – ", errs.p);
+    if (ok_n == 1) sb_tr(&msg, "1 Spiel gelöscht: %s.", done_names.p);
+    else if (ok_n) sb_tr(&msg, "%d Spiele gelöscht: %s.", ok_n, done_names.p);
+    if (tiles == 1) sb_tr(&msg, " 1 Kachel von der Startseite entfernt.");
+    else if (tiles) sb_tr(&msg, " %d Kacheln von der Startseite entfernt.", tiles);
+    if (errs.len) sb_add(&msg, "%s%s.", ok_n ? " " : T("Nicht gelöscht – "), errs.p);
     free(done_names.p);
     free(errs.p);
     free(j->items);
@@ -1545,8 +1635,8 @@ static void api_delete(int c, const char *body) {
     if (ambiguous || !j->nitems) {
         free(j->items);
         free(j);
-        respond_error(c, ambiguous ? 409 : 404, ambiguous ? "Auswahl nicht eindeutig – nichts gelöscht. Liste neu laden."
-                                                          : "Spiele nicht gefunden – Liste neu laden");
+        respond_error(c, ambiguous ? 409 : 404, ambiguous ? N_("Auswahl nicht eindeutig – nichts gelöscht. Liste neu laden.")
+                                                          : N_("Spiele nicht gefunden – Liste neu laden"));
         return;
     }
     snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
@@ -1578,6 +1668,7 @@ static void handle(int c) {
 
     char method[8], path[128], host[96] = "", tmp[32];
     if (sscanf(req, "%7s %127s", method, path) != 2) { respond_error(c, 400, "Ungültige Anfrage"); goto out; }
+    i18n_set(request_lang(path, req));   /* Antworten und Aufträge dieser Verbindung in dieser Sprache */
     if (!header(req, "Host", host, sizeof(host)) || !host_ok(host)) {
         respond_error(c, 403, "Ungültiger Host. Bitte die PS5 über ihre IP-Adresse aufrufen.");
         goto out;
@@ -1612,6 +1703,8 @@ static void handle(int c) {
 
     if (strcmp(path, "/") == 0 && is_get)
         respond(c, 200, "text/html; charset=utf-8", web_index_html, strlen(web_index_html));
+    else if (strcmp(path, "/help") == 0 && is_get)   /* Anleitung in fünf Sprachen (Sprache: ?lang=xx) */
+        respond(c, 200, "text/html; charset=utf-8", web_help_html, strlen(web_help_html));
     else if (strcmp(path, "/bg.jpg") == 0 && is_get)
         respond_ex(c, 200, "image/jpeg", web_bg_jpg, (size_t)(web_bg_jpg_end - web_bg_jpg), "max-age=86400");
     else if (strcmp(path, "/page-dark.jpg") == 0 && is_get)
@@ -1679,6 +1772,7 @@ int server_listen(int port) {
         return -1;
     }
     settings_load();
+    if (lang_setting >= 0) i18n_set(lang_setting);   /* Benachrichtigungen der PS5 (main.c) in der gewählten Sprache */
     lib_refresh();
     return s;
 }

@@ -2,6 +2,8 @@
 Gilt für den Windows-Helfer (usbfmt_win) und später ebenso für Linux und macOS."""
 import re
 
+from i18n import _, number, unit
+
 KB, MB, GB, TB = 1024, 1024 ** 2, 1024 ** 3, 1024 ** 4
 LABEL_CHARS = re.compile(r"^[A-Za-z0-9 _-]*$")
 FAT16_MAX_CLUSTERS = 65524
@@ -36,6 +38,16 @@ PTYPES = [("auto", "Automatisch (passend zum Dateisystem)"), ("windows", "Window
           ("efi", "EFI-Systempartition (0xEF)"), ("apple", "Apple HFS+ (0xAF)")]
 
 
+def fs_hint(name):
+    return _("Bleibt leer (z. B. für ein späteres Betriebssystem). Windows zeigt sie nicht an.") if name == NO_FS \
+        else _(FILESYSTEMS[name][2])
+
+
+def fs_display(name):
+    """Anzeigename (nur "Ohne Dateisystem" wird übersetzt, die übrigen sind Eigennamen)"""
+    return _(name) if name == NO_FS else name
+
+
 def helper_fs(name):
     return "none" if name == NO_FS else FILESYSTEMS[name][0]
 
@@ -45,7 +57,7 @@ def label_max(name):
 
 
 def unit_text(v):
-    return f"{v // MB} MB" if v >= MB else f"{v // KB} KB" if v >= KB else f"{v} Bytes"
+    return f"{v // MB} {unit('MB')}" if v >= MB else f"{v // KB} {unit('KB')}" if v >= KB else f"{v} {unit('Bytes')}"
 
 
 def size_text(b):
@@ -55,7 +67,7 @@ def size_text(b):
         v /= 1024
         i += 1
     text = f"{v:.1f}".rstrip("0").rstrip(".") if i else str(int(v))
-    return text.replace(".", ",") + " " + units[i]
+    return number(text) + " " + unit(units[i])
 
 
 def mbr_limit(ss):
@@ -129,25 +141,26 @@ def plan(parts, size, scheme, ss=512):
     usable_end = MB + usable_bytes(size, scheme, ss)
     at, sizes = MB, []
     if not parts:
-        return [], usable_end - MB, "Mindestens eine Partition anlegen."
+        return [], usable_end - MB, _("Mindestens eine Partition anlegen.")
     if not uses_gpt(size, scheme, ss) and len(parts) > 4:
-        return [], 0, "MBR fasst höchstens 4 Partitionen – bitte GPT wählen."
+        return [], 0, _("MBR fasst höchstens 4 Partitionen – bitte GPT wählen.")
     if len(parts) > MAX_PARTS:
-        return [], 0, f"Höchstens {MAX_PARTS} Partitionen."
+        return [], 0, _("Höchstens {n} Partitionen.", n=MAX_PARTS)
     for i, p in enumerate(parts):
         at = (at + MB - 1) // MB * MB
         if p["bytes"]:
             n = p["bytes"] // MB * MB
             if n < MB:
-                return sizes, 0, f"Partition {i + 1} ist kleiner als 1 MB."
+                return sizes, 0, _("Partition {n} ist kleiner als 1 MB.", n=i + 1)
         else:
             if i != len(parts) - 1:
-                return sizes, 0, "Nur die letzte Partition darf den Rest bekommen."
+                return sizes, 0, _("Nur die letzte Partition darf den Rest bekommen.")
             n = max(0, usable_end - at)
         if at + n > usable_end or n < MB:
             missing = at + n - usable_end
-            return sizes, 0, (f"Partition {i + 1} passt nicht mehr – es fehlen {size_text(max(missing, MB))}."
-                              if missing > 0 else f"Für Partition {i + 1} ist kein Platz mehr.")
+            return sizes, 0, (_("Partition {n} passt nicht mehr – es fehlen {size}.", n=i + 1,
+                                size=size_text(max(missing, MB)))
+                              if missing > 0 else _("Für Partition {n} ist kein Platz mehr.", n=i + 1))
         sizes.append(n)
         at += n
     return sizes, max(0, usable_end - at), None

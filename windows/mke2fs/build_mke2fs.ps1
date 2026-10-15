@@ -16,7 +16,13 @@ if (-not (Test-Path $tar)) {
     Write-Host "Lade $url"
     Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $tar
 }
-if ((Get-FileHash -Algorithm SHA256 $tar).Hash.ToLower() -ne $sha) { throw "${tar}: falsche Prüfsumme" }
+# SHA-256 ohne Get-FileHash (fehlt Windows PowerShell, wenn es aus PowerShell 7 heraus startet)
+function Sha256($path) {
+    $s = [IO.File]::OpenRead($path)
+    try { ([BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($s)) -replace "-", "").ToLower() }
+    finally { $s.Dispose() }
+}
+if ((Sha256 $tar) -ne $sha) { throw "${tar}: falsche Prüfsumme" }
 $S = Join-Path $work $name
 if (-not (Test-Path (Join-Path $S "version.h"))) {
     # nur, was gebraucht wird (das Archiv enthält symbolische Links, die Windows ohne Sonderrechte nicht anlegt)
@@ -43,10 +49,17 @@ $libs = [ordered]@{
 }
 $extra = @{ "support" = @("$G\support\prof_err.c"); "ext2fs" = @("$G\ext2fs\ext2_err.c") }
 
+# windows_io.c: fstat() für rohe Datenträger ergänzen (siehe win_fstat.h) - die Quelle selbst bleibt unverändert
+$forced = @{ "windows_io.c" = (Join-Path $here "win_fstat.h") }
+
 function Compile($c, $objdir, $incdir) {
     $obj = Join-Path $objdir ([IO.Path]::GetFileNameWithoutExtension($c) + ".o")
-    if (-not (Test-Path $obj) -or (Get-Item $c).LastWriteTime -gt (Get-Item $obj).LastWriteTime) {
-        $out = & $zig cc @cflags "-I$incdir" -c $c -o $obj 2>&1
+    $pre = $forced[[IO.Path]::GetFileName($c)]
+    $extraflags = if ($pre) { @("-include", $pre) } else { @() }
+    $newest = (Get-Item $c).LastWriteTime
+    if ($pre -and (Get-Item $pre).LastWriteTime -gt $newest) { $newest = (Get-Item $pre).LastWriteTime }
+    if (-not (Test-Path $obj) -or $newest -gt (Get-Item $obj).LastWriteTime) {
+        $out = & $zig cc @cflags @extraflags "-I$incdir" -c $c -o $obj 2>&1
         if ($LASTEXITCODE -ne 0) { $out | Select-Object -First 10 | Write-Host; throw "Übersetzen fehlgeschlagen: $c" }
     }
     return $obj
@@ -75,4 +88,4 @@ $exe = Join-Path (Split-Path $here) "mke2fs.exe"
 & $zig cc -target x86_64-windows-gnu -s -o $exe @mobjs @order
 if ($LASTEXITCODE -ne 0) { throw "Linken fehlgeschlagen" }
 Remove-Item ([IO.Path]::ChangeExtension($exe, ".pdb")) -ErrorAction SilentlyContinue
-Write-Host "Fertig: $exe ($((Get-FileHash -Algorithm SHA256 $exe).Hash.ToLower()))"
+Write-Host "Fertig: $exe ($(Sha256 $exe))"
