@@ -39,11 +39,21 @@ d = [x for x in json.load(open(sys.argv[1])) if x["disk"] == sys.argv[2]]
 sys.exit(0 if d and d[0]["size"] == int(sys.argv[3]) else 1)
 EOF
 
-# exFAT mit Ordnern (PS5-Weg), danach einhängen und nachsehen
+# exFAT mit Ordnern (PS5-Weg); einhängen nur, wenn der Kernel exFAT kann (in der CI fehlt oft das Modul)
 h exfat format "$D" $SIZE exfat "PS5 USB" folders
 expect exfat 1 "exFAT mit Ordnern"
 fsck.exfat -n "$(p 1)" >/dev/null 2>&1 && ok "exFAT: fsck.exfat" || bad "exFAT: fsck.exfat"
-mount "$(p 1)" "$W/mnt" && [ -d "$W/mnt/etaHEN/games" ] && ok "Ordner etaHEN/games vorhanden" || bad "Ordner fehlen"
+if mount -t exfat "$(p 1)" "$W/mnt" 2>/dev/null; then
+    [ -d "$W/mnt/etaHEN/games" ] && ok "exFAT: Ordner etaHEN/games vorhanden" || bad "exFAT: Ordner fehlen"
+    umount "$W/mnt"
+else
+    echo "        (Kernel ohne exFAT - Einhängen übersprungen)"
+fi
+# Ordnervorlage über FAT32 (derselbe Weg im Helfer, vfat kann jeder Kernel)
+h fat32dirs format "$D" $SIZE fat32 "PS5 USB" folders
+expect fat32dirs 1 "FAT32 mit Ordnern"
+mount "$(p 1)" "$W/mnt" && [ -d "$W/mnt/etaHEN/games" ] && [ -d "$W/mnt/homebrew" ] && [ -d "$W/mnt/pkg" ] \
+    && ok "Ordner homebrew, etaHEN/games, pkg vorhanden" || bad "Ordner fehlen: $(ls -R "$W/mnt" 2>&1 | head -5)"
 
 # eingehängt: der Helfer hängt selbst aus
 h mounted format "$D" $SIZE fat32 DATEN plain
@@ -53,7 +63,7 @@ fsck.fat -n "$(p 1)" >/dev/null 2>&1 && ok "FAT32: fsck.fat" || bad "FAT32: fsck
 
 # belegt (Programm mit offener Datei): abgelehnt, nichts verändert
 mount "$(p 1)" "$W/mnt"
-( exec 3>"$W/mnt/offen.txt"; sleep 30 ) &
+sleep 60 3>"$W/mnt/offen.txt" &   # dieser Prozess selbst hält die Datei offen (lässt sich sauber beenden)
 BUSY=$!
 sleep 0.5
 before=$(sha256sum "$W/disk.img" | cut -c1-16)
@@ -61,7 +71,7 @@ h busy format "$D" $SIZE exfat X plain
 expect busy 0 "belegtes Laufwerk: abgelehnt"
 grep -q "wird gerade benutzt" "$W/busy.txt" && ok "Meldung: wird gerade benutzt" || bad "Meldung: $(cat "$W/busy.txt")"
 kill $BUSY 2>/dev/null; wait $BUSY 2>/dev/null
-umount "$W/mnt"
+umount "$W/mnt" || { echo "        (noch belegt: $(fuser -vm "$W/mnt" 2>&1 | tail -n +2))"; umount -l "$W/mnt"; }
 [ "$(sha256sum "$W/disk.img" | cut -c1-16)" = "$before" ] && ok "belegt: Datenträger unverändert" || bad "belegt: Datenträger verändert"
 
 # NTFS + FAT16 + ext4 + HFS+ (MBR) über die Systemwerkzeuge
