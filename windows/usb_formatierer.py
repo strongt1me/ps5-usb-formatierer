@@ -2,19 +2,15 @@
 
 Findet die PS5 im Netz (ps5_discovery) und spricht mit dem usb_format-Payload (HTTP-API,
 Port 8090). Laeuft der Payload noch nicht, wird er an den ELF-Loader der PS5 (Port 9021) geschickt.
+Am PC formatiert der Windows-Helfer (pc_common) - für die PS5 oder frei ("Am PC Standard", standard_panel).
 """
-import ctypes
-import hashlib
 import http.client
 import json
 import os
 import queue
 import re
-import secrets
 import socket
 import subprocess
-import sys
-import tempfile
 import threading
 import time
 import tkinter as tk
@@ -23,23 +19,18 @@ import urllib.error
 import urllib.request
 from tkinter import messagebox, simpledialog, ttk
 
+import pc_common
 import ps5_discovery
-
-try:   # von build_helper.ps1 erzeugt: Prüfsumme des ausgelieferten Helfers
-    from helper_hash import HELPER_SHA256
-except ImportError:   # Entwicklung ohne gebauten Helfer: nur sperren, nicht vergleichen
-    HELPER_SHA256 = ""
+from pc_common import (PcJob, confirm, enable_dpi_awareness, fmt_size, hwnd_of, keep_on_screen, pc_dev_text, pc_list,
+                       pc_used, pc_volumes_text, resource_path)
+from standard_panel import StandardPanel
 
 APP_NAME = "PS5USBFormatierer"
 API_PORT = 8090
 LOADER_PORT = 9021
 LABEL_RE = re.compile(r"^[A-Za-z0-9 _-]{0,11}$")
 IP_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
-
-
-def resource_path(rel):
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, rel)
+MODES = (("ps5", "USB an der PS5"), ("pc", "USB am PC (für PS5)"), ("std", "Am PC Standard"))
 
 
 def find_payload():
@@ -50,37 +41,12 @@ def find_payload():
     return None
 
 
-def settings_file():
-    base = os.environ.get("APPDATA") or os.path.expanduser("~")
-    return os.path.join(base, APP_NAME, "settings.json")
-
-
 def load_settings():
-    try:
-        with open(settings_file(), encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
+    return pc_common.load_settings(APP_NAME)
 
 
 def save_settings(data):
-    path = settings_file()
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f)
-    except OSError:
-        pass
-
-
-def fmt_size(b):
-    units = ["Bytes", "KB", "MB", "GB", "TB"]
-    v, i = float(b), 0
-    while v >= 1024 and i < len(units) - 1:
-        v /= 1024
-        i += 1
-    text = f"{v:.1f}".rstrip("0").rstrip(".") if i else str(int(v))
-    return text.replace(".", ",") + " " + units[i]
+    pc_common.save_settings(APP_NAME, data)
 
 
 def dev_title(d):
@@ -152,222 +118,11 @@ class Api:
         return self._call("/api/cancel", {})
 
 
-# ---------------------------------------------------------------------- PC-Modus: USB-Datenträger an diesem PC
-
-def find_helper():
-    for p in (resource_path("usbfmt_win.exe"), os.path.join(os.path.dirname(os.path.abspath(__file__)), "usbfmt_win.exe")):
-        if os.path.isfile(p):
-            return os.path.abspath(p)
-    return None
-
-
-def lock_helper(exe):
-    """Helfer gegen Ändern/Löschen sperren und seine Prüfsumme prüfen, bevor er Administratorrechte bekommt.
-    Er liegt (PyInstaller) im Temp-Ordner, in den auch Programme ohne Adminrechte schreiben dürfen.
-    Liefert das Sperr-Handle; der Aufrufer schließt es, sobald der Prozess läuft."""
-    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    k32.CreateFileW.restype = ctypes.c_void_p
-    k32.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_ulong,
-                                ctypes.c_ulong, ctypes.c_void_p]
-    # GENERIC_READ, nur FILE_SHARE_READ (kein Schreiben/Löschen durch andere), OPEN_EXISTING
-    h = k32.CreateFileW(exe, 0x80000000, 0x1, None, 3, 0x80, None)
-    if not h or h == ctypes.c_void_p(-1).value:
-        raise OSError("Der Helfer usbfmt_win.exe lässt sich nicht öffnen (wird er gerade verändert?).")
-    try:
-        with open(exe, "rb") as f:
-            digest = hashlib.sha256(f.read()).hexdigest()
-    except OSError as e:
-        k32.CloseHandle(ctypes.c_void_p(h))
-        raise OSError(f"Der Helfer usbfmt_win.exe lässt sich nicht lesen: {e}") from None
-    if HELPER_SHA256 and digest != HELPER_SHA256:
-        k32.CloseHandle(ctypes.c_void_p(h))
-        raise OSError("Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. "
-                      "Bitte das Programm neu herunterladen.")
-    return h
-
-
-def pc_list():
-    """USB-Datenträger am PC (ohne Administratorrechte). Die Systemplatte meldet der Helfer nie."""
-    exe = find_helper()
-    if not exe:
-        raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
-    r = subprocess.run([exe, "list"], capture_output=True, timeout=30,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    if r.returncode != 0:
-        raise RuntimeError(f"Helfer meldet Fehler {r.returncode}: "
-                           f"{r.stderr.decode('utf-8', 'replace').strip() or 'keine Angabe'}")
-    devices = json.loads(r.stdout.decode("utf-8") or "[]")
-    for d in devices:   # fehlende Felder (andere Helfer-Version) nicht zum Absturz werden lassen
-        d.setdefault("model", "")
-        d.setdefault("volumes", [])
-        for v in d["volumes"]:
-            for k, default in (("letters", ""), ("label", ""), ("fs", ""), ("total", 0), ("free", 0)):
-                v.setdefault(k, default)
-    return devices
-
-
-def pc_used(d):
-    return sum(v["total"] - v["free"] for v in d["volumes"] if v["total"])
-
-
-def pc_dev_text(d):
-    parts = []
-    for v in d["volumes"]:
-        t = v["letters"] or "ohne Buchstaben"
-        if v["label"]:
-            t += f" „{v['label']}“"
-        if v["fs"]:
-            t += f" {v['fs']}"
-        parts.append(t)
-    vols = ", ".join(parts) if parts else "ohne Partition"
-    # Datenträgernummer macht den Eintrag eindeutig (zwei gleiche leere Sticks)
-    return f"{d['model'] or 'USB-Datenträger'} (Datenträger {d['disk']}) – {fmt_size(d['size'])} – {vols}"
-
-
-class _ShellExecuteInfo(ctypes.Structure):
-    _fields_ = [("cbSize", ctypes.c_ulong), ("fMask", ctypes.c_ulong), ("hwnd", ctypes.c_void_p),
-                ("lpVerb", ctypes.c_wchar_p), ("lpFile", ctypes.c_wchar_p), ("lpParameters", ctypes.c_wchar_p),
-                ("lpDirectory", ctypes.c_wchar_p), ("nShow", ctypes.c_int), ("hInstApp", ctypes.c_void_p),
-                ("lpIDList", ctypes.c_void_p), ("lpClass", ctypes.c_wchar_p), ("hkeyClass", ctypes.c_void_p),
-                ("dwHotKey", ctypes.c_ulong), ("hIconOrMonitor", ctypes.c_void_p), ("hProcess", ctypes.c_void_p)]
-
-
-class PcJob:
-    """Startet den Helfer mit Administratorrechten (UAC-Abfrage von Windows) und liest seine Ausgabedatei mit"""
-    STALL_S = 30 * 60   # so lange ohne neue Ausgabe: Helfer gilt als hängend
-
-    def __init__(self, args, hwnd=None):
-        exe = find_helper()
-        if not exe:
-            raise RuntimeError("usbfmt_win.exe fehlt neben dem Programm.")
-        lock = lock_helper(exe)   # bis der Prozess läuft: niemand kann die Datei austauschen
-        # eigener Ordner mit Zufallsnamen je Auftrag: ein fester Ordner ließe sich vorab umleiten (Junction).
-        # Nicht tempfile.mkdtemp: Das gibt unter Windows nur "Eigentümer" Rechte - die Ausgabedatei legt aber der
-        # Helfer als Administrator an (Eigentümer: Administratoren), das Programm ohne Adminrechte dürfte sie dann
-        # nicht lesen. os.mkdir erbt die Rechte des Temp-Ordners (dort steht der Benutzer selbst).
-        self.tmpdir = None
-        for _ in range(20):
-            d = os.path.join(tempfile.gettempdir(), f"{APP_NAME}-{secrets.token_hex(8)}")
-            try:
-                os.mkdir(d)
-                self.tmpdir = d
-                break
-            except FileExistsError:
-                continue
-        if not self.tmpdir:
-            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(lock))
-            raise OSError("Arbeitsordner im Temp-Verzeichnis ließ sich nicht anlegen.")
-        self.out = os.path.join(self.tmpdir, "auftrag.txt")
-        self.cancel_file = os.path.join(self.tmpdir, "abbruch")
-        sei = _ShellExecuteInfo()
-        sei.cbSize = ctypes.sizeof(sei)
-        sei.fMask = 0x40 | 0x400          # SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI
-        sei.lpVerb = "runas"
-        sei.lpFile = exe
-        sei.lpParameters = subprocess.list2cmdline(["--out", self.out, "--cancel", self.cancel_file] + args)
-        sei.nShow = 0                     # SW_HIDE
-        sei.hwnd = hwnd                   # UAC-Abfrage vor dem Programmfenster statt blinkend in der Taskleiste
-        shell32 = ctypes.WinDLL("shell32", use_last_error=True)
-        try:
-            if not shell32.ShellExecuteExW(ctypes.byref(sei)):
-                code = ctypes.get_last_error()
-                self._cleanup()
-                if code == 1223:   # ERROR_CANCELLED: Benutzer hat die UAC-Abfrage abgelehnt
-                    raise PermissionError("Ohne Administratorrechte lässt Windows keine Datenträger bearbeiten.")
-                raise OSError(f"Helfer konnte nicht gestartet werden (Windows-Fehler {code}).")
-        finally:
-            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(lock))   # läuft jetzt: Windows sperrt die Datei selbst
-        if not sei.hProcess:
-            self._cleanup()
-            raise OSError("Helfer wurde gestartet, aber Windows liefert keinen Prozess dazu.")
-        self.proc = sei.hProcess
-
-    def _cleanup(self):
-        for p in (self.out, self.cancel_file):
-            try:
-                os.remove(p)
-            except OSError:
-                pass
-        try:
-            os.rmdir(self.tmpdir)
-        except OSError:
-            pass
-
-    def cancel(self):
-        try:
-            open(self.cancel_file, "w").close()
-        except OSError:
-            pass
-
-    def running(self):
-        # 0x102 = WAIT_TIMEOUT: läuft noch; 0 = beendet; WAIT_FAILED (ungültiges Handle) = gilt als beendet
-        return ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 0) == 0x102
-
-    def follow(self, on_progress):
-        """Bis zum Ende mitlesen; liefert (ok, meldung, json)"""
-        pos, result, last_change = 0, None, time.time()
-        try:
-            while result is None:
-                alive = self.running()
-                try:
-                    with open(self.out, "rb") as f:
-                        f.seek(pos)
-                        data = f.read()
-                except OSError:
-                    data = b""
-                end = data.rfind(b"\n") + 1
-                pos += end
-                if end:
-                    last_change = time.time()
-                for line in data[:end].decode("utf-8", "replace").splitlines():
-                    parts = line.split("\t")
-                    if parts[0] == "P" and len(parts) >= 3:
-                        try:
-                            on_progress(int(parts[1]), parts[2])
-                        except ValueError:
-                            pass
-                    elif parts[0] == "R" and len(parts) >= 4:
-                        try:
-                            info = json.loads(parts[3])
-                        except ValueError:
-                            info = {}
-                        result = (parts[1] == "1", parts[2], info if isinstance(info, dict) else {})
-                if result is None and not alive:
-                    code = ctypes.c_ulong(0)
-                    ctypes.windll.kernel32.GetExitCodeProcess(ctypes.c_void_p(self.proc), ctypes.byref(code))
-                    result = (False, f"Der Helfer wurde unerwartet beendet (Code {code.value}).", {})
-                elif result is None and time.time() - last_change > self.STALL_S:
-                    self.cancel()
-                    # wirklich beenden, sonst schreibt er womöglich weiter, während schon ein neuer Auftrag läuft.
-                    # Mitten im Formatieren abgebrochen bleibt ein leerer Stick (Tabelle wird zuletzt geschrieben).
-                    ctypes.windll.kernel32.TerminateProcess(ctypes.c_void_p(self.proc), 1)
-                    result = (False, "Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen.", {})
-                elif result is None:
-                    time.sleep(0.3)
-        finally:
-            ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 5000)   # Datei freigeben lassen
-            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self.proc))
-            self._cleanup()
-        return result
-
-
 def send_payload(host, path):
     with open(path, "rb") as f:
         data = f.read()
     with socket.create_connection((host, LOADER_PORT), timeout=5) as s:
         s.sendall(data)
-
-
-def enable_dpi_awareness():
-    if sys.platform == "win32":
-        import ctypes
-        try:
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        except Exception:
-            try:
-                ctypes.windll.user32.SetProcessDPIAware()
-            except Exception:
-                pass
 
 
 class App(tk.Tk):
@@ -401,7 +156,9 @@ class App(tk.Tk):
         self.lib_known = False     # Spieleliste mindestens einmal geladen (sonst Inhalt unbekannt)
         self.ps5_step = ""         # aktueller Schritt eines PS5-Auftrags (für "Abbrechen")
 
-        self.mode_var = tk.StringVar(value="pc" if self.settings.get("mode") == "pc" else "ps5")
+        self.std_busy = False      # Auftrag im Bereich "Am PC Standard"
+        mode = self.settings.get("mode")
+        self.mode_var = tk.StringVar(value=mode if mode in dict(MODES) else "ps5")
         self.verify_var = tk.BooleanVar(value=self.settings.get("verify", False))
         self.folders_var = tk.BooleanVar(value=self.settings.get("folders", True))
         self.host_var = tk.StringVar(value=self.settings.get("host", ""))
@@ -425,8 +182,32 @@ class App(tk.Tk):
     # ------------------------------------------------------------------ UI
 
     def _build_ui(self):
-        frm = ttk.Frame(self, padding=(14, 10, 14, 12))
-        frm.grid(sticky="nsew")
+        outer = ttk.Frame(self, padding=(14, 10, 14, 12))
+        outer.grid(sticky="nsew")
+        outer.columnconfigure(0, weight=1)
+
+        # Schalter: Stick an der PS5 (über das Netzwerk), am PC für die PS5 oder am PC frei formatieren
+        modes = ttk.Frame(outer)
+        modes.grid(row=0, column=0, sticky="ew")
+        modes.columnconfigure(tuple(range(len(MODES))), weight=1, uniform="mode")
+        self.mode_btns = []
+        for col, (val, text) in enumerate(MODES):
+            b = ttk.Radiobutton(modes, text=text, value=val, variable=self.mode_var, style="Toolbutton",
+                                command=self._mode_changed)
+            b.grid(row=0, column=col, sticky="ew", padx=(0 if col == 0 else 3, 0 if col == len(MODES) - 1 else 3),
+                   ipady=3)
+            self.mode_btns.append(b)
+
+        # "Am PC Standard": eigener Bereich ohne PS5-Optionen (derselbe wie im eigenständigen USB-Formatierer)
+        self.std_panel = StandardPanel(outer, self.settings.setdefault("standard", {}),
+                                       lambda: save_settings(self.settings), on_busy=self._std_busy_changed)
+        self.std_panel.grid(row=1, column=0, sticky="nsew")
+        self.bind("<<StdClose>>", lambda e: self._on_close())
+        self.bind("<<StdResized>>", lambda e: self.after_idle(self._keep_on_screen))
+
+        # PS5 und "USB am PC (für PS5)"
+        frm = self.ps5_body = ttk.Frame(outer)
+        frm.grid(row=1, column=0, sticky="nsew")
         frm.columnconfigure(0, weight=1)
         row = 0
 
@@ -436,18 +217,6 @@ class App(tk.Tk):
             lbl.grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 2))
             row += 1
             return lbl
-
-        # Schalter: Stick an der PS5 (über das Netzwerk) oder direkt an diesem PC
-        modes = ttk.Frame(frm)
-        modes.grid(row=row, column=0, columnspan=2, sticky="ew")
-        modes.columnconfigure((0, 1), weight=1, uniform="mode")
-        self.mode_btns = []
-        for col, (val, text) in enumerate((("ps5", "USB an der PS5"), ("pc", "USB an diesem PC"))):
-            b = ttk.Radiobutton(modes, text=text, value=val, variable=self.mode_var, style="Toolbutton",
-                                command=self._mode_changed)
-            b.grid(row=0, column=col, sticky="ew", padx=(0, 3) if col == 0 else (3, 0), ipady=3)
-            self.mode_btns.append(b)
-        row += 1
 
         self.ps5_caption = caption("PS5:")
         self.host_entry = ttk.Combobox(frm, textvariable=self.host_var, width=62)
@@ -555,45 +324,15 @@ class App(tk.Tk):
         self.cancel_btn = ttk.Button(btns, text="Abbrechen", command=self._cancel)
 
     def _confirm(self, title, text, ok_text, ack=None):
-        """Rückfrage mit eigenen Knopftexten; mit ack muss erst ein Häkchen gesetzt werden (wie in der Web-UI).
-        Abbrechen ist vorausgewählt, Esc bricht ab. Liefert True bei Bestätigung."""
-        win = tk.Toplevel(self)
-        win.withdraw()
-        win.title(title)
-        win.transient(self)
-        win.resizable(False, False)
-        frm = ttk.Frame(win, padding=(18, 14, 18, 14))
-        frm.pack(fill="both", expand=True)
-        ttk.Label(frm, text=text, wraplength=520, justify="left").pack(anchor="w")
-        result = {"ok": False}
+        return confirm(self, title, text, ok_text, ack)
 
-        def done(ok):
-            result["ok"] = ok
-            win.destroy()
+    def _keep_on_screen(self):
+        keep_on_screen(self)   # die Bereiche sind verschieden hoch
 
-        btns = ttk.Frame(frm)
-        ok_btn = ttk.Button(btns, text=ok_text, command=lambda: done(True))
-        cancel_btn = ttk.Button(btns, text="Abbrechen", command=lambda: done(False))
-        if ack:
-            var = tk.BooleanVar(value=False)
-            ttk.Checkbutton(frm, text=ack, variable=var,
-                            command=lambda: ok_btn.state(["!disabled"] if var.get() else ["disabled"])).pack(
-                anchor="w", pady=(12, 0))
-            ok_btn.state(["disabled"])
-        btns.pack(anchor="e", pady=(16, 0))
-        cancel_btn.pack(side="right")
-        ok_btn.pack(side="right", padx=(0, 6))
-        win.bind("<Escape>", lambda e: done(False))
-        win.protocol("WM_DELETE_WINDOW", lambda: done(False))
-        win.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width() - win.winfo_reqwidth()) // 2
-        y = self.winfo_rooty() + (self.winfo_height() - win.winfo_reqheight()) // 3
-        win.geometry(f"+{max(0, x)}+{max(0, y)}")
-        win.deiconify()
-        cancel_btn.focus_set()
-        win.grab_set()
-        self.wait_window(win)
-        return result["ok"]
+    def _std_busy_changed(self, busy):
+        """Auftrag in "Am PC Standard": solange nicht umschalten"""
+        self.std_busy = busy
+        self._update()
 
     def _widen_dev_list(self):
         """Aufgeklappte Liste so breit wie der längste Eintrag (ttk nimmt sonst die Breite des Feldes)"""
@@ -621,9 +360,10 @@ class App(tk.Tk):
         def enable(w, on, *extra):
             w.state(list(extra) + (["!disabled"] if on else ["disabled"]))
 
-        for w in (self.host_entry, self.label_entry, self.search_btn, self.verify_chk, self.folders_chk,
-                  *self.mode_btns):
+        for w in (self.host_entry, self.label_entry, self.search_btn, self.verify_chk, self.folders_chk):
             enable(w, idle)
+        for w in self.mode_btns:
+            enable(w, idle and not self.std_busy)
         enable(self.reload_btn, idle and (pc or self.api))
         enable(self.dev_combo, idle and self.devices, "readonly")
         enable(self.fs_combo, idle, "readonly")
@@ -642,10 +382,22 @@ class App(tk.Tk):
             self.cancel_btn.pack_forget()
 
     def _mode_changed(self, initial=False):
-        pc = self.mode_var.get() == "pc"
+        mode = self.mode_var.get()
+        pc = mode == "pc"
         if not initial:
-            self.settings["mode"] = self.mode_var.get()
+            self.settings["mode"] = mode
             save_settings(self.settings)
+        self.after_idle(self._keep_on_screen)   # die Bereiche sind verschieden hoch
+        if mode == "std":   # eigener Bereich ohne PS5-Funktionen
+            self.ps5_body.grid_remove()
+            self.std_panel.grid()
+            self.title("USB-Datenträger formatieren")
+            self.std_panel.activate()
+            self._update()
+            return
+        self.std_panel.grid_remove()
+        self.ps5_body.grid()
+        self.title("PS5-USB formatieren")
         for w in (self.ps5_caption, self.host_entry, self.search_btn, self.games_box, self.ps5_warn):
             w.grid_remove() if pc else w.grid()
         if pc:
@@ -1087,10 +839,7 @@ class App(tk.Tk):
 
     def _pc_run(self, op, args, cancellable=False, after=None):
         """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread"""
-        try:
-            hwnd = int(self.wm_frame(), 16)   # im UI-Thread holen: Elternfenster der UAC-Abfrage
-        except (tk.TclError, ValueError):
-            hwnd = None
+        hwnd = hwnd_of(self)
 
         def work():
             try:
@@ -1112,26 +861,12 @@ class App(tk.Tk):
         self.status_var.set("Windows fragt nach Administratorrechten …")
         self._run(work)
 
-    def _pc_volumes_text(self, dev):
-        lines = []
-        for v in dev["volumes"]:
-            used = v["total"] - v["free"] if v["total"] else 0
-            t = f"Laufwerk {v['letters'] or '(ohne Buchstaben)'}"
-            if v["label"]:
-                t += f" „{v['label']}“"
-            if v["fs"]:
-                t += f", {v['fs']}"
-            if v["total"]:
-                t += f", {fmt_size(used)} belegt"
-            lines.append(t)
-        return "\n".join(lines)
-
     def _pc_format(self, dev, limit=0):
         label = self.label_var.get()
         fs = "exfat" if self.fs_var.get() == "exFAT" else "fat32"
         fs_text = "exFAT mit 64 KB Zuordnungseinheiten" if fs == "exfat" else "FAT32"
         if not limit:
-            vols = self._pc_volumes_text(dev)
+            vols = pc_volumes_text(dev)
             used = pc_used(dev)
             has_data = used > 64 * 1024 * 1024
             data_warn = f"\n\nAuf dem Datenträger liegen {fmt_size(used)} Daten – sie sind danach weg." if has_data else ""
@@ -1355,6 +1090,8 @@ class App(tk.Tk):
                 self.title(), ("Der Auftrag läuft am PC im Hintergrund weiter." if self.pc_job else
                                "Die Formatierung läuft auf der PS5 weiter.") + " Fenster trotzdem schließen?",
                 icon="warning", parent=self):
+            return
+        if not self.std_panel.may_close():   # Auftrag in "Am PC Standard" (fragt selbst nach)
             return
         if self.pc_job and getattr(self.pc_job, "cancellable", False):
             self.pc_job.cancel()   # Prüfung/Tempo am PC nicht ohne Fenster weiterlaufen lassen

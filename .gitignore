@@ -17,5 +17,8 @@ windows/*.spec
 windows/usbfmt_win.exe
 windows/usbfmt_win_test.exe
 windows/helper_hash.py
+windows/mke2fs.exe
+windows/mke2fs/build/
+usb_format/src/win/mke2fs_hash.h
 **/__pycache__/
 *.pyc

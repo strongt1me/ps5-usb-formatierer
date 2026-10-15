@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "mkfs.h"
+#include "mkfs_int.h"
 #include "upcase.h"
 
 #define MIB (1024u * 1024u)
@@ -115,7 +116,7 @@ static uint8_t *sec_alloc(const blkdev_t *d, uint64_t nsec) {
 
 /* Höchstlänge der Bezeichnung: FAT32/exFAT 11, NTFS 32, ext4 16 Zeichen */
 int label_max(int fs) {
-    return fs == FS_NTFS ? 32 : fs == FS_EXT4 ? 16 : 11;
+    return fs == FS_NTFS || fs == FS_HFSPLUS ? 32 : fs == FS_EXT4 ? 16 : 11;
 }
 
 int label_valid(const char *l, int fs) {
@@ -736,7 +737,7 @@ typedef struct {
 /* alte Partitionstabellen am Anfang und Ende (Backup-GPT) löschen */
 static int begin_layout(blkdev_t *d, int fs, const char *label, mkfs_opts_t *o, layout_t *l) {
     const uint64_t edge = MIB / d->ss;
-    if (fs < FS_EXFAT || fs > FS_EXT4) return fail("Unbekanntes Dateisystem");
+    if (fs < FS_EXFAT || fs > FS_HFSPLUS) return fail("Unbekanntes Dateisystem");
     if (!label_valid(label, fs)) return fail("Ungültige Bezeichnung (max. %d Zeichen: A-Z, 0-9, Leerzeichen, - _)",
                                              label_max(fs));
     l->end = d->sectors;
@@ -766,8 +767,45 @@ static int sync_dev(blkdev_t *d) {
     return 0;
 }
 
-static int write_mbr(blkdev_t *d, int fs, const layout_t *l, uint32_t serial) {
-    static const uint8_t types[] = {0, 0x07, 0x0C, 0x07, 0x83};  /* exFAT, FAT32 (LBA), NTFS, Linux */
+/* Partitionstyp "Basic Data" (exFAT, FAT32, NTFS) bzw. "Linux filesystem" usw., wie auf dem Datenträger gespeichert */
+static const uint8_t GUID_BASIC_DATA[16] = {0xA2, 0xA0, 0xD0, 0xEB, 0xE5, 0xB9, 0x33, 0x44,
+                                            0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7};
+static const uint8_t GUID_LINUX_FS[16]   = {0xAF, 0x3D, 0xC6, 0x0F, 0x83, 0x84, 0x72, 0x47,
+                                            0x8E, 0x79, 0x3D, 0x69, 0xD8, 0x47, 0x7D, 0xE4};
+static const uint8_t GUID_LINUX_SWAP[16] = {0x6D, 0xFD, 0x57, 0x06, 0xAB, 0xA4, 0xC4, 0x43,   /* 0657FD6D-A4AB-43C4- */
+                                            0x84, 0xE5, 0x09, 0x33, 0xC8, 0x4B, 0x4F, 0x4F};
+static const uint8_t GUID_EFI_SYSTEM[16] = {0x28, 0x73, 0x2A, 0xC1, 0x1F, 0xF8, 0xD2, 0x11,   /* C12A7328-F81F-11D2- */
+                                            0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B};
+static const uint8_t GUID_APPLE_HFS[16]  = {0x00, 0x53, 0x46, 0x48, 0x00, 0x00, 0xAA, 0x11,   /* 48465300-0000-11AA- */
+                                            0xAA, 0x11, 0x00, 0x30, 0x65, 0x43, 0xEC, 0xAC};
+
+static int part_kind(const part_t *p) {
+    if (p->ptype != PT_AUTO) return p->ptype;
+    return p->fs == FS_EXT4 ? PT_LINUX : p->fs == FS_HFSPLUS ? PT_APPLE : PT_WINDOWS;
+}
+
+static uint8_t part_mbr_type(const part_t *p) {
+    if (p->mbr_type) return p->mbr_type;
+    switch (part_kind(p)) {
+    case PT_LINUX: return 0x83;
+    case PT_SWAP:  return 0x82;
+    case PT_EFI:   return 0xEF;
+    case PT_APPLE: return 0xAF;
+    default:       return p->fs == FS_FAT32 ? 0x0C : 0x07;   /* FAT32 (LBA), sonst exFAT/NTFS */
+    }
+}
+
+static const uint8_t *part_gpt_type(const part_t *p) {
+    switch (part_kind(p)) {
+    case PT_LINUX: return GUID_LINUX_FS;
+    case PT_SWAP:  return GUID_LINUX_SWAP;
+    case PT_EFI:   return GUID_EFI_SYSTEM;
+    case PT_APPLE: return GUID_APPLE_HFS;
+    default:       return GUID_BASIC_DATA;
+    }
+}
+
+static int write_mbr(blkdev_t *d, const part_t *p, int n, uint32_t serial) {
     uint8_t *mbr;
     int rc;
 
@@ -775,12 +813,15 @@ static int write_mbr(blkdev_t *d, int fs, const layout_t *l, uint32_t serial) {
     d->base = 0;
     if (!(mbr = sec_alloc(d, 1))) return -1;
     put32(mbr + 440, serial);           /* Datenträger-Signatur */
-    uint8_t *pe = mbr + 446;
-    chs(pe + 1, l->start);
-    pe[4] = types[fs];
-    chs(pe + 5, l->start + l->count - 1);
-    put32(pe + 8, (uint32_t)l->start);
-    put32(pe + 12, (uint32_t)l->count);
+    for (int i = 0; i < n && i < 4; i++) {
+        uint8_t *pe = mbr + 446 + 16 * i;
+        pe[0] = p[i].active ? 0x80 : 0x00;
+        chs(pe + 1, p[i].start);
+        pe[4] = part_mbr_type(&p[i]);
+        chs(pe + 5, p[i].start + p[i].count - 1);
+        put32(pe + 8, (uint32_t)p[i].start);
+        put32(pe + 12, (uint32_t)p[i].count);
+    }
     mbr[510] = 0x55;
     mbr[511] = 0xAA;
     rc = dev_write(d, 0, mbr, 1);
@@ -788,22 +829,16 @@ static int write_mbr(blkdev_t *d, int fs, const layout_t *l, uint32_t serial) {
     return rc ? -1 : sync_dev(d);
 }
 
-/* Partitionstyp "Basic Data" (exFAT, FAT32, NTFS) bzw. "Linux filesystem", wie auf dem Datenträger gespeichert */
-static const uint8_t GUID_BASIC_DATA[16] = {0xA2, 0xA0, 0xD0, 0xEB, 0xE5, 0xB9, 0x33, 0x44,
-                                            0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7};
-static const uint8_t GUID_LINUX_FS[16]   = {0xAF, 0x3D, 0xC6, 0x0F, 0x83, 0x84, 0x72, 0x47,
-                                            0x8E, 0x79, 0x3D, 0x69, 0xD8, 0x47, 0x7D, 0xE4};
-
 static void random_guid(uint8_t g[16]) {
     arc4random_buf(g, 16);
     g[7] = (uint8_t)((g[7] & 0x0F) | 0x40);   /* Version 4 */
     g[8] = (uint8_t)((g[8] & 0x3F) | 0x80);   /* Variante RFC 4122 */
 }
 
-/* Schutz-MBR, GPT-Kopf mit 128 Einträgen und die Sicherungskopie am Ende */
-static int write_gpt(blkdev_t *d, int fs, const layout_t *l, const char *label) {
+/* Schutz-MBR, GPT-Kopf mit 128 Einträgen und die Sicherungskopie am Ende (end = Ende des genutzten Bereichs) */
+static int write_gpt(blkdev_t *d, const part_t *p, int n, uint64_t end) {
     const uint32_t ss = d->ss;
-    const uint64_t ent_secs = GPT_ENTRY_BYTES / ss, last = l->end - 1;
+    const uint64_t ent_secs = GPT_ENTRY_BYTES / ss, last = end - 1;
     uint8_t *mbr = NULL, *hdr = NULL, *ents = NULL;
     int rc = -1;
 
@@ -811,12 +846,15 @@ static int write_gpt(blkdev_t *d, int fs, const layout_t *l, const char *label) 
     d->base = 0;
     if (!(mbr = sec_alloc(d, 1)) || !(hdr = sec_alloc(d, 1)) || !(ents = sec_alloc(d, ent_secs))) goto out;
 
-    memcpy(ents, fs == FS_EXT4 ? GUID_LINUX_FS : GUID_BASIC_DATA, 16);
-    random_guid(ents + 16);
-    put64(ents + 32, l->start);
-    put64(ents + 40, l->start + l->count - 1);
-    const char *name = label && *label ? label : "Daten";
-    for (int i = 0; i < 36 && name[i]; i++) put16(ents + 56 + 2 * i, (uint8_t)name[i]);
+    for (int i = 0; i < n && i < 128; i++) {
+        uint8_t *e = ents + 128 * i;
+        memcpy(e, part_gpt_type(&p[i]), 16);
+        random_guid(e + 16);
+        put64(e + 32, p[i].start);
+        put64(e + 40, p[i].start + p[i].count - 1);
+        const char *name = p[i].name && *p[i].name ? p[i].name : "Daten";
+        for (int k = 0; k < 36 && name[k]; k++) put16(e + 56 + 2 * k, (uint8_t)name[k]);
+    }
 
     memcpy(hdr, "EFI PART", 8);
     put32(hdr + 8, 0x00010000);         /* Revision 1.0 */
@@ -862,23 +900,32 @@ out:
     return rc;
 }
 
-static int write_table(blkdev_t *d, int fs, const layout_t *l, uint32_t serial, const char *label) {
-    return l->gpt ? write_gpt(d, fs, l, label) : write_mbr(d, fs, l, serial);
+/* eine Partition nach dem alten Muster (PS5, Standard): Name = Bezeichnung, Typ passend zu fs */
+static int write_table(blkdev_t *d, int fs, const layout_t *l, uint32_t serial, const char *label,
+                       const mkfs_opts_t *o) {
+    part_t p = {0};
+    p.fs = fs;
+    p.mbr_type = o ? o->mbr_type : 0;
+    p.name = label;
+    p.start = l->start;
+    p.count = l->count;
+    return l->gpt ? write_gpt(d, &p, 1, l->end) : write_mbr(d, &p, 1, serial);
 }
 
 int format_disk(blkdev_t *d, int fs, const char *label, uint32_t serial, uint32_t cluster, mkfs_opts_t *o) {
     layout_t l;
     int rc;
 
-    if (fs != FS_EXFAT && fs != FS_FAT32) return fail("Dieses Dateisystem schreibt ein externes Werkzeug");
+    if (fs != FS_EXFAT && fs != FS_FAT32 && fs != FS_HFSPLUS) return fail("Dieses Dateisystem schreibt ein externes Werkzeug");
     if (begin_layout(d, fs, label, o, &l)) return -1;
 
     d->base = l.start * d->ss;
     rc = fs == FS_EXFAT ? mkfs_exfat(d, l.start, l.count, label, serial, cluster, o)
-                        : mkfs_fat32(d, l.start, l.count, label, serial, cluster, o);
+       : fs == FS_FAT32 ? mkfs_fat32(d, l.start, l.count, label, serial, cluster, o)
+                        : mkfs_hfsplus(d, l.count, label, serial, cluster);
     d->base = 0;
     phase(95, 100);
-    rc = rc || write_table(d, fs, &l, serial, label);
+    rc = rc || write_table(d, fs, &l, serial, label, o);
     if (!rc) report(d, "Fertig", 100);
     phase(0, 100);   /* für spätere Aufrufe ohne format_disk (Tests) */
     ph_last = -1;
@@ -902,8 +949,91 @@ int prepare_partition(blkdev_t *d, int fs, const char *label, uint32_t serial, m
     report(d, "Partition vorbereiten", 0);
     int rc = dev_zero(d, 0, 2 * edge, NULL) || dev_zero(d, l.count - edge, edge, NULL);
     d->base = 0;
-    rc = rc || write_table(d, fs, &l, serial, label);
+    rc = rc || write_table(d, fs, &l, serial, label, o);
     phase(0, 100);   /* den Rest meldet das externe Werkzeug selbst */
     ph_last = -1;
     return rc ? -1 : 0;
 }
+
+/* ------------------------------------------------------------------ Mehrere Partitionen (Expertenmodus) */
+
+void mkfs_progress_reset(void) {
+    phase(0, 100);
+    ph_last = -1;
+}
+
+int layout_disk(blkdev_t *d, int scheme, uint64_t limit, part_t *p, int n, uint32_t serial, int *is_gpt) {
+    const uint64_t edge = MIB / d->ss;
+    uint64_t end = d->sectors;
+    if (limit && limit / d->ss < end) end = limit / d->ss;
+    if (n < 1 || n > MAX_PARTS) return fail("Zwischen 1 und %d Partitionen möglich", MAX_PARTS);
+    if (end < 16 * edge) return fail("Datenträger zu klein");
+    const int gpt = scheme == LAYOUT_GPT || (scheme == LAYOUT_AUTO && end - edge > 0xFFFFFFFFull);
+    if (!gpt && n > 4) return fail("MBR fasst höchstens 4 Partitionen – bitte GPT wählen");
+    /* letzter nutzbarer Sektor + 1: GPT braucht hinten Platz für die Sicherungskopie, MBR zählt höchstens 2^32 */
+    uint64_t usable = gpt ? end - 1 - GPT_ENTRY_BYTES / d->ss : end;
+    if (!gpt && usable > 0xFFFFFFFFull) usable = 0xFFFFFFFFull;
+
+    uint64_t at = edge;
+    for (int i = 0; i < n; i++) {
+        at = (at + edge - 1) / edge * edge;             /* jede Partition an einer MiB-Grenze */
+        if (at + edge > usable) return fail("Partition %d passt nicht mehr auf den Datenträger", i + 1);
+        uint64_t count;
+        if (p[i].bytes) {
+            count = p[i].bytes / d->ss / edge * edge;   /* ganze MiB */
+            if (count < edge) return fail("Partition %d ist kleiner als 1 MB", i + 1);
+            if (at + count > usable) return fail("Partition %d ist zu groß – es fehlen %llu MB", i + 1,
+                                                 (unsigned long long)((at + count - usable) * d->ss / MIB + 1));
+        } else {
+            if (i != n - 1) return fail("Nur die letzte Partition darf den Rest bekommen");
+            count = usable - at;
+        }
+        p[i].start = at;
+        p[i].count = count;
+        at += count;
+    }
+    if (is_gpt) *is_gpt = gpt;
+
+    /* alte Tabellen vorne und hinten, dann Anfang und Ende jeder Partition (alte Dateisystem-Signaturen) */
+    d->base = 0;
+    ph_last = -1;
+    phase(0, 4);
+    if (dev_zero(d, 0, edge, "Alte Partitionstabellen löschen")) return -1;
+    phase(4, 8);
+    if (dev_zero(d, end - edge, edge, "Alte Partitionstabellen löschen")) return -1;
+    for (int i = 0; i < n; i++) {
+        phase(8 + 2 * i / n, 8 + 2 * (i + 1) / n);
+        uint64_t head = p[i].count < 2 * edge ? p[i].count : edge;
+        if (dev_zero(d, p[i].start, head, "Partitionen vorbereiten") ||
+            dev_zero(d, p[i].start + p[i].count - head, head, NULL))
+            return -1;
+    }
+    phase(10, 10);
+    int rc = gpt ? write_gpt(d, p, n, end) : write_mbr(d, p, n, serial);
+    mkfs_progress_reset();
+    return rc;
+}
+
+/* ------------------------------------------------------------------ für hfsplus.c (mkfs_int.h) */
+
+int mk_fail(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
+    va_end(ap);
+    return -1;
+}
+
+void mk_summary(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(sumbuf, sizeof(sumbuf), fmt, ap);
+    va_end(ap);
+}
+
+void mk_report(blkdev_t *d, const char *step, int pct) { report(d, step, pct); }
+int mk_write(blkdev_t *d, uint64_t sec, const void *buf, uint64_t nsec) { return dev_write(d, sec, buf, nsec); }
+int mk_zero(blkdev_t *d, uint64_t sec, uint64_t nsec, const char *step) { return dev_zero(d, sec, nsec, step); }
+uint8_t *mk_alloc(const blkdev_t *d, uint64_t nsec) { return sec_alloc(d, nsec); }
+int mk_sync(blkdev_t *d) { return sync_dev(d); }
+const char *mk_size_text(uint32_t bytes, char *buf, size_t n) { return size_text(bytes, buf, n); }

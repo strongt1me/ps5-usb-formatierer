@@ -8,7 +8,7 @@ export PATH="$T/usr/sbin:$T/usr/bin:$PATH"
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
 gcc -Wall -Wextra -Werror -O2 -o "$W/lib" test/library_test.c src/library.c src/fsread.c || exit 1
-gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/upcase.c || exit 1
+gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c || exit 1
 
 fails=0
 ok()  { echo "OK      $1"; }

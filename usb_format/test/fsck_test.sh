@@ -9,7 +9,7 @@ W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
 OBJS=$(bash test/build_exfatprogs.sh "$W/obj" | tail -1) || exit 1
 gcc -O2 -Wall -Wextra -Werror -o "$W/fsck" test/fsck_test.c $OBJS || exit 1
-gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/upcase.c || exit 1
+gcc -Wall -Wextra -Werror -O2 -o "$W/mkfs_test" test/mkfs_test.c src/mkfs.c src/hfsplus.c src/upcase.c || exit 1
 
 fails=0
 ok()  { echo "OK      $1"; }

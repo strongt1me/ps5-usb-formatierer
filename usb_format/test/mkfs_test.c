@@ -1,5 +1,5 @@
 /* Formatiert eine Image-Datei auf dem Host, zum Pruefen mit fsck.
- *   mkfs_test part|disk <image> exfat|fat32 <bytes> <sektorgroesse> [label] [cluster] [Optionen]
+ *   mkfs_test part|disk <image> exfat|fat32|hfsplus <bytes> <sektorgroesse> [label] [cluster] [Optionen]
  * part: nur Dateisystem ab Offset 0 (Partitionsbeginn 2048 im Bootsektor)
  * disk: komplettes Layout mit Partitionstabelle wie auf der PS5
  * cluster: Zuordnungseinheit in Bytes, 0/fehlt = Standard
@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     const char *mode = argv[1], *img = argv[2], *label = "";
-    int fs = strcmp(argv[3], "exfat") == 0 ? FS_EXFAT : FS_FAT32;
+    int fs = strcmp(argv[3], "exfat") == 0 ? FS_EXFAT : strcmp(argv[3], "hfsplus") == 0 ? FS_HFSPLUS : FS_FAT32;
     unsigned long long bytes = strtoull(argv[4], NULL, 10);
     uint32_t cluster = 0;
     const char *dirs[OPT_MAX + 1] = {0};
@@ -71,6 +71,8 @@ int main(int argc, char **argv) {
         rc = format_disk(&d, fs, label, 0x1234ABCD, cluster, &o);
     else if (fs == FS_EXFAT)
         rc = mkfs_exfat(&d, 2048, d.sectors, label, 0x1234ABCD, cluster, &o);
+    else if (fs == FS_HFSPLUS)
+        rc = mkfs_hfsplus(&d, d.sectors, label, 0x1234ABCD, cluster);
     else
         rc = mkfs_fat32(&d, 2048, d.sectors, label, 0x1234ABCD, cluster, &o);
     close(d.fd);

@@ -11,5 +11,5 @@ trap 'rm -rf "$OBJ"' EXIT
 OBJS=$(bash test/build_exfatprogs.sh "$OBJ" | tail -1)
 # shellcheck disable=SC2086
 gcc -Wall -Wextra -Werror -O2 -DUSBFMT_HOST ${HOST_CFLAGS:-} "$@" -o "$OUT" \
-    src/main.c src/server.c src/mkfs.c src/upcase.c src/extfs.c src/fsdetect.c src/fsread.c src/vollabel.c \
+    src/main.c src/server.c src/mkfs.c src/hfsplus.c src/upcase.c src/extfs.c src/fsdetect.c src/fsread.c src/vollabel.c \
     src/devtest.c src/library.c src/smpapi.c src/platform_host.c $OBJS -lpthread

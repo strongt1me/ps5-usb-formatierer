@@ -47,8 +47,33 @@ int usbfmt_memalign(void **p, size_t align, size_t len) {
     return *p ? 0 : ENOMEM;
 }
 
+typedef NTSTATUS (WINAPI *gen_random_fn)(BCRYPT_ALG_HANDLE, PUCHAR, ULONG, ULONG);
+
+/* Seriennummern und GUIDs. bcrypt.dll gehört nicht zu den KnownDLLs: Fest eingebunden würde Windows sie zuerst neben
+ * dem Helfer suchen (Temp-Ordner, für jeden beschreibbar) und dort mit Administratorrechten laden - daher nur aus
+ * System32 nachladen. */
 void usbfmt_random_buf(void *buf, size_t len) {
-    BCryptGenRandom(NULL, buf, (ULONG)len, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    static gen_random_fn gen;
+    if (!gen) {
+        HMODULE m = LoadLibraryExW(L"bcrypt.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        if (m) gen = (gen_random_fn)(void *)GetProcAddress(m, "BCryptGenRandom");
+    }
+    if (gen && gen(NULL, buf, (ULONG)len, BCRYPT_USE_SYSTEM_PREFERRED_RNG) >= 0) return;
+    /* Notfall (geheim muss nichts davon sein): Zeitgeber durchmischen (splitmix64) */
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    uint64_t x = (uint64_t)q.QuadPart ^ ((uint64_t)GetCurrentProcessId() << 32) ^ GetTickCount64();
+    uint8_t *p = buf;
+    for (size_t i = 0; i < len; i++) {
+        if (i % 8 == 0) {
+            x += 0x9E3779B97F4A7C15ull;
+            uint64_t z = x;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+            q.QuadPart = (LONGLONG)(z ^ (z >> 31));
+        }
+        p[i] = (uint8_t)((uint64_t)q.QuadPart >> (8 * (i % 8)));
+    }
 }
 
 uint32_t usbfmt_random(void) {

@@ -1,0 +1,52 @@
+/* config.h für e2fsprogs 1.47.1 unter Windows (zig cc -target x86_64-windows-gnu) - von Hand statt configure.
+ * Nur, was mingw wirklich hat: kein fsync, kein pread, kein mmap; Ein-/Ausgabe über lib/ext2fs/windows_io.c. */
+#define DISABLE_BACKTRACE 1
+#define HAVE_DIRENT_H 1
+#define HAVE_ERRNO_H 1
+#define HAVE_GETOPT_H 1
+#define HAVE_INTPTR_T 1
+#define HAVE_INTTYPES_H 1
+#define HAVE_LINUX_TYPES_H 1
+#define HAVE_MBSTOWCS 1
+#define HAVE_SETJMP_H 1
+#define HAVE_SIGNAL_H 1
+#define HAVE_SNPRINTF 1
+#define HAVE_STDARG_H 1
+#define HAVE_STDINT_H 1
+#define HAVE_STDIO_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_STRCASECMP 1
+#define HAVE_STRDUP 1
+#define HAVE_STRINGS_H 1
+#define HAVE_STRING_H 1
+#define HAVE_STRNLEN 1
+#define HAVE_STRTOULL 1
+#define HAVE_SYS_STAT_H 1
+#define HAVE_SYS_SYSMACROS_H 1
+#define HAVE_SYS_TIME_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_TYPE_SSIZE_T 1
+#define HAVE_UNISTD_H 1
+#define HAVE_UTIME 1
+#define HAVE_UTIME_H 1
+#define HAVE_VPRINTF 1
+#define HAVE_WCHAR_H 1
+#define PACKAGE "e2fsprogs"
+#define PACKAGE_BUGREPORT ""
+#define PACKAGE_NAME ""
+#define PACKAGE_STRING ""
+#define PACKAGE_TARNAME ""
+#define PACKAGE_URL ""
+#define PACKAGE_VERSION ""
+#define SIZEOF_INT 4
+#define SIZEOF_LONG 4
+#define SIZEOF_LONG_LONG 8
+#define SIZEOF_OFF_T 8
+#define SIZEOF_SHORT 2
+#define SIZEOF_TIME_T 8
+#define STDC_HEADERS 1
+#define VERSION "0.14.1"
+
+/* sonst aus dirpaths.h: mke2fs.conf liest der Helfer ohnehin nicht (MKE2FS_CONFIG zeigt ins Leere) */
+#define LOCALEDIR "/usr/share/locale"
+#define ROOT_SYSCONFDIR "/etc"
