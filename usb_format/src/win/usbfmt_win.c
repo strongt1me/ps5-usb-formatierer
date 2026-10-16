@@ -597,7 +597,7 @@ static int run_mke2fs(const WCHAR *dev, uint64_t offset, uint64_t bytes, const c
     static char out[32768];
     size_t olen = 0;
     int ok = 0;
-    for (int attempt = 0; attempt < 3 && !ok; attempt++) {
+    for (int attempt = 0; attempt < 5 && !ok; attempt++) {
         SECURITY_ATTRIBUTES sa = {sizeof(sa), NULL, TRUE};
         HANDLE rd = NULL, wr = NULL;
         if (!CreatePipe(&rd, &wr, &sa, 0)) { CloseHandle(f); win_error(err, n, "Pipe"); return -1; }
@@ -666,7 +666,10 @@ static int run_mke2fs(const WCHAR *dev, uint64_t offset, uint64_t bytes, const c
         CloseHandle(pi.hProcess);
         if (job) CloseHandle(job);
         ok = code == 0 && extfs_succeeded(FS_EXT4, out);
-        if (!ok && !strstr(out, "busy") && !strstr(out, "in use")) break;   /* nur "belegt" lohnt einen neuen Versuch */
+        /* nur "belegt" lohnt einen neuen Versuch. Öffnet Windows gerade eine eben angelegte Partition (FormatEx,
+         * Explorer), scheitert schon das Öffnen des Datenträgers - mke2fs meldet das als "malformed device name"
+         * (am echten Stick gesehen: FAT16 per FormatEx, direkt danach ext3 auf Partition 2) */
+        if (!ok && !strstr(out, "busy") && !strstr(out, "in use") && !strstr(out, "malformed device name")) break;
         if (!ok) Sleep(2000);
     }
     CloseHandle(f);
