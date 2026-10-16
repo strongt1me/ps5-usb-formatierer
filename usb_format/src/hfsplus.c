@@ -140,7 +140,7 @@ int mkfs_hfsplus(blkdev_t *d, uint64_t nsect, const char *label, uint32_t serial
     const uint64_t ext_bytes = round_up(vbytes > 1024ull * MIB ? MIB : 256 * 1024, bs > EXT_NODE ? bs : EXT_NODE);
     const uint64_t cat_want = vbytes > 64ull * 1024 * MIB ? 8 * MIB : vbytes > 1024ull * MIB ? 4 * MIB : MIB;
     const uint64_t cat_bytes = round_up(cat_want, bs > CAT_NODE ? bs : CAT_NODE);
-    const uint64_t bm_bytes = round_up((total + 7) / 8, bs);
+    const uint64_t bm_bytes = round_up(((uint64_t)total + 7) / 8, bs);   /* 64 Bit: total kann 0xFFFFFFFF sein */
     const uint32_t first = (uint32_t)((1536 + bs - 1) / bs);   /* Startblöcke + Volume-Header belegt */
     const uint32_t bm_blocks = (uint32_t)(bm_bytes / bs), ext_blocks = (uint32_t)(ext_bytes / bs),
                    cat_blocks = (uint32_t)(cat_bytes / bs);

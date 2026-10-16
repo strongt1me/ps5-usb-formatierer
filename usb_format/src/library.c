@@ -228,10 +228,11 @@ static const char *hint_name(const char *id) {
 
 int lib_parse_smp_games(const char *json, size_t len, lib_hint_t **h, int *n) {
     const char *e = json + len, *p = jget(json, e, "games");
+    const int n0 = *n;
     if (!p || *p != '[') return -1;
     for (p = jws(p + 1, e); p < e && *p == '{'; ) {
         const char *next = jskip(p, e);
-        if (!next) break;
+        if (!next) { *n = n0; return -1; }   /* abgeschnitten: keine halbe Liste */
         lib_hint_t t;
         memset(&t, 0, sizeof(t));
         jget_str(p, next, "path", t.path, sizeof(t.path));
@@ -244,6 +245,7 @@ int lib_parse_smp_games(const char *json, size_t len, lib_hint_t **h, int *n) {
         p = jws(next, e);
         if (p < e && *p == ',') p = jws(p + 1, e);
     }
+    if (p >= e || *p != ']') { *n = n0; return -1; }   /* Liste nicht abgeschlossen: unvollständig */
     return 0;
 }
 

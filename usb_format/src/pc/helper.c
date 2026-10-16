@@ -30,13 +30,30 @@ static const char *const TEMPLATE_DIRS[] = {"homebrew", "etaHEN/games", "pkg", N
 
 /* ------------------------------------------------------------------ Ausgabe */
 
+/* Länge einer gültigen UTF-8-Folge ab s (1-4), 0 = ungültig */
+static int utf8_len(const unsigned char *s) {
+    if (s[0] < 0x80) return 1;
+    int n = s[0] >= 0xF0 && s[0] <= 0xF4 ? 4 : s[0] >= 0xE0 ? 3 : s[0] >= 0xC2 && s[0] <= 0xDF ? 2 : 0;
+    if (!n) return 0;
+    for (int i = 1; i < n; i++)
+        if ((s[i] & 0xC0) != 0x80) return 0;
+    if (n == 3 && ((s[0] == 0xE0 && s[1] < 0xA0) || (s[0] == 0xED && s[1] >= 0xA0))) return 0;   /* zu lang, Surrogat */
+    if (n == 4 && ((s[0] == 0xF0 && s[1] < 0x90) || (s[0] == 0xF4 && s[1] >= 0x90))) return 0;
+    return n;
+}
+
+/* JSON-Zeichenkette; ungültiges UTF-8 (Herstellernamen billiger Sticks, FAT-Bezeichnungen in alter Codepage) wird
+ * zu U+FFFD - sonst lehnte das Programm die ganze Liste ab */
 void json_str(FILE *f, const char *s) {
+    const unsigned char *p = (const unsigned char *)s;
     fputc('"', f);
-    for (; *s; s++) {
-        unsigned char c = (unsigned char)*s;
-        if (c == '"' || c == '\\') fprintf(f, "\\%c", c);
-        else if (c < 0x20) fprintf(f, "\\u%04x", c);
-        else fputc(c, f);
+    while (*p) {
+        int n = utf8_len(p);
+        if (!n) { fputs("\\ufffd", f); p++; continue; }
+        if (*p == '"' || *p == '\\') fprintf(f, "\\%c", *p);
+        else if (*p < 0x20) fprintf(f, "\\u%04x", *p);
+        else fwrite(p, 1, (size_t)n, f);
+        p += n;
     }
     fputc('"', f);
 }
@@ -106,8 +123,11 @@ static const char *fs_title(int fs) {
 
 /* Bezeichnung und Zuordnungseinheit passend zum Dateisystem? (exFAT/FAT32/HFS+ prüft mkfs selbst genauer) */
 static const char *check_part(const wpart_t *p) {
-    int lfs = p->fs == FS_NTFS ? FS_NTFS : is_ext(p->fs) ? FS_EXT4 : p->fs == FS_HFSPLUS ? FS_HFSPLUS : FS_FAT32;
-    if (p->fs != WFS_NONE && !label_valid(p->label, lfs)) return N_("Ungültige Bezeichnung.");
+    /* ohne Dateisystem wird die Bezeichnung zum GPT-Partitionsnamen: dieselben Regeln wie NTFS (bis 32 Zeichen) -
+     * sonst könnten Tab/Zeilenumbruch das Ausgabeprotokoll zerlegen */
+    int lfs = p->fs == FS_NTFS || p->fs == WFS_NONE ? FS_NTFS : is_ext(p->fs) ? FS_EXT4
+            : p->fs == FS_HFSPLUS ? FS_HFSPLUS : FS_FAT32;
+    if (!label_valid(p->label, lfs)) return N_("Ungültige Bezeichnung.");
     uint32_t c = p->cluster;
     if (!c) return NULL;
     if (c & (c - 1)) return N_("Ungültige Zuordnungseinheit.");
@@ -168,6 +188,11 @@ static int cmd_format(const char *disk, uint64_t size, fmtreq_t *q) {
         tested = q->full ? 2 : 1;
         int rc = q->full ? dt_full(s.tfd, s.info.ss, use, on_progress, &cancel_requested, &t, err, sizeof(err))
                          : dt_verify(s.tfd, s.info.ss, use, on_progress, &cancel_requested, &t, err, sizeof(err));
+        if (rc == 0 && t.cancelled && !dt_wrote()) {   /* noch nichts überschrieben: gar nichts anfassen */
+            plat_session_close(&s, 0);
+            finish(0, T("Abgebrochen – der Datenträger wurde nicht verändert."), NULL);
+            return 1;
+        }
         if (rc == 0 && t.cancelled) {
             test_cancelled = 1;
         } else if (rc != 0 || t.fake || t.bad) {

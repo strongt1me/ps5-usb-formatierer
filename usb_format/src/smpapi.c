@@ -41,15 +41,17 @@ char *smp_http_post(int port, const char *path, const char *body, int *http, siz
     const time_t deadline = time(NULL) + 20;   /* ganze Antwort, nicht nur je recv (hängendes ShadowMountPlus) */
     while (buf) {
         if (time(NULL) > deadline) { free(buf); close(s); return NULL; }
+        /* abgeschnittene Antwort (zu groß, kein Speicher, Zeitüberschreitung) gilt als Fehler, nie als vollständig:
+         * eine halbe Spieleliste ließe ein eingebundenes Spiel wie eine zweite Kopie aussehen */
         if (n == cap) {
-            if (cap >= SMP_MAX) break;
-            char *nb = realloc(buf, cap * 2 + 1);
-            if (!nb) break;
+            char *nb = cap < SMP_MAX ? realloc(buf, cap * 2 + 1) : NULL;
+            if (!nb) { free(buf); close(s); return NULL; }
             buf = nb;
             cap *= 2;
         }
         ssize_t k = recv(s, buf + n, cap - n, 0);
-        if (k <= 0) break;
+        if (k < 0) { free(buf); close(s); return NULL; }
+        if (k == 0) break;   /* Ende (Connection: close) */
         n += (size_t)k;
     }
     close(s);

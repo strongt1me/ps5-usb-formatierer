@@ -132,9 +132,9 @@ class PartitionDialog(tk.Toplevel):
             return 0
         try:
             v = float(self.size_var.get().replace(",", ".").strip())
-        except ValueError:
+            b = int(v * (GB if self.unit_combo.current() == 1 else MB)) // MB * MB   # "inf"/"nan": Fehler
+        except (ValueError, OverflowError):
             return None
-        b = int(v * (GB if self.unit_combo.current() == 1 else MB)) // MB * MB
         return b if b >= MB else None
 
     def _changed(self):
@@ -252,6 +252,18 @@ class PartitionEditor(ttk.Frame):
         sel = self._selected()
         if self.dev:
             self.sizes, self.free, self.error = fsinfo.plan(self.parts, self.dev["size"], self.scheme, self._ss())
+            # passt jedes Dateisystem (und eine selbst gewählte Einheit) noch zur Größe? Sonst teilte der Helfer den
+            # Datenträger erst neu auf und scheiterte dann beim Formatieren
+            for i, p in enumerate(self.parts):
+                if self.error or i >= len(self.sizes) or p["fs"] == NO_FS:
+                    continue
+                vals, _std = fsinfo.cluster_choices(fsinfo.helper_fs(p["fs"]), self.sizes[i], self._ss())
+                if not vals:
+                    self.error = _("Partition {n}: {fs} passt nicht zu dieser Größe – bitte Dateisystem oder Größe "
+                                   "ändern.", n=i + 1, fs=fs_display(p["fs"]))
+                elif p["cluster"] and p["cluster"] not in vals:
+                    self.error = _("Partition {n}: Die Zuordnungseinheit {size} passt nicht zu dieser Größe – bitte "
+                                   "ändern.", n=i + 1, size=unit_text(p["cluster"]))
         else:
             self.sizes, self.free, self.error = [], 0, None
         self.tree.delete(*self.tree.get_children())

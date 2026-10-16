@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 
 #define PORT_UI     8090
@@ -71,6 +72,13 @@ static int connect_local(int port) {
     sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s < 0) return -1;
+    /* nie endlos warten: nimmt der ELF-Loader an, liest aber nicht (bzw. hängt der Formatierer), endete der Titel
+     * sonst nie - ohne Meldung */
+    struct timeval tv;
+    tv.tv_sec = 10;
+    tv.tv_usec = 0;
+    setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     if (connect(s, (const struct sockaddr *)&sa, sizeof(sa)) < 0) {
         close(s);
         return -1;
@@ -80,7 +88,7 @@ static int connect_local(int port) {
 
 static int send_all(int s, const unsigned char *p, size_t n) {
     while (n) {
-        ssize_t w = send(s, p, n, 0);
+        ssize_t w = send(s, p, n, MSG_NOSIGNAL);   /* schließt der Loader vorzeitig: Fehler statt SIGPIPE-Abbruch */
         if (w <= 0) return -1;
         p += w;
         n -= (size_t)w;

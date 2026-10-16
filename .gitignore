@@ -20,6 +20,7 @@ windows/helper_hash.py
 windows/mke2fs.exe
 windows/mke2fs/build/
 windows/mke2fs.exe.tmp*
+windows/usbfmt_win.exe.tmp*
 windows/usbfmt_linux
 windows/app.png
 usb_format/src/win/mke2fs_hash.h

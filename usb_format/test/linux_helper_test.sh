@@ -115,8 +115,10 @@ grep -q "echt" "$W/verify.txt" && ok "Prüfung: als echt gemeldet" || bad "Prüf
 touch "$W/cancel"
 rm -f "$W/vc.txt"; truncate -s 512M "$W/vc.img"
 "$H" --out "$W/vc.txt" --cancel "$W/cancel" --image "$W/vc.img" format image $((512 * M)) exfat X verify plain >/dev/null 2>&1
-expect vc 1 "Abbrechen der Prüfung: wird trotzdem formatiert"
-grep -q "abgebrochen" "$W/vc.txt" && ok "Abbrechen gemeldet" || bad "Abbrechen nicht gemeldet"
+# schon vor dem Start abgebrochen: nichts geschrieben, also auch nicht formatieren
+expect vc 0 "Abbrechen vor dem ersten Schreiben: nicht formatiert"
+grep -q "nicht verändert" "$W/vc.txt" && ok "Meldung: nicht verändert" || bad "Meldung: $(grep -P '^R' "$W/vc.txt")"
+[ "$(head -c $((4 * M)) "$W/vc.img" | tr -d '\000' | wc -c)" = 0 ] && ok "Abbild unberührt" || bad "Abbild beschrieben"
 
 # ------------------------------------------------------------------ Fehlerfälle
 run mbr5 1G layout scheme=mbr "part=exfat,$((100 * M)),0,auto,0,A" "part=exfat,$((100 * M)),0,auto,0,B" \

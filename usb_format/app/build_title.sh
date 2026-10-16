@@ -8,7 +8,7 @@
 set -euo pipefail
 : "${PS5_PAYLOAD_SDK:?PS5_PAYLOAD_SDK setzen}"
 TOOL=${PS5_NATIVE_TOOL:-$HOME/lmms-ps5/boilerplate/build/host/ps5-native-tool}
-CLANG=${PS5_CLANG:-$(command -v clang-18)}
+CLANG=${PS5_CLANG:-$(command -v clang-18 || true)}   # "|| true": sonst endete set -e vor der Meldung
 [[ -x $TOOL ]] || { echo "ps5-native-tool fehlt: $TOOL" >&2; exit 2; }
 [[ -x $CLANG ]] || { echo "clang-18 fehlt" >&2; exit 2; }
 
@@ -31,7 +31,7 @@ flags=(-target x86_64-sie-ps5 -fvisibility-nodllstorageclass=default -isysroot "
     --as-needed "$PS5_PAYLOAD_SDK"/target/lib/*.so
 
 # Nur diese Importe sind vorgesehen (libkernel, libSceSystemService) - alles andere wäre zur Laufzeit NULL
-allowed="close connect recv sceKernelDebugOutText sceKernelSendNotificationRequest sceKernelUsleep sceSystemServiceLoadExec send socket"
+allowed="close connect recv sceKernelDebugOutText sceKernelSendNotificationRequest sceKernelUsleep sceSystemServiceLoadExec send setsockopt socket"
 imports=$("$PS5_PAYLOAD_SDK/bin/llvm-nm" -D --undefined-only "$B/pie.elf" | awk '{ sub(/@.*/, "", $2); print $2 }' | sort -u)
 for sym in $imports; do
     [[ " $allowed " == *" $sym "* ]] || { echo "unerwarteter Import: $sym" >&2; exit 1; }

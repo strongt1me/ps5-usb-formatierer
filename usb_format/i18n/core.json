@@ -1744,5 +1744,17 @@
   "it": "%s manca – installa il pacchetto %s.",
   "es": "Falta %s – instala el paquete %s.",
   "fr": "%s est absent – veuillez installer le paquet %s."
+ },
+ "Abgebrochen – der Datenträger wurde nicht verändert.": {
+  "en": "Cancelled – the drive was not changed.",
+  "it": "Annullato – l'unità non è stata modificata.",
+  "es": "Cancelado – la unidad no se ha modificado.",
+  "fr": "Annulé – le lecteur n'a pas été modifié."
+ },
+ "Laufwerk %s liegt auch auf einem anderen Datenträger (übergreifendes Volume) – abgelehnt.": {
+  "en": "Drive %s also spans another disk (spanned volume) – refused.",
+  "it": "L'unità %s si estende anche su un altro disco (volume esteso) – rifiutata.",
+  "es": "La unidad %s también ocupa otro disco (volumen distribuido) – rechazada.",
+  "fr": "Le lecteur %s s'étend aussi sur un autre disque (volume fractionné) – refusé."
  }
 }

@@ -1150,5 +1150,11 @@
   "it": "Chiudi il formattatore sulla PS5",
   "es": "Cerrar el formateador en la PS5",
   "fr": "Fermer le formateur sur la PS5"
+ },
+ "Die Hilfe lässt sich öffnen, sobald der Auftrag fertig ist.": {
+  "en": "The help can be opened as soon as the job is finished.",
+  "it": "La guida si può aprire non appena l'operazione è terminata.",
+  "es": "La ayuda se puede abrir en cuanto termine la tarea.",
+  "fr": "L'aide pourra être ouverte dès que la tâche sera terminée."
  }
 }

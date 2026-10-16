@@ -28,7 +28,8 @@ CALLS = [
     re.compile(r'\bwin_error\(\s*[^,]+,\s*[^,]+,\s*' + LITS + r'\s*\)'),
     re.compile(r'\b(?:dev_zero|mk_zero)\((?:[^;"()]|\([^()]*\))*,\s*' + LITS + r'\s*\)'),
 ]
-SPEC = re.compile(r"%(?:%|[-+ #0]*\d*(?:\.\d+)?(?:hh|h|ll|l|z|j|t)?[diouxXeEfgGcsp])")
+# Platzhalter wie printf - auch mit "*" (%.*s): eine Übersetzung mit %s statt %.*s ließe printf abstürzen
+SPEC = re.compile(r"%(?:%|[-+ #0]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|h|ll|l|z|j|t)?[diouxXeEfgGcsp])")
 
 
 def c_unescape(lit):

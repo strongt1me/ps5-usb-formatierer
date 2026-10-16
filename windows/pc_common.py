@@ -5,6 +5,7 @@ import ctypes
 import hashlib
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -38,11 +39,33 @@ def settings_file(app_name):
     return os.path.join(base, app_name, "settings.json")
 
 
+# bekannte Einstellungen und ihr Typ - von Hand verbogene Werte (Liste statt Text, Zahl statt Ja/Nein) fallen beim
+# Laden weg, statt das Programm am Start scheitern zu lassen
+_SETTING_TYPES = {"lang": str, "mode": str, "host": str, "label": str, "fs": str, "scheme": str,
+                  "verify": bool, "folders": bool, "quick": bool, "expert": bool, "standard": dict}
+_LABEL_OK = re.compile(r"^[A-Za-z0-9 _-]{0,32}$")
+
+
+def _clean_settings(data):
+    out = {}
+    for k, v in data.items():
+        want = _SETTING_TYPES.get(k)
+        if want is None:
+            out[k] = v
+        elif isinstance(v, want):
+            if want is dict:
+                v = _clean_settings(v)
+            if k == "label" and not _LABEL_OK.match(v):
+                continue   # sonst ginge sie ungeprüft an den Formatierer
+            out[k] = v
+    return out
+
+
 def load_settings(app_name):
     try:
         with open(settings_file(app_name), encoding="utf-8") as f:
             data = json.load(f)
-        return data if isinstance(data, dict) else {}
+        return _clean_settings(data) if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
 

@@ -19,11 +19,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build_helper.ps1 || exit /b 
 set COMMON=--add-data "app.ico;." --add-binary "usbfmt_win.exe;." --add-binary "mke2fs.exe;." ^
     --add-data "mke2fs\NOTICE.txt;lizenzen\mke2fs" --add-data "i18n_app.json;." ^
     --add-data "..\usb_format\web\help.html;."
-python -m PyInstaller --noconfirm --clean --windowed --onefile ^
+rem --noupx: UPX wuerde Helfer und mke2fs.exe veraendern - ihre Pruefsummen passten dann nicht mehr
+python -m PyInstaller --noconfirm --clean --noupx --windowed --onefile ^
     --name "PS5-USB-Formatierer" --icon app.ico %COMMON% ^
     --add-data "..\usb_format\usb_format.elf;." ^
     usb_formatierer.py || exit /b 1
-python -m PyInstaller --noconfirm --clean --windowed --onefile ^
+python -m PyInstaller --noconfirm --clean --noupx --windowed --onefile ^
     --name "USB-Formatierer" --icon app.ico %COMMON% ^
     usb_standard.py || exit /b 1
 echo.

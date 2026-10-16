@@ -56,7 +56,12 @@ static void sim_load(void) {
 }
 #endif
 
+static int io_wrote;   /* seit Prüfbeginn etwas geschrieben (Abbrechen davor: Daten noch unverändert) */
+
+int dt_wrote(void) { return io_wrote; }
+
 static ssize_t io_rw(int fd, int wr, void *buf, size_t len, uint64_t off) {
+    if (wr) io_wrote = 1;   /* schon der Versuch zählt: ein halber Schreibvorgang verändert den Stick auch */
 #ifdef USBFMT_HOST
     sim_load();
     if (sim_slow) usleep(20000);
@@ -254,6 +259,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
               char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
     io_failed = 0;
+    io_wrote = 0;
     uint8_t *a = alloc_buf(CHUNK, err, errlen), *b = a ? alloc_buf(CHUNK, err, errlen) : NULL;
     uint64_t *pos = NULL;
     uint8_t *state = NULL;   /* je Stichprobe: 0 offen, 1 gut, 2 fehlerhaft */
@@ -370,6 +376,7 @@ out:
 int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile int *cancel, devtest_t *r,
             char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
+    io_wrote = 0;
     uint8_t *a = alloc_buf(CHUNK, err, errlen), *b = a ? alloc_buf(CHUNK, err, errlen) : NULL;
     char step[64];
     int rc = -1;

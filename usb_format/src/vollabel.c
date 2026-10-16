@@ -61,15 +61,20 @@ static int set_fat32(int fd, uint32_t ss, uint64_t start, const char *label, cha
     unsigned backup = ok ? (unsigned)(bs[50] | bs[51] << 8) : 0;
     free(bs);
     if (!ok) { snprintf(err, errlen, "%s", T("FAT32-Bootsektor nicht lesbar")); return -1; }
+
+    /* erst den Platz im Wurzelordner suchen: Windows zeigt die Bezeichnung von dort - ohne Platz lieber gar nichts
+     * ändern, als nur den Bootsektor (dann stünde überall noch die alte Bezeichnung) */
+    uint64_t off;
+    int found = 0;
+    const int slot = fs_fat32_label_slot(fd, start, &off, &found) == 0;
+    if (!slot && label[0]) { snprintf(err, errlen, "%s", T("Im Wurzelordner ist kein Platz für die Bezeichnung")); return -1; }
     const uint8_t *boot_lab = label[0] ? lab : (const uint8_t *)"NO NAME    ";
     if (patch(fd, ss, start + 0x47, boot_lab, 11, err, errlen)) return -1;
     if (backup && backup < 32 && patch(fd, ss, start + (uint64_t)backup * ss + 0x47, boot_lab, 11, err, errlen))
         return -1;
 
     /* Eintrag im Wurzelordner: ändern, anlegen oder (leere Bezeichnung) als gelöscht markieren */
-    uint64_t off;
-    int found = 0;
-    if (fs_fat32_label_slot(fd, start, &off, &found) != 0) return 0;   /* Wurzelordner voll: Bootsektor reicht */
+    if (!slot) return 0;   /* Bezeichnung entfernen, und es gibt keinen Eintrag: fertig */
     if (!label[0]) {
         static const uint8_t del = 0xE5;
         return found ? patch(fd, ss, off, &del, 1, err, errlen) : 0;

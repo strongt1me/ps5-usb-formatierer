@@ -79,6 +79,10 @@ class ApiError(Exception):
     pass
 
 
+class Refused(ConnectionError):
+    """Port 8090 lehnt ab: dort läuft (noch) kein Formatierer"""
+
+
 class Api:
     def __init__(self, host):
         self.base = f"http://{host}:{API_PORT}"
@@ -94,15 +98,21 @@ class Api:
         req = urllib.request.Request(f"{self.base}{path}{sep}lang={i18n.lang()}", data=data, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
-                return json.loads(r.read().decode("utf-8"))
+                result = json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             try:
                 msg = json.loads(e.read().decode("utf-8")).get("error")
-            except ValueError:
+            except (ValueError, OSError, AttributeError):
                 msg = None
-            raise ApiError(msg or _("HTTP-Fehler {code}", code=e.code)) from None
+            raise ApiError(str(msg) if msg else _("HTTP-Fehler {code}", code=e.code)) from None
         except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as e:
-            raise ConnectionError(str(e) or type(e).__name__) from None
+            reason = getattr(e, "reason", e)
+            err = Refused if isinstance(e, ConnectionRefusedError) or isinstance(reason, ConnectionRefusedError) \
+                else ConnectionError
+            raise err(str(e) or type(e).__name__) from None
+        if not isinstance(result, dict):   # Formatierer liefert immer ein Objekt - alles andere ist kaputt
+            raise ConnectionError(_("HTTP-Fehler {code}", code=200))
+        return result
 
     def devices(self, timeout=4):
         return self._call("/api/devices", timeout=timeout)
@@ -171,7 +181,8 @@ class App(tk.Tk):
         self.dev_var = tk.StringVar()
         self.fs_var = tk.StringVar(value="exFAT")
         self.cluster_var = tk.StringVar()
-        self.label_var = tk.StringVar(value=self.settings.get("label", ""))
+        saved_label = self.settings.get("label", "")   # die Eingabeprüfung greift nur beim Tippen
+        self.label_var = tk.StringVar(value=saved_label if LABEL_RE.match(saved_label) else "")
         self.status_var = tk.StringVar(value=_("Nicht verbunden"))
         self.uninstall_var = tk.BooleanVar(value=True)
 
@@ -409,6 +420,7 @@ class App(tk.Tk):
         ps5_cancellable = not pc and self.formatting and not self.pc_job and ps5_can
         if (self.pc_job and getattr(self.pc_job, "cancellable", False)) or ps5_cancellable:
             if not self.cancel_btn.winfo_ismapped():
+                self.cancel_btn.state(["!disabled"])   # nach einem früheren Abbruch noch gesperrt
                 self.cancel_btn.pack(side="right", padx=(0, 6))
         elif self.cancel_btn.winfo_ismapped():
             self.cancel_btn.pack_forget()
@@ -508,7 +520,7 @@ class App(tk.Tk):
             except (ConnectionError, ApiError):
                 pass
             finally:   # immer melden - sonst bliebe lib_loading stehen und die Liste käme nie wieder
-                self.q.put(("library", data if isinstance(data, dict) else None))
+                self.q.put(("library", data if isinstance(data, dict) else None, api))
 
         threading.Thread(target=self._guard(work, background=True), daemon=True).start()
 
@@ -518,7 +530,7 @@ class App(tk.Tk):
         self.dev_combo.configure(values=[pc_dev_text(d) for d in devices])
         # am PC wird nie vorausgewählt: dort hängen oft Platten mit Daten (Spiele-Sicherung, Backups)
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
-                    and d["size"] == prev.get("size")), -1)
+                    and d["size"] == prev.get("size") and d.get("model") == prev.get("model")), -1)
         if idx >= 0:
             self.dev_combo.current(idx)
         else:
@@ -543,8 +555,10 @@ class App(tk.Tk):
         self.devices = devices
         self.dev_combo.configure(values=[self._ps5_dev_text(d) for d in devices])
         idx = -1
-        if prev:
-            idx = next((i for i, d in enumerate(devices) if d["name"] == prev["name"]), -1)
+        if prev:   # gleicher Name reicht nicht: steckt dahinter ein anderer Datenträger (anderer Stick, die
+            # Spiele-SSD), wird nichts übernommen
+            idx = next((i for i, d in enumerate(devices) if d["name"] == prev["name"] and d["size"] == prev["size"]
+                        and d["model"] == prev["model"]), -1)
         if idx < 0:
             # vorausgewählt wird nur ein freier Stick, nie ein eingebundener (z. B. die Spiele-SSD)
             free = [i for i, d in enumerate(devices) if formattable(d) and not d["mounts"]]
@@ -635,6 +649,7 @@ class App(tk.Tk):
         # alte Verbindung vergessen: scheitert die neue, darf "Starten" nicht die vorige PS5 formatieren
         self.api = None
         self.games = {}
+        self.lib_known = self.lib_loading = False   # Spieleliste gehört zur alten PS5
         self._fill_devices([])
 
         def work():
@@ -645,8 +660,17 @@ class App(tk.Tk):
             except ApiError as e:
                 self.q.put(("error", str(e)))
                 return
-            except ConnectionError:
+            except Refused:
                 pass
+            except ConnectionError:   # keine Antwort in 2 s: läuft er vielleicht schon (WLAN-Aussetzer)? Geduldiger fragen
+                try:
+                    self.q.put(("connected", api, api.devices(timeout=8)))
+                    return
+                except ApiError as e:
+                    self.q.put(("error", str(e)))
+                    return
+                except ConnectionError:
+                    pass
 
             payload = find_payload()
             if not payload:
@@ -1053,7 +1077,8 @@ class App(tk.Tk):
         elif kind == "formatting":
             self.formatting = True
         elif kind == "foreign":
-            if not self.busy and self.mode_var.get() == "ps5":   # woanders gestartet: hier mitverfolgen
+            # woanders gestartet: hier mitverfolgen (nur bei der PS5, die jetzt verbunden ist)
+            if not self.busy and self.mode_var.get() == "ps5" and msg[1] is self.api:
                 self.status_var.set(_("Auf der PS5 läuft ein Auftrag …"))
                 self.pbar["value"] = 0
                 api = msg[1]
@@ -1098,6 +1123,8 @@ class App(tk.Tk):
                 self.pbar["value"] = 0
                 if not foreign:
                     messagebox.showerror(_("PS5-USB formatieren"), msg[2], parent=self)
+        elif kind == "library" and len(msg) > 2 and msg[2] is not self.api:
+            pass   # Antwort einer vorher verbundenen PS5: verwerfen
         elif kind == "library":
             self.lib_loading = False
             data = msg[1]

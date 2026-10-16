@@ -86,10 +86,11 @@ i18n.set_lang("de")
 
 job = pc_linux.LinuxJob(["--image", img, "format", "image", str(size), "exfat", "X", "full", "plain"], helper=HELPER,
                         digest=digest)
-job.cancel()   # sofort: ein kleines Abbild ist sonst schneller geprüft, als das Abbrechen greift
+job.cancel()   # sofort, noch bevor der Helfer etwas schreibt: dann bleibt der Datenträger unverändert
 t_start = time.time()
 res = job.follow(lambda pct, step: None)
-check("Abbrechen der vollständigen Prüfung", res[0] and "abgebrochen" in res[1] and time.time() - t_start < 60, res)
+check("Abbrechen vor dem ersten Schreiben: nichts verändert", not res[0] and "nicht verändert" in res[1]
+      and time.time() - t_start < 60, res)
 
 denied = os.path.join(work, "pkexec-nein")
 with open(denied, "w") as f:

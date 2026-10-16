@@ -60,12 +60,14 @@ static DWORD WINAPI cancel_watch(LPVOID arg) {
 typedef struct {
     WCHAR    guid[64];     /* \\?\Volume{...}\ */
     char     letters[32];  /* "E:" bzw. "E: F:" */
-    char     fs[16], label[64];
+    char     fs[16], label[128];   /* bis 32 UTF-16-Zeichen als UTF-8 */
     DWORD    serial;       /* Seriennummer des Dateisystems */
     uint64_t total, free;
+    int      spans;        /* liegt auch auf einem anderen Datenträger (übergreifend/Stripeset, dynamisch) */
 } volinfo_t;
 
-static int usb_bus(int bus) { return bus == BusTypeUsb || bus == BusTypeSd || bus == BusTypeMmc; }
+/* USB oder SD-Karte - nicht BusTypeMmc: das ist eingelötetes eMMC (oft mit einem zweiten System darauf) */
+static int usb_bus(int bus) { return bus == BusTypeUsb || bus == BusTypeSd; }
 
 static HANDLE open_disk(int n, DWORD access) {
     WCHAR path[48];
@@ -148,6 +150,7 @@ static int disk_volumes(int n, volinfo_t *v, int max) {
         if (!on || cnt >= max) continue;
         volinfo_t *x = &v[cnt++];
         memset(x, 0, sizeof(*x));
+        for (int i = 0; i < nd; i++) x->spans |= disks[i] != n;
         wcscpy(x->guid, name);
         WCHAR paths[256], lbl[64], fsn[16];
         DWORD len = 0;
@@ -221,6 +224,12 @@ struct plat_session {
 static int lock_volumes(session_t *s, char *err, size_t n) {
     volinfo_t v[MAX_VOLS];
     int nv = disk_volumes(s->info.num, v, MAX_VOLS);
+    for (int i = 0; i < nv; i++)   /* Formatieren zerstörte auch den Teil auf dem anderen Datenträger */
+        if (v[i].spans) {
+            snprintf(err, n, T("Laufwerk %s liegt auch auf einem anderen Datenträger (übergreifendes Volume) – "
+                               "abgelehnt."), v[i].letters[0] ? v[i].letters : v[i].label);
+            return -1;
+        }
     for (int i = 0; i < nv; i++) {
         WCHAR bare[64];
         strip_slash(v[i].guid, bare, 64);
@@ -817,6 +826,9 @@ int wmain(int argc, WCHAR **wargv) {
         }
     }
     if (i >= argc) { fprintf(stderr, "Aufruf: usbfmt_win list | format | layout | speed | label ...\n"); return 2; }
-    if (cancel_path) CreateThread(NULL, 0, cancel_watch, NULL, 0, NULL);
+    if (cancel_path) {   /* schon vor dem Start abgebrochen: sofort wissen, nicht erst nach dem ersten Schreiben */
+        if (GetFileAttributesW(cancel_path) != INVALID_FILE_ATTRIBUTES) __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
+        CreateThread(NULL, 0, cancel_watch, NULL, 0, NULL);
+    }
     return helper_command(argc - i, argv + i);
 }

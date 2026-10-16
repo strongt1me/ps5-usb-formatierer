@@ -26,9 +26,14 @@ from PIL import Image
 Image.open("../usb_format/app/art/icon.png").convert("RGBA").resize((128, 128), Image.LANCZOS).save("app.png")
 EOF
 
-COMMON=(--noconfirm --clean --onefile --add-binary "usbfmt_linux:." --add-data "app.png:." --add-data "i18n_app.json:."
+# --noupx: UPX würde den Helfer verändern - seine Prüfsumme passte dann nicht mehr
+COMMON=(--noconfirm --clean --noupx --onefile --add-binary "usbfmt_linux:." --add-data "app.png:." --add-data "i18n_app.json:."
         --add-data "../usb_format/web/help.html:.")
-"$PY" -m PyInstaller "${COMMON[@]}" --name "PS5-USB-Formatierer" --add-data "$ELF:." usb_formatierer.py
+# unter dem Namen, den das Programm sucht (usb_format.elf) - auch wenn die übergebene Datei anders heißt
+ELFDIR=$(mktemp -d)
+cp "$ELF" "$ELFDIR/usb_format.elf"
+"$PY" -m PyInstaller "${COMMON[@]}" --name "PS5-USB-Formatierer" --add-data "$ELFDIR/usb_format.elf:." usb_formatierer.py
+rm -rf "$ELFDIR"
 "$PY" -m PyInstaller "${COMMON[@]}" --name "USB-Formatierer" usb_standard.py
 
 # je Programm ein Archiv (behält das Ausführrecht), dazu die Lizenzhinweise

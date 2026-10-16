@@ -64,26 +64,42 @@ int fs_fat32_label_slot(int fd, uint64_t start, uint64_t *off, int *found) {
     int rc = -1;
     if (!buf || !(b = rd(fd, buf, start))) goto out;
     uint32_t bps = le16(b + 11), spc = b[13], rsvd = le16(b + 14), nfats = b[16], fatsz = le32(b + 36);
-    uint32_t root = le32(b + 44);
-    if (bps < 512 || bps > 4096 || !spc || root < 2) goto out;
-    uint64_t first = start + ((uint64_t)rsvd + (uint64_t)nfats * fatsz + (uint64_t)(root - 2) * spc) * bps;
-    uint64_t len = (uint64_t)spc * bps, free_off = 0;
-    if (len > 65536) len = 65536;
-    for (uint64_t p = 0; p < len; p += 32) {
-        const uint8_t *e = rd(fd, buf, first + p);
-        if (!e) goto out;
-        if (e[0] == 0x00 || e[0] == 0xE5) {
-            if (!free_off) free_off = first + p;
-            if (e[0] == 0x00) break;
-            continue;
+    uint32_t clus = le32(b + 44);
+    if (bps < 512 || bps > 4096 || !spc || clus < 2) goto out;
+    const uint64_t fat = start + (uint64_t)rsvd * bps, data = fat + (uint64_t)nfats * fatsz * bps;
+    const uint64_t clen = (uint64_t)spc * bps;
+    uint64_t free_off = 0, scanned = 0;
+    /* dem Wurzelordner über die FAT folgen - die Bezeichnung kann in einem späteren Cluster stehen (etwa von fatlabel
+     * bei vollem Anfang angelegt). Höchstens 4 MiB, damit eine kaputte Kette nicht endlos läuft. */
+    while (clus >= 2 && clus < 0x0FFFFFF7 && scanned < 4u * 1024 * 1024) {
+        const uint64_t first = data + (uint64_t)(clus - 2) * clen;
+        for (uint64_t p = 0; p < clen; p += BLK) {   /* je 4-KiB-Block einmal lesen */
+            const uint8_t *blk = rd(fd, buf, first + p);
+            if (!blk) goto out;
+            const uint64_t take = clen - p < BLK ? clen - p : BLK;
+            for (uint64_t q = 0; q < take; q += 32) {
+                const uint8_t *e = blk + q;
+                if (e[0] == 0x00 || e[0] == 0xE5) {
+                    if (!free_off) free_off = first + p + q;
+                    if (e[0] == 0x00) goto done;   /* Ende des Ordners */
+                    continue;
+                }
+                if (e[11] != 0x0F && (e[11] & 0x08) && !(e[11] & 0x10)) {
+                    *off = first + p + q;
+                    *found = 1;
+                    rc = 0;
+                    goto out;
+                }
+            }
+            scanned += take;
         }
-        if (e[11] != 0x0F && (e[11] & 0x08) && !(e[11] & 0x10)) {
-            *off = first + p;
-            *found = 1;
-            rc = 0;
-            goto out;
-        }
+        const uint8_t *f = rd(fd, buf, fat + (uint64_t)clus * 4);
+        if (!f) goto out;
+        const uint32_t next = le32(f) & 0x0FFFFFFF;
+        if (next == clus) break;
+        clus = next;
     }
+done:
     if (free_off) { *off = free_off; *found = 0; rc = 0; }
 out:
     free(buf);

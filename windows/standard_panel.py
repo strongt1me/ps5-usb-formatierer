@@ -313,6 +313,7 @@ class StandardPanel(ttk.Frame):
                      "Größen, dauert aber je nach Größe bis zu mehreren Stunden."))
         if self.job and self.job.cancellable:
             if not self.cancel_btn.winfo_ismapped():
+                self.cancel_btn.state(["!disabled"])   # nach einem früheren Abbruch noch gesperrt
                 self.cancel_btn.pack(side="right", padx=(0, 6))   # links neben "Formatieren …"
         elif self.cancel_btn.winfo_ismapped():
             self.cancel_btn.pack_forget()
@@ -348,7 +349,7 @@ class StandardPanel(ttk.Frame):
         self.dev_combo.configure(values=[pc_dev_text(d) for d in devices])
         # nie vorauswählen: am PC hängen oft Platten mit Daten (Sicherungen) - nur die eigene Auswahl bleibt
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
-                    and d["size"] == prev.get("size")), -1)
+                    and d["size"] == prev.get("size") and d.get("model") == prev.get("model")), -1)
         if idx >= 0:
             self.dev_combo.current(idx)
         else:
@@ -480,10 +481,24 @@ class StandardPanel(ttk.Frame):
             return
         if limit:   # nur der echte Bereich: passt die Aufteilung überhaupt hinein?
             sizes, free, err = fsinfo.plan(parts, limit, self.scheme_key, dev.get("ss", 512))
+            # Einheiten neu für die kleineren Partitionen: die Standardgrößen galten für die gemeldete (falsche) Größe
+            new_args = []
+            for i, p in enumerate(parts):
+                if err:
+                    break
+                cluster = 0
+                if p["fs"] != fsinfo.NO_FS:
+                    vals, std = fsinfo.cluster_choices(fsinfo.helper_fs(p["fs"]), sizes[i], dev.get("ss", 512))
+                    cluster = p["cluster"] or std
+                    if not vals or cluster not in vals:
+                        err = _("Partition {n}: {fs} passt nicht zu dieser Größe – bitte Dateisystem oder Größe "
+                                "ändern.", n=i + 1, fs=fsinfo.fs_display(p["fs"]))
+                new_args.append(fsinfo.part_arg(p, cluster))
             if err:
                 messagebox.showerror(self.title_text, _("Die Aufteilung passt nicht auf den echten Bereich ({size}): "
                                                         "{error}", size=fmt_size(limit), error=err), parent=self)
                 return
+            parts_args = new_args
         args = ["layout", str(dev["disk"]), str(dev["size"]), f"scheme={self.scheme_key}", "plain"]
         if limit:
             args.append(f"limit={limit}")

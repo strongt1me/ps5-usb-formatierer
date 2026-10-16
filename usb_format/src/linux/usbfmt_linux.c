@@ -293,13 +293,18 @@ static int test_loop(const char *disk) {
 #endif
 }
 
-/* USB (auch Kartenleser am USB) oder SD/MMC-Steckplatz? Sonst nie anbieten. */
+/* USB (auch Kartenleser am USB) oder SD-Karte im Steckplatz? Sonst nie anbieten - auch nicht eingelötetes eMMC
+ * (mmcblk mit Typ "MMC", oft mit Windows oder dem Bootloader darauf) und seine boot-/rpmb-Bereiche. */
 static int usb_disk(const char *disk) {
-    char sys[96], real[PATH_MAX];
+    char sys[96], real[PATH_MAX], type[16];
     if (test_loop(disk)) return 1;
+    if (!strncmp(disk, "mmcblk", 6)) {
+        snprintf(sys, sizeof(sys), "/sys/block/%s/device/type", disk);
+        return !strstr(disk, "boot") && !strstr(disk, "rpmb") && !read_line(sys, type, sizeof(type)) && !strcmp(type, "SD");
+    }
     snprintf(sys, sizeof(sys), "/sys/block/%s", disk);
     if (!realpath(sys, real)) return 0;
-    return strstr(real, "/usb") != NULL || !strncmp(disk, "mmcblk", 6);
+    return strstr(real, "/usb") != NULL;
 }
 
 static void trim_spaces(char *s) {
@@ -387,7 +392,25 @@ struct plat_session {
 
 int plat_image_mode(void) { return image_path != NULL; }
 
-/* alle Laufwerke des Datenträgers aushängen (nie erzwungen: hält ein Programm Dateien offen, lieber abbrechen) */
+/* jeden Einhängepunkt des Geräts maj:min aushängen (nie erzwungen) */
+static int unmount_dev(unsigned maj, unsigned min, char *err, size_t n) {
+    char mp[256];
+    for (int round = 0; round < 8 && mount_of(maj, min, mp, sizeof(mp)); round++) {
+        int ok = 0;
+        for (int t = 0; t < 10 && !(ok = umount2(mp, 0) == 0); t++) sleep_ms(300);
+        if (!ok) {
+            snprintf(err, n, T("Laufwerk %s wird gerade benutzt. Bitte Dateimanager-Fenster und Programme "
+                               "schließen, die darauf zugreifen, und es noch einmal versuchen."), mp);
+            return -1;
+        }
+        /* leere Einhängeordner der Desktop-Automatik wieder entfernen */
+        if (!strncmp(mp, "/media/", 7) || !strncmp(mp, "/run/media/", 11)) rmdir(mp);
+    }
+    return 0;
+}
+
+/* alle Laufwerke des Datenträgers aushängen (nie erzwungen: hält ein Programm Dateien offen, lieber abbrechen) -
+ * auch ein Dateisystem direkt auf dem ganzen Datenträger (ohne Partitionstabelle) */
 static int unmount_all(const char *disk, char *err, size_t n) {
     partinfo_t v[MAX_PARTS_SCAN];
     int nv = disk_parts(disk, v, MAX_PARTS_SCAN);
@@ -397,19 +420,13 @@ static int unmount_all(const char *disk, char *err, size_t n) {
                      v[i].name);
             return -1;
         }
-        char mp[256];
-        for (int round = 0; round < 8 && mount_of(v[i].maj, v[i].min, mp, sizeof(mp)); round++) {
-            int ok = 0;
-            for (int t = 0; t < 10 && !(ok = umount2(mp, 0) == 0); t++) sleep_ms(300);
-            if (!ok) {
-                snprintf(err, n, T("Laufwerk %s wird gerade benutzt. Bitte Dateimanager-Fenster und Programme "
-                                   "schließen, die darauf zugreifen, und es noch einmal versuchen."), mp);
-                return -1;
-            }
-            /* leere Einhängeordner der Desktop-Automatik wieder entfernen */
-            if (!strncmp(mp, "/media/", 7) || !strncmp(mp, "/run/media/", 11)) rmdir(mp);
-        }
+        if (unmount_dev(v[i].maj, v[i].min, err, n)) return -1;
     }
+    char path[96], devno[32];
+    unsigned maj, min;
+    snprintf(path, sizeof(path), "/sys/block/%s/dev", disk);
+    if (!read_line(path, devno, sizeof(devno)) && sscanf(devno, "%u:%u", &maj, &min) == 2 && unmount_dev(maj, min, err, n))
+        return -1;
     return 0;
 }
 
@@ -486,7 +503,9 @@ static void udevadm(const char *a1, const char *a2, const char *a3) {
         if (pid == 0) {
             int nul = open("/dev/null", O_RDWR);
             if (nul >= 0) { dup2(nul, 0); dup2(nul, 1); dup2(nul, 2); }
-            execl(paths[i], "udevadm", a1, a2, a3, (char *)NULL);
+            static char *const env[] = {"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL=C", NULL};
+            char *const argv[] = {"udevadm", (char *)a1, (char *)a2, (char *)a3, NULL};
+            execve(paths[i], argv, env);   /* feste Umgebung wie bei den anderen Werkzeugen */
             _exit(127);
         }
         if (pid > 0) waitpid(pid, NULL, 0);
@@ -761,7 +780,8 @@ int plat_os_label(const char *disk, uint64_t size, const char *label, diskinfo_t
         return -1;
     }
     const int ntfs = kind == 1;
-    if (!label_valid(label, ntfs ? FS_NTFS : FS_FAT32)) {
+    /* ntfslabel hielte eine Bezeichnung mit "-" am Anfang für eine Option ("--" versteht es nicht) */
+    if (!label_valid(label, ntfs ? FS_NTFS : FS_FAT32) || (ntfs && label[0] == '-')) {
         snprintf(err, n, T("Ungültige Bezeichnung: max. %d Zeichen, nur A-Z, 0-9, Leerzeichen, - und _"), ntfs ? 32 : 11);
         return -1;
     }
@@ -776,10 +796,11 @@ int plat_os_label(const char *disk, uint64_t size, const char *label, diskinfo_t
     }
     static char output[4096];
     snprintf(dev, sizeof(dev), "/dev/%s", v[hit].name);
-    char *argv[6];
+    char *argv[7];
     int a = 0;
     argv[a++] = (char *)tool;
     if (!ntfs && !label[0]) argv[a++] = "--reset";   /* FAT: Bezeichnung entfernen */
+    else if (!ntfs) argv[a++] = "--";   /* eine Bezeichnung wie "-V" ist keine Option */
     argv[a++] = dev;
     if (ntfs || label[0]) argv[a++] = (char *)label;
     argv[a] = NULL;
@@ -821,7 +842,9 @@ static uid_t invoker(gid_t *gid) {
 }
 
 /* Ausgabedatei als root anlegen - nur NEU, nur in einem echten Ordner (keine Verknüpfung auf dem Weg), der dem
- * Aufrufer gehört: Ein Schadprogramm könnte uns sonst eine Datei an fremder Stelle anlegen lassen. */
+ * Aufrufer gehört und den sonst niemand beschreiben kann: Ein Schadprogramm könnte uns sonst eine Datei an fremder
+ * Stelle anlegen lassen (etwa /etc/ld.so.preload, die danach dem Aufrufer gehörte). Ein Ordner von root zählt nur,
+ * wenn ausschließlich root hineinsieht (mktemp -d des per sudo gestarteten Programms). */
 static FILE *open_out(const char *path) {
     char dir[PATH_MAX], real[PATH_MAX];
     const char *slash = strrchr(path, '/');
@@ -834,7 +857,8 @@ static FILE *open_out(const char *path) {
     struct stat st;
     gid_t gid;
     uid_t uid = invoker(&gid);
-    if (fstat(dfd, &st) || !S_ISDIR(st.st_mode) || (st.st_uid != uid && st.st_uid != 0) || (st.st_mode & S_IWOTH)) {
+    if (fstat(dfd, &st) || !S_ISDIR(st.st_mode) ||
+        !((st.st_uid == uid && !(st.st_mode & (S_IWGRP | S_IWOTH))) || (st.st_uid == 0 && !(st.st_mode & 077)))) {
         close(dfd);
         return NULL;
     }
@@ -882,6 +906,8 @@ int main(int argc, char **argv) {
     }
     if (i >= argc) { fprintf(stderr, "Aufruf: usbfmt_linux list | format | layout | speed | label ...\n"); return 2; }
     if (cancel_path) {
+        struct stat st;   /* schon vor dem Start abgebrochen: sofort wissen, nicht erst nach dem ersten Schreiben */
+        if (!lstat(cancel_path, &st)) __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
         pthread_t t;
         pthread_create(&t, NULL, cancel_watch, NULL);
     }

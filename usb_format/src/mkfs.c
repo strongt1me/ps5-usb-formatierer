@@ -569,7 +569,7 @@ int mkfs_exfat(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
     /* Angelegte Ordner (je ein Cluster) und Dateien (zusammenhängend) folgen auf den Root-Cluster */
     uint64_t next = c_root + 1;
     for (int i = 0; i < npn; i++) {
-        pn[i].nclus = pn[i].dir ? 1 : (uint32_t)((pn[i].len + csize - 1) / csize);
+        pn[i].nclus = pn[i].dir ? 1 : (uint32_t)(((uint64_t)pn[i].len + csize - 1) / csize);
         pn[i].clus = pn[i].nclus ? (uint32_t)next : 0;
         next += pn[i].nclus;
     }
@@ -752,7 +752,9 @@ static int begin_layout(blkdev_t *d, int fs, const char *label, mkfs_opts_t *o, 
         l->count = l->end - 1 - GPT_ENTRY_BYTES / d->ss - edge;   /* bis zum letzten nutzbaren Sektor */
     } else {
         l->count = l->end - edge;
-        if (l->count > 0xFFFFFFFFull) l->count = 0xFFFFFFFFull;
+        /* MBR: die Partition muss in den ersten 2^32 Sektoren enden (wie layout_disk) - sonst lehnen manche Systeme
+         * die Tabelle ab, und die Oberfläche hat mit dieser Grenze gerechnet */
+        if (l->count > 0xFFFFFFFFull - edge) l->count = 0xFFFFFFFFull - edge;
     }
     if (o) o->is_gpt = l->gpt;
 

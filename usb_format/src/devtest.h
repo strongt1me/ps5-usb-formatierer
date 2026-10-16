@@ -28,6 +28,9 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
 int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile int *cancel, devtest_t *r,
             char *err, size_t errlen);
 
+/* Hat die letzte dt_verify/dt_full schon etwas auf den Datenträger geschrieben? (Abbrechen davor: unverändert) */
+int dt_wrote(void);
+
 /* Bewertung für Spiele: "schnell", "ausreichend", "langsam" */
 const char *dt_rating(double read_mbps);
 

@@ -39,6 +39,7 @@ const i18n_entry_t i18n_table[] = {
     {{", „%s“", ", “%s”", ", «%s»", ", «%s»", ", « %s »"}},
     {{"1 Spiel gelöscht: %s.", "1 game deleted: %s.", "1 gioco eliminato: %s.", "1 juego borrado: %s.", "1 jeu supprimé : %s."}},
     {{"Abbild nicht passend", "Image does not match", "Immagine non corrispondente", "La imagen no coincide", "L'image ne correspond pas"}},
+    {{"Abgebrochen – der Datenträger wurde nicht verändert.", "Cancelled – the drive was not changed.", "Annullato – l'unità non è stata modificata.", "Cancelado – la unidad no se ha modificado.", "Annulé – le lecteur n'a pas été modifié."}},
     {{"Abgebrochen.", "Cancelled.", "Annullato.", "Cancelado.", "Annulé."}},
     {{"Alte Partitionstabellen löschen", "Erasing old partition tables", "Cancellazione vecchie tabelle delle partizioni", "Borrando tablas de particiones antiguas", "Effacement des anciennes tables de partitions"}},
     {{"Anfrage zu groß", "Request too large", "Richiesta troppo grande", "Solicitud demasiado grande", "Requête trop volumineuse"}},
@@ -143,6 +144,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Kein Speicher", "Out of memory", "Memoria esaurita", "Sin memoria", "Mémoire insuffisante"}},
     {{"Keine Fehler gefunden%s.", "No errors found%s.", "Nessun errore trovato%s.", "No se encontraron errores%s.", "Aucune erreur trouvée%s."}},
     {{"Keine Partition angegeben.", "No partition specified.", "Nessuna partizione indicata.", "No se indicó ninguna partición.", "Aucune partition indiquée."}},
+    {{"Laufwerk %s liegt auch auf einem anderen Datenträger (übergreifendes Volume) – abgelehnt.", "Drive %s also spans another disk (spanned volume) – refused.", "L'unità %s si estende anche su un altro disco (volume esteso) – rifiutata.", "La unidad %s también ocupa otro disco (volumen distribuido) – rechazada.", "Le lecteur %s s'étend aussi sur un autre disque (volume fractionné) – refusé."}},
     {{"Laufwerk %s wird gerade benutzt. Bitte Dateimanager-Fenster und Programme schließen, die darauf zugreifen, und es noch einmal versuchen.", "Drive %s is in use. Please close file manager windows and programs accessing it and try again.", "L'unità %s è in uso. Chiudi le finestre del file manager e i programmi che vi accedono e riprova.", "La unidad %s está en uso. Cierra las ventanas del gestor de archivos y los programas que accedan a ella e inténtalo de nuevo.", "Le lecteur %s est utilisé. Fermez les fenêtres du gestionnaire de fichiers et les programmes qui y accèdent, puis réessayez."}},
     {{"Laufwerk %s wird gerade benutzt. Bitte Explorer-Fenster und Programme schließen, die darauf zugreifen, und es noch einmal versuchen.", "Drive %s is in use. Please close Explorer windows and programs that access it and try again.", "L'unità %s è in uso. Chiudi le finestre di Esplora risorse e i programmi che vi accedono e riprova.", "La unidad %s está en uso. Cierra las ventanas del Explorador y los programas que accedan a ella e inténtalo de nuevo.", "Le lecteur %s est utilisé. Fermez les fenêtres de l'Explorateur et les programmes qui y accèdent, puis réessayez."}},
     {{"Laufwerk %s wird vom System verwendet (LVM, RAID oder Verschlüsselung) – abgelehnt.", "Drive %s is used by the system (LVM, RAID or encryption) – refused.", "L'unità %s è usata dal sistema (LVM, RAID o crittografia) – rifiutata.", "La unidad %s la usa el sistema (LVM, RAID o cifrado) – rechazada.", "Le lecteur %s est utilisé par le système (LVM, RAID ou chiffrement) – refusé."}},
@@ -294,4 +296,4 @@ const i18n_entry_t i18n_table[] = {
     {{"theme, scale_tv, scale_pc oder lang angeben", "Specify theme, scale_tv, scale_pc or lang", "Indica theme, scale_tv, scale_pc o lang", "Indica theme, scale_tv, scale_pc o lang", "Indiquez theme, scale_tv, scale_pc ou lang"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 291;
+const unsigned i18n_count = 293;

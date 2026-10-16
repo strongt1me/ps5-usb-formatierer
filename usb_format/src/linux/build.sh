@@ -7,8 +7,9 @@ OUT=${1:-usbfmt_linux}
 shift || true
 STATIC=-static
 # ohne statische glibc (z. B. in manchen Entwicklungsumgebungen) dynamisch bauen
-echo 'int main(void){return 0;}' | ${CC:-gcc} -static -x c - -o /tmp/usbfmt_static_test 2>/dev/null || STATIC=
-rm -f /tmp/usbfmt_static_test
+PROBE=$(mktemp)
+echo 'int main(void){return 0;}' | ${CC:-gcc} -static -x c - -o "$PROBE" 2>/dev/null || STATIC=
+rm -f "$PROBE"
 ${CC:-gcc} -O2 -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-format-truncation -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
     -include src/linux/linuxcompat.h "$@" \
     src/linux/usbfmt_linux.c src/pc/helper.c src/mkfs.c src/hfsplus.c src/upcase.c src/devtest.c src/vollabel.c \

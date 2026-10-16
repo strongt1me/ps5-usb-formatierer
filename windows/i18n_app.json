@@ -1522,5 +1522,17 @@
   "it": "Impossibile avviare l'helper: {e}",
   "es": "No se pudo iniciar el ayudante: {e}",
   "fr": "Impossible de démarrer l'assistant : {e}"
+ },
+ "Partition {n}: {fs} passt nicht zu dieser Größe – bitte Dateisystem oder Größe ändern.": {
+  "en": "Partition {n}: {fs} does not fit this size – please change the file system or the size.",
+  "it": "Partizione {n}: {fs} non è adatto a questa dimensione – cambia il file system o la dimensione.",
+  "es": "Partición {n}: {fs} no encaja con este tamaño – cambia el sistema de archivos o el tamaño.",
+  "fr": "Partition {n} : {fs} ne convient pas à cette taille – changez le système de fichiers ou la taille."
+ },
+ "Partition {n}: Die Zuordnungseinheit {size} passt nicht zu dieser Größe – bitte ändern.": {
+  "en": "Partition {n}: the allocation unit {size} does not fit this size – please change it.",
+  "it": "Partizione {n}: l'unità di allocazione {size} non è adatta a questa dimensione – cambiala.",
+  "es": "Partición {n}: la unidad de asignación {size} no encaja con este tamaño – cámbiala.",
+  "fr": "Partition {n} : l'unité d'allocation {size} ne convient pas à cette taille – modifiez-la."
  }
 }

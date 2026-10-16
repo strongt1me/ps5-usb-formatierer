@@ -160,7 +160,7 @@ static struct {
     int  busy, done, ok;
     char kind[12];        /* format, speed, check, label */
     char device[16];
-    char step[64];
+    char step[128];   /* übersetzte Schrittnamen sind teils länger als 64 Bytes (Französisch) */
     int  percent;
     char message[512];
     char result[4096];    /* JSON-Objekt mit Einzelheiten oder leer */
@@ -270,6 +270,12 @@ static int job_acquire(job_t *j, char *err, size_t n) {
         snprintf(st.device, sizeof(st.device), "%s", fresh.name);
         pthread_mutex_unlock(&lock);
     }
+    /* "Abbrechen" kam, während der Stick übernommen wurde: freigeben, bevor irgendetwas geschrieben ist */
+    if (fd >= 0 && __atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
+        close(fd);
+        snprintf(err, n, "%s", T("Abgebrochen – der Datenträger wurde nicht verändert."));
+        return -1;
+    }
     return fd;
 }
 
@@ -311,7 +317,8 @@ static void *format_worker(void *arg) {
 
     /* Vorher prüfen: Stichproben (schnell) oder jede Stelle (vollständig). Gefälscht oder defekt: nichts
      * formatieren, die Oberfläche bietet "nur den echten Bereich formatieren" an. Abgebrochen: trotzdem
-     * formatieren - die Daten sind ohnehin schon überschrieben. */
+     * formatieren, wenn die Prüfung schon geschrieben hat (die Daten sind dann ohnehin überschrieben), sonst
+     * nichts anfassen. */
     int test_cancelled = 0;
     if (j->verify || j->full) {
         tested = j->full ? 2 : 1;
@@ -319,6 +326,12 @@ static void *format_worker(void *arg) {
         int rc = j->full ? dt_full(fd, j->dev.ss, size, on_progress, &cancel_requested, &t, err, sizeof(err))
                          : dt_verify(fd, j->dev.ss, size, on_progress, &cancel_requested, &t, err, sizeof(err));
         set_flags(0, 0);
+        if (rc == 0 && t.cancelled && !dt_wrote()) {
+            close(fd);
+            sb_tr(&msg, "Abgebrochen – der Datenträger wurde nicht verändert.");
+            job_done(j, 0, &msg, &res, 0);
+            return NULL;
+        }
         if (rc == 0 && t.cancelled) {
             test_cancelled = 1;
             __atomic_store_n(&cancel_requested, 0, __ATOMIC_RELAXED);
@@ -456,7 +469,9 @@ static void *check_worker(void *arg) {
     sb_add(&res, "{\"code\":%d,\"repair\":%s,\"dirs\":%ld,\"files\":%ld,\"log\":", r.code,
            j->repair ? "true" : "false", r.dirs, r.files);
     size_t loglen = strlen(r.log);
-    sb_str(&res, loglen > 1000 ? r.log + loglen - 1000 : r.log);   /* nur das Ende */
+    const char *tail = loglen > 1000 ? r.log + loglen - 1000 : r.log;   /* nur das Ende ... */
+    while ((*tail & 0xC0) == 0x80) tail++;                              /* ... ab einem ganzen UTF-8-Zeichen */
+    sb_str(&res, tail);
     sb_add(&res, "}");
     int ok = r.code == 0 || r.code == 1 || (!j->repair && r.code == 4);
     job_done(j, ok, &msg, &res, j->repair);
@@ -775,6 +790,19 @@ static void api_devices(int c) {
     sb_add(&b, "]}");
     respond_json(c, 200, &b);
     free(b.p);
+
+    /* Laufwerk eingebunden, das die Spieleliste noch nicht kennt (z. B. die Spiele-SSD wurde angesteckt, nachdem
+     * der Formatierer gestartet war): neu suchen - sonst fehlte beim Formatieren die Warnung vor den Spielen darauf */
+    int stale = 0;
+    pthread_mutex_lock(&lib_lock);
+    for (int i = 0; i < n && !busy && lib_snap && !lib_busy && !stale; i++)
+        for (int m = 0; !devs[i].locked && m < devs[i].nmounts && !stale; m++) {
+            int known = 0;
+            for (int k = 0; k < lib_n && !known; k++) known = !strcmp(lib_snap[k].r.root, devs[i].mounts[m].path);
+            stale = !known;
+        }
+    pthread_mutex_unlock(&lib_lock);
+    if (stale) lib_refresh();
 }
 
 /* Spiele aller Laufwerke; doppelte Titel-IDs (ShadowMountPlus wechselt dann ständig zwischen ihnen) gesondert */
@@ -1388,6 +1416,13 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
 }
 
 /* Liegt path wirklich (nach Auflösen von Verknüpfungen) innerhalb von root? */
+/* dieselbe Datei? ShadowMountPlus schreibt einen Pfad womöglich anders (Schrägstrich am Ende, "//") - ein bloßer
+ * Textvergleich hielte ein eingebundenes Spiel dann für eine zweite Kopie */
+static int same_path(const char *a, const char *b) {
+    struct stat x, y;
+    return !strcmp(a, b) || (!stat(a, &x) && !stat(b, &y) && x.st_dev == y.st_dev && x.st_ino == y.st_ino);
+}
+
 static int path_inside(const char *path, const char *root) {
     char *rp = realpath(path, NULL), *rr = realpath(root, NULL);
     size_t rl = rr ? strlen(rr) : 0;
@@ -1478,7 +1513,7 @@ static void *delete_worker(void *arg) {
         for (int i = 0, front = 0; i < j->nitems; i++) {
             int copy = 0;
             for (int k = 0; k < nsmp; k++)
-                copy |= !strcmp(smp[k].id, j->items[i].id) && strcmp(smp[k].path, j->items[i].path) != 0;
+                copy |= !strcmp(smp[k].id, j->items[i].id) && !same_path(smp[k].path, j->items[i].path);
             if (copy) {   /* nach vorn holen, Reihenfolge sonst erhalten */
                 del_item_t tmp = j->items[i];
                 memmove(&j->items[front + 1], &j->items[front], (size_t)(i - front) * sizeof(tmp));
@@ -1506,7 +1541,7 @@ static void *delete_worker(void *arg) {
         int other_copy = 0;   /* ShadowMountPlus führt diese Titel-ID unter einem anderen Pfad: das hier ist die zweite Kopie */
         for (int k = 0; k < nsmp; k++)
             if (!strcmp(smp[k].id, it->id)) {
-                if (!strcmp(smp[k].path, it->path)) managed = 1;
+                if (same_path(smp[k].path, it->path)) managed = 1;
                 else other_copy = 1;
             }
         err[0] = 0;
