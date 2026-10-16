@@ -554,7 +554,7 @@ function fmtSize(b) {
 const mbps = v => Math.round(v).toLocaleString(LOCALE[LANG]) + " " + units()[2] + "/s";
 /* Anführungszeichen der Sprache */
 function q(s) { return LANG === "de" ? "„" + s + "“" : LANG === "en" ? "“" + s + "”" : LANG === "fr" ? "« " + s + " »" : "«" + s + "»"; }
-const devKey = d => d.name + ":" + d.size;
+const devKey = d => d.name + ":" + d.size + ":" + (d.ident || "");   /* mit Seriennummer: baugleiche Sticks */
 
 /* Laufwerksname laut Geraet; bei SSD-Gehaeusen meldet sich nur der USB-Brueckenchip */
 function devTitle(d) { return d.model || tr("USB-Laufwerk"); }
@@ -1257,7 +1257,7 @@ async function askRepair(st, checked) {
     no: tr("Später"), yes: tr("Jetzt reparieren") });
   /* das geprüfte Laufwerk (Name - nach dem Abmelden ggf. der neue - und Größe), nicht die vielleicht andere Auswahl */
   const d = checked && devices.find(x => (x.name === checked.name || x.name === st.device) && x.size === checked.size);
-  if (ok === "yes" && d) runJob("/api/check", { device: d.name, size: d.size, repair: true, replug: d.mounts.length > 0 });
+  if (ok === "yes" && d) runJob("/api/check", { device: d.name, size: d.size, ident: d.ident || "", repair: true, replug: d.mounts.length > 0 });
 }
 
 /* ---------------------------------------------------------------- Formatieren */
@@ -1266,7 +1266,7 @@ function formatBody(d, over) {
   const fs = $("fs").value, other = $("other").checked;
   const verify = $("verify").checked && !$("full").checked, full = $("full").checked;
   const body = {
-    device: d.name, fs, label: $("label").value, size: d.size,
+    device: d.name, fs, label: $("label").value, size: d.size, ident: d.ident || "",
     cluster: other ? Number($("cluster").value) : 0, replug: d.mounts.length > 0,
     verify, full,
     folders: $("folders").checked && (fs === "exfat" || fs === "fat32"),
@@ -1324,7 +1324,7 @@ $("start").addEventListener("click", async () => {
 
 $("bspeed").addEventListener("click", () => {
   const d = currentDevice();
-  if (d) runJob("/api/speed", { device: d.name, size: d.size });
+  if (d) runJob("/api/speed", { device: d.name, size: d.size, ident: d.ident || "" });
 });
 
 async function check(repair) {
@@ -1336,7 +1336,7 @@ async function check(repair) {
       text2: tr("Spiele und Apps, die von diesem Laufwerk laufen, vorher beenden."), yes: repair ? tr("Reparieren") : tr("Prüfen") });
     if (ok !== "yes") return;
   }
-  runJob("/api/check", { device: d.name, size: d.size, repair, replug: d.mounts.length > 0 });
+  runJob("/api/check", { device: d.name, size: d.size, ident: d.ident || "", repair, replug: d.mounts.length > 0 });
 }
 $("bcheck").addEventListener("click", () => check(false));
 $("more").addEventListener("click", () => { showAll = !showAll; renderContent(); });
@@ -1394,7 +1394,7 @@ $("brenameok").addEventListener("click", async () => {
     if (ok !== "yes") return;
   }
   $("renamebox").hidden = true;
-  runJob("/api/label", { device: d.name, size: d.size, label, replug: d.mounts.length > 0 });
+  runJob("/api/label", { device: d.name, size: d.size, ident: d.ident || "", label, replug: d.mounts.length > 0 });
 });
 
 $("newlabel").addEventListener("keydown", e => {   /* Enter bzw. "Fertig" der PS5-Tastatur */

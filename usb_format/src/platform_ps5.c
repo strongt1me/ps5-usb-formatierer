@@ -436,6 +436,19 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
                 if (!now.exists) { snap[k].exists = 0; continue; }
                 if (snap[k].exists && snap[k].ino == now.ino && snap[k].rdev == now.rdev) continue;
                 snprintf(name, sizeof(name), "da%d", k);
+                /* erst nur lesend nachsehen: ein Stick anderer Größe ist sicher nicht unserer - den nicht einmal kurz
+                 * exklusiv öffnen, die PS5 könnte ihn genau dann einbinden wollen (lesend stört das nicht: exklusiv sperrt
+                 * nur weitere Schreiber). Lässt er sich noch nicht öffnen, entscheidet grab() wie bisher. */
+                int probe = open(path, O_RDONLY);
+                if (probe >= 0) {
+                    off_t pm = 0;
+                    u_int ps = 0;
+                    /* Größe 0: Gerät noch nicht bereit - dann nichts schließen, grab() wartet */
+                    const int other = ioctl(probe, DIOCGMEDIASIZE, &pm) == 0 && ioctl(probe, DIOCGSECTORSIZE, &ps) == 0 &&
+                                      pm > 0 && ps > 0 && ((uint64_t)pm != d->size || ps != d->ss);
+                    close(probe);
+                    if (other) { snap[k] = now; continue; }
+                }
                 int fd = grab(path, name);
                 if (fd == -2) {          /* die PS5 war schneller: noch einmal freigeben lassen - wenn es unser Stick ist */
                     off_t media = 0;

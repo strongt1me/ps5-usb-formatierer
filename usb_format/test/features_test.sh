@@ -161,6 +161,18 @@ start "$W/s63.img" "0"
 [ "$(curl -s "$U/api/devices" | q 'd["devices"][0]["format"] + "/" + d["devices"][0]["scheme"]')" = "leer/MBR" ] \
     && ok "Partition ab Sektor 63, leer: erkannt (ohne über den Puffer zu lesen)" || bad "Sektor 63" "$(curl -s "$U/api/devices")"
 
+# ---------------------------------------------------------------- Seriennummer: baugleicher Stick getauscht
+truncate -s 256M "$W/serie.img"
+start "$W/serie.img" "0"
+ID=$(curl -s "$U/api/devices" | q 'd["devices"][0]["ident"]')
+[ "$ID" = "serie.img" ] && ok "Liste meldet die Seriennummer (ident)" || bad "ident fehlt" "$(curl -s "$U/api/devices")"
+code=$(post "{\"device\":\"da0\",\"fs\":\"exfat\",\"size\":$(size_of "$W/serie.img"),\"ident\":\"ANDERER\"}" format)
+[ "$code" = 409 ] && grep -q "anderer Stick" "$W/body" && ok "andere Seriennummer: abgelehnt (409)" || bad "andere Seriennummer" "$code $(cat "$W/body")"
+code=$(post "{\"device\":\"da0\",\"size\":$(size_of "$W/serie.img"),\"ident\":\"$ID\"}" speed)
+[ "$code" = 202 ] && wait_job && ok "gleiche Seriennummer: Auftrag läuft" || bad "gleiche Seriennummer" "$code $(cat "$W/body")"
+code=$(post "{\"device\":\"da0\",\"size\":$(size_of "$W/serie.img")}" speed)
+[ "$code" = 202 ] && wait_job && ok "ohne Seriennummer (ältere Oberfläche): Auftrag läuft" || bad "ohne ident" "$code $(cat "$W/body")"
+
 echo
 [ $fails -eq 0 ] && echo "Alle Funktions-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."
 exit $((fails > 0))

@@ -161,12 +161,19 @@ def pc_list():
     devices = json.loads(r.stdout.decode("utf-8") or "[]")
     for d in devices:   # fehlende Felder (andere Helfer-Version) nicht zum Absturz werden lassen
         d.setdefault("model", "")
+        d.setdefault("serial", "")
         d.setdefault("ss", 512)
         d.setdefault("volumes", [])
         for v in d["volumes"]:
             for k, default in (("letters", ""), ("label", ""), ("fs", ""), ("total", 0), ("free", 0)):
                 v.setdefault(k, default)
     return devices
+
+
+def serial_args(d):
+    """Seriennummer laut Liste für den Helfer: steckt unter der Nummer inzwischen ein baugleicher anderer Datenträger,
+    lehnt er ab"""
+    return [f"serial={d['serial']}"] if d.get("serial") else []
 
 
 def pc_used(d):
@@ -506,8 +513,38 @@ def work_area(win):
         except (AttributeError, OSError, ValueError):
             pass
         return 0, 0, win.winfo_screenwidth(), win.winfo_screenheight() - 48
-    # Linux: Leisten der Arbeitsumgebung oben und unten freihalten
-    return 0, 32, win.winfo_screenwidth(), win.winfo_screenheight() - 32 - 48
+    # Linux: der Monitor, auf dem das Fenster steht (bzw. beim ersten Anzeigen der mit dem Mauszeiger) - Tk kennt nur den
+    # ganzen Bildschirm über alle Monitore. Leisten der Arbeitsumgebung oben und unten freihalten.
+    x, y, w, h = 0, 0, win.winfo_screenwidth(), win.winfo_screenheight()
+    mons = _x11_monitors()
+    if mons:
+        if win.winfo_ismapped():
+            px, py = win.winfo_rootx() + win.winfo_width() // 2, win.winfo_rooty() + win.winfo_height() // 2
+        else:
+            px, py = win.winfo_pointerxy()
+        hit = next((m for m in mons if m[0] <= px < m[0] + m[2] and m[1] <= py < m[1] + m[3]), None)
+        x, y, w, h = hit or next((m for m in mons if m[4]), mons[0])[:4]
+    return x, y + 32, w, h - 32 - 48
+
+
+_monitors = {"when": 0.0, "list": []}
+
+
+def _x11_monitors():
+    """Monitore laut xrandr: Liste (x, y, breite, höhe, primär); leer, wenn xrandr fehlt. Kurz zwischengespeichert,
+    das Zentrieren fragt bei jeder Größenänderung."""
+    if time.time() - _monitors["when"] < 5:
+        return _monitors["list"]
+    mons = []
+    try:
+        r = subprocess.run(["xrandr", "--listactivemonitors"], capture_output=True, text=True, timeout=2)
+        # " 0: +*DP-1 2560/597x1440/336+0+0  DP-1"
+        for m in re.finditer(r"^\s*\d+:\s*\+?(\*?)\S*\s+(\d+)/\d+x(\d+)/\d+\+(-?\d+)\+(-?\d+)", r.stdout, re.M):
+            mons.append((int(m.group(4)), int(m.group(5)), int(m.group(2)), int(m.group(3)), bool(m.group(1))))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    _monitors.update(when=time.time(), list=mons)
+    return mons
 
 
 def center_window(win):

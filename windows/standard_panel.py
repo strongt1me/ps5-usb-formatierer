@@ -15,7 +15,8 @@ from fsinfo import (FILESYSTEMS, KB, LABEL_CHARS, MB, SCHEMES, available_filesys
 from i18n import _, quote
 from partition_editor import PartitionEditor
 from pc_common import (IS_WIN, PcJob, admin_wait_text, ask_string, confirm, data_kept_admin_text, disk_name,
-                       fmt_size, hwnd_of, irreversible_admin_text, pc_dev_text, pc_list, pc_used, pc_volumes_text)
+                       fmt_size, hwnd_of, irreversible_admin_text, pc_dev_text, pc_list, pc_used, pc_volumes_text,
+                       serial_args)
 
 __all__ = ["StandardPanel", "SCHEMES", "FILESYSTEMS", "KB", "MB"]
 
@@ -352,7 +353,8 @@ class StandardPanel(ttk.Frame):
         self.dev_combo.configure(values=[pc_dev_text(d) for d in devices])
         # nie vorauswählen: am PC hängen oft Platten mit Daten (Sicherungen) - nur die eigene Auswahl bleibt
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
-                    and d["size"] == prev.get("size") and d.get("model") == prev.get("model")), -1)
+                    and d["size"] == prev.get("size") and d.get("model") == prev.get("model")
+                    and d.get("serial", "") == prev.get("serial", "")), -1)
         if idx >= 0:
             self.dev_combo.current(idx)
         else:
@@ -453,8 +455,8 @@ class StandardPanel(ttk.Frame):
                                                         fs=opts["name"], size=fmt_size(limit)), parent=self)
                 return
             cluster = cluster if cluster in vals else std
-        args = ["format", str(dev["disk"]), str(dev["size"]), opts["fs"], opts["label"], f"cluster={cluster}",
-                f"scheme={opts['scheme']}", "plain"]
+        args = ["format", str(dev["disk"]), str(dev["size"]), opts["fs"], opts["label"], *serial_args(dev),
+                f"cluster={cluster}", f"scheme={opts['scheme']}", "plain"]
         if limit:
             args.append(f"limit={limit}")
         elif not opts["quick"]:
@@ -505,7 +507,7 @@ class StandardPanel(ttk.Frame):
                                                         "{error}", size=fmt_size(limit), error=err), parent=self)
                 return
             parts_args = new_args
-        args = ["layout", str(dev["disk"]), str(dev["size"]), f"scheme={self.scheme_key}", "plain"]
+        args = ["layout", str(dev["disk"]), str(dev["size"]), *serial_args(dev), f"scheme={self.scheme_key}", "plain"]
         if limit:
             args.append(f"limit={limit}")
         elif not quick:
@@ -523,7 +525,8 @@ class StandardPanel(ttk.Frame):
         def after(ok, msg, info):
             (messagebox.showinfo if ok else messagebox.showerror)(_("Tempo messen"), msg, parent=self)
 
-        self._job(["speed", str(dev["disk"]), str(dev["size"]), "plain"], cancellable=True, after=after)
+        self._job(["speed", str(dev["disk"]), str(dev["size"]), "plain", *serial_args(dev)], cancellable=True,
+                  after=after)
 
     def _rename(self):
         dev = self._selected()
@@ -551,7 +554,7 @@ class StandardPanel(ttk.Frame):
         def after(ok, msg, info):
             (messagebox.showinfo if ok else messagebox.showerror)(_("Umbenennen"), msg, parent=self)
 
-        self._job(["label", str(dev["disk"]), str(dev["size"]), label], after=after)
+        self._job(["label", str(dev["disk"]), str(dev["size"]), label, *serial_args(dev)], after=after)
 
     def _job(self, args, cancellable=False, after=None):
         """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread"""

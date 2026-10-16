@@ -1798,5 +1798,17 @@
   "it": " (errore di Windows %lu)",
   "es": " (error de Windows %lu)",
   "fr": " (erreur Windows %lu)"
+ },
+ "Unter diesem Namen steckt jetzt ein anderer Stick. Liste neu laden.": {
+  "en": "A different stick is now plugged in under this name. Reload the list.",
+  "it": "Con questo nome ora c'è un'altra chiavetta. Ricarica l'elenco.",
+  "es": "Ahora hay otro pendrive con este nombre. Recarga la lista.",
+  "fr": "Une autre clé est maintenant branchée sous ce nom. Rechargez la liste."
+ },
+ "Unter dieser Nummer steckt jetzt ein anderer Datenträger – bitte die Liste aktualisieren.": {
+  "en": "A different drive is now connected under this number – please refresh the list.",
+  "it": "Con questo numero ora c'è un'altra unità – aggiorna l'elenco.",
+  "es": "Ahora hay otra unidad con este número – actualiza la lista.",
+  "fr": "Un autre lecteur est maintenant connecté sous ce numéro – actualisez la liste."
  }
 }

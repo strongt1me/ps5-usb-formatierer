@@ -2,11 +2,16 @@
 
 1. Device Discovery Protocol (DDP) der PS5: UDP-Broadcast an Port 9302, die Konsole antwortet
    mit host-type/host-name - auch im Ruhemodus (Status 620).
-2. Rueckfallebene: Suche nach einem bereits laufenden usb_format-Payload (TCP 8090) im /24-Netz.
+2. Rueckfallebene: Suche nach einem bereits laufenden usb_format-Payload (TCP 8090) im eigenen Netz (echte
+   Netzmaske; Netze groesser als /22 nur im eigenen /24, sonst dauerte die Suche Minuten).
 """
+import ctypes
 import http.client
+import ipaddress
 import json
 import socket
+import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -30,6 +35,51 @@ def local_ipv4s():
     return sorted(ip for ip in ips if not ip.startswith(("127.", "169.254.", "0.")))
 
 
+def local_networks():
+    """Eigene IPv4-Netze als ipaddress.IPv4Interface (Adresse mit echter Netzmaske); ohne Angabe /24"""
+    nets = {}
+    try:
+        if sys.platform == "win32":   # GetIpAddrTable: Adresse und Maske je Schnittstelle
+            class Row(ctypes.Structure):
+                _fields_ = [("addr", ctypes.c_uint32), ("index", ctypes.c_uint32), ("mask", ctypes.c_uint32),
+                            ("bcast", ctypes.c_uint32), ("reasm", ctypes.c_uint32), ("unused", ctypes.c_ushort),
+                            ("type", ctypes.c_ushort)]
+            size = ctypes.c_ulong(0)
+            iphlp = ctypes.WinDLL("iphlpapi")
+            iphlp.GetIpAddrTable(None, ctypes.byref(size), False)
+            buf = ctypes.create_string_buffer(size.value)
+            if iphlp.GetIpAddrTable(buf, ctypes.byref(size), False) == 0:
+                count = ctypes.c_uint32.from_buffer(buf).value
+                rows = (Row * count).from_buffer(buf, 4)
+                for r in rows:
+                    ip = socket.inet_ntoa(r.addr.to_bytes(4, "little"))
+                    mask = socket.inet_ntoa(r.mask.to_bytes(4, "little"))
+                    nets[ip] = ipaddress.IPv4Interface(f"{ip}/{mask}")
+        else:   # Linux: "2: eth0    inet 192.168.1.5/23 brd ..."
+            out = subprocess.run(["ip", "-4", "-o", "addr", "show"], capture_output=True, text=True, timeout=2).stdout
+            for line in out.splitlines():
+                parts = line.split()
+                if "inet" in parts:
+                    iface = ipaddress.IPv4Interface(parts[parts.index("inet") + 1])
+                    nets[str(iface.ip)] = iface
+    except (OSError, ValueError, AttributeError, subprocess.SubprocessError):
+        pass
+    result = []
+    for ip in local_ipv4s():
+        result.append(nets.get(ip) or ipaddress.IPv4Interface(f"{ip}/24"))
+    return result
+
+
+def scan_hosts(nets):
+    """Zu durchsuchende Adressen: das ganze Netz bis /22, darüber nur das eigene /24"""
+    own = {str(n.ip) for n in nets}
+    hosts = []
+    for n in nets:
+        net = n.network if n.network.prefixlen >= 22 else ipaddress.IPv4Interface(f"{n.ip}/24").network
+        hosts += [str(h) for h in net.hosts() if str(h) not in own and str(h) not in hosts]
+    return hosts
+
+
 def parse_ddp(data):
     lines = data.decode("utf-8", "replace").replace("\r", "").split("\n")
     if not lines or not lines[0].startswith("HTTP/1.1"):
@@ -44,10 +94,13 @@ def parse_ddp(data):
     return {"name": fields.get("host-name") or "PS5", "standby": " 620 " in lines[0] + " "}
 
 
-def ddp_discover(local_ips, timeout=2.0, port=DDP_PORT, targets=None):
+def ddp_discover(local_ips, timeout=2.0, port=DDP_PORT, targets=None, nets=None):
     found = {}
-    if targets is None:
-        targets = {"255.255.255.255"} | {ip.rsplit(".", 1)[0] + ".255" for ip in local_ips}
+    if targets is None:   # gerichteter Broadcast je Netz (echte Netzmaske) und der allgemeine
+        targets = {"255.255.255.255"} | {str(n.network.broadcast_address) for n in (nets or [])
+                                          if n.network.prefixlen < 31}
+        if not nets:
+            targets |= {ip.rsplit(".", 1)[0] + ".255" for ip in local_ips}
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         s.bind(("", 0))
@@ -105,9 +158,7 @@ def is_formatter(ip, port, timeout=0.4):
 
 def scan_formatters(local_ips, port, hosts=None):
     if hosts is None:
-        hosts = []
-        for subnet in {ip.rsplit(".", 1)[0] for ip in local_ips}:
-            hosts += [f"{subnet}.{i}" for i in range(1, 255) if f"{subnet}.{i}" not in local_ips]
+        hosts = scan_hosts([ipaddress.IPv4Interface(f"{ip}/24") for ip in local_ips])
     with ThreadPoolExecutor(max_workers=128) as pool:
         results = pool.map(lambda h: (h, is_formatter(h, port)), hosts)
         return [h for h, ok in results if ok]
@@ -115,10 +166,11 @@ def scan_formatters(local_ips, port, hosts=None):
 
 def discover(api_port, timeout=2.0):
     """Liste von {ip, name, standby, formatter}, PS5 mit laufendem Formatierer zuerst."""
-    ips = local_ipv4s()
+    nets = local_networks()
+    ips = [str(n.ip) for n in nets]
     with ThreadPoolExecutor(max_workers=2) as pool:
-        ddp = pool.submit(ddp_discover, ips, timeout)
-        fmt = pool.submit(scan_formatters, ips, api_port)
+        ddp = pool.submit(ddp_discover, ips, timeout, nets=nets)
+        fmt = pool.submit(scan_formatters, ips, api_port, scan_hosts(nets))
         consoles, formatters = ddp.result(), set(fmt.result())
     result = {}
     for ip, info in consoles.items():

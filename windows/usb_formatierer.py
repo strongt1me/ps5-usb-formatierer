@@ -26,7 +26,7 @@ import ps5_discovery
 from i18n import _, quote
 from pc_common import (PcJob, admin_wait_text, ask_string, confirm, disk_name, enable_dpi_awareness, fmt_size,
                        hwnd_of, irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used,
-                       pc_volumes_text, resource_path, setup_window, show_centered, top_bar)
+                       pc_volumes_text, resource_path, serial_args, setup_window, show_centered, top_bar)
 from standard_panel import StandardPanel
 
 APP_NAME = "PS5USBFormatierer"
@@ -130,9 +130,11 @@ class Api:
     def delete_games(self, keys, uninstall):
         return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall})
 
-    def format(self, device, fs, label, size, replug=False, limit=0, folders=True, verify=False):
+    def format(self, device, fs, label, size, replug=False, limit=0, folders=True, verify=False, ident=""):
         body = {"device": device, "fs": fs, "label": label, "size": size, "replug": replug,
                 "folders": folders, "verify": verify}
+        if ident:
+            body["ident"] = ident   # Seriennummer: ein getauschter baugleicher Stick wird abgelehnt
         if limit:
             body["limit"] = limit   # gefälschter Stick: nur den echten Bereich nutzen
         return self._call("/api/format", body)
@@ -534,7 +536,8 @@ class App(tk.Tk):
         self.dev_combo.configure(values=[pc_dev_text(d) for d in devices])
         # am PC wird nie vorausgewählt: dort hängen oft Platten mit Daten (Spiele-Sicherung, Backups)
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
-                    and d["size"] == prev.get("size") and d.get("model") == prev.get("model")), -1)
+                    and d["size"] == prev.get("size") and d.get("model") == prev.get("model")
+                    and d.get("serial", "") == prev.get("serial", "")), -1)
         if idx >= 0:
             self.dev_combo.current(idx)
         else:
@@ -548,7 +551,7 @@ class App(tk.Tk):
     def _fill_devices(self, devices):
         for d in devices:   # ältere/andere Payload-Versionen: fehlende Felder ergänzen
             for k, default in (("name", "?"), ("model", ""), ("size", 0), ("locked", False), ("mounts", []),
-                               ("format", ""), ("label", ""), ("fake_real", 0)):
+                               ("format", ""), ("label", ""), ("fake_real", 0), ("ident", "")):
                 d.setdefault(k, default)
         self.ps5_devices = devices
         if self.mode_var.get() == "pc":
@@ -562,7 +565,7 @@ class App(tk.Tk):
         if prev:   # gleicher Name reicht nicht: steckt dahinter ein anderer Datenträger (anderer Stick, die
             # Spiele-SSD), wird nichts übernommen
             idx = next((i for i, d in enumerate(devices) if d["name"] == prev["name"] and d["size"] == prev["size"]
-                        and d["model"] == prev["model"]), -1)
+                        and d["model"] == prev["model"] and d.get("ident", "") == prev.get("ident", "")), -1)
         if idx < 0:
             # vorausgewählt wird nur ein freier Stick, nie ein eingebundener (z. B. die Spiele-SSD)
             free = [i for i, d in enumerate(devices) if formattable(d) and not d["mounts"]]
@@ -791,7 +794,8 @@ class App(tk.Tk):
 
         def work():
             try:
-                api.format(dev["name"], fs, label, dev["size"], bool(dev["mounts"]), limit, folders, verify)
+                api.format(dev["name"], fs, label, dev["size"], bool(dev["mounts"]), limit, folders, verify,
+                           dev.get("ident", ""))
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", _("Formatieren konnte nicht gestartet werden: {e}", e=e)))
                 return
@@ -964,7 +968,7 @@ class App(tk.Tk):
             return
         self.settings.update(label=label, verify=self.verify_var.get(), folders=self.folders_var.get())
         save_settings(self.settings)
-        args = ["format", str(dev["disk"]), str(dev["size"]), fs, label]
+        args = ["format", str(dev["disk"]), str(dev["size"]), fs, label, *serial_args(dev)]
         if self.verify_var.get() and not limit:
             args.append("verify")
         if self.folders_var.get():
@@ -997,7 +1001,8 @@ class App(tk.Tk):
         def after(ok, msg, info):
             (messagebox.showinfo if ok else messagebox.showerror)(_("Tempo messen"), msg, parent=self)
 
-        self._pc_run("speed", ["speed", str(dev["disk"]), str(dev["size"])], cancellable=True, after=after)
+        self._pc_run("speed", ["speed", str(dev["disk"]), str(dev["size"]), *serial_args(dev)], cancellable=True,
+                     after=after)
 
     def _pc_rename(self):
         dev = self._selected_device()
@@ -1025,7 +1030,7 @@ class App(tk.Tk):
         def after(ok, msg, info):
             (messagebox.showinfo if ok else messagebox.showerror)(_("Umbenennen"), msg, parent=self)
 
-        self._pc_run("label", ["label", str(dev["disk"]), str(dev["size"]), label], after=after)
+        self._pc_run("label", ["label", str(dev["disk"]), str(dev["size"]), label, *serial_args(dev)], after=after)
 
     def _cancel(self):
         """Abbrechen: am PC über die Abbruch-Datei des Helfers, an der PS5 über /api/cancel"""

@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "../devtest.h"
 #include "../extfs.h"
@@ -108,9 +109,21 @@ static int disk_info(int n, diskinfo_t *di) {
         if (d->VendorIdOffset && d->VendorIdOffset < r) trim_copy(vendor, sizeof(vendor), (const char *)buf + d->VendorIdOffset);
         if (d->ProductIdOffset && d->ProductIdOffset < r) trim_copy(product, sizeof(product), (const char *)buf + d->ProductIdOffset);
         snprintf(di->model, sizeof(di->model), "%s%s%s", vendor, vendor[0] && product[0] ? " " : "", product);
+        if (d->SerialNumberOffset && d->SerialNumberOffset < r)
+            trim_copy(di->serial, sizeof(di->serial), (const char *)buf + d->SerialNumberOffset);
     }
     CloseHandle(h);
     return ok ? 0 : -1;
+}
+
+int plat_disk_serial(const char *disk, char *buf, size_t n) {
+    diskinfo_t di;
+    char *end;
+    long num = strtol(disk, &end, 10);
+    buf[0] = 0;
+    if (end == disk || *end || num < 0 || num >= MAX_DISKS || disk_info((int)num, &di)) return -1;
+    snprintf(buf, n, "%s", di.serial);
+    return 0;
 }
 
 /* Datenträgernummern eines Volumes (Pfad ohne abschließenden \) */
@@ -194,6 +207,8 @@ int plat_list(void) {
         fprintf(out, "%s{\"disk\":%d,\"size\":%llu,\"ss\":%u,\"removable\":%s,\"model\":", first ? "" : ",", n,
                 (unsigned long long)di.size, di.ss, di.removable ? "true" : "false");
         json_str(out, di.model);
+        fprintf(out, ",\"serial\":");
+        json_str(out, di.serial);
         fprintf(out, ",\"volumes\":[");
         for (int i = 0; i < nv; i++) {
             fprintf(out, "%s{\"letters\":", i ? "," : "");

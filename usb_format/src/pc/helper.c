@@ -464,9 +464,26 @@ int helper_command(int argc, char **argv) {
     int rest = argc - 1;
     char **a = argv + 1;
     if (!strcmp(cmd, "list")) return plat_list();
+    /* serial=...: Seriennummer laut Liste - überall erlaubt, hier herausgenommen */
+    static char want_serial[64];
+    want_serial[0] = 0;
+    for (int k = 2; k < rest; k++)
+        if (!strncmp(a[k], "serial=", 7)) {
+            snprintf(want_serial, sizeof(want_serial), "%s", a[k] + 7);
+            memmove(&a[k], &a[k + 1], (size_t)(rest - k - 1) * sizeof(*a));
+            rest--;
+            break;
+        }
     if (rest < 2) { finish(0, "Aufruf unvollständig.", NULL); return 2; }
     const char *disk = a[0];
     uint64_t size = strtoull(a[1], NULL, 10);
+    /* gleiche Nummer und Größe, aber andere Seriennummer: ein baugleicher Datenträger wurde getauscht - nichts tun */
+    char now_serial[64];
+    if (want_serial[0] && !plat_disk_serial(disk, now_serial, sizeof(now_serial)) && now_serial[0] &&
+        strcmp(want_serial, now_serial) != 0) {
+        finish(0, "Unter dieser Nummer steckt jetzt ein anderer Datenträger – bitte die Liste aktualisieren.", NULL);
+        return 1;
+    }
     if (!strcmp(cmd, "speed")) return cmd_speed(disk, size, rest >= 3 && !strcmp(a[2], "plain"));
     if (!strcmp(cmd, "label") && rest >= 3) return cmd_label(disk, size, a[2]);
     if ((!strcmp(cmd, "format") && rest >= 4) || !strcmp(cmd, "layout")) {

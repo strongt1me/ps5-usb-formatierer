@@ -250,6 +250,8 @@ const i18n_entry_t i18n_table[] = {
     {{"Ungültiger Ordner- oder Dateiname: %.*s", "Invalid folder or file name: %.*s", "Nome di cartella o file non valido: %.*s", "Nombre de carpeta o archivo no válido: %.*s", "Nom de dossier ou de fichier non valide : %.*s"}},
     {{"Ungültiger Zuordnungsblock für HFS+ (%u Bytes)", "Invalid allocation block for HFS+ (%u bytes)", "Blocco di allocazione non valido per HFS+ (%u byte)", "Bloque de asignación no válido para HFS+ (%u bytes)", "Bloc d'allocation non valide pour HFS+ (%u octets)"}},
     {{"Ungültiges Zeichen im Namen %.*s", "Invalid character in the name %.*s", "Carattere non valido nel nome %.*s", "Carácter no válido en el nombre %.*s", "Caractère non valide dans le nom %.*s"}},
+    {{"Unter diesem Namen steckt jetzt ein anderer Stick. Liste neu laden.", "A different stick is now plugged in under this name. Reload the list.", "Con questo nome ora c'è un'altra chiavetta. Ricarica l'elenco.", "Ahora hay otro pendrive con este nombre. Recarga la lista.", "Une autre clé est maintenant branchée sous ce nom. Rechargez la liste."}},
+    {{"Unter dieser Nummer steckt jetzt ein anderer Datenträger – bitte die Liste aktualisieren.", "A different drive is now connected under this number – please refresh the list.", "Con questo numero ora c'è un'altra unità – aggiorna l'elenco.", "Ahora hay otra unidad con este número – actualiza la lista.", "Un autre lecteur est maintenant connecté sous ce numéro – actualisez la liste."}},
     {{"Volume öffnen", "Opening the volume", "Apertura del volume", "Abrir el volumen", "Ouverture du volume"}},
     {{"Volume-Header schreiben", "Writing volume header", "Scrittura intestazione del volume", "Escribiendo cabecera del volumen", "Écriture de l'en-tête du volume"}},
     {{"Warten, bis Windows die Partition einbindet", "Waiting for Windows to mount the partition", "In attesa che Windows monti la partizione", "Esperando a que Windows monte la partición", "Attente du montage de la partition par Windows"}},
@@ -303,4 +305,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 300;
+const unsigned i18n_count = 302;

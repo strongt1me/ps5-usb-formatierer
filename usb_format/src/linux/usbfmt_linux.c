@@ -312,6 +312,30 @@ static void trim_spaces(char *s) {
     while (l && s[l - 1] == ' ') s[--l] = 0;
 }
 
+/* Seriennummer des Datenträgers laut udev (ID_SERIAL_SHORT) - lesbar ohne Root */
+static void udev_serial(const char *disk, char *out_, size_t n) {
+    char path[96], devno[32], line[512];
+    unsigned maj, min;
+    out_[0] = 0;
+    snprintf(path, sizeof(path), "/sys/block/%s/dev", disk);
+    if (read_line(path, devno, sizeof(devno)) || sscanf(devno, "%u:%u", &maj, &min) != 2) return;
+    snprintf(path, sizeof(path), "/run/udev/data/b%u:%u", maj, min);
+    FILE *f = fopen(path, "re");
+    if (!f) return;
+    while (fgets(line, sizeof(line), f)) {
+        line[strcspn(line, "\n")] = 0;
+        if (!strncmp(line, "E:ID_SERIAL_SHORT=", 18)) { snprintf(out_, n, "%s", line + 18); break; }
+    }
+    fclose(f);
+}
+
+int plat_disk_serial(const char *disk, char *buf, size_t n) {
+    buf[0] = 0;
+    if (!valid_name(disk)) return -1;
+    udev_serial(disk, buf, n);
+    return 0;
+}
+
 static int disk_info(const char *disk, diskinfo_t *di) {
     char path[128], vendor[64], model[96];
     memset(di, 0, sizeof(*di));
@@ -334,6 +358,7 @@ static int disk_info(const char *disk, diskinfo_t *di) {
     trim_spaces(vendor);
     trim_spaces(model);
     snprintf(di->model, sizeof(di->model), "%s%s%s", vendor, vendor[0] && model[0] ? " " : "", model);
+    udev_serial(disk, di->serial, sizeof(di->serial));
     return di->size > 0 && di->ss >= 512 ? 0 : -1;
 }
 
@@ -365,6 +390,8 @@ int plat_list(void) {
         fprintf(out, ",\"size\":%llu,\"ss\":%u,\"removable\":%s,\"model\":", (unsigned long long)di.size, di.ss,
                 di.removable ? "true" : "false");
         json_str(out, di.model);
+        fprintf(out, ",\"serial\":");
+        json_str(out, di.serial);
         fprintf(out, ",\"volumes\":[");
         int shown = 0;
         for (int i = 0; i < nv; i++) {

@@ -771,6 +771,8 @@ static void api_devices(int c) {
         sb_str(&b, d->label);
         sb_add(&b, ",\"scheme\":");
         sb_str(&b, d->scheme);
+        sb_add(&b, ",\"ident\":");   /* Seriennummer: Oberflächen schicken sie beim Auftrag zurück */
+        sb_str(&b, d->ident);
         sb_add(&b, ",\"size\":%llu,\"sector\":%u,\"locked\":%s,\"part_end\":%llu,\"fake_real\":%llu,\"mounts\":[",
                (unsigned long long)d->size, d->ss, d->locked ? "true" : "false", (unsigned long long)d->part_end,
                (unsigned long long)fake_get(d));
@@ -1158,7 +1160,7 @@ static int cluster_valid(int fs, uint32_t c, uint32_t ss) {
 /* Gerät aus device + size der Anfrage (die Größe schützt davor, einen inzwischen getauschten Stick zu erwischen).
  * Gesperrte nie. 0 = gefunden; sonst ist die Fehlerantwort schon gesendet. */
 static int request_device(int c, kv_t *kv, int n, usbdev_t *out) {
-    const char *dev = kv_get(kv, n, "device"), *size = kv_get(kv, n, "size");
+    const char *dev = kv_get(kv, n, "device"), *size = kv_get(kv, n, "size"), *ident = kv_get(kv, n, "ident");
     if (!dev || !size) { respond_error(c, 400, "device und size sind erforderlich"); return -1; }
     usbdev_t devs[MAX_DEVS];
     int nd = plat_scan(devs, MAX_DEVS);
@@ -1166,6 +1168,11 @@ static int request_device(int c, kv_t *kv, int n, usbdev_t *out) {
         if (strcmp(devs[i].name, dev) != 0) continue;
         if (strtoull(size, NULL, 10) != devs[i].size) {
             respond_error(c, 409, "Gerätegröße hat sich geändert (anderer Stick?). Liste neu laden.");
+            return -1;
+        }
+        /* gleicher Name und gleiche Größe, aber andere Seriennummer: ein baugleicher Stick wurde getauscht */
+        if (ident && ident[0] && devs[i].ident[0] && strcmp(ident, devs[i].ident) != 0) {
+            respond_error(c, 409, "Unter diesem Namen steckt jetzt ein anderer Stick. Liste neu laden.");
             return -1;
         }
         if (devs[i].locked) {
