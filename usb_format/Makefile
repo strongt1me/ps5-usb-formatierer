@@ -35,7 +35,7 @@ all: $(ELF)
 
 # server.c bettet web/index.html und web/help.html, platform_ps5.c die Werkzeuge per .incbin ein -> aus dem
 # Projektordner bauen. Vorher: Übersetzungen vollständig (Meldungen und Weboberfläche)?
-$(ELF): $(SRCS) $(HDRS) web/index.html web/help.html web/bg.jpg web/page-dark.jpg web/page-light.jpg $(TOOLS) \
+$(ELF): $(SRCS) $(HDRS) web/index.html web/help.html web/bg.jpg web/page-dark.jpg web/page-light.jpg web/avatar.png $(TOOLS) \
         $(EXFAT_OBJS) i18n/core.json i18n/web.json
 	@command -v python3 >/dev/null || { echo "python3 fehlt - ohne es wären die Übersetzungen ungeprüft"; exit 1; }
 	python3 tools/i18n_gen.py && python3 tools/web_i18n.py --check

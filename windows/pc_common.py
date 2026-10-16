@@ -632,15 +632,57 @@ def open_help(lang_code, parent=None):
         messagebox.showerror(_("Hilfe"), _("Die Anleitung ließ sich nicht öffnen: {e}", e=e), parent=parent)
 
 
+AUTHOR = "strongt1me"
+AUTHOR_URL = "https://github.com/strongt1me"
+
+
+def credit(parent, ps5=True):
+    """Profilbild und Name des Entwicklers, als Link zum GitHub-Profil; der Community-Spruch nur bei den PS5-Programmen"""
+    frm = ttk.Frame(parent)
+    scale = parent.winfo_fpixels("1i") / 96
+    path = resource_path(f"avatar-{44 if scale >= 1.5 else 22}.png")
+    if not os.path.isfile(path):   # Entwicklung: neben dem Programm
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.path.basename(path))
+    try:
+        img = tk.PhotoImage(file=path)
+        pic = ttk.Label(frm, image=img, cursor="hand2")
+        pic.image = img   # Verweis halten, sonst verschwindet das Bild
+        pic.pack(side="left", padx=(0, 6))
+    except tk.TclError:
+        pic = None
+    msg = (_("Entwickelt von {name} · für die PS5-Community", name=AUTHOR) if ps5
+           else _("Entwickelt von {name}", name=AUTHOR))
+    text = ttk.Label(frm, text=msg, foreground="#6b7280", cursor="hand2")
+    text.pack(side="left")
+
+    def visit(_e=None):
+        import webbrowser
+        webbrowser.open(AUTHOR_URL)
+    for w in (pic, text):
+        if w is not None:
+            w.bind("<Button-1>", visit)
+    return frm
+
+
+def footer(parent, ps5=True):
+    """Fußzeile unten: Trennlinie und mittig der Entwickler"""
+    frm = ttk.Frame(parent)
+    ttk.Separator(frm).pack(fill="x", pady=(12, 8))
+    credit(frm, ps5).pack()
+    return frm
+
+
 def top_bar(parent, current, on_lang, on_help):
     """Leiste oben rechts: Hilfe und Sprache"""
-    top = ttk.Frame(parent)
+    bar = ttk.Frame(parent)
+    top = ttk.Frame(bar)
+    top.pack(side="right")
     ttk.Button(top, text="? " + _("Hilfe"), command=on_help, width=0).pack(side="left", padx=(0, 10))
     if IS_WIN:   # Tk unter Linux kann keine Farb-Emojis (zeigte ein Kästchen)
         ttk.Label(top, text="🌐").pack(side="left", padx=(0, 4))
     box = lang_selector(top, current, on_lang)
     box.pack(side="left")
-    return top, box
+    return bar, box
 
 
 def hwnd_of(widget):

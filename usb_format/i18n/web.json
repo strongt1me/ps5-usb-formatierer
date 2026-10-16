@@ -263,12 +263,6 @@
   "es": "Buscando en la unidad …",
   "fr": "Analyse du lecteur …"
  },
- "Fertig": {
-  "en": "Done",
-  "it": "Fatto",
-  "es": "Listo",
-  "fr": "Terminé"
- },
  "Spiele löschen …": {
   "en": "Delete games …",
   "it": "Elimina giochi …",
@@ -995,12 +989,6 @@
   "es": "Contenido",
   "fr": "Contenu"
  },
- "Auswählen": {
-  "en": "Select",
-  "it": "Seleziona",
-  "es": "Seleccionar",
-  "fr": "Sélectionner"
- },
  "Tempo messen": {
   "en": "Measure speed",
   "it": "Misura velocità",
@@ -1156,5 +1144,11 @@
   "it": "La guida si può aprire non appena l'operazione è terminata.",
   "es": "La ayuda se puede abrir en cuanto termine la tarea.",
   "fr": "L'aide pourra être ouverte dès que la tâche sera terminée."
+ },
+ "Entwickelt von strongt1me · für die PS5-Community": {
+  "en": "Developed by strongt1me · for the PS5 community",
+  "it": "Sviluppato da strongt1me · per la community PS5",
+  "es": "Desarrollado por strongt1me · para la comunidad de PS5",
+  "fr": "Développé par strongt1me · pour la communauté PS5"
  }
 }

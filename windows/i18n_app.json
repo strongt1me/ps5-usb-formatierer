@@ -1540,5 +1540,17 @@
   "it": "L'unità è troppo piccola (almeno 16 MB).",
   "es": "La unidad es demasiado pequeña (mínimo 16 MB).",
   "fr": "Le lecteur est trop petit (au moins 16 Mo)."
+ },
+ "Entwickelt von {name} · für die PS5-Community": {
+  "en": "Developed by {name} · for the PS5 community",
+  "it": "Sviluppato da {name} · per la community PS5",
+  "es": "Desarrollado por {name} · para la comunidad de PS5",
+  "fr": "Développé par {name} · pour la communauté PS5"
+ },
+ "Entwickelt von {name}": {
+  "en": "Developed by {name}",
+  "it": "Sviluppato da {name}",
+  "es": "Desarrollado por {name}",
+  "fr": "Développé par {name}"
  }
 }

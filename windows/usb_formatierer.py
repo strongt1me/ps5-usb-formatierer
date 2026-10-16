@@ -24,7 +24,7 @@ import i18n
 import pc_common
 import ps5_discovery
 from i18n import _, quote
-from pc_common import (PcJob, admin_wait_text, ask_string, confirm, disk_name, enable_dpi_awareness, fmt_size,
+from pc_common import (PcJob, admin_wait_text, ask_string, confirm, disk_name, enable_dpi_awareness, fmt_size, footer,
                        hwnd_of, irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used,
                        pc_volumes_text, resource_path, serial_args, setup_window, show_centered, top_bar)
 from standard_panel import StandardPanel
@@ -208,7 +208,7 @@ class App(tk.Tk):
         outer.columnconfigure(0, weight=1)
 
         top, self.lang_box = top_bar(outer, i18n.lang(), self._set_lang, lambda: open_help(i18n.lang(), self))
-        top.grid(row=0, column=0, sticky="e", pady=(0, 6))
+        top.grid(row=0, column=0, sticky="ew", pady=(0, 6))
 
         # Schalter: Stick an der PS5 (über das Netzwerk), am PC für die PS5 oder am PC frei formatieren
         modes = ttk.Frame(outer)
@@ -230,6 +230,7 @@ class App(tk.Tk):
         # PS5 und "USB am PC (für PS5)"
         frm = self.ps5_body = ttk.Frame(outer)
         frm.grid(row=2, column=0, sticky="nsew")
+        footer(outer).grid(row=3, column=0, sticky="ew")
         frm.columnconfigure(0, weight=1)
         row = 0
 

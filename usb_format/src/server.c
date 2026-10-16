@@ -81,10 +81,16 @@ __asm__(".section .rodata\n"
         ".incbin \"web/page-light.jpg\"\n"
         ".global web_page_light_end\n"
         "web_page_light_end:\n"
+        ".global web_avatar_png\n"
+        "web_avatar_png:\n"
+        ".incbin \"web/avatar.png\"\n"
+        ".global web_avatar_png_end\n"
+        "web_avatar_png_end:\n"
         ".previous\n");
 extern const char web_index_html[], web_help_html[];
 extern const char web_bg_jpg[], web_bg_jpg_end[];
 extern const char web_page_dark[], web_page_dark_end[], web_page_light[], web_page_light_end[];
+extern const char web_avatar_png[], web_avatar_png_end[];   /* Profilbild des Entwicklers (Fußzeile) */
 
 /* ------------------------------------------------------------ JSON-Ausgabe */
 
@@ -1754,6 +1760,8 @@ static void handle(int c) {
         respond(c, 200, "text/html; charset=utf-8", web_index_html, strlen(web_index_html));
     else if (strcmp(path, "/help") == 0 && is_get)   /* Anleitung in fünf Sprachen (Sprache: ?lang=xx) */
         respond(c, 200, "text/html; charset=utf-8", web_help_html, strlen(web_help_html));
+    else if (strcmp(path, "/avatar.png") == 0 && is_get)
+        respond_ex(c, 200, "image/png", web_avatar_png, (size_t)(web_avatar_png_end - web_avatar_png), "max-age=86400");
     else if (strcmp(path, "/bg.jpg") == 0 && is_get)
         respond_ex(c, 200, "image/jpeg", web_bg_jpg, (size_t)(web_bg_jpg_end - web_bg_jpg), "max-age=86400");
     else if (strcmp(path, "/page-dark.jpg") == 0 && is_get)

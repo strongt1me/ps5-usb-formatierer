@@ -8,7 +8,7 @@ from tkinter import messagebox, ttk
 
 import i18n
 from i18n import _
-from pc_common import (enable_dpi_awareness, keep_on_screen, load_settings, open_help, save_settings, setup_window,
+from pc_common import (enable_dpi_awareness, footer, keep_on_screen, load_settings, open_help, save_settings, setup_window,
                        show_centered, top_bar)
 from standard_panel import StandardPanel
 
@@ -40,9 +40,10 @@ class StandardApp(tk.Tk):
         self.frm.grid(sticky="nsew")
         self.frm.columnconfigure(0, weight=1)
         top, self.lang_box = top_bar(self.frm, i18n.lang(), self._set_lang, lambda: open_help(i18n.lang(), self))
-        top.grid(row=0, column=0, sticky="e")
+        top.grid(row=0, column=0, sticky="ew")
         self.panel = StandardPanel(self.frm, self.settings, lambda: save_settings(APP_NAME, self.settings))
         self.panel.grid(row=1, column=0, sticky="nsew")
+        footer(self.frm, ps5=False).grid(row=2, column=0, sticky="ew")
 
     def _set_lang(self, code):
         """Sprache wechseln: Bereich in der neuen Sprache neu aufbauen (nicht während eines Auftrags)"""

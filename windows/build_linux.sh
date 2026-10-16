@@ -27,7 +27,7 @@ Image.open("../usb_format/app/art/icon.png").convert("RGBA").resize((128, 128), 
 EOF
 
 # --noupx: UPX würde den Helfer verändern - seine Prüfsumme passte dann nicht mehr
-COMMON=(--noconfirm --clean --noupx --onefile --add-binary "usbfmt_linux:." --add-data "app.png:." --add-data "i18n_app.json:."
+COMMON=(--noconfirm --clean --noupx --onefile --add-binary "usbfmt_linux:." --add-data "app.png:." --add-data "i18n_app.json:." --add-data "avatar-22.png:." --add-data "avatar-44.png:."
         --add-data "../usb_format/web/help.html:.")
 # unter dem Namen, den das Programm sucht (usb_format.elf) - auch wenn die übergebene Datei anders heißt
 ELFDIR=$(mktemp -d)

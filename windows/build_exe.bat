@@ -18,7 +18,7 @@ rem Windows-Helfer fuer die Arbeit am PC (benoetigt: pip install ziglang); baut 
 powershell -NoProfile -ExecutionPolicy Bypass -File build_helper.ps1 || exit /b 1
 set COMMON=--add-data "app.ico;." --add-binary "usbfmt_win.exe;." --add-binary "mke2fs.exe;." ^
     --add-data "mke2fs\NOTICE.txt;lizenzen\mke2fs" --add-data "i18n_app.json;." ^
-    --add-data "..\usb_format\web\help.html;."
+    --add-data "..\usb_format\web\help.html;." --add-data "avatar-22.png;." --add-data "avatar-44.png;."
 rem --noupx: UPX wuerde Helfer und mke2fs.exe veraendern - ihre Pruefsummen passten dann nicht mehr
 python -m PyInstaller --noconfirm --clean --noupx --windowed --onefile ^
     --name "PS5-USB-Formatierer" --icon app.ico %COMMON% ^
