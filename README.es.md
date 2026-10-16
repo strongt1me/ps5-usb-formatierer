@@ -97,7 +97,7 @@ Todos los archivos están en la [última versión](../../releases/latest).
 | `USB-Formatierer.exe` | **Programa de Windows sin funciones de PS5:** todos los sistemas de archivos, particiones y modo experto. |
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Los mismos dos programas para Linux** (x86_64): descomprimir y ejecutar. |
 
-**Requisitos:** una PS5 con jailbreak activo y cargador ELF (probado con el firmware 12.00); ShadowMountPlus para el icono de la app y para borrar juegos. Windows 10 u 11 (64 bits); para formatear en el PC, Windows pide una vez permisos de administrador. Linux (x86_64): para formatear, el sistema pide la contraseña de administrador (pkexec/polkit); NTFS, FAT16 y ext los escriben las herramientas del sistema de `ntfs-3g`, `dosfstools` y `e2fsprogs`. La versión para Mac llegará más adelante.
+**Requisitos:** una PS5 con jailbreak activo y cargador ELF (probado con el firmware 12.00); ShadowMountPlus para el icono de la app y para borrar juegos. Windows 10 u 11 (64 bits); para formatear en el PC, Windows pide una vez permisos de administrador. Linux (x86_64): para formatear, el sistema pide la contraseña de administrador (pkexec/polkit); NTFS, FAT16 y ext los escriben las herramientas del sistema de `ntfs-3g`, `dosfstools` y `e2fsprogs`.
 
 ## 🚀 Primeros pasos
 
