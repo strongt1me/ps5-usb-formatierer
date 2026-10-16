@@ -1267,6 +1267,13 @@ static void api_format(int c, const char *body) {
         return;
     }
     uint64_t lim = limit ? strtoull(limit, NULL, 10) : 0;
+    if (lim && lim < 64 * MIB && lim < d.size) {   /* gefälschter Stick mit sehr wenig echtem Speicher */
+        char msg[256], s1[24];
+        snprintf(msg, sizeof(msg), T("Dieser Stick hat nur etwa %s echten Speicher – zu wenig zum Formatieren (mindestens "
+                                     "64 MB)."), size_text(lim, s1, sizeof(s1)));
+        respond_error(c, 400, msg);
+        return;
+    }
     if (lim && (lim >= d.size || lim < 64 * MIB)) {
         respond_error(c, 400, "limit muss zwischen 64 MB und der Größe des Datenträgers liegen");
         return;
@@ -1398,7 +1405,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
             last_change = time(NULL);
         } else if (time(NULL) - last_change > 600) {
             free(r);
-            snprintf(err, n, "ShadowMountPlus meldet seit 10 Minuten keinen Fortschritt – abgebrochen");
+            snprintf(err, n, "%s", T("ShadowMountPlus meldet seit 10 Minuten keinen Fortschritt – abgebrochen"));
             return -1;
         }
         if (!strcmp(state, "completed")) { free(r); return 0; }
@@ -1415,7 +1422,6 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
     return -1;
 }
 
-/* Liegt path wirklich (nach Auflösen von Verknüpfungen) innerhalb von root? */
 /* dieselbe Datei? ShadowMountPlus schreibt einen Pfad womöglich anders (Schrägstrich am Ende, "//") - ein bloßer
  * Textvergleich hielte ein eingebundenes Spiel dann für eine zweite Kopie */
 static int same_path(const char *a, const char *b) {
@@ -1423,6 +1429,7 @@ static int same_path(const char *a, const char *b) {
     return !strcmp(a, b) || (!stat(a, &x) && !stat(b, &y) && x.st_dev == y.st_dev && x.st_ino == y.st_ino);
 }
 
+/* Liegt path wirklich (nach Auflösen von Verknüpfungen) innerhalb von root? */
 static int path_inside(const char *path, const char *root) {
     char *rp = realpath(path, NULL), *rr = realpath(root, NULL);
     size_t rl = rr ? strlen(rr) : 0;

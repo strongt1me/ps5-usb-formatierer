@@ -123,7 +123,8 @@ class LinuxJob:
                 pos += end
                 if end:
                     last_change = time.time()
-                for line in data[:end].decode("utf-8", "replace").splitlines():
+                # nur an \n trennen - splitlines() trennte auch an U+2028 & Co. mitten in einer Meldung
+                for line in data[:end].decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n").split("\n"):
                     parts = line.split("\t")
                     if parts[0] == "P" and len(parts) >= 3:
                         try:

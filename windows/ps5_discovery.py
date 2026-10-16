@@ -8,7 +8,6 @@ import http.client
 import json
 import socket
 import time
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 DDP_PORT = 9302
@@ -79,12 +78,29 @@ def is_formatter(ip, port, timeout=0.4):
             pass
     except OSError:
         return False
+    # direkt, nicht über urllib: kein System-Proxy (der fände Geräte im eigenen Netz nicht), keinen Umleitungen folgen
+    # (ein fremdes Gerät könnte auf Port 9021 der PS5 verweisen - den ELF-Loader) und nur begrenzt lesen (ein Gerät
+    # mit endlosem Datenstrom hielte die Suche sonst für immer an)
+    conn = http.client.HTTPConnection(ip, port, timeout=2)
     try:
-        with urllib.request.urlopen(f"http://{ip}:{port}/api/devices", timeout=2) as r:
-            data = json.loads(r.read().decode("utf-8"))
-            return isinstance(data, dict) and "devices" in data
+        conn.request("GET", "/api/devices")
+        r = conn.getresponse()
+        if r.status != 200:
+            return False
+        body, deadline = b"", time.time() + 5   # Gesamtfrist, auch bei tröpfelnder Antwort
+        while True:
+            chunk = r.read1(65536)
+            if not chunk:
+                break
+            body += chunk
+            if len(body) > 256 * 1024 or time.time() > deadline:
+                return False
+        data = json.loads(body.decode("utf-8"))
+        return isinstance(data, dict) and "devices" in data
     except (OSError, ValueError, http.client.HTTPException):   # z. B. ein anderes Gerät, das kein HTTP spricht
         return False
+    finally:
+        conn.close()
 
 
 def scan_formatters(local_ips, port, hosts=None):

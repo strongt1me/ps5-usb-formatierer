@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "fsdetect.h"
+#include "i18n.h"
 #include "fsread.h"
 
 #define BLK 4096
@@ -137,21 +138,21 @@ static const char *detect(int fd, uint32_t ss, uint64_t devsize, uint8_t *buf, f
     o->scheme = "";
     o->start = 0;
     o->size = devsize;
-    if (!b) return "unbekannt";
+    if (!b) return N_("unbekannt");
 
     const char *fs = fs_detect_buf(b, BLK);   /* ohne Partitionstabelle */
     if (fs) return fs;
-    if (all_zero(b, BLK)) return "leer";
-    if (b[510] != 0x55 || b[511] != 0xAA) return "unbekannt";
+    if (all_zero(b, BLK)) return N_("leer");
+    if (b[510] != 0x55 || b[511] != 0xAA) return N_("unbekannt");
 
     const uint8_t *pe = b + 446;
     uint64_t start = 0, size = 0;
     if (pe[4] == 0xEE) {                         /* GPT: Kopf in LBA 1, erster Eintrag */
         o->scheme = "GPT";
         const uint8_t *h = rd(fd, buf, ss);
-        if (!h || memcmp(h, "EFI PART", 8) != 0) return "unbekannt";
+        if (!h || memcmp(h, "EFI PART", 8) != 0) return N_("unbekannt");
         const uint8_t *e = rd(fd, buf, le64(h + 72) * ss);
-        if (!e) return "unbekannt";
+        if (!e) return N_("unbekannt");
         start = le64(e + 32);
         uint64_t end = le64(e + 40);
         size = start && end >= start ? (end - start + 1) * ss : 0;
@@ -160,19 +161,19 @@ static const char *detect(int fd, uint32_t ss, uint64_t devsize, uint8_t *buf, f
         start = le32(pe + 8);
         size = (uint64_t)le32(pe + 12) * ss;
     }
-    if (!start) return "keine Partition";
+    if (!start) return N_("keine Partition");
     o->start = start * ss;
     o->size = size;
-    if (!(b = rd(fd, buf, o->start))) return "unbekannt";
+    if (!(b = rd(fd, buf, o->start))) return N_("unbekannt");
     fs = fs_detect_buf(b, BLK);
     if (fs) return fs;
-    return all_zero(b, BLK) ? "leer" : "unbekannt";
+    return all_zero(b, BLK) ? N_("leer") : N_("unbekannt");
 }
 
 int fs_probe(int fd, uint32_t ss, uint64_t devsize, fsinfo_t *out) {
     uint8_t *buf = malloc(BUFSZ);   /* nicht auf den Stapel: Threads haben auf der PS5 nur 64 KiB */
     memset(out, 0, sizeof(*out));
-    if (!buf) { out->fs = "unbekannt"; out->scheme = ""; return -1; }
+    if (!buf) { out->fs = N_("unbekannt"); out->scheme = ""; return -1; }
     out->fs = detect(fd, ss ? ss : 512, devsize, buf, out);
     free(buf);
     read_label(fd, out->fs, out->start, out->label, sizeof(out->label));

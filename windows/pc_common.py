@@ -43,7 +43,7 @@ def settings_file(app_name):
 # Laden weg, statt das Programm am Start scheitern zu lassen
 _SETTING_TYPES = {"lang": str, "mode": str, "host": str, "label": str, "fs": str, "scheme": str,
                   "verify": bool, "folders": bool, "quick": bool, "expert": bool, "standard": dict}
-_LABEL_OK = re.compile(r"^[A-Za-z0-9 _-]{0,32}$")
+_LABEL_OK = re.compile(r"^[A-Za-z0-9 _-]{0,32}\Z")
 
 
 def _clean_settings(data):
@@ -308,7 +308,8 @@ class _WinJob:
                 pos += end
                 if end:
                     last_change = time.time()
-                for line in data[:end].decode("utf-8", "replace").splitlines():
+                # nur an \n trennen - splitlines() trennte auch an U+2028 & Co. mitten in einer Meldung
+                for line in data[:end].decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n").split("\n"):
                     parts = line.split("\t")
                     if parts[0] == "P" and len(parts) >= 3:
                         try:
@@ -388,6 +389,15 @@ def setup_window(root):
     return style
 
 
+def _inside(win, top, x, y):
+    """Lage eines Dialogs, in den Bildschirm des Hauptfensters gerückt (auch bei Monitoren links/über dem Hauptmonitor,
+    deren Koordinaten negativ sind)"""
+    x0, y0, aw, ah = work_area(top)
+    x = min(max(x, x0), x0 + max(0, aw - win.winfo_reqwidth()))
+    y = min(max(y, y0), y0 + max(0, ah - win.winfo_reqheight()))
+    return f"+{x}+{y}"
+
+
 def confirm(root, title, text, ok_text, ack=None):
     """Rückfrage mit eigenen Knopftexten; mit ack muss erst ein Häkchen gesetzt werden (wie in der Web-UI).
     Abbrechen ist vorausgewählt, Esc bricht ab. Liefert True bei Bestätigung."""
@@ -423,7 +433,7 @@ def confirm(root, title, text, ok_text, ack=None):
     top = root.winfo_toplevel()
     x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
     y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
-    win.geometry(f"+{max(0, x)}+{max(0, y)}")
+    win.geometry(_inside(win, top, x, y))
     win.deiconify()
     cancel_btn.focus_set()
     win.grab_set()
@@ -461,7 +471,7 @@ def ask_string(root, title, prompt, initial=""):
     top = root.winfo_toplevel()
     x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
     y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
-    win.geometry(f"+{max(0, x)}+{max(0, y)}")
+    win.geometry(_inside(win, top, x, y))
     win.deiconify()
     entry.focus_set()
     entry.select_range(0, "end")
@@ -558,6 +568,9 @@ def help_source():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "usb_format", "web", "help.html")
 
 
+_help_dir = None
+
+
 def open_help(lang_code, parent=None):
     """Anleitung im Standardbrowser öffnen, in der Sprache des Programms. Dafür eine Kopie mit dieser Sprache als
     Vorgabe im Temp-Ordner - an Dateien reicht Windows ?lang=… bzw. #… nicht zuverlässig an den Browser weiter."""
@@ -565,7 +578,10 @@ def open_help(lang_code, parent=None):
         with open(help_source(), encoding="utf-8") as f:
             page = f.read()
         page = page.replace('data-default-lang=""', f'data-default-lang="{lang_code}"', 1)
-        path = os.path.join(tempfile.gettempdir(), f"USB-Formatierer-Anleitung-{lang_code}.html")
+        global _help_dir
+        if not _help_dir or not os.path.isdir(_help_dir):   # eigener Ordner: in /tmp könnte ein anderer Benutzer die
+            _help_dir = tempfile.mkdtemp(prefix=TEMP_PREFIX + "-Hilfe-")   # Datei sonst vorher anlegen/umleiten
+        path = os.path.join(_help_dir, f"USB-Formatierer-Anleitung-{lang_code}.html")
         with open(path, "w", encoding="utf-8") as f:
             f.write(page)
         if IS_WIN:

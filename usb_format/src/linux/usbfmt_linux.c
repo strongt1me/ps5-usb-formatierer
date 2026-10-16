@@ -780,8 +780,9 @@ int plat_os_label(const char *disk, uint64_t size, const char *label, diskinfo_t
         return -1;
     }
     const int ntfs = kind == 1;
-    /* ntfslabel hielte eine Bezeichnung mit "-" am Anfang für eine Option ("--" versteht es nicht) */
-    if (!label_valid(label, ntfs ? FS_NTFS : FS_FAT32) || (ntfs && label[0] == '-')) {
+    /* ntfslabel und fatlabel hielten eine Bezeichnung mit "-" am Anfang für eine Option ("--" verstehen nicht alle
+     * Fassungen - fatlabel aus dosfstools 4.1 zählt nur die Argumente) */
+    if (!label_valid(label, ntfs ? FS_NTFS : FS_FAT32) || label[0] == '-') {
         snprintf(err, n, T("Ungültige Bezeichnung: max. %d Zeichen, nur A-Z, 0-9, Leerzeichen, - und _"), ntfs ? 32 : 11);
         return -1;
     }
@@ -796,11 +797,10 @@ int plat_os_label(const char *disk, uint64_t size, const char *label, diskinfo_t
     }
     static char output[4096];
     snprintf(dev, sizeof(dev), "/dev/%s", v[hit].name);
-    char *argv[7];
+    char *argv[6];
     int a = 0;
     argv[a++] = (char *)tool;
     if (!ntfs && !label[0]) argv[a++] = "--reset";   /* FAT: Bezeichnung entfernen */
-    else if (!ntfs) argv[a++] = "--";   /* eine Bezeichnung wie "-V" ist keine Option */
     argv[a++] = dev;
     if (ntfs || label[0]) argv[a++] = (char *)label;
     argv[a] = NULL;

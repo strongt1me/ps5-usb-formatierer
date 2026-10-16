@@ -32,7 +32,7 @@ from standard_panel import StandardPanel
 APP_NAME = "PS5USBFormatierer"
 API_PORT = 8090
 LOADER_PORT = 9021
-LABEL_RE = re.compile(r"^[A-Za-z0-9 _-]{0,11}$")
+LABEL_RE = re.compile(r"^[A-Za-z0-9 _-]{0,11}\Z")   # \Z: kein Zeilenumbruch am Ende
 IP_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
 MODES = (("ps5", "USB an der PS5"), ("pc", "USB am PC (für PS5)"), ("std", "Am PC Standard"))
 
@@ -79,6 +79,10 @@ class ApiError(Exception):
     pass
 
 
+# ohne System-Proxy: die PS5 steht im eigenen Netz, ein eingetragener Proxy fände sie nicht
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 class Refused(ConnectionError):
     """Port 8090 lehnt ab: dort läuft (noch) kein Formatierer"""
 
@@ -97,7 +101,7 @@ class Api:
         sep = "&" if "?" in path else "?"
         req = urllib.request.Request(f"{self.base}{path}{sep}lang={i18n.lang()}", data=data, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with _OPENER.open(req, timeout=timeout) as r:
                 result = json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             try:

@@ -284,7 +284,9 @@ static int grab(const char *path, const char *name) {
     for (int i = 0; i < 2000; i++) {  /* bis 2 s, falls der Knoten vor dem Gerät fertig ist */
         int fd = open(path, O_RDWR | O_EXCL);
         if (fd >= 0) return fd;
-        if (unit_mounted(name)) return -2;
+        /* nur "belegt" zählt als eingebunden - fehlt der Knoten noch kurz, kann in der Mount-Tabelle noch der
+         * Eintrag der vorigen Instanz stehen (der AutoMounter räumt ihn erst nach dem Neu-Anmelden ab) */
+        if ((errno == EBUSY || errno == EPERM) && unit_mounted(name)) return -2;
         if (!dev_exists(path)) return -1;
         usleep(1000);
     }
@@ -451,13 +453,22 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
                     lost = 1;
                     break;
                 }
+                const node_t before = snap[k];
                 snap[k] = now;           /* diese Instanz nicht noch einmal versuchen */
                 if (fd < 0) continue;
                 off_t media = 0;
                 u_int sector = 0;
                 if (ioctl(fd, DIOCGMEDIASIZE, &media) != 0 || ioctl(fd, DIOCGSECTORSIZE, &sector) != 0 ||
-                    (uint64_t)media != d->size || sector != d->ss || unit_mounted(name)) {
+                    (uint64_t)media != d->size || sector != d->ss) {
                     close(fd);           /* anderes Gerät */
+                    continue;
+                }
+                if (unit_mounted(name)) {
+                    /* noch ein Eintrag in der Mount-Tabelle - meist der der vorigen Instanz, den der AutoMounter gleich
+                     * abräumt. Nicht aufgeben, gleich noch einmal versuchen (ist er wirklich von dieser Instanz, scheitert
+                     * das exklusive Öffnen und grab() meldet "schneller eingebunden") */
+                    close(fd);
+                    snap[k] = before;
                     continue;
                 }
                 memset(out, 0, sizeof(*out));
@@ -466,9 +477,15 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
                 out->size = (uint64_t)media;
                 out->ss = sector;
                 fill_models(out, 1);
+                /* direkt nach dem Erscheinen kann die Seriennummer im GEOM-Baum noch fehlen: kurz nachlesen */
+                for (int t = 0; t < 20 && d->ident[0] && !out->ident[0]; t++) {
+                    usleep(50 * 1000);
+                    fill_models(out, 1);
+                }
                 /* gleich groß reicht nicht: ein anderer Stick gleicher Größe (z. B. aus einer Mehrfachpackung) hat eine
-                 * andere Seriennummer - den nicht anfassen und weiter auf unseren warten */
-                if (d->ident[0] && out->ident[0] && strcmp(d->ident, out->ident) != 0) {
+                 * andere Seriennummer, einer ohne Seriennummer ist ebenso wenig sicher unserer - nicht anfassen und
+                 * weiter auf unseren warten */
+                if (d->ident[0] && strcmp(d->ident, out->ident) != 0) {
                     close(fd);
                     continue;
                 }
@@ -571,7 +588,7 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
 
     extfs_cmd_t cmd;
     if (extfs_build(&cmd, fs, part, label, cluster, d->ss, start) != 0) {
-        snprintf(err, errlen, "Unbekanntes Dateisystem");
+        snprintf(err, errlen, "%s", T("Unbekanntes Dateisystem"));
         return -1;
     }
     loader_args(&cmd, args, sizeof(args));
@@ -601,9 +618,17 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     static char out[65536];
     size_t olen = 0, ll = 0;
     progress(fs == FS_NTFS ? N_("NTFS schreiben (mkntfs)") : N_("ext4 schreiben (mke2fs)"), 5);
+    /* mkntfs schreibt teils minutenlang ohne Ausgabe: eine Zeitüberschreitung beim Lesen heißt nicht, dass es fertig
+     * ist - das Werkzeug liefe als eigener Prozess weiter, während schon der nächste Auftrag den Stick nimmt */
+    const time_t until = time(NULL) + 60 * 60;
+    int timed_out = 0;
     for (;;) {
         char buf[1024];
         ssize_t n = recv(s, buf, sizeof(buf), 0);
+        if (n < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
+            if (time(NULL) < until) continue;
+            timed_out = 1;
+        }
         if (n <= 0) break;
         for (ssize_t i = 0; i < n; i++) {
             if (olen + 1 < sizeof(out)) out[olen++] = buf[i];
@@ -621,6 +646,11 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     }
     close(s);
     out[olen] = 0;
+    if (timed_out) {
+        snprintf(err, errlen, T("%s antwortet seit einer Stunde nicht und läuft womöglich noch. Den Stick bitte nicht "
+                                "abziehen, sondern die PS5 neu starten."), tool);
+        return -1;
+    }
 
     if (!extfs_succeeded(fs, out)) {
         /* Letzte sinnvolle Zeile als Fehlermeldung */

@@ -1756,5 +1756,47 @@
   "it": "L'unità %s si estende anche su un altro disco (volume esteso) – rifiutata.",
   "es": "La unidad %s también ocupa otro disco (volumen distribuido) – rechazada.",
   "fr": "Le lecteur %s s'étend aussi sur un autre disque (volume fractionné) – refusé."
+ },
+ "unbekannt": {
+  "en": "unknown",
+  "it": "sconosciuto",
+  "es": "desconocido",
+  "fr": "inconnu"
+ },
+ "leer": {
+  "en": "empty",
+  "it": "vuoto",
+  "es": "vacío",
+  "fr": "vide"
+ },
+ "keine Partition": {
+  "en": "no partition",
+  "it": "nessuna partizione",
+  "es": "sin partición",
+  "fr": "aucune partition"
+ },
+ "%s antwortet seit einer Stunde nicht und läuft womöglich noch. Den Stick bitte nicht abziehen, sondern die PS5 neu starten.": {
+  "en": "%s has not responded for an hour and may still be running. Please do not unplug the stick – restart the PS5 instead.",
+  "it": "%s non risponde da un'ora e potrebbe essere ancora in esecuzione. Non scollegare la chiavetta, riavvia invece la PS5.",
+  "es": "%s no responde desde hace una hora y quizá siga en marcha. No desconectes el pendrive; reinicia la PS5.",
+  "fr": "%s ne répond plus depuis une heure et tourne peut-être encore. Ne débranchez pas la clé, redémarrez plutôt la PS5."
+ },
+ "Dieser Stick hat nur etwa %s echten Speicher – zu wenig zum Formatieren (mindestens 64 MB).": {
+  "en": "This stick only has about %s of real storage – too little to format (at least 64 MB).",
+  "it": "Questa chiavetta ha solo circa %s di memoria reale – troppo poca per formattarla (almeno 64 MB).",
+  "es": "Este pendrive solo tiene unos %s de memoria real – demasiado poco para formatearlo (mínimo 64 MB).",
+  "fr": "Cette clé n'a qu'environ %s de mémoire réelle – trop peu pour la formater (au moins 64 Mo)."
+ },
+ "ShadowMountPlus meldet seit 10 Minuten keinen Fortschritt – abgebrochen": {
+  "en": "ShadowMountPlus has reported no progress for 10 minutes – cancelled",
+  "it": "ShadowMountPlus non segnala progressi da 10 minuti – annullato",
+  "es": "ShadowMountPlus no informa de ningún progreso desde hace 10 minutos – cancelado",
+  "fr": "ShadowMountPlus ne signale aucune progression depuis 10 minutes – annulé"
+ },
+ " (Windows-Fehler %lu)": {
+  "en": " (Windows error %lu)",
+  "it": " (errore di Windows %lu)",
+  "es": " (error de Windows %lu)",
+  "fr": " (erreur Windows %lu)"
  }
 }

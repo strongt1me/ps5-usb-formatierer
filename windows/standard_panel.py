@@ -250,7 +250,10 @@ class StandardPanel(ttk.Frame):
             self.cluster_combo.configure(values=[unit_text(v) + (" (" + _("Standard") + ")" if v == std else "")
                                                  for v in vals])
             want = self.cluster_pick.get(fs, std)
-            self.cluster_combo.current(vals.index(want) if want in vals else vals.index(std))
+            if vals:
+                self.cluster_combo.current(vals.index(want) if want in vals else vals.index(std))
+            else:   # nichts passt (Datenträger zu klein): "Formatieren" bleibt gesperrt
+                self.cluster_var.set("–")
         else:
             self.cluster_values = []
             self.cluster_combo.configure(values=[])
@@ -490,9 +493,12 @@ class StandardPanel(ttk.Frame):
                 if p["fs"] != fsinfo.NO_FS:
                     vals, std = fsinfo.cluster_choices(fsinfo.helper_fs(p["fs"]), sizes[i], dev.get("ss", 512))
                     cluster = p["cluster"] or std
-                    if not vals or cluster not in vals:
+                    if not vals:
                         err = _("Partition {n}: {fs} passt nicht zu dieser Größe – bitte Dateisystem oder Größe "
                                 "ändern.", n=i + 1, fs=fsinfo.fs_display(p["fs"]))
+                    elif cluster not in vals:
+                        err = _("Partition {n}: Die Zuordnungseinheit {size} passt nicht zu dieser Größe – bitte "
+                                "ändern.", n=i + 1, size=fsinfo.unit_text(cluster))
                 new_args.append(fsinfo.part_arg(p, cluster))
             if err:
                 messagebox.showerror(self.title_text, _("Die Aufteilung passt nicht auf den echten Bereich ({size}): "

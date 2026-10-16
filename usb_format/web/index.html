@@ -760,7 +760,7 @@ function renderDevices() {
     row.append(radio, body);
     const pick = () => {
       if (busy || blocked) return;
-      if (selected !== d.name) { showAll = false; pickMode = false; picked.clear(); $("renamebox").hidden = true; }
+      if (selected !== devKey(d)) { showAll = false; pickMode = false; picked.clear(); $("renamebox").hidden = true; }
       selected = devKey(d);
       renderDevices();
       update();
@@ -991,6 +991,12 @@ function update() {
   renderTabs();
 }
 
+/* Meldung ohne den vorangestellten Gerätenamen ("SanDisk (da1): …") - nur wenn er wirklich vorn steht */
+function withoutDev(msg, d) {
+  const i = msg.indexOf(": ");
+  return i > 0 && msg.slice(0, i).indexOf(d.name) >= 0 ? msg.slice(i + 2) : msg;
+}
+
 /* Überschrift eines Prüfergebnisses - erst beim Anzeigen übersetzt, damit ein Sprachwechsel sie mitnimmt */
 function checkTitle(ck) {
   return ck.code === 8 ? tr("Prüfen nicht möglich") : ck.code === 0 ? tr("exFAT geprüft: keine Fehler")
@@ -1118,7 +1124,7 @@ function finished(st, d) {
     return showResult(stopped ? tr("Formatieren abgebrochen") : tr("Formatieren fehlgeschlagen"), st.message, false);
   }
   if (st.kind === "check" && st.ok && r.code !== undefined) {
-    if (d) checkOf[key] = { code: r.code, repair: !!r.repair, text: st.message.replace(/^[^:]*: /, "") };
+    if (d) checkOf[key] = { code: r.code, repair: !!r.repair, text: withoutDev(st.message, d) };
     renderTabs();
     if (r.code === 4 && !r.repair) return askRepair(st, d);
     return showMsg(st.message, true);
@@ -1130,7 +1136,8 @@ function finished(st, d) {
     return showResult(st.ok ? tr("Spiele gelöscht") : r.deleted ? tr("Nicht alles gelöscht") : tr("Nichts gelöscht"), st.message, st.ok);
   }
   if (st.kind === "check" && !st.ok && d) {
-    checkOf[key] = { code: 8, text: st.message.replace(/^[^:]*: /, "") };
+    /* eine Reparatur, die Fehler übrig ließ, endet mit ok:false, liefert aber ihren Code */
+    checkOf[key] = { code: r.code !== undefined ? r.code : 8, repair: !!r.repair, text: withoutDev(st.message, d) };
   }
   renderTabs();
   showMsg(st.message, st.ok);
@@ -1220,7 +1227,8 @@ function showResult(title, text, ok) {
 async function fakeDialog(st, r, d) {
   const stats = el("div", "stats");
   stats.append(stat(fmtSize(r.reported), tr("gemeldet")), stat(fmtSize(r.real), tr("echt"), "good"));
-  if (r.read) stats.appendChild(stat(mbps(r.read), tr("lesen") + " · " + (r.rating || "")));
+  if (r.read) stats.appendChild(stat(mbps(r.read), tr("lesen") + " · " + (r.read >= 100 ? tr("schnell genug für Spiele")
+    : r.read >= 40 ? tr("ausreichend") : tr("langsam"))));   /* r.rating kommt deutsch vom Formatierer */
   const ok = await dialog({
     title: tr("Gefälschter Speicher erkannt"), cls: "amber",
     text: tr("{name} meldet {size}, hat aber nur etwa {real} echten Speicher. Was darüber hinaus gespeichert wird, geht verloren – Spiele würden unbemerkt beschädigt.",

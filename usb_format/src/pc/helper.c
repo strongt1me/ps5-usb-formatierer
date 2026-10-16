@@ -33,7 +33,7 @@ static const char *const TEMPLATE_DIRS[] = {"homebrew", "etaHEN/games", "pkg", N
 /* Länge einer gültigen UTF-8-Folge ab s (1-4), 0 = ungültig */
 static int utf8_len(const unsigned char *s) {
     if (s[0] < 0x80) return 1;
-    int n = s[0] >= 0xF0 && s[0] <= 0xF4 ? 4 : s[0] >= 0xE0 ? 3 : s[0] >= 0xC2 && s[0] <= 0xDF ? 2 : 0;
+    int n = s[0] >= 0xF0 && s[0] <= 0xF4 ? 4 : s[0] >= 0xE0 && s[0] <= 0xEF ? 3 : s[0] >= 0xC2 && s[0] <= 0xDF ? 2 : 0;
     if (!n) return 0;
     for (int i = 1; i < n; i++)
         if ((s[i] & 0xC0) != 0x80) return 0;
@@ -75,6 +75,12 @@ static const char *rating_text(double read_mbps) {
            ? T("für Spiele ausreichend") : T("langsam – Spiele laden länger");
 }
 
+/* Text als ein Feld des Zeilenprotokolls ausgeben: Tab, Zeilenumbruch und andere Steuerzeichen (etwa aus der Ausgabe
+ * von FormatEx oder mkntfs) würden die Zeile sonst zerlegen - das Programm fände dann kein Ergebnis */
+static void field(const char *s) {
+    for (; *s; s++) fputc((unsigned char)*s < 0x20 || *s == 0x7f ? ' ' : *s, out);
+}
+
 /* step ist der deutsche Schrittname (oder schon übersetzt) - ausgegeben wird er in der gewählten Sprache */
 void on_progress(const char *step, int pct) {
     static char last_step[96];
@@ -83,12 +89,16 @@ void on_progress(const char *step, int pct) {
     if (pct == last_pct && !strcmp(step, last_step)) return;
     last_pct = pct;
     snprintf(last_step, sizeof(last_step), "%s", step);
-    fprintf(out, "P\t%d\t%s\n", pct, step);
+    fprintf(out, "P\t%d\t", pct);
+    field(step);
+    fputc('\n', out);
     fflush(out);
 }
 
 void finish(int ok, const char *msg, const char *json) {
-    fprintf(out, "R\t%d\t%s\t%s\n", ok, T(msg), json && *json ? json : "{}");
+    fprintf(out, "R\t%d\t", ok);
+    field(T(msg));
+    fprintf(out, "\t%s\n", json && *json ? json : "{}");   /* das JSON ist schon maskiert (json_str) */
     fflush(out);
 }
 

@@ -186,9 +186,14 @@ int exfat_fsck_run(int fd, uint64_t start, uint64_t size, uint32_t ss, int repai
     optreset = 1;
     optind = 1;
 #endif
-    if (setjmp(g_jmp) == 0) r->code = exfatprogs_fsck_main(3, argv);
-    else r->code = g_exit_code;
-    if (g_dup >= 0 && fcntl(g_dup, F_GETFD) != -1) close(g_dup);   /* bei exit() nicht geschlossen */
+    if (setjmp(g_jmp) == 0) {
+        r->code = exfatprogs_fsck_main(3, argv);   /* schließt den fd selbst (exfat_deinit_blk_dev_info) */
+    } else {
+        r->code = g_exit_code;
+        /* über exit() beendet: dann nicht geschlossen. Nie zusätzlich nach normalem Ende schließen - die Nummer kann
+         * inzwischen einem anderen Thread gehören (Verbindung, Spielesuche) */
+        if (g_dup >= 0 && fcntl(g_dup, F_GETFD) != -1) close(g_dup);
+    }
     g_dup = -1;
     g_fd = -1;
     g_log = NULL;

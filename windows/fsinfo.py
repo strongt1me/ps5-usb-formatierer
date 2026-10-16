@@ -1,6 +1,7 @@
 """Wissen über Dateisysteme, Zuordnungseinheiten und Partitionsschemata - ohne Oberfläche.
 Gilt für den Windows-Helfer (usbfmt_win) und später ebenso für Linux und macOS."""
 import re
+import sys
 
 from i18n import _, number, unit
 
@@ -82,8 +83,9 @@ def uses_gpt(size, scheme, ss):
 
 def usable_bytes(size, scheme, ss=512):
     """Platz für Partitionen: ab 1 MiB; GPT hinten mit Sicherungskopie, MBR höchstens bis zur MBR-Grenze"""
-    if uses_gpt(size, scheme, ss):
-        return max(0, size - MB - 64 * KB)
+    if uses_gpt(size, scheme, ss):   # wie layout_disk: hinten Sicherungskopie (Kopf + 16 KB Einträge)
+        ss = max(512, ss or 512)
+        return max(0, size - MB - (1 + 16384 // ss) * ss)
     return max(0, min(size, mbr_limit(ss)) - MB)
 
 
@@ -98,18 +100,21 @@ def cluster_choices(fs, part, ss):
     pow2 = [512 << i for i in range(17)]   # 512 Bytes bis 32 MB
     if fs == "exfat":
         std = 4 * KB if part <= 256 * MB else 32 * KB if part <= 32 * GB else 128 * KB
-        vals = [v for v in pow2 if ss <= v <= 32 * MB and 16 <= part // v <= 0xFFFFFFF5]
+        # mkfs_exfat verlangt mindestens 8 MB
+        vals = [v for v in pow2 if ss <= v <= 32 * MB and 16 <= part // v <= 0xFFFFFFF5] if part >= 8 * MB else []
     elif fs == "fat32":   # FAT32 braucht 65.525 bis 268.435.444 Cluster (mit etwas Abstand)
         std = 4 * KB if part <= 8 * GB else 8 * KB if part <= 16 * GB else 16 * KB if part <= 32 * GB else 32 * KB
-        vals = [v for v in pow2 if ss <= v <= 64 * KB and 66000 <= part // v <= 268000000]
+        # und höchstens 2^32 Sektoren (32-Bit-Feld im Bootsektor) - sonst lehnt der Helfer ab
+        vals = [v for v in pow2 if ss <= v <= 64 * KB and 66000 <= part // v <= 268000000]             if part // ss <= 0xFFFFFFFF else []
     elif fs == "ntfs":
         std = next((c for lim, c in ((16 * TB, 4 * KB), (32 * TB, 8 * KB), (64 * TB, 16 * KB), (128 * TB, 32 * KB))
                     if part <= lim), 64 * KB)
         vals = [v for v in pow2 if ss <= v <= 2 * MB and part // v <= 0xFFFFFFFE]
-    elif fs == "fat":   # FAT16: höchstens 65.524 Cluster, Standard wie Windows
+    elif fs == "fat":   # FAT16: 4.085 bis 65.524 Cluster; unter 16 MB wird es (wie bei Windows) FAT12 mit höchstens 4.084
         std = next((c for lim, c in ((32 * MB, 512), (64 * MB, KB), (128 * MB, 2 * KB), (256 * MB, 4 * KB),
                                      (512 * MB, 8 * KB), (GB, 16 * KB), (2 * GB, 32 * KB)) if part <= lim), 64 * KB)
-        vals = [v for v in pow2 if ss <= v <= 64 * KB and part // v <= FAT16_MAX_CLUSTERS]
+        lo, hi = (4085, FAT16_MAX_CLUSTERS) if part >= 16 * MB else (1, 4084)
+        vals = [v for v in pow2 if ss <= v <= 64 * KB and lo <= part // v <= hi]
     elif fs in ("ext2", "ext3", "ext4"):   # wie mke2fs: kleine Datenträger 1 KB, sonst 4 KB
         std = KB if part < 512 * MB else 4 * KB
         vals = [v for v in (KB, 2 * KB, 4 * KB) if v >= ss and part // v >= 64 and part // v <= 0xFFFFFFFF]
@@ -118,6 +123,8 @@ def cluster_choices(fs, part, ss):
         vals = [v for v in pow2 if ss <= v <= 64 * KB and 64 <= part // v <= 0xFFFFFFFF] if part >= 8 * MB else []
     else:   # ohne Dateisystem
         return [0], 0
+    if sys.platform == "win32" and fs in ("ntfs", "fat") and part < 8 * MB:
+        vals = []   # Windows: der Helfer legt dafür erst ein vorläufiges exFAT an (mindestens 8 MB)
     if vals and std not in vals:   # Standard passt nicht (sehr kleiner/großer Datenträger): nächstgültige Größe
         std = min(vals, key=lambda v: abs(v.bit_length() - std.bit_length()))
     return vals, std
@@ -131,6 +138,8 @@ def available_filesystems(dev, scheme, expert=False):
     names = FS_EXPERT if expert else list(FILESYSTEMS)
     if not dev:
         return names
+    if dev["size"] < 16 * MB:   # der Helfer formatiert erst ab 16 MB
+        return []
     part = partition_bytes(dev["size"], scheme, dev.get("ss", 512))
     return [n for n in names if fs_fits(n, part, dev.get("ss", 512))]
 
@@ -140,6 +149,8 @@ def plan(parts, size, scheme, ss=512):
     parts: Liste von dict mit "bytes" (0 = Rest). Liefert (größen, frei, fehler) - größen in Bytes je Partition."""
     usable_end = MB + usable_bytes(size, scheme, ss)
     at, sizes = MB, []
+    if size < 16 * MB:   # wie der Helfer
+        return [], 0, _("Der Datenträger ist zu klein (mindestens 16 MB).")
     if not parts:
         return [], usable_end - MB, _("Mindestens eine Partition anlegen.")
     if not uses_gpt(size, scheme, ss) and len(parts) > 4:

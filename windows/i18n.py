@@ -69,7 +69,7 @@ def unit(name):
 
 def quote(text):
     """Anführungszeichen der Sprache"""
-    return {"de": f"„{text}“", "en": f"“{text}”", "fr": f"« {text} »"}.get(_lang, f"«{text}»")
+    return {"de": f"„{text}“", "en": f"“{text}”", "fr": f"« {text} »"}.get(_lang, f"«{text}»")
 
 
 def number(text):

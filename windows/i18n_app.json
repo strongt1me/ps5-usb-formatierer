@@ -1534,5 +1534,11 @@
   "it": "Partizione {n}: l'unità di allocazione {size} non è adatta a questa dimensione – cambiala.",
   "es": "Partición {n}: la unidad de asignación {size} no encaja con este tamaño – cámbiala.",
   "fr": "Partition {n} : l'unité d'allocation {size} ne convient pas à cette taille – modifiez-la."
+ },
+ "Der Datenträger ist zu klein (mindestens 16 MB).": {
+  "en": "The drive is too small (at least 16 MB).",
+  "it": "L'unità è troppo piccola (almeno 16 MB).",
+  "es": "La unidad es demasiado pequeña (mínimo 16 MB).",
+  "fr": "Le lecteur est trop petit (au moins 16 Mo)."
  }
 }

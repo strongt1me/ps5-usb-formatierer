@@ -13,6 +13,23 @@
 
 #define SMP_MAX (8 * 1024 * 1024)
 
+/* Liegt die ganze Antwort schon vor? Nur mit Content-Length erkennbar - sonst gilt das Ende der Verbindung */
+static int complete(const char *buf, size_t n) {
+    const char *end = NULL;
+    for (size_t i = 0; i + 4 <= n && !end; i++)
+        if (!memcmp(buf + i, "\r\n\r\n", 4)) end = buf + i + 4;
+    if (!end) return 0;
+    static const char key[] = "content-length:";
+    for (const char *p = buf; p + sizeof(key) - 1 < end; p++) {
+        size_t k = 0;
+        while (k < sizeof(key) - 1 && (p[k] | 0x20) == key[k]) k++;   /* ohne Groß-/Kleinschreibung */
+        if (k < sizeof(key) - 1 || (p != buf && p[-1] != '\n')) continue;
+        unsigned long long want = strtoull(p + k, NULL, 10);
+        return (size_t)(end - buf) + want <= n;
+    }
+    return 0;
+}
+
 char *smp_http_post(int port, const char *path, const char *body, int *http, size_t *len) {
     char head[256];
     size_t blen = strlen(body);
@@ -53,6 +70,7 @@ char *smp_http_post(int port, const char *path, const char *body, int *http, siz
         if (k < 0) { free(buf); close(s); return NULL; }
         if (k == 0) break;   /* Ende (Connection: close) */
         n += (size_t)k;
+        if (complete(buf, n)) break;   /* Antwort vollständig, auch wenn die Verbindung offen bliebe */
     }
     close(s);
     if (!buf) return NULL;

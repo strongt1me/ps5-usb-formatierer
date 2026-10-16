@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "wincompat.h"
+#include "../i18n.h"
 
 #undef strerror
 
@@ -102,7 +103,7 @@ const char *usbfmt_strerror(int e) {
             WideCharToMultiByte(CP_UTF8, 0, w, -1, buf, sizeof(buf) - 40, NULL, NULL);
             size_t n = strlen(buf);
             while (n && strchr("\r\n. ", buf[n - 1])) buf[--n] = 0;
-            snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), " (Windows-Fehler %lu)", (unsigned long)code);
+            snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), T(" (Windows-Fehler %lu)"), (unsigned long)code);
             return buf;
         }
     }
