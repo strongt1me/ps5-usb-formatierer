@@ -165,6 +165,36 @@ wait_job
 [ -z "$(ls "$W/data/usbfmt-backup" 2>/dev/null | grep -v kaputt | grep -v link)" ] && ok "abgebrochen: keine Dateien übrig" \
     || bad "Reste: $(ls "$W/data/usbfmt-backup")"
 
+# ---------------------------------------------------------------- Sperre bei laufendem Spiel
+# ShadowMountPlus spiegelt eingebundene Laufwerke in die Sandbox laufender Titel: dann nie abmelden
+mkdir -p "$W/sandbox/PPSA01325_000"
+start "$W/a.img:$W/b.img:$W/c.img" "1,1,0" USBFMT_SANDBOX="$W/sandbox"
+code=$(post "{\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"dest\":\"$W/data/usbfmt-backup\"}" backup)
+[ "$code" = 409 ] && grep -q "PPSA01325" "$W/body" && ok "Spiel läuft: Sichern eines eingebundenen Laufwerks abgelehnt" \
+    || bad "Sperre Sichern ($code)" "$(cat "$W/body")"
+for req in "label:{\"label\":\"X\"}" "check:{\"repair\":false}" "format:{\"fs\":\"exfat\",\"label\":\"X\"}"; do
+    api=${req%%:*} extra=${req#*:}
+    code=$(post "$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); d.update(device='da0', size=$SA, ident='a.img', replug=True); print(json.dumps(d))" "$extra")" "$api")
+    [ "$code" = 409 ] && grep -q "Spiel" "$W/body" && ok "Spiel läuft: $api abgelehnt" || bad "Sperre $api ($code)" "$(cat "$W/body")"
+done
+code=$(curl -s -o "$W/body" -w '%{http_code}' -H "Content-Type: application/octet-stream" --data-binary "@$W/dl.img.zst" \
+    "$U/api/restore/upload?device=da1&size=$SB&ident=b.img&replug=1")
+[ "$code" = 409 ] && ok "Spiel läuft: Hochladen auf eingebundenes Laufwerk abgelehnt" || bad "Sperre Hochladen ($code)"
+code=$(post "{\"device\":\"da2\",\"size\":$SC,\"ident\":\"c.img\",\"dest\":\"$W/data/usbfmt-backup\"}" backup)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = True ] && ok "nicht eingebundenes Laufwerk: trotz Spiel erlaubt" \
+    || bad "nicht eingebunden ($code)" "$(cat "$W/body" "$W/st")"
+rm -rf "$W/sandbox/PPSA01325_000"
+mkdir -p "$W/sandbox/PPSA86920_000"   # die Kachel des Formatierers selbst zählt nicht
+code=$(post "{\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"dest\":\"download\"}" backup)
+[ "$code" = 200 ] && ok "eigene Kachel läuft: kein Hindernis" || bad "eigene Kachel ($code)" "$(cat "$W/body")"
+TOK=$(q 'd["token"]' <"$W/body")
+mkdir -p "$W/sandbox/CUSA00419_000"   # Spiel startet zwischen Anfrage und Abmelden
+code=$(curl -s -o "$W/body" -w '%{http_code}' "$U/api/backup/download?token=$TOK")
+wait_job
+[ "$code" = 409 ] && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q "CUSA00419" "$W/st" \
+    && ok "Spiel nach der Anfrage gestartet: vor dem Abmelden erkannt, nichts abgemeldet" || bad "Prüfung vor dem Abmelden ($code)" "$(cat "$W/st")"
+grep -q "Stick jetzt abziehen" "$W/st" && bad "trotzdem abgemeldet" || true
+
 echo
 [ $fails -eq 0 ] && echo "Alle Image-Sicherungs-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."
 exit $((fails > 0))

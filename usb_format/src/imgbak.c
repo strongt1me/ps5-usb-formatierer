@@ -2,9 +2,16 @@
  * Image-Sicherung und -Wiederherstellung (.img.zst), siehe imgbak.h.
  *
  * Aufbau der Datei:
- *   [überspringbarer Rahmen 0x184D2A5A] "USBFMT-IMAGE 1\n" {JSON mit Angaben}\n <Belegungskarte: 1 Bit je 64-KiB-Block>
- *   [zstd-Rahmen] das ganze Image (Inhaltsgröße im Rahmenkopf, XXH64-Prüfsumme)
+ *   [überspringbarer Rahmen 0x184D2A5A] "USBFMT-IMAGE 2\n" {JSON mit Angaben}\n <Belegungskarte: 1 Bit je 64-KiB-Block>
+ *   das Image der Reihe nach in Abschnitten, je einer von:
+ *     [zstd-Rahmen] Daten (Inhaltsgröße im Rahmenkopf, XXH64-Prüfsumme) - belegte Blöcke und kurze Lücken
+ *     [überspringbarer Rahmen 0x184D2A5C] "USBFMT-ZERO\0" <Länge u64> <Rahmengröße u64>, danach
+ *     [zstd-Rahmen] aus lauter RLE-Blöcken "128 KiB Nullen" (4 Byte je Block) - freie Strecke ab 32 MiB
  *   [überspringbarer Rahmen 0x184D2A5B] "USBFMT-SHA256 <hex>\n" - SHA-256 der belegten Blöcke (laut Karte, der Reihe nach)
+ *
+ * Lange freie Strecken laufen so nicht als Nullen durch den Packer (bei 2 TB fast leer sonst eine Viertelstunde), und das
+ * Wiederherstellen überspringt sie anhand des Hinweises, ohne Nullen zu erzeugen. zstd entpackt die Rahmen einfach
+ * nacheinander; Fassung 1 (2.5.0: ein einziger Datenrahmen) wird weiter gelesen.
  *
  * Die Prüfsumme deckt nur die belegten Blöcke ab: über das ganze Image (bei 1 TB fast nur Nullen) dauerte sie Stunden.
  * Den ganzen Inhalt sichert die XXH64-Prüfsumme des zstd-Rahmens, die zstd beim Entpacken selbst kontrolliert.
@@ -25,14 +32,20 @@
 #define PAGE       (1024u * 1024u)    /* Arbeitsstück: 16 Blöcke */
 #define MAGIC_HEAD 0x184D2A5Au
 #define MAGIC_TAIL 0x184D2A5Bu
+#define MAGIC_ZERO 0x184D2A5Cu
+#define ZERO_MIN   (32ull * 1024 * 1024)   /* freie Strecken ab dieser Länge als Null-Rahmen */
+#define RLE_MAX    (128u * 1024u)           /* größter zstd-Block */
 #define HEAD_MAX   (64u * 1024u * 1024u)   /* Kopf höchstens 64 MiB (Karte für 32 TiB) */
-static const char HEAD_TAG[] = "USBFMT-IMAGE 1\n";
+static const char HEAD_TAG[] = "USBFMT-IMAGE 2\n";
+static const char HEAD_TAG1[] = "USBFMT-IMAGE 1\n";   /* 2.5.0: alles in einem Datenrahmen */
+static const char ZERO_TAG[] = "USBFMT-ZERO";            /* mit Nullbyte: 12 Bytes */
 static const char TAIL_TAG[] = "USBFMT-SHA256 ";
 
 static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 static uint32_t le32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
 static uint64_t le64(const uint8_t *p) { return le32(p) | (uint64_t)le32(p + 4) << 32; }
 static void put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
+static void put64(uint8_t *p, uint64_t v) { put32(p, (uint32_t)v); put32(p + 4, (uint32_t)(v >> 32)); }
 
 static void *aligned(size_t n) {
     void *p = NULL;
@@ -327,6 +340,56 @@ static int emit_skippable(emit_t *e, uint32_t magic, const void *payload, size_t
     return emit(e, h, 8) || emit(e, payload, n);
 }
 
+/* Bytes freier Blöcke ab pos (pos auf Blockgrenze) */
+static uint64_t free_len(const map_t *m, uint64_t pos, uint64_t size) {
+    uint64_t b = pos / IB_BLOCK;
+    while (b < m->n && !map_used(m, b)) b++;
+    uint64_t e = b * IB_BLOCK;
+    return (e > size ? size : e) - pos;
+}
+
+/* Ende eines Datenabschnitts ab pos: Beginn der nächsten freien Strecke ab ZERO_MIN, sonst das Ende */
+static uint64_t data_end(const map_t *m, uint64_t pos, uint64_t size) {
+    uint64_t run = 0;
+    for (uint64_t b = pos / IB_BLOCK; b < m->n; b++) {
+        if (map_used(m, b)) run = 0;
+        else if (++run * IB_BLOCK >= ZERO_MIN) return (b + 1 - run) * IB_BLOCK;
+    }
+    return size;
+}
+
+static uint64_t zero_frame_bytes(uint64_t len) { return 14 + (len + RLE_MAX - 1) / RLE_MAX * 4; }
+
+/* Hinweis + zstd-Rahmen aus RLE-Blöcken für len Null-Bytes */
+static int emit_zero(emit_t *e, uint64_t len, volatile int *cancel, int *cancelled) {
+    uint8_t note[28], buf[4096];
+    memcpy(note, ZERO_TAG, 12);
+    put64(note + 12, len);
+    put64(note + 20, zero_frame_bytes(len));
+    if (emit_skippable(e, MAGIC_ZERO, note, sizeof(note))) return -1;
+    put32(buf, ZSTD_MAGICNUMBER);
+    buf[4] = 0xC0;   /* Inhaltsgröße 8 Bytes, kein Einzelsegment, ohne Prüfsumme */
+    buf[5] = 0x38;   /* Fenster 128 KiB = größter Block */
+    put64(buf + 6, len);
+    size_t k = 14;
+    for (uint64_t left = len, n = 0; left; n++) {
+        if (!(n & 0xFFFF) && __atomic_load_n(cancel, __ATOMIC_RELAXED)) { *cancelled = 1; return 0; }
+        uint32_t b = left < RLE_MAX ? (uint32_t)left : RLE_MAX;
+        left -= b;
+        uint32_t h = (left ? 0 : 1) | 1u << 1 | b << 3;   /* letzter Block, Typ RLE, Länge */
+        buf[k] = (uint8_t)h;
+        buf[k + 1] = (uint8_t)(h >> 8);
+        buf[k + 2] = (uint8_t)(h >> 16);
+        buf[k + 3] = 0;
+        k += 4;
+        if (k + 4 > sizeof(buf) || !left) {
+            if (emit(e, buf, k)) return -1;
+            k = 0;
+        }
+    }
+    return 0;
+}
+
 int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out, void *octx,
               ib_progress_fn progress, volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
@@ -377,47 +440,61 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
     if (!cc || !page || !obuf) { snprintf(err, errlen, "%s", T("Kein Speicher")); goto out; }
     ZSTD_CCtx_setParameter(cc, ZSTD_c_compressionLevel, 3);
     ZSTD_CCtx_setParameter(cc, ZSTD_c_checksumFlag, 1);
-    ZSTD_CCtx_setPledgedSrcSize(cc, size);
 
-    for (uint64_t pos = 0; pos < size; pos += PAGE) {
+    for (uint64_t seg = 0; seg < size; ) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
-        const size_t len = size - pos < PAGE ? (size_t)(size - pos) : PAGE;
-        /* belegte Blöcke am Stück lesen, freie als Nullen */
-        for (size_t o = 0; o < len; ) {
-            uint64_t b = (pos + o) / IB_BLOCK;
-            size_t run = 0;
-            int used = map_used(&m, b);
-            while (o + run < len && map_used(&m, (pos + o + run) / IB_BLOCK) == used)
-                run += (size_t)block_len((pos + o + run) / IB_BLOCK, size);
-            if (used) {
-                if (rd_all(fd, page + o, run, pos + o)) {
-                    snprintf(err, errlen, T("Lesefehler bei %llu MB: %s"), (unsigned long long)((pos + o) >> 20),
-                             strerror(errno));
-                    goto out;
-                }
-                sha256_update(&su, page + o, run);
-                r->used += run;
-            } else {
-                memset(page + o, 0, run);
-            }
-            o += run;
+        const uint64_t zl = free_len(&m, seg, size);
+        if (zl >= ZERO_MIN) {   /* lange freie Strecke: nicht packen, nur beschreiben */
+            if (emit_zero(&e, zl, cancel, &r->cancelled)) goto werr;
+            if (r->cancelled) { rc = 0; goto out; }
+            seg += zl;
+            progress(T("Sichern"), (int)(seg * 100 / size));
+            continue;
         }
-        ZSTD_inBuffer in = {page, len, 0};
-        while (in.pos < in.size) {
+        const uint64_t end = data_end(&m, seg, size);
+        ZSTD_CCtx_reset(cc, ZSTD_reset_session_only);
+        ZSTD_CCtx_setPledgedSrcSize(cc, end - seg);
+        for (uint64_t pos = seg; pos < end; pos += PAGE) {
+            if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
+            const size_t len = end - pos < PAGE ? (size_t)(end - pos) : PAGE;
+            /* belegte Blöcke am Stück lesen, freie als Nullen */
+            for (size_t o = 0; o < len; ) {
+                uint64_t b = (pos + o) / IB_BLOCK;
+                size_t run = 0;
+                int used = map_used(&m, b);
+                while (o + run < len && map_used(&m, (pos + o + run) / IB_BLOCK) == used)
+                    run += (size_t)block_len((pos + o + run) / IB_BLOCK, size);
+                if (used) {
+                    if (rd_all(fd, page + o, run, pos + o)) {
+                        snprintf(err, errlen, T("Lesefehler bei %llu MB: %s"), (unsigned long long)((pos + o) >> 20),
+                                 strerror(errno));
+                        goto out;
+                    }
+                    sha256_update(&su, page + o, run);
+                    r->used += run;
+                } else {
+                    memset(page + o, 0, run);
+                }
+                o += run;
+            }
+            ZSTD_inBuffer in = {page, len, 0};
+            while (in.pos < in.size) {
+                ZSTD_outBuffer ob = {obuf, olen, 0};
+                size_t z = ZSTD_compressStream2(cc, &ob, &in, ZSTD_e_continue);
+                if (ZSTD_isError(z)) { snprintf(err, errlen, "zstd: %s", ZSTD_getErrorName(z)); goto out; }
+                if (emit(&e, obuf, ob.pos)) goto werr;
+            }
+            progress(T("Sichern"), (int)((pos + len) * 100 / size));
+        }
+        for (;;) {
+            ZSTD_inBuffer in = {NULL, 0, 0};
             ZSTD_outBuffer ob = {obuf, olen, 0};
-            size_t z = ZSTD_compressStream2(cc, &ob, &in, ZSTD_e_continue);
+            size_t z = ZSTD_compressStream2(cc, &ob, &in, ZSTD_e_end);
             if (ZSTD_isError(z)) { snprintf(err, errlen, "zstd: %s", ZSTD_getErrorName(z)); goto out; }
             if (emit(&e, obuf, ob.pos)) goto werr;
+            if (!z) break;
         }
-        progress(T("Sichern"), (int)((pos + len) * 100 / size));
-    }
-    for (;;) {
-        ZSTD_inBuffer in = {NULL, 0, 0};
-        ZSTD_outBuffer ob = {obuf, olen, 0};
-        size_t z = ZSTD_compressStream2(cc, &ob, &in, ZSTD_e_end);
-        if (ZSTD_isError(z)) { snprintf(err, errlen, "zstd: %s", ZSTD_getErrorName(z)); goto out; }
-        if (emit(&e, obuf, ob.pos)) goto werr;
-        if (!z) break;
+        seg = end;
     }
     uint8_t d[32];
     sha256_final(&su, d);
@@ -502,7 +579,7 @@ ib_reader_t *ib_open(ib_in_fn in, void *ctx, ib_info_t *info, char *err, size_t 
         if (hl < strlen(HEAD_TAG) + 2 || hl > HEAD_MAX || !(head = malloc(hl + 1))) goto bad;
         if (rd_exact(r, head, hl)) goto bad;
         head[hl] = 0;
-        if (memcmp(head, HEAD_TAG, strlen(HEAD_TAG))) goto bad;
+        if (memcmp(head, HEAD_TAG, strlen(HEAD_TAG)) && memcmp(head, HEAD_TAG1, strlen(HEAD_TAG1))) goto bad;
         char *js = (char *)head + strlen(HEAD_TAG), *nl = memchr(js, '\n', hl - strlen(HEAD_TAG));
         if (!nl) goto bad;
         *nl = 0;
@@ -526,6 +603,10 @@ ib_reader_t *ib_open(ib_in_fn in, void *ctx, ib_info_t *info, char *err, size_t 
     }
     /* der zstd-Rahmen: Inhaltsgröße aus dem Rahmenkopf (auch für mit "zstd" selbst gepackte Images) */
     long av = rd_peek(r, 18);
+    if (r->info.has_map && av >= 4 && le32(r->buf + r->pos) == MAGIC_ZERO) {   /* beginnt mit einer freien Strecke */
+        *info = r->info;
+        return r;
+    }
     if (av < 4 || le32(r->buf + r->pos) != ZSTD_MAGICNUMBER) goto bad;
     unsigned long long cs = ZSTD_getFrameContentSize(r->buf + r->pos, (size_t)av);
     if (cs == ZSTD_CONTENTSIZE_UNKNOWN || cs == ZSTD_CONTENTSIZE_ERROR || !cs) {
@@ -533,8 +614,7 @@ ib_reader_t *ib_open(ib_in_fn in, void *ctx, ib_info_t *info, char *err, size_t 
         ib_close(r);
         return NULL;
     }
-    if (r->info.has_map && cs != r->info.size) goto bad;
-    r->info.size = cs;
+    if (!r->info.has_map) r->info.size = cs;   /* eigene Images: Größe aus dem Kopf, verteilt auf mehrere Rahmen */
     if (!r->info.has_map) r->info.used = cs;
     *info = r->info;
     return r;
@@ -575,6 +655,41 @@ static int write_page(ib_reader_t *rd, int fd, const uint8_t *page, uint64_t pos
     return 0;
 }
 
+/* Hinweis auf eine freie Strecke und den Null-Rahmen dahinter lesen, prüfen und überspringen (die Blöcke sind laut
+ * Karte frei und werden ohnehin nicht geschrieben). 0 = weiter, 1 = abgebrochen, -1 = Fehler. */
+static int skip_zero(ib_reader_t *rd, uint64_t *pos, uint64_t size, volatile int *cancel, ib_progress_fn progress,
+                     char *err, size_t errlen) {
+    uint8_t note[36], h[14], blk[4];
+    if (rd_exact(rd, note, sizeof(note))) goto eof;
+    if (le32(note + 4) != 28 || memcmp(note + 8, ZERO_TAG, 12)) goto bad;
+    const uint64_t len = le64(note + 20);
+    if (!len || len > size - *pos || le64(note + 28) != zero_frame_bytes(len) || *pos % IB_BLOCK) goto bad;
+    for (uint64_t b = *pos / IB_BLOCK; b < (*pos + len + IB_BLOCK - 1) / IB_BLOCK; b++)
+        if (map_used(&rd->map, b)) goto bad;
+    if (rd_exact(rd, h, sizeof(h))) goto eof;
+    if (le32(h) != ZSTD_MAGICNUMBER || h[4] != 0xC0 || h[5] != 0x38 || le64(h + 6) != len) goto bad;
+    for (uint64_t left = len, n = 0; left; n++) {
+        if (!(n & 0xFFFF)) {
+            if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) return 1;
+            progress(T("Wiederherstellen"), (int)((*pos + len - left) * 100 / size));
+        }
+        if (rd_exact(rd, blk, 4)) goto eof;
+        const uint32_t hv = (uint32_t)blk[0] | (uint32_t)blk[1] << 8 | (uint32_t)blk[2] << 16;
+        const uint32_t b = hv >> 3, want = left < RLE_MAX ? (uint32_t)left : RLE_MAX;
+        left -= want;
+        if ((hv >> 1 & 3) != 1 || blk[3] || b != want || (hv & 1) != !left) goto bad;
+    }
+    *pos += len;
+    progress(T("Wiederherstellen"), (int)(*pos * 100 / size));
+    return 0;
+eof:   /* Ende der Datei bzw. Lesefehler (Hochladen abgebrochen) */
+    snprintf(err, errlen, "%s", T("Die Image-Datei ist unvollständig."));
+    return -1;
+bad:
+    snprintf(err, errlen, "%s", T("Die Image-Datei ist beschädigt."));
+    return -1;
+}
+
 int ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, ib_progress_fn progress,
                volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
@@ -594,30 +709,41 @@ int ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, 
     sha256_init(&sw);
     uint64_t pos = 0;
     size_t fill = 0;
-    int done = 0;
-    while (!done) {
-        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
-        if (rd->pos == rd->len) {
-            long g = rd_peek(rd, 1);
-            if (g < 0) { snprintf(err, errlen, "%s", T("Lesen der Sicherung fehlgeschlagen")); goto out; }
-            if (g == 0) { snprintf(err, errlen, "%s", T("Die Image-Datei ist unvollständig.")); goto out; }
+    /* Rahmen für Rahmen; fremde Images haben genau einen */
+    for (int frame = 0; pos < size && (rd->info.has_map || !frame); frame++) {
+        long av = rd_peek(rd, 8);
+        if (av < 0) { snprintf(err, errlen, "%s", T("Lesen der Sicherung fehlgeschlagen")); goto out; }
+        if (rd->info.has_map && av >= 8 && le32(rd->buf + rd->pos) == MAGIC_ZERO) {
+            int zr = skip_zero(rd, &pos, size, cancel, progress, err, errlen);
+            if (zr < 0) goto out;
+            if (zr > 0) { r->cancelled = 1; rc = 0; goto out; }
+            continue;
         }
-        ZSTD_inBuffer in = {rd->buf + rd->pos, rd->len - rd->pos, 0};
-        ZSTD_outBuffer ob = {page + fill, PAGE - fill, 0};
-        size_t z = ZSTD_decompressStream(dc, &ob, &in);
-        rd->pos += in.pos;
-        if (ZSTD_isError(z)) {
-            snprintf(err, errlen, T("Die Image-Datei ist beschädigt (zstd: %s)."), ZSTD_getErrorName(z));
-            goto out;
-        }
-        fill += ob.pos;
-        done = z == 0;
-        if (fill == PAGE || (done && fill)) {
-            if (pos + fill > size) { snprintf(err, errlen, "%s", T("Die Image-Datei ist beschädigt.")); goto out; }
-            if (write_page(rd, fd, page, pos, fill, &sw, &r->used, err, errlen)) goto out;
-            pos += fill;
-            fill = 0;
-            progress(T("Wiederherstellen"), (int)(pos * 100 / size));
+        int done = 0;
+        while (!done) {
+            if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
+            if (rd->pos == rd->len) {
+                long g = rd_peek(rd, 1);
+                if (g < 0) { snprintf(err, errlen, "%s", T("Lesen der Sicherung fehlgeschlagen")); goto out; }
+                if (g == 0) { snprintf(err, errlen, "%s", T("Die Image-Datei ist unvollständig.")); goto out; }
+            }
+            ZSTD_inBuffer in = {rd->buf + rd->pos, rd->len - rd->pos, 0};
+            ZSTD_outBuffer ob = {page + fill, PAGE - fill, 0};
+            size_t z = ZSTD_decompressStream(dc, &ob, &in);
+            rd->pos += in.pos;
+            if (ZSTD_isError(z)) {
+                snprintf(err, errlen, T("Die Image-Datei ist beschädigt (zstd: %s)."), ZSTD_getErrorName(z));
+                goto out;
+            }
+            fill += ob.pos;
+            done = z == 0;
+            if (fill == PAGE || (done && fill)) {
+                if (pos + fill > size) { snprintf(err, errlen, "%s", T("Die Image-Datei ist beschädigt.")); goto out; }
+                if (write_page(rd, fd, page, pos, fill, &sw, &r->used, err, errlen)) goto out;
+                pos += fill;
+                fill = 0;
+                progress(T("Wiederherstellen"), (int)(pos * 100 / size));
+            }
         }
     }
     if (pos != size) { snprintf(err, errlen, "%s", T("Die Image-Datei ist unvollständig.")); goto out; }

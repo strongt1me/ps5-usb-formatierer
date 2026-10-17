@@ -75,6 +75,8 @@ void plat_throttle(void) {}
 
 const char *plat_data_dir(void) { return DATA_DIR; }
 
+const char *plat_sandbox_dir(void) { return "/mnt/sandbox"; }
+
 /* Symbol aus einer Sony-Bibliothek suchen statt fest binden: Fehlt eines unter dem erwarteten Namen, bricht der
  * Lader sonst schon vor main() ab und der Payload stirbt ohne Meldung. Die Bibliothek bleibt gelinkt (geladen),
  * gesucht wird zur Laufzeit auf vier Wegen (wie im PS5 Temperatur Studio, dynsym.c). */

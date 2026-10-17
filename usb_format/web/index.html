@@ -1640,8 +1640,8 @@ async function readImageHead(f) {
     return { size, own: false };
   }
   if (magic !== 0x184D2A5A) return null;
-  const text = new TextDecoder().decode(new Uint8Array(v.buffer, 8)), tag = "USBFMT-IMAGE 1\n";
-  if (!text.startsWith(tag)) return null;
+  const text = new TextDecoder().decode(new Uint8Array(v.buffer, 8)), tag = text.slice(0, 15);
+  if (tag !== "USBFMT-IMAGE 2\n" && tag !== "USBFMT-IMAGE 1\n") return null;   /* 1: Fassung aus 2.5.0 */
   try {
     const j = JSON.parse(text.slice(tag.length, text.indexOf("\n", tag.length)));
     return { size: j.size, used: j.used, model: j.model || "", label: j.label || "", created: j.created || "", own: true };

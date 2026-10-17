@@ -246,8 +246,8 @@ def image_info(path):
             return None
         f.seek(8)
         data = f.read(min(n, 8192))
-        tag = b"USBFMT-IMAGE 1\n"
-        if not data.startswith(tag):
+        tag = data[:15]   # "USBFMT-IMAGE 2\n" (2.5.0: Fassung 1)
+        if tag not in (b"USBFMT-IMAGE 1\n", b"USBFMT-IMAGE 2\n"):
             return None
         try:
             info = json.loads(data[len(tag):].split(b"\n", 1)[0].decode("utf-8", "replace"))

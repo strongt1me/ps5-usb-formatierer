@@ -2104,5 +2104,11 @@
   "it": "L'immagine è composta da più frame zstd ed è stata scritta solo in parte – decomprimila con «zstd -d» e ricomprimila con «zstd».",
   "es": "La imagen consta de varios bloques zstd y solo se escribió en parte – descomprímela con «zstd -d» y vuelve a comprimirla con «zstd».",
   "fr": "L'image se compose de plusieurs trames zstd et n'a été écrite qu'en partie – décompressez-la avec « zstd -d » et recompressez-la avec « zstd »."
+ },
+ "Es läuft gerade ein Spiel oder eine App (%s) – bitte zuerst beenden. Die PS5 nutzt eingebundene Laufwerke darin mit; sie jetzt abzumelden kann das Spiel und die PS5 durcheinanderbringen.": {
+  "en": "A game or app is running (%s) – please close it first. The PS5 shares mounted drives with it; disconnecting them now can confuse the game and the PS5.",
+  "it": "È in esecuzione un gioco o un'app (%s) – chiudilo prima. La PS5 condivide con esso le unità montate; scollegarle ora può mandare in confusione il gioco e la PS5.",
+  "es": "Hay un juego o una app en ejecución (%s) – ciérralo primero. La PS5 comparte con él las unidades montadas; desconectarlas ahora puede confundir al juego y a la PS5.",
+  "fr": "Un jeu ou une app est en cours d'exécution (%s) – fermez-le d'abord. La PS5 partage avec lui les lecteurs montés ; les déconnecter maintenant peut perturber le jeu et la PS5."
  }
 }

@@ -298,16 +298,65 @@ static const char *dev_title(const usbdev_t *d, char *buf, size_t n) {
     return buf;
 }
 
+/* Läuft ein Spiel oder eine App (PPSA/CUSA-Sandbox, außer der Kachel des Formatierers)? ShadowMountPlus spiegelt
+ * eingebundene USB-Laufwerke in deren Sandbox - ein Laufwerk dann abzumelden brachte den AutoMounter durcheinander,
+ * das Spiel ließ sich danach nicht mehr beenden (Systemfehler, 2026-10-17). Liefert 1 und die Titel-ID. */
+static int game_running(char *id, size_t n) {
+    const char *dir = plat_sandbox_dir();
+    DIR *d = dir ? opendir(dir) : NULL;
+    struct dirent *e;
+    int found = 0;
+    while (d && !found && (e = readdir(d))) {
+        if ((!strncmp(e->d_name, "PPSA", 4) || !strncmp(e->d_name, "CUSA", 4)) && strncmp(e->d_name, "PPSA86920", 9)) {
+            snprintf(id, n, "%.9s", e->d_name);
+            found = 1;
+        }
+    }
+    if (d) closedir(d);
+    return found;
+}
+
+static void game_error(const char *id, char *err, size_t n) {
+    snprintf(err, n, T("Es läuft gerade ein Spiel oder eine App (%s) – bitte zuerst beenden. Die PS5 nutzt eingebundene "
+                       "Laufwerke darin mit; sie jetzt abzumelden kann das Spiel und die PS5 durcheinanderbringen."), id);
+}
+
+/* Nach einem Neu-Anmelden den Stick frühestens HOLD_MS später wieder freigeben: Gab der Formatierer ihn binnen etwa
+ * einer Sekunde zurück (exFAT prüfen, Abbrechen), war der AutoMounter der PS5 noch mit dem Neu-Anmelden beschäftigt und
+ * brachte die Einbindung durcheinander ("deviceId ... is not reserved", 2026-10-17 zweimal, nur bei so kurzen Aufträgen) */
+#define HOLD_MS 5000
+static struct timespec acq_at;   /* Zeitpunkt der Übernahme (ein Auftrag zur Zeit) */
+static int acq_replug;
+
+static void job_release(int fd) {
+    if (acq_replug) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        long ms = (long)(now.tv_sec - acq_at.tv_sec) * 1000 + (now.tv_nsec - acq_at.tv_nsec) / 1000000;
+        if (ms >= 0 && ms < HOLD_MS) usleep((useconds_t)(HOLD_MS - ms) * 1000);
+        acq_replug = 0;
+    }
+    close(fd);
+}
+
 /* Datenträger zum Schreiben übernehmen: eingebunden per Software-Abziehen (bzw. Abziehen von Hand), sonst
  * direkt exklusiv. Liefert den fd oder -1 mit Fehlertext. */
 static int job_acquire(job_t *j, char *err, size_t n) {
     on_progress("Laufwerk öffnen", 0);
+    acq_replug = 0;
     if (!j->replug) return plat_open_rw(&j->dev, err, n);
+    char gid[16];
+    if (game_running(gid, sizeof(gid))) {   /* seit der Anfrage gestartet? Unmittelbar vor dem Abmelden noch einmal */
+        game_error(gid, err, n);
+        return -1;
+    }
     usbdev_t fresh;
     set_flags(1, 1);   /* Warten aufs Umstecken: abbrechbar */
     int fd = plat_wait_replug(&j->dev, &fresh, on_progress, &cancel_requested, err, n);
     set_flags(0, 0);
     if (fd >= 0) {
+        clock_gettime(CLOCK_MONOTONIC, &acq_at);
+        acq_replug = 1;
         if (!fresh.model[0]) snprintf(fresh.model, sizeof(fresh.model), "%s", j->dev.model);
         snprintf(fresh.label, sizeof(fresh.label), "%s", j->dev.label);
         snprintf(fresh.format, sizeof(fresh.format), "%s", j->dev.format);
@@ -318,7 +367,7 @@ static int job_acquire(job_t *j, char *err, size_t n) {
     }
     /* "Abbrechen" kam, während der Stick übernommen wurde: freigeben, bevor irgendetwas geschrieben ist */
     if (fd >= 0 && __atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
-        close(fd);
+        job_release(fd);
         snprintf(err, n, "%s", T("Abgebrochen – der Datenträger wurde nicht verändert."));
         return -1;
     }
@@ -373,7 +422,7 @@ static void *format_worker(void *arg) {
                          : dt_verify(fd, j->dev.ss, size, on_progress, &cancel_requested, &t, err, sizeof(err));
         set_flags(0, 0);
         if (rc == 0 && t.cancelled && !dt_wrote()) {
-            close(fd);
+            job_release(fd);
             sb_tr(&msg, "Abgebrochen – der Datenträger wurde nicht verändert.");
             job_done(j, 0, &msg, &res, 0);
             return NULL;
@@ -390,7 +439,7 @@ static void *format_worker(void *arg) {
             /* altes Dateisystem mit teils überschriebenen Dateien nicht stehen lassen: die PS5 bände es sonst mit
              * kaputtem Inhalt wieder ein */
             if (dt_wrote()) dt_scrub(fd, j->dev.size);
-            close(fd);
+            job_release(fd);
             sb_add(&res, "{\"test\":\"%s\",\"fake\":%s,\"bad\":%s,\"reported\":%llu,\"real\":%llu,\"bad_at\":%llu",
                    tested == 2 ? "full" : "quick", t.fake ? "true" : "false", t.bad ? "true" : "false",
                    (unsigned long long)j->dev.size, (unsigned long long)t.real_bytes, (unsigned long long)t.bad_at);
@@ -428,14 +477,14 @@ static void *format_worker(void *arg) {
     int rc;
     if (native) {
         rc = format_disk(&d, j->fs, j->label, arc4random(), j->cluster, &o);
-        close(fd);
+        job_release(fd);
         if (rc == 0) snprintf(summary, sizeof(summary), "%s", mkfs_summary());
         else snprintf(err, sizeof(err), "%s", mkfs_error());
     } else {
         /* NTFS/ext4: Partition selbst anlegen, Dateisystem schreibt das Originalwerkzeug */
         uint64_t start, count;
         rc = prepare_partition(&d, j->fs, j->label, arc4random(), &o, &start, &count);
-        close(fd);
+        job_release(fd);
         if (rc != 0) snprintf(err, sizeof(err), "%s", mkfs_error());
         else rc = plat_external_mkfs(&j->dev, j->fs, j->label, j->cluster, start, count, o.is_gpt, ext_progress,
                                      summary, sizeof(summary), err, sizeof(err));
@@ -504,7 +553,7 @@ static void *check_worker(void *arg) {
     fsinfo_t fi;
     fs_probe(fd, j->dev.ss, j->dev.size, &fi);
     if (strcmp(fi.fs, "exFAT") != 0) {
-        close(fd);
+        job_release(fd);
         sb_tr(&msg, "Prüfen und Reparieren geht nur bei exFAT (dieser Datenträger: %s).", T(fi.fs));
         job_done(j, 0, &msg, &res, 0);
         return NULL;
@@ -512,7 +561,7 @@ static void *check_worker(void *arg) {
     on_progress(j->repair ? N_("Dateisystem reparieren") : N_("Dateisystem prüfen"), 0);   /* 0 %: Lauf-Balken */
     fsck_result_t r;
     exfat_fsck_run(fd, fi.start, fi.size ? fi.size : j->dev.size - fi.start, j->dev.ss, j->repair, &r);
-    close(fd);
+    job_release(fd);
     exfat_fsck_summary(&r, j->repair, sum, sizeof(sum));
     sb_add(&msg, "%s: %s", dev_title(&j->dev, title, sizeof(title)), sum);
     sb_add(&res, "{\"code\":%d,\"repair\":%s,\"dirs\":%ld,\"files\":%ld,\"log\":", r.code,
@@ -536,7 +585,7 @@ static void *label_worker(void *arg) {
     if (fd < 0) { sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
     on_progress("Bezeichnung schreiben", 50);
     int rc = vol_set_label(fd, j->dev.ss, j->dev.size, j->label, err, sizeof(err));
-    close(fd);
+    job_release(fd);
     if (rc != 0) { sb_tr(&msg, "Umbenennen fehlgeschlagen: %s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
     if (j->label[0]) sb_tr(&msg, "Neue Bezeichnung für %s: „%s“.", dev_title(&j->dev, title, sizeof(title)), j->label);
     else sb_tr(&msg, "Bezeichnung von %s entfernt.", dev_title(&j->dev, title, sizeof(title)));
@@ -1286,6 +1335,12 @@ static int request_replug(int c, kv_t *kv, int n, const usbdev_t *d, int *replug
                               "meldet ihn dann kurz ab.");
         return -1;
     }
+    char gid[16], err[320];
+    if (*replug && game_running(gid, sizeof(gid))) {
+        game_error(gid, err, sizeof(err));
+        respond_error(c, 409, err);
+        return -1;
+    }
     return 0;
 }
 
@@ -1583,7 +1638,7 @@ static void *backup_worker(void *arg) {
     if (!o.f) {
         sb_tr(&msg, "Die Datei %s lässt sich nicht anlegen: %s", part, strerror(errno));
         if (ofd >= 0) close(ofd);
-        close(fd);
+        job_release(fd);
         job_done(j, 0, &msg, &res, 1);
         return NULL;
     }
@@ -1593,7 +1648,7 @@ static void *backup_worker(void *arg) {
     int rc = ib_backup(fd, j->dev.ss, j->dev.size, &info, file_out, &o, on_progress, &cancel_requested, &r, err,
                        sizeof(err));
     set_flags(0, 0);
-    close(fd);   /* die PS5 bindet den Stick gleich wieder ein */
+    job_release(fd);   /* die PS5 bindet den Stick gleich wieder ein */
     if (fflush(o.f) != 0 && !o.err) o.err = errno ? errno : EIO;
     if (fsync(fileno(o.f)) != 0 && !o.err && errno != EINVAL) o.err = errno;
     if (fclose(o.f) != 0 && !o.err) o.err = errno ? errno : EIO;
@@ -1700,7 +1755,7 @@ static void api_download(int c, const char *query) {
     int rc = ib_backup(fd, j->dev.ss, j->dev.size, &info, chunk_out, &k, on_progress, &cancel_requested, &r, err,
                        sizeof(err));
     set_flags(0, 0);
-    close(fd);
+    job_release(fd);
     if (!rc && !r.cancelled && send_ok(c, "0\r\n\r\n", 5)) k.broken = 1;
     if (k.broken) {
         sb_tr(&msg, "Der Download wurde abgebrochen (Verbindung zum Browser getrennt).");
@@ -1780,7 +1835,7 @@ static void restore_run(job_t *j) {
     ib_result_t r;
     int rc = ib_restore(j->rd, fd, fd, j->dev.ss, j->dev.size, on_progress, &cancel_requested, &r, err, sizeof(err));
     set_flags(0, 0);
-    close(fd);   /* die PS5 bindet ihn danach selbst ein */
+    job_release(fd);   /* die PS5 bindet ihn danach selbst ein */
     ib_close(j->rd);
     j->rd = NULL;
     if (j->img) fclose(j->img);

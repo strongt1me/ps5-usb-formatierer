@@ -7,7 +7,7 @@
 **USB-Sticks und -Festplatten formatieren – direkt an der PS5 oder am PC.**<br>
 Mit Echtheits- und Tempotest, Image-Sicherung, Spieleverwaltung, allen gängigen Dateisystemen und eigenen Partitionen.
 
-[![Version](https://img.shields.io/badge/Version-2.5.0-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.5.1-185fa5?style=for-the-badge)](../../releases/latest)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plattform](https://img.shields.io/badge/Plattform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funktionen)
@@ -148,6 +148,9 @@ Die ausführliche Anleitung in fünf Sprachen öffnet der Knopf **Hilfe** – in
 <tr>
 <td align="center"><img src="docs/images/de/light.webp" alt="Helles Design"><br><sub><b>Helles Design – gefälschter Stick erkannt, nur der echte Bereich wird genutzt</b></sub></td>
 <td align="center"><img src="docs/images/de/help.webp" alt="Anleitung"><br><sub><b>Anleitung in fünf Sprachen hinter dem Knopf „Hilfe“</b></sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/de/backup.webp" alt="Image sichern &amp; wiederherstellen" width="640"><br><sub><b>Image sichern und wiederherstellen – nach intern, auf ein anderes USB-Laufwerk oder als Download</b></sub></td>
 </tr>
 <tr>
 <td align="center"><img src="docs/images/de/win_ps5.webp" alt="Windows: USB an der PS5" width="420"><br><sub><b>Windows: USB an der PS5 – findet die PS5 selbst, „ELF senden“ schickt den Formatierer hin</b></sub></td>

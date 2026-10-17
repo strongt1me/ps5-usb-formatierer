@@ -7,7 +7,7 @@
 **Formatea pendrives y discos USB – directamente en la PS5 o en el PC.**<br>
 Con prueba de autenticidad y velocidad, copia de imagen, gestión de juegos, todos los sistemas de archivos habituales y particiones propias.
 
-[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.5.0-185fa5?style=for-the-badge)](../../releases/latest)
+[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.5.1-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licencia](https://img.shields.io/badge/Licencia-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plataforma](https://img.shields.io/badge/Plataforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-descarga)
 [![Idiomas](https://img.shields.io/badge/Idiomas-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funciones)
@@ -148,6 +148,9 @@ El botón **Ayuda** abre la guía detallada en cinco idiomas – en la interfaz 
 <tr>
 <td align="center"><img src="docs/images/es/light.webp" alt="Tema claro"><br><sub><b>Tema claro – pendrive falsificado detectado, solo se usa la zona real</b></sub></td>
 <td align="center"><img src="docs/images/es/help.webp" alt="Guía"><br><sub><b>Guía en cinco idiomas tras el botón «Ayuda»</b></sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/es/backup.webp" alt="Guardar y restaurar imágenes" width="640"><br><sub><b>Guardar y restaurar imágenes – en el almacenamiento interno, en otra unidad USB o como descarga</b></sub></td>
 </tr>
 <tr>
 <td align="center"><img src="docs/images/es/win_ps5.webp" alt="Windows: USB en la PS5" width="420"><br><sub><b>Windows: USB en la PS5 – encuentra sola la PS5, «Enviar ELF» le envía el formateador</b></sub></td>

@@ -137,6 +137,9 @@ void plat_local_ip(char *buf, size_t len) {
     snprintf(buf, len, "%s", ip ? ip : "127.0.0.1");
 }
 
+/* Test: USBFMT_SANDBOX=<ordner> - ein Unterordner "PPSA12345_000" darin gilt als laufendes Spiel */
+const char *plat_sandbox_dir(void) { return getenv("USBFMT_SANDBOX"); }
+
 const char *plat_data_dir(void) {
     const char *d = getenv("USBFMT_DATA");
     return d ? d : "/tmp/usbfmt";

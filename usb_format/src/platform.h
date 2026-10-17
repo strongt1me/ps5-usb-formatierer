@@ -66,6 +66,9 @@ int  plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t c
 /* Ordner für Einstellungen und Merker (PS5: /data/usb_format) */
 const char *plat_data_dir(void);
 
+/* Ordner mit den Sandboxen laufender Titel (PS5: /mnt/sandbox, je Titel "PPSA12345_000"); NULL = keiner */
+const char *plat_sandbox_dir(void);
+
 /* Öffnet den PS5-Browser mit url. 0 = ok, sonst Fehlertext in err. */
 int  plat_open_browser(const char *url, char *err, size_t errlen);
 

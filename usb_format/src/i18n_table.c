@@ -142,6 +142,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Einstellung ließ sich nicht speichern", "Could not save the setting", "Impossibile salvare l'impostazione", "No se pudo guardar el ajuste", "Impossible d'enregistrer le réglage"}},
     {{"Ergebnis prüfen", "Checking the result", "Verifica del risultato", "Comprobando el resultado", "Vérification du résultat"}},
     {{"Es läuft bereits ein Auftrag", "A job is already running", "È già in corso un'operazione", "Ya hay una tarea en curso", "Une tâche est déjà en cours"}},
+    {{"Es läuft gerade ein Spiel oder eine App (%s) – bitte zuerst beenden. Die PS5 nutzt eingebundene Laufwerke darin mit; sie jetzt abzumelden kann das Spiel und die PS5 durcheinanderbringen.", "A game or app is running (%s) – please close it first. The PS5 shares mounted drives with it; disconnecting them now can confuse the game and the PS5.", "È in esecuzione un gioco o un'app (%s) – chiudilo prima. La PS5 condivide con esso le unità montate; scollegarle ora può mandare in confusione il gioco e la PS5.", "Hay un juego o una app en ejecución (%s) – ciérralo primero. La PS5 comparte con él las unidades montadas; desconectarlas ahora puede confundir al juego y a la PS5.", "Un jeu ou une app est en cours d'exécution (%s) – fermez-le d'abord. La PS5 partage avec lui les lecteurs montés ; les déconnecter maintenant peut perturber le jeu et la PS5."}},
     {{"Es läuft noch ein Auftrag", "A job is still running", "Un'operazione è ancora in corso", "Todavía hay una tarea en curso", "Une tâche est encore en cours"}},
     {{"Es sind Fehler übrig geblieben, die sich nicht beheben ließen%s. Wichtige Daten sichern und neu formatieren.", "Some errors remain that could not be fixed%s. Back up important data and format again.", "Sono rimasti errori che non è stato possibile correggere%s. Salva i dati importanti e formatta di nuovo.", "Quedan errores que no se pudieron corregir%s. Haz copia de los datos importantes y vuelve a formatear.", "Il reste des erreurs impossibles à corriger%s. Sauvegardez les données importantes et reformatez."}},
     {{"FAT schreiben", "Writing FAT", "Scrittura FAT", "Escribiendo FAT", "Écriture de la FAT"}},
@@ -354,4 +355,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 351;
+const unsigned i18n_count = 352;

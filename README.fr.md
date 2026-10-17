@@ -7,7 +7,7 @@
 **Formatez clés et disques USB – directement sur la PS5 ou sur le PC.**<br>
 Avec test d'authenticité et de vitesse, sauvegarde image, gestion des jeux, tous les systèmes de fichiers courants et vos propres partitions.
 
-[![Version](https://img.shields.io/badge/Version-2.5.0-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.5.1-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plateforme](https://img.shields.io/badge/Plateforme-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-téléchargement)
 [![Langues](https://img.shields.io/badge/Langues-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-fonctions)
@@ -148,6 +148,9 @@ Le bouton **Aide** ouvre le guide détaillé en cinq langues – dans l'interfac
 <tr>
 <td align="center"><img src="docs/images/fr/light.webp" alt="Thème clair"><br><sub><b>Thème clair – clé contrefaite détectée, seule la zone réelle est utilisée</b></sub></td>
 <td align="center"><img src="docs/images/fr/help.webp" alt="Guide"><br><sub><b>Guide en cinq langues derrière le bouton « Aide »</b></sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/fr/backup.webp" alt="Sauvegarder et restaurer des images" width="640"><br><sub><b>Sauvegarder et restaurer des images – en interne, sur un autre lecteur USB ou en téléchargement</b></sub></td>
 </tr>
 <tr>
 <td align="center"><img src="docs/images/fr/win_ps5.webp" alt="Windows : USB sur la PS5" width="420"><br><sub><b>Windows : USB sur la PS5 – trouve seul la PS5, « Envoyer l'ELF » y envoie le formateur</b></sub></td>

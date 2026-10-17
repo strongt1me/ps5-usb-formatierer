@@ -143,6 +143,57 @@ truncate -s $((300 * 1048576)) "$W/fake.img"
 "$IB" restore "$W/b.img.zst" "$W/t.img" 512 "$W/fake.img" 2>&1 | grep -q "Prüfung nach dem Schreiben" \
     && ok "Nachlese-Fehler (Fälschung) erkannt" || bad "Nachlese-Fehler nicht erkannt"
 
+# Fassung 1 (Sicherung aus 2.5.0: alles in einem Datenrahmen) wird weiter gelesen
+FX=test/fixtures/fassung1_exfat_64m.img.zst
+truncate -s $((64 * 1048576)) "$W/v1.img"
+"$IB" info "$FX" | grep -q "size=67108864 .*map=1 .*label=DATEN" && "$IB" restore "$FX" "$W/v1.img" >/dev/null \
+    && [ "$(sha256sum <"$W/v1.img" | cut -c1-64)" = "$(cat test/fixtures/fassung1_exfat_64m.sha256)" ] \
+    && "$W/fsread_test" "$W/v1.img" 1048576 cat /alt/zahlen.txt | cmp -s - <(seq 1 20000) \
+    && ok "Sicherung der Fassung 1 (2.5.0) wiederhergestellt" || bad "Fassung 1"
+
+# große, fast leere Platte: lange freie Strecken als Null-Rahmen - nicht gepackt, beim Wiederherstellen übersprungen
+G=$((16 * 1024 * 1048576))
+truncate -s $G "$W/g.img"
+"$W/mkfs_test" disk "$W/g.img" exfat $G 512 GROSS 0 --gpt "--file=/zwei.bin=$W/f2" >/dev/null 2>&1 || bad "16 GiB: mkfs"
+ms() { echo $(( $(date +%s%N) / 1000000 )); }
+t0=$(ms)
+read -r gused gbytes gsha _ < <("$IB" backup "$W/g.img" "$W/g.img.zst")
+t1=$(ms)
+nz=$(python3 -c "import sys; print(open(sys.argv[1], 'rb').read().count(bytes.fromhex('5c2a4d18')))" "$W/g.img.zst")
+[ "$nz" -ge 1 ] && [ "$gbytes" -lt $((2 * 1048576)) ] && [ $((t1 - t0)) -lt 20000 ] \
+    && ok "16 GiB fast leer gesichert: $nz Null-Rahmen, Datei $((gbytes / 1024)) KB, $((t1 - t0)) ms" \
+    || bad "16 GiB sichern: $nz Null-Rahmen, $gbytes Bytes, $((t1 - t0)) ms"
+truncate -s $G "$W/gt.img"
+t0=$(ms)
+read -r gw gs < <("$IB" restore "$W/g.img.zst" "$W/gt.img")
+t1=$(ms)
+[ "$gw" = "$gused" ] && [ "$gs" = "$gsha" ] && [ $((t1 - t0)) -lt 20000 ] \
+    && ok "16 GiB wiederhergestellt: $((gw / 1024)) KB geschrieben, $((t1 - t0)) ms" || bad "16 GiB wiederherstellen: $gw $gs"
+"$W/fsread_test" "$W/gt.img" "$(python3 -c "
+import struct, sys
+d = open(sys.argv[1], 'rb').read(1536)
+print(struct.unpack('<Q', d[1024 + 32:1024 + 40])[0] * 512)" "$W/gt.img")" cat /zwei.bin | cmp -s - "$W/f2" \
+    && ok "16 GiB: Datei nach dem Wiederherstellen gleich" || bad "16 GiB: Datei verschieden"
+# Null-Rahmen verfälscht (RLE-Byte 1 statt 0): erkannt, nicht als Nullen übernommen
+cp "$W/g.img.zst" "$W/gx.img.zst"
+python3 - "$W/gx.img.zst" <<'EOF'
+import sys
+p = sys.argv[1]
+b = bytearray(open(p, 'rb').read())
+i = b.index(bytes.fromhex('5c2a4d18'))
+b[i + 36 + 14 + 3] = 1   # Hinweis (36) + Rahmenkopf (14), erster Block: Kopf (3) + RLE-Byte
+open(p, 'wb').write(b)
+EOF
+"$IB" restore "$W/gx.img.zst" "$W/gt.img" 2>&1 | grep -q "beschädigt" && ok "verfälschter Null-Rahmen erkannt" || bad "Null-Rahmen"
+head -c $(( $(python3 -c "import sys; print(open(sys.argv[1], 'rb').read().index(bytes.fromhex('5c2a4d18')))" "$W/g.img.zst") + 60 )) \
+    "$W/g.img.zst" >"$W/gx.img.zst"
+"$IB" restore "$W/gx.img.zst" "$W/gt.img" 2>&1 | grep -q "unvollständig" && ok "mitten im Null-Rahmen abgeschnitten: unvollständig" \
+    || bad "Null-Rahmen abgeschnitten"
+if command -v zstd >/dev/null; then
+    zstd -q -d -c "$W/g.img.zst" | cmp -s - "$W/g.img" && ok "16 GiB: zstd -d entpackt alle Rahmen zum Original" || bad "16 GiB: zstd -d"
+fi
+rm -f "$W/g.img" "$W/gt.img"
+
 # fremdes Image, mit zstd selbst gepackt (ohne Kopf: alles wird geschrieben)
 if command -v zstd >/dev/null; then
     # b.img.zst und s.img sind vom letzten Durchlauf (FAT32 ohne Tabelle, freie Bereiche dort Null)

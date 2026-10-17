@@ -7,7 +7,7 @@
 **Formatta chiavette e dischi USB – direttamente sulla PS5 o sul PC.**<br>
 Con test di autenticità e velocità, backup immagine, gestione dei giochi, tutti i file system più diffusi e partizioni personalizzate.
 
-[![Versione](https://img.shields.io/badge/Versione-2.5.0-185fa5?style=for-the-badge)](../../releases/latest)
+[![Versione](https://img.shields.io/badge/Versione-2.5.1-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licenza](https://img.shields.io/badge/Licenza-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Piattaforma](https://img.shields.io/badge/Piattaforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Lingue](https://img.shields.io/badge/Lingue-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funzioni)
@@ -148,6 +148,9 @@ Il pulsante **Aiuto** apre la guida dettagliata in cinque lingue – nell'interf
 <tr>
 <td align="center"><img src="docs/images/it/light.webp" alt="Tema chiaro"><br><sub><b>Tema chiaro – chiavetta contraffatta riconosciuta, si usa solo l'area reale</b></sub></td>
 <td align="center"><img src="docs/images/it/help.webp" alt="Guida"><br><sub><b>Guida in cinque lingue dietro il pulsante «Aiuto»</b></sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/it/backup.webp" alt="Salvare e ripristinare immagini" width="640"><br><sub><b>Salvare e ripristinare immagini – nella memoria interna, su un'altra unità USB o come download</b></sub></td>
 </tr>
 <tr>
 <td align="center"><img src="docs/images/it/win_ps5.webp" alt="Windows: USB sulla PS5" width="420"><br><sub><b>Windows: USB sulla PS5 – trova da solo la PS5, «Invia ELF» le invia il formattatore</b></sub></td>
