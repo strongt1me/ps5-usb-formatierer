@@ -142,12 +142,42 @@ class Api:
     def cancel(self):
         return self._call("/api/cancel", {})
 
+    def quit(self):
+        """Formatierer auf der PS5 beenden (lehnt ab, solange ein Auftrag läuft)"""
+        return self._call("/api/quit", {})
+
 
 def send_payload(host, path):
     with open(path, "rb") as f:
         data = f.read()
     with socket.create_connection((host, LOADER_PORT), timeout=5) as s:
         s.sendall(data)
+
+
+def loader_error(host, e, stopped=False):
+    """Verständliche Meldung, wenn das Senden an den ELF-Loader (Port 9021) scheitert: Port zu, PS5 antwortet nicht
+    oder Übertragung abgebrochen. stopped: der bisherige Formatierer wurde vorher schon beendet."""
+    if isinstance(e, ConnectionRefusedError):
+        msg = _("Port {port} auf {host} ist geschlossen – auf der PS5 läuft kein ELF-Loader. Bitte den Jailbreak bzw. "
+                "ELF-Loader auf der PS5 starten und dann erneut senden.", host=host, port=LOADER_PORT)
+    # Zeitüberschreitung, Rechner bzw. Netz nicht erreichbar (Linux 110/113/101, Windows 10060/10065/10051)
+    elif isinstance(e, (socket.timeout, TimeoutError)) or getattr(e, "errno", None) in (101, 110, 113, 10051, 10060,
+                                                                                          10065):
+        msg = _("{host} antwortet nicht (Port {port}). Ist die PS5 eingeschaltet und die IP-Adresse richtig?",
+                host=host, port=LOADER_PORT)
+    else:
+        msg = _("Senden an {host} (Port {port}) abgebrochen: {e}", host=host, port=LOADER_PORT, e=e)
+    if stopped:
+        msg += "\n\n" + _("Der bisherige Formatierer auf der PS5 wurde schon beendet.")
+    return msg
+
+
+def port_open(host, port, timeout=1.0):
+    try:
+        socket.create_connection((host, port), timeout=timeout).close()
+        return True
+    except OSError:
+        return False
 
 
 class App(tk.Tk):
@@ -252,8 +282,13 @@ class App(tk.Tk):
         self.host_entry.grid(row=row, column=0, sticky="ew")
         self.host_entry.bind("<Return>", lambda e: self._connect())
         self.host_entry.bind("<<ComboboxSelected>>", lambda e: self._connect())
-        self.search_btn = ttk.Button(frm, text=_("Suchen"), command=self._search)
-        self.search_btn.grid(row=row, column=1, sticky="ew", padx=(6, 0))
+        self.host_btns = ttk.Frame(frm)
+        self.host_btns.grid(row=row, column=1, sticky="ew", padx=(6, 0))
+        self.search_btn = ttk.Button(self.host_btns, text=_("Suchen"), command=self._search)
+        self.search_btn.pack(side="left", fill="x", expand=True)
+        # den Formatierer aus diesem Programm an den ELF-Loader der PS5 schicken (auch: ältere Fassung ersetzen)
+        self.elf_btn = ttk.Button(self.host_btns, text=_("ELF senden"), command=self._send_elf)
+        self.elf_btn.pack(side="left", fill="x", expand=True, padx=(6, 0))
         row += 1
 
         caption(_("Laufwerk:"))
@@ -262,7 +297,7 @@ class App(tk.Tk):
         self.dev_combo.grid(row=row, column=0, sticky="ew")
         self.dev_combo.bind("<<ComboboxSelected>>", lambda e: (self._update(), self._show_games()))
         self.reload_btn = ttk.Button(frm, text=_("Aktualisieren"), command=self._reload)
-        self.reload_btn.grid(row=row, column=1, padx=(6, 0))
+        self.reload_btn.grid(row=row, column=1, sticky="ew", padx=(6, 0))
         row += 1
 
         # Spiele auf dem gewählten Datenträger (nur PS5-Modus, wie "Inhalt" in der Weboberfläche)
@@ -406,7 +441,7 @@ class App(tk.Tk):
         def enable(w, on, *extra):
             w.state(list(extra) + (["!disabled"] if on else ["disabled"]))
 
-        for w in (self.host_entry, self.label_entry, self.search_btn, self.verify_chk, self.folders_chk):
+        for w in (self.host_entry, self.label_entry, self.search_btn, self.elf_btn, self.verify_chk, self.folders_chk):
             enable(w, idle)
         for w in self.mode_btns:
             enable(w, idle and not self.std_busy)
@@ -449,7 +484,7 @@ class App(tk.Tk):
         self.std_panel.grid_remove()
         self.ps5_body.grid()
         self.title(_("PS5-USB formatieren"))
-        for w in (self.ps5_caption, self.host_entry, self.search_btn, self.games_box, self.ps5_warn):
+        for w in (self.ps5_caption, self.host_entry, self.host_btns, self.games_box, self.ps5_warn):
             w.grid_remove() if pc else w.grid()
         if pc:
             self.tools.pack(side="left", before=self.start_btn)
@@ -634,9 +669,9 @@ class App(tk.Tk):
             self.status_var.set(_("Keine PS5 gefunden. Ist sie eingeschaltet und im selben Netzwerk? "
                                   "Die IP-Adresse kann auch oben eingegeben werden (Enter)."))
 
-    def _connect(self):
-        if self.busy:
-            return
+    def _chosen_host(self):
+        """Adresse der gewählten bzw. eingetippten PS5 - None (nach einer Meldung), wenn keine gültige oder die PS5
+        im Ruhemodus ist"""
         text = self.host_var.get().strip()
         console = self.consoles.get(text)
         host = console["ip"] if console else text
@@ -645,20 +680,32 @@ class App(tk.Tk):
             messagebox.showerror(self.title(), _("Bitte eine gefundene PS5 auswählen oder ihre IP-Adresse eingeben, "
                                                  "z. B. 192.168.178.40.\n\nSie steht auf der PS5 unter Einstellungen › "
                                                  "Netzwerk › Verbindungsstatus."), parent=self)
-            return
+            return None
         if console and console["standby"] and not console["formatter"]:
             messagebox.showerror(self.title(), _("{name} ist im Ruhemodus. Bitte die PS5 einschalten, den ELF-Loader "
                                                  "starten und dann „Suchen“ klicken.", name=console["name"]),
                                  parent=self)
-            return
+            return None
+        return host
+
+    def _use_host(self, host):
+        """Neue PS5 merken; alte Verbindung vergessen: scheitert die neue, darf "Starten" nicht die vorige PS5
+        formatieren"""
         self.settings["host"] = host
         save_settings(self.settings)
-        api = Api(host)
-        # alte Verbindung vergessen: scheitert die neue, darf "Starten" nicht die vorige PS5 formatieren
         self.api = None
         self.games = {}
         self.lib_known = self.lib_loading = False   # Spieleliste gehört zur alten PS5
         self._fill_devices([])
+        return Api(host)
+
+    def _connect(self):
+        if self.busy:
+            return
+        host = self._chosen_host()
+        if not host:
+            return
+        api = self._use_host(host)
 
         def work():
             self.q.put(("status", _("Verbinde mit {host} …", host=host)))
@@ -682,14 +729,13 @@ class App(tk.Tk):
 
             payload = find_payload()
             if not payload:
-                self.q.put(("error", _("usb_format.elf nicht gefunden. Sie muss neben dem Programm liegen.")))
+                self.q.put(("error", _("Die eingebaute usb_format.elf fehlt – bitte das Programm neu herunterladen.")))
                 return
             self.q.put(("status", _("Formatierer läuft noch nicht – sende Payload an die PS5 …")))
             try:
                 send_payload(host, payload)
-            except OSError:
-                self.q.put(("error", _("Keine Verbindung zu {host}. Läuft auf der PS5 ein ELF-Loader (Port {port}) "
-                                       "und ist die IP-Adresse richtig?", host=host, port=LOADER_PORT)))
+            except OSError as e:
+                self.q.put(("error", loader_error(host, e)))
                 return
             for _attempt in range(20):
                 time.sleep(0.5)
@@ -698,6 +744,86 @@ class App(tk.Tk):
                     return
                 except (ConnectionError, ApiError):
                     pass
+            self.q.put(("error", _("Der Payload wurde gesendet, antwortet aber nicht. "
+                                   "Bitte die PS5-Benachrichtigungen prüfen.")))
+
+        self._run(work)
+
+    def _send_elf(self):
+        """usb_format.elf aus diesem Programm an den ELF-Loader der PS5 (Port 9021) schicken. Läuft dort schon ein
+        Formatierer, wird er nach Rückfrage beendet und ersetzt - nie während eines Auftrags."""
+        if self.busy:
+            return
+        host = self._chosen_host()
+        if not host:
+            return
+        payload = find_payload()
+        if not payload:
+            messagebox.showerror(self.title(), _("Die eingebaute usb_format.elf fehlt – bitte das Programm neu "
+                                                 "herunterladen."), parent=self)
+            return
+
+        def check():   # erst nachsehen, was auf der PS5 läuft - die Rückfrage hängt davon ab
+            self.q.put(("status", _("Prüfe {host} …", host=host)))
+            try:
+                st = Api(host).status()
+            except (ConnectionError, ApiError):
+                st = None
+            self.q.put(("elf_ask", host, payload, st))
+
+        self._run(check)
+
+    def _elf_ask(self, host, payload, st):
+        self.status_var.set("")
+        size = fmt_size(os.path.getsize(payload))
+        if st and st.get("busy"):
+            messagebox.showerror(self.title(), _("Auf {host} läuft gerade ein Auftrag. Die ELF erst danach senden.",
+                                                 host=host), parent=self)
+            return
+        running = st is not None
+        if running:
+            text = _("Auf {host} läuft bereits ein Formatierer. Er wird beendet und durch die in dieses Programm "
+                     "eingebaute Fassung ersetzt (usb_format.elf, {size}).", host=host, size=size)
+        else:
+            text = _("Die in dieses Programm eingebaute usb_format.elf ({size}) an {host} senden – an den ELF-Loader der "
+                     "PS5 (Port {port}). Danach startet dort der Formatierer.", host=host, size=size, port=LOADER_PORT)
+        if not confirm(self, _("ELF senden"), text, _("Ersetzen") if running else _("Senden")):
+            return
+        api = self._use_host(host)
+
+        def work():
+            if running:
+                self.q.put(("status", _("Beende den Formatierer auf {host} …", host=host)))
+                try:
+                    api.quit()
+                except ApiError as e:   # z. B. inzwischen ein Auftrag gestartet
+                    self.q.put(("error", str(e)))
+                    return
+                except ConnectionError:
+                    pass
+                for _attempt in range(30):   # bis Port 8090 frei ist (der alte Formatierer ist beendet)
+                    if not port_open(host, API_PORT):
+                        break
+                    time.sleep(0.5)
+                else:
+                    self.q.put(("error", _("Der Formatierer auf {host} ließ sich nicht beenden.", host=host)))
+                    return
+                time.sleep(1)
+            self.q.put(("status", _("Sende usb_format.elf an {host} (Port {port}) …", host=host, port=LOADER_PORT)))
+            try:
+                send_payload(host, payload)
+            except OSError as e:
+                self.q.put(("error", loader_error(host, e, stopped=running)))
+                return
+            for _attempt in range(30):
+                time.sleep(0.5)
+                try:
+                    devs = api.devices(timeout=2)
+                except (ConnectionError, ApiError):
+                    continue
+                self.q.put(("connected", api, devs))
+                self.q.put(("status", _("ELF gesendet – der Formatierer läuft. Verbunden mit {host}", host=host)))
+                return
             self.q.put(("error", _("Der Payload wurde gesendet, antwortet aber nicht. "
                                    "Bitte die PS5-Benachrichtigungen prüfen.")))
 
@@ -1074,6 +1200,9 @@ class App(tk.Tk):
         elif kind == "found":
             self.busy = False
             self._on_found(msg[1])
+        elif kind == "elf_ask":
+            self.busy = False
+            self._elf_ask(*msg[1:])
         elif kind == "connected":
             self.api = msg[1]
             self.busy = False

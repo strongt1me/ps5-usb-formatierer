@@ -545,12 +545,6 @@
   "es": "No se encontró ninguna PS5. ¿Está encendida y en la misma red? También puedes introducir la dirección IP arriba (Intro).",
   "fr": "Aucune PS5 trouvée. Est-elle allumée et sur le même réseau ? Vous pouvez aussi saisir l'adresse IP ci-dessus (Entrée)."
  },
- "usb_format.elf nicht gefunden. Sie muss neben dem Programm liegen.": {
-  "en": "usb_format.elf not found. It must be next to the program.",
-  "it": "usb_format.elf non trovato. Deve trovarsi accanto al programma.",
-  "es": "No se encontró usb_format.elf. Debe estar junto al programa.",
-  "fr": "usb_format.elf introuvable. Il doit se trouver à côté du programme."
- },
  "Der Inhalt wird noch durchsucht – möglicherweise liegen Spiele darauf.": {
   "en": "The contents are still being scanned – there may be games on it.",
   "it": "Il contenuto è ancora in fase di analisi – potrebbero esserci dei giochi.",
@@ -604,12 +598,6 @@
   "it": "Chiudere comunque la finestra?",
   "es": "¿Cerrar la ventana de todos modos?",
   "fr": "Fermer quand même la fenêtre ?"
- },
- "Keine Verbindung zu {host}. Läuft auf der PS5 ein ELF-Loader (Port {port}) und ist die IP-Adresse richtig?": {
-  "en": "No connection to {host}. Is an ELF loader (port {port}) running on the PS5 and is the IP address correct?",
-  "it": "Nessuna connessione a {host}. Sulla PS5 è attivo un ELF loader (porta {port}) e l'indirizzo IP è corretto?",
-  "es": "Sin conexión con {host}. ¿Hay un ELF loader (puerto {port}) en marcha en la PS5 y la dirección IP es correcta?",
-  "fr": "Pas de connexion à {host}. Un ELF loader (port {port}) tourne-t-il sur la PS5 et l'adresse IP est-elle correcte ?"
  },
  "Geräteliste konnte nicht geladen werden: {e}": {
   "en": "Could not load the device list: {e}",
@@ -1552,5 +1540,101 @@
   "it": "Sviluppato da {name}",
   "es": "Desarrollado por {name}",
   "fr": "Développé par {name}"
+ },
+ "ELF senden": {
+  "en": "Send ELF",
+  "it": "Invia ELF",
+  "es": "Enviar ELF",
+  "fr": "Envoyer l'ELF"
+ },
+ "Prüfe {host} …": {
+  "en": "Checking {host} …",
+  "it": "Controllo di {host} …",
+  "es": "Comprobando {host} …",
+  "fr": "Vérification de {host} …"
+ },
+ "Auf {host} läuft gerade ein Auftrag. Die ELF erst danach senden.": {
+  "en": "A task is running on {host}. Send the ELF once it has finished.",
+  "it": "Su {host} è in corso un'operazione. Invia l'ELF al termine.",
+  "es": "Hay una tarea en curso en {host}. Envía el ELF cuando termine.",
+  "fr": "Une tâche est en cours sur {host}. Envoyez l'ELF une fois qu'elle est terminée."
+ },
+ "Ersetzen": {
+  "en": "Replace",
+  "it": "Sostituisci",
+  "es": "Sustituir",
+  "fr": "Remplacer"
+ },
+ "Senden": {
+  "en": "Send",
+  "it": "Invia",
+  "es": "Enviar",
+  "fr": "Envoyer"
+ },
+ "Beende den Formatierer auf {host} …": {
+  "en": "Stopping the formatter on {host} …",
+  "it": "Chiusura del formattatore su {host} …",
+  "es": "Cerrando el formateador en {host} …",
+  "fr": "Arrêt du formateur sur {host} …"
+ },
+ "Der Formatierer auf {host} ließ sich nicht beenden.": {
+  "en": "The formatter on {host} could not be stopped.",
+  "it": "Impossibile chiudere il formattatore su {host}.",
+  "es": "No se pudo cerrar el formateador en {host}.",
+  "fr": "Impossible d'arrêter le formateur sur {host}."
+ },
+ "Sende usb_format.elf an {host} (Port {port}) …": {
+  "en": "Sending usb_format.elf to {host} (port {port}) …",
+  "it": "Invio di usb_format.elf a {host} (porta {port}) …",
+  "es": "Enviando usb_format.elf a {host} (puerto {port}) …",
+  "fr": "Envoi de usb_format.elf à {host} (port {port}) …"
+ },
+ "ELF gesendet – der Formatierer läuft. Verbunden mit {host}": {
+  "en": "ELF sent – the formatter is running. Connected to {host}",
+  "it": "ELF inviato – il formattatore è in esecuzione. Connesso a {host}",
+  "es": "ELF enviado – el formateador está en ejecución. Conectado a {host}",
+  "fr": "ELF envoyé – le formateur est en cours d'exécution. Connecté à {host}"
+ },
+ "Port {port} auf {host} ist geschlossen – auf der PS5 läuft kein ELF-Loader. Bitte den Jailbreak bzw. ELF-Loader auf der PS5 starten und dann erneut senden.": {
+  "en": "Port {port} on {host} is closed – no ELF loader is running on the PS5. Please start the jailbreak or ELF loader on the PS5 and then send again.",
+  "it": "La porta {port} su {host} è chiusa – sulla PS5 non è attivo alcun ELF loader. Avvia il jailbreak o l'ELF loader sulla PS5 e poi invia di nuovo.",
+  "es": "El puerto {port} en {host} está cerrado – no hay ningún cargador ELF en marcha en la PS5. Inicia el jailbreak o el cargador ELF en la PS5 y vuelve a enviar.",
+  "fr": "Le port {port} sur {host} est fermé – aucun chargeur ELF ne tourne sur la PS5. Lancez le jailbreak ou le chargeur ELF sur la PS5, puis renvoyez."
+ },
+ "{host} antwortet nicht (Port {port}). Ist die PS5 eingeschaltet und die IP-Adresse richtig?": {
+  "en": "{host} is not responding (port {port}). Is the PS5 switched on and is the IP address correct?",
+  "it": "{host} non risponde (porta {port}). La PS5 è accesa e l'indirizzo IP è corretto?",
+  "es": "{host} no responde (puerto {port}). ¿Está encendida la PS5 y es correcta la dirección IP?",
+  "fr": "{host} ne répond pas (port {port}). La PS5 est-elle allumée et l'adresse IP est-elle correcte ?"
+ },
+ "Senden an {host} (Port {port}) abgebrochen: {e}": {
+  "en": "Sending to {host} (port {port}) was interrupted: {e}",
+  "it": "Invio a {host} (porta {port}) interrotto: {e}",
+  "es": "Se interrumpió el envío a {host} (puerto {port}): {e}",
+  "fr": "Envoi vers {host} (port {port}) interrompu : {e}"
+ },
+ "Der bisherige Formatierer auf der PS5 wurde schon beendet.": {
+  "en": "The previous formatter on the PS5 has already been stopped.",
+  "it": "Il formattatore precedente sulla PS5 è già stato chiuso.",
+  "es": "El formateador anterior de la PS5 ya se ha cerrado.",
+  "fr": "L'ancien formateur sur la PS5 a déjà été arrêté."
+ },
+ "Die eingebaute usb_format.elf fehlt – bitte das Programm neu herunterladen.": {
+  "en": "The built-in usb_format.elf is missing – please download the program again.",
+  "it": "Manca l'usb_format.elf integrato – scarica di nuovo il programma.",
+  "es": "Falta el usb_format.elf integrado – vuelve a descargar el programa.",
+  "fr": "Le fichier usb_format.elf intégré est absent – veuillez retélécharger le programme."
+ },
+ "Auf {host} läuft bereits ein Formatierer. Er wird beendet und durch die in dieses Programm eingebaute Fassung ersetzt (usb_format.elf, {size}).": {
+  "en": "A formatter is already running on {host}. It will be stopped and replaced by the version built into this program (usb_format.elf, {size}).",
+  "it": "Su {host} è già in esecuzione un formattatore. Verrà chiuso e sostituito dalla versione integrata in questo programma (usb_format.elf, {size}).",
+  "es": "Ya hay un formateador en ejecución en {host}. Se cerrará y se sustituirá por la versión integrada en este programa (usb_format.elf, {size}).",
+  "fr": "Un formateur est déjà en cours d'exécution sur {host}. Il sera arrêté et remplacé par la version intégrée à ce programme (usb_format.elf, {size})."
+ },
+ "Die in dieses Programm eingebaute usb_format.elf ({size}) an {host} senden – an den ELF-Loader der PS5 (Port {port}). Danach startet dort der Formatierer.": {
+  "en": "Send the usb_format.elf built into this program ({size}) to {host} – to the PS5's ELF loader (port {port}). The formatter then starts there.",
+  "it": "Inviare l'usb_format.elf integrato in questo programma ({size}) a {host} – all'ELF loader della PS5 (porta {port}). Poi lì si avvia il formattatore.",
+  "es": "Enviar el usb_format.elf integrado en este programa ({size}) a {host} – al cargador ELF de la PS5 (puerto {port}). Después se inicia allí el formateador.",
+  "fr": "Envoyer le fichier usb_format.elf intégré à ce programme ({size}) à {host} – au chargeur ELF de la PS5 (port {port}). Le formateur y démarre ensuite."
  }
 }
