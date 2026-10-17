@@ -5,7 +5,6 @@ partition_editor, usb_formatierer) und vergleicht mit i18n_app.json.
 import ast
 import json
 import os
-import re
 import string
 import sys
 
