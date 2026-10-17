@@ -570,6 +570,9 @@ const devKey = d => {
   if (d.ident) knownIdent[k] = d.ident;
   return k + ":" + (d.ident || knownIdent[k] || "");
 };
+/* Seriennummer, unter der ein Laufwerk gewählt ist (auch wenn sie gerade fehlt) - geht mit jedem Auftrag an den
+   Server: steckt dort inzwischen ein anderer Stick (auch einer ohne Seriennummer), lehnt er ab */
+const identOf = d => d.ident || knownIdent[d.name + ":" + d.size] || "";
 /* derselbe Stick? Seriennummern nur vergleichen, wenn beide eine haben */
 const sameStick = (x, d) => x.size === d.size && (!x.ident || !d.ident || x.ident === d.ident);
 /* Schlüssel aus einer früheren Liste auf die neue übertragen (Seriennummer erst jetzt bekannt) */
@@ -784,6 +787,9 @@ function renderDevices() {
     row.append(radio, body);
     const pick = () => {
       if (busy || blocked) return;
+      /* ausdrücklich gewählt: es gilt die Seriennummer, die dieser Stick jetzt meldet (auch keine) */
+      const k0 = d.name + ":" + d.size;
+      if (d.ident) knownIdent[k0] = d.ident; else delete knownIdent[k0];
       if (selected !== devKey(d)) { showAll = false; pickMode = false; picked.clear(); $("renamebox").hidden = true; }
       selected = devKey(d);
       renderDevices();
@@ -1045,8 +1051,16 @@ function checkTitle(ck) {
 async function loadDevices() {
   try {
     const r = await api("/api/devices");
+    const prevSel = currentDevice();
     devices = r.devices;
+    /* gemerkte Seriennummern nur für Laufwerke, die noch da sind (abgezogen: ein später eingesteckter gleich großer
+       Stick unter demselben Namen ist ein anderer) */
+    for (const k of Object.keys(knownIdent)) if (!devices.some(x => x.name + ":" + x.size === k)) delete knownIdent[k];
     selected = rekey(selected);
+    /* Auswahl nicht auf einen Stick ohne Seriennummer übertragen, der jetzt eingebunden ist, vorher aber frei war -
+       das ist vermutlich ein anderer (eingebundene werden nie von selbst gewählt) */
+    const nowSel = currentDevice();
+    if (nowSel && prevSel && !nowSel.ident && nowSel.mounts.length && !prevSel.mounts.length) selected = null;
     verifyFor = rekey(verifyFor);
     for (const m of [speedOf, checkOf])
       for (const k of Object.keys(m)) { const n = rekey(k); if (n !== k) { m[n] = m[k]; delete m[k]; } }
@@ -1127,8 +1141,11 @@ function startPolling(foreign) {
       $("progress").hidden = true;
       const before = currentDevice();
       await loadDevices();
-      /* nach dem Neu-Anmelden kann der Stick anders heißen (st.device ist der aktuelle Name) */
-      const d = devices.find(x => x.name === st.device) || before;
+      /* nach dem Neu-Anmelden kann der Stick anders heißen (st.device ist der aktuelle Name). Gemeint ist der Stick
+         vom Auftragsstart - mit dessen Seriennummer: Folgeaufträge ("nur echten Bereich formatieren", "reparieren")
+         dürfen keinen inzwischen eingesteckten anderen treffen, der Server lehnt ihn dann ab */
+      const found = before && devices.find(x => (x.name === st.device || x.name === before.name) && sameStick(x, before));
+      const d = found ? { ...found, ident: before.ident || identOf(before) || found.ident } : null;
       if (!st.done) {   /* Formatierer wurde zwischendurch neu gestartet: Ergebnis unbekannt */
         renderTabs();
         loadLibrary(true);
@@ -1310,7 +1327,7 @@ function formatBody(d, over) {
   const fs = $("fs").value, other = $("other").checked;
   const verify = $("verify").checked && !$("full").checked, full = $("full").checked;
   const body = {
-    device: d.name, fs, label: $("label").value, size: d.size, ident: d.ident || "",
+    device: d.name, fs, label: $("label").value, size: d.size, ident: identOf(d),
     cluster: other ? Number($("cluster").value) : 0, replug: d.mounts.length > 0,
     verify, full,
     folders: $("folders").checked && (fs === "exfat" || fs === "fat32"),
@@ -1368,7 +1385,7 @@ $("start").addEventListener("click", async () => {
 
 $("bspeed").addEventListener("click", () => {
   const d = currentDevice();
-  if (d) runJob("/api/speed", { device: d.name, size: d.size, ident: d.ident || "" });
+  if (d) runJob("/api/speed", { device: d.name, size: d.size, ident: identOf(d) });
 });
 
 async function check(repair) {
@@ -1380,7 +1397,7 @@ async function check(repair) {
       text2: tr("Spiele und Apps, die von diesem Laufwerk laufen, vorher beenden."), yes: repair ? tr("Reparieren") : tr("Prüfen") });
     if (ok !== "yes") return;
   }
-  runJob("/api/check", { device: d.name, size: d.size, ident: d.ident || "", repair, replug: d.mounts.length > 0 });
+  runJob("/api/check", { device: d.name, size: d.size, ident: identOf(d), repair, replug: d.mounts.length > 0 });
 }
 $("bcheck").addEventListener("click", () => check(false));
 $("more").addEventListener("click", () => { showAll = !showAll; renderContent(); });
@@ -1393,7 +1410,10 @@ function setPickMode(on) {
      außer während eines Auftrags, dann aufs gewählte Laufwerk statt ins Leere */
   const ae = document.activeElement;
   if (on) { const cb = $("content").querySelector(".game.pick input"); if (cb) cb.focus(); }
-  else if (!ae || ae === document.body) { const t = $("devs").querySelector(".dev.sel input") || $("devs").querySelector("input"); if (t) t.focus(); }
+  else if (!ae || ae === document.body) {   /* die Zeile selbst (tabIndex 0) - ihr Auswahlknopf ist während eines Auftrags gesperrt */
+    const t = [document.querySelector(".dev.sel"), $("cancel")].find(x => x && !x.hidden && !x.disabled && x.offsetParent !== null);
+    if (t) t.focus();
+  }
 }
 
 /* Ausgewählte Spiele löschen - über ShadowMountPlus, das eingebundene Abbilder selbst freigibt */
@@ -1448,7 +1468,7 @@ $("brenameok").addEventListener("click", async () => {
     if (ok !== "yes") return;
   }
   $("renamebox").hidden = true;
-  runJob("/api/label", { device: d.name, size: d.size, ident: d.ident || "", label, replug: d.mounts.length > 0 });
+  runJob("/api/label", { device: d.name, size: d.size, ident: identOf(d), label, replug: d.mounts.length > 0 });
 });
 
 $("newlabel").addEventListener("keydown", e => {   /* Enter bzw. "Fertig" der PS5-Tastatur */

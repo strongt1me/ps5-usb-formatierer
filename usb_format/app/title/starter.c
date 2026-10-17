@@ -96,16 +96,42 @@ static int send_all(int s, const unsigned char *p, size_t n) {
     return 0;
 }
 
-/* POST /api/open: 1 = Formatierer hat geantwortet, 0 = läuft nicht */
-static int open_ui(void) {
+/* POST /api/open: Statuscode der Antwort (200 = Browser geöffnet), 0 = Formatierer läuft nicht, -1 = er hat die
+ * Verbindung angenommen, aber nicht lesbar geantwortet */
+static int open_ui_once(void) {
     static const char req[] = "POST /api/open HTTP/1.1\r\nHost: 127.0.0.1:8090\r\n"
                               "Content-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}";
     char buf[256];
+    char head[16];
+    size_t got = 0;
     int s = connect_local(PORT_UI);
     if (s < 0) return 0;
     send_all(s, (const unsigned char *)req, length(req));
-    while (recv(s, buf, sizeof(buf), 0) > 0) {}
+    for (;;) {   /* "HTTP/1.1 200 ..." - die ersten Zeichen merken, den Rest nur abholen */
+        ssize_t r = recv(s, buf, sizeof(buf), 0);
+        if (r <= 0) break;
+        for (ssize_t i = 0; i < r && got < sizeof(head); i++) head[got++] = buf[i];
+    }
     close(s);
+    if (got < 12 || head[0] != 'H' || head[8] != ' ') return -1;
+    int code = 0;
+    for (int i = 9; i < 12; i++) {
+        if (head[i] < '0' || head[i] > '9') return -1;
+        code = code * 10 + (head[i] - '0');
+    }
+    return code;
+}
+
+/* 1 = Browser geöffnet (oder ein Fehler wurde schon gemeldet), 0 = Formatierer läuft nicht */
+static int open_ui(void) {
+    int code = open_ui_once();
+    for (int i = 0; i < 10 && code == 503; i++) {   /* gerade zu viele Verbindungen: kurz warten */
+        sceKernelUsleep(300 * 1000);
+        code = open_ui_once();
+    }
+    if (code == 0) return 0;
+    if (code != 200)   /* der Formatierer läuft, aber der Browser ging nicht auf - sonst passierte gar nichts */
+        report("USB-Formatierer: Der Browser konnte nicht starten - Formatierer erreichbar unter http://<PS5-IP>:8090");
     return 1;
 }
 

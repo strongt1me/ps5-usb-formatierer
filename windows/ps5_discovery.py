@@ -12,6 +12,7 @@ import ctypes
 import http.client
 import ipaddress
 import json
+import select
 import socket
 import subprocess
 import sys
@@ -112,27 +113,45 @@ def ddp_discover(local_ips, timeout=2.0, port=DDP_PORT, targets=None, nets=None,
         if not nets:
             targets |= {ip.rsplit(".", 1)[0] + ".255" for ip in local_ips}
         targets = sorted(targets) + list(hosts)
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        s.bind(("", 0))
-        s.settimeout(0.2)
+    targets = list(targets)
+    # Linux: Pakete an Adressen ohne Gerät warten in der ARP-Schlange und belegen so lange den Sendepuffer des Sockets -
+    # ein Socket fasste nur gut 200 davon und blockierte dann. Daher je Socket höchstens 128 Ziele, nicht blockierend.
+    groups = [targets[i:i + 128] for i in range(0, len(targets), 128)]
+    socks = []
+    try:
+        for g in groups:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            socks.append((s, g))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            s.bind(("", 0))
+            s.setblocking(False)
         end = time.time() + timeout
         next_send = 0.0
-        while time.time() < end:
+        while socks and time.time() < end:
             if time.time() >= next_send:  # zweimal senden, UDP kann verloren gehen
-                for t in targets:
-                    try:
-                        s.sendto(DDP_SEARCH, (t, port))
-                    except OSError:
-                        pass
+                for s, g in socks:
+                    for t in g:
+                        try:
+                            s.sendto(DDP_SEARCH, (t, port))
+                        except OSError:   # Puffer voll, Ziel nicht erreichbar
+                            pass
                 next_send = time.time() + timeout / 2
             try:
-                data, (ip, _) = s.recvfrom(2048)
-            except (socket.timeout, OSError):
-                continue
-            info = parse_ddp(data)
-            if info and ip not in local_ips:
-                found[ip] = info
+                ready, _w, _x = select.select([s for s, _g in socks], [], [], 0.2)
+            except (OSError, ValueError):
+                break
+            for s in ready:
+                while True:
+                    try:
+                        data, (ip, _) = s.recvfrom(2048)
+                    except OSError:   # leer, oder Windows meldet ein ICMP "Port nicht erreichbar" (WSAECONNRESET)
+                        break
+                    info = parse_ddp(data)
+                    if info and ip not in local_ips:
+                        found[ip] = info
+    finally:
+        for s, _g in socks:
+            s.close()
     return found
 
 

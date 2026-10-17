@@ -198,6 +198,7 @@ class App(tk.Tk):
         self.devices = []
         self.busy = False          # Netzwerkaktion oder Formatierung laeuft
         self.formatting = False
+        self.elf_sending = False   # "ELF senden" läuft (Formatierer beendet bzw. ELF unterwegs)
         self.watching = False      # Abfrage nach fremden Aufträgen unterwegs
         self.consoles = {}         # Anzeigetext -> Fund aus ps5_discovery
         self.ps5_devices = []      # zuletzt gelesene Liste der PS5 (bleibt beim Umschalten erhalten)
@@ -763,19 +764,31 @@ class App(tk.Tk):
                                                  "herunterladen."), parent=self)
             return
 
+        prev_status = self.status_var.get()
+
         def check():   # erst nachsehen, was auf der PS5 läuft - die Rückfrage hängt davon ab
             self.q.put(("status", _("Prüfe {host} …", host=host)))
             try:
                 st = Api(host).status()
-            except (ConnectionError, ApiError):
+            except Refused:      # Port 8090 lehnt ab: dort läuft kein Formatierer
                 st = None
-            self.q.put(("elf_ask", host, payload, st))
+            except ApiError:     # es antwortet ein Formatierer (z. B. "zu viele Anfragen"): als laufend behandeln
+                st = {"busy": False}
+            except ConnectionError:
+                # keine Antwort: ob dort einer läuft, ist unklar - ohne ihn zu beenden, startete die neue Fassung nicht
+                self.q.put(("elf_ask", host, payload, "unclear", prev_status))
+                return
+            self.q.put(("elf_ask", host, payload, st, prev_status))
 
         self._run(check)
 
-    def _elf_ask(self, host, payload, st):
-        self.status_var.set("")
+    def _elf_ask(self, host, payload, st, prev_status=""):
+        self.status_var.set(prev_status)
         size = fmt_size(os.path.getsize(payload))
+        if st == "unclear":
+            messagebox.showerror(self.title(), _("{host} antwortet nicht (Port {port}). Ist die PS5 eingeschaltet und die "
+                                                 "IP-Adresse richtig?", host=host, port=API_PORT), parent=self)
+            return
         if st and st.get("busy"):
             messagebox.showerror(self.title(), _("Auf {host} läuft gerade ein Auftrag. Die ELF erst danach senden.",
                                                  host=host), parent=self)
@@ -789,14 +802,21 @@ class App(tk.Tk):
                      "PS5 (Port {port}). Danach startet dort der Formatierer.", host=host, size=size, port=LOADER_PORT)
         if not confirm(self, _("ELF senden"), text, _("Ersetzen") if running else _("Senden")):
             return
-        api = self._use_host(host)
+        api = Api(host)
 
         def work():
+            self.elf_sending = True   # Schließen fragt nach: sonst bliebe die PS5 ohne Formatierer bzw. mit halber ELF
+            try:
+                send()
+            finally:
+                self.elf_sending = False
+
+        def send():
             if running:
                 self.q.put(("status", _("Beende den Formatierer auf {host} …", host=host)))
                 try:
                     api.quit()
-                except ApiError as e:   # z. B. inzwischen ein Auftrag gestartet
+                except ApiError as e:   # z. B. inzwischen ein Auftrag gestartet - die Verbindung bleibt bestehen
                     self.q.put(("error", str(e)))
                     return
                 except ConnectionError:
@@ -809,6 +829,11 @@ class App(tk.Tk):
                     self.q.put(("error", _("Der Formatierer auf {host} ließ sich nicht beenden.", host=host)))
                     return
                 time.sleep(1)
+            elif port_open(host, API_PORT):   # inzwischen gestartet: die neue Fassung bekäme den Port nicht
+                self.q.put(("error", _("Auf {host} wurde inzwischen ein Formatierer gestartet. Bitte erneut „ELF "
+                                       "senden“.", host=host)))
+                return
+            self.q.put(("use_host", host))   # erst jetzt: die alte Verbindung ist weg bzw. war nie da
             self.q.put(("status", _("Sende usb_format.elf an {host} (Port {port}) …", host=host, port=LOADER_PORT)))
             try:
                 send_payload(host, payload)
@@ -1203,6 +1228,8 @@ class App(tk.Tk):
         elif kind == "elf_ask":
             self.busy = False
             self._elf_ask(*msg[1:])
+        elif kind == "use_host":
+            self._use_host(msg[1])
         elif kind == "connected":
             self.api = msg[1]
             self.busy = False
@@ -1311,6 +1338,11 @@ class App(tk.Tk):
             self.status_var.set(msg[1])
 
     def _on_close(self):
+        if self.elf_sending and not messagebox.askyesno(
+                self.title(), _("Die ELF wird gerade an die PS5 gesendet. Wird das Fenster jetzt geschlossen, läuft dort "
+                                "danach womöglich kein Formatierer. Fenster trotzdem schließen?"),
+                icon="warning", parent=self):
+            return
         if self.formatting and not messagebox.askyesno(
                 self.title(), (_("Der Auftrag läuft am PC im Hintergrund weiter.") if self.pc_job else
                                _("Die Formatierung läuft auf der PS5 weiter.")) + " " +

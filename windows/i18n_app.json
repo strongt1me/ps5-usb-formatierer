@@ -1636,5 +1636,17 @@
   "it": "Inviare l'usb_format.elf integrato in questo programma ({size}) a {host} – all'ELF loader della PS5 (porta {port}). Poi lì si avvia il formattatore.",
   "es": "Enviar el usb_format.elf integrado en este programa ({size}) a {host} – al cargador ELF de la PS5 (puerto {port}). Después se inicia allí el formateador.",
   "fr": "Envoyer le fichier usb_format.elf intégré à ce programme ({size}) à {host} – au chargeur ELF de la PS5 (port {port}). Le formateur y démarre ensuite."
+ },
+ "Auf {host} wurde inzwischen ein Formatierer gestartet. Bitte erneut „ELF senden“.": {
+  "en": "A formatter has been started on {host} in the meantime. Please press “Send ELF” again.",
+  "it": "Nel frattempo su {host} è stato avviato un formattatore. Premi di nuovo «Invia ELF».",
+  "es": "Mientras tanto se ha iniciado un formateador en {host}. Pulsa de nuevo «Enviar ELF».",
+  "fr": "Un formateur a été lancé entre-temps sur {host}. Veuillez cliquer à nouveau sur « Envoyer l'ELF »."
+ },
+ "Die ELF wird gerade an die PS5 gesendet. Wird das Fenster jetzt geschlossen, läuft dort danach womöglich kein Formatierer. Fenster trotzdem schließen?": {
+  "en": "The ELF is being sent to the PS5. If the window is closed now, no formatter may be running there afterwards. Close the window anyway?",
+  "it": "L'ELF è in fase di invio alla PS5. Se chiudi ora la finestra, in seguito potrebbe non esserci alcun formattatore in esecuzione. Chiudere comunque la finestra?",
+  "es": "Se está enviando el ELF a la PS5. Si cierras ahora la ventana, puede que después no haya ningún formateador en marcha. ¿Cerrar la ventana de todos modos?",
+  "fr": "L'ELF est en cours d'envoi à la PS5. Si la fenêtre est fermée maintenant, aucun formateur ne tournera peut-être plus ensuite. Fermer la fenêtre quand même ?"
  }
 }
