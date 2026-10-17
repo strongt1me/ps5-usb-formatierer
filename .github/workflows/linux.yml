@@ -39,7 +39,7 @@ jobs:
           python usb_format/tools/web_i18n.py --check
           python windows/i18n_check.py
           cd windows && python -m pyflakes usb_formatierer.py usb_standard.py standard_panel.py partition_editor.py \
-            pc_common.py pc_linux.py fsinfo.py i18n.py ps5_discovery.py tests/linux_ui_test.py
+            pc_common.py pc_linux.py fsinfo.py i18n.py ps5_discovery.py tests/linux_ui_test.py tests/ps5_image_flow_test.py
 
       - name: Helfer bauen
         working-directory: usb_format
@@ -98,11 +98,16 @@ jobs:
       - name: Werkzeuge
         run: |
           sudo apt-get update
-          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs mtools makefs gdisk zstd
+          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs mtools makefs gdisk zstd \
+            xvfb python3-tk
 
       - name: Image-Sicherung mit dem zstd-Programm entpackbar?
         working-directory: usb_format
         run: zstd --version && bash test/imgbak_test.sh | tee /tmp/ib.log | grep -E "zstd|bestanden|FEHLER" && ! grep -q FEHLER /tmp/ib.log
+
+      - name: PC-Programm "USB an der PS5" - Image-Sicherung gegen den Testserver (Xvfb)
+        working-directory: usb_format
+        run: bash test/pc_flow_test.sh
 
       - name: Payload-Tests (Host)
         working-directory: usb_format
