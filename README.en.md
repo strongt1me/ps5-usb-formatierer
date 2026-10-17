@@ -39,7 +39,7 @@ The formatter detaches mounted drives by software and takes them over before the
 <td width="33%" valign="top">
 
 ### 🕹️ Games at a glance
-Games (folders and images with title ID), PKG files and usage. Detects duplicate games, deletes games including their tile.
+Games (folders and images with title ID), PKG files and usage. Detects duplicate games, removes games including their tile via “Delete games …”.
 
 </td>
 </tr>
@@ -83,6 +83,26 @@ PS5 browser, phone or PC (QR code) and two PC programs for Windows and Linux. Li
 
 </td>
 </tr>
+<tr>
+<td valign="top">
+
+### 📤 Send ELF
+The PC program sends the built-in formatter to the PS5 at the push of a button (port 9021) – and replaces an older version running there.
+
+</td>
+<td valign="top">
+
+### 📡 Finds the PS5
+The PC programs find the PS5 on your home network by themselves – even from WSL or a virtual machine.
+
+</td>
+<td valign="top">
+
+### 🔒 No mix-ups
+Serial number check: if a different stick of the same model is plugged in meanwhile, nothing is formatted. After a “fake” or “defective” result, the half-overwritten old file system is removed.
+
+</td>
+</tr>
 </table>
 
 ## 📦 Download
@@ -92,8 +112,8 @@ All files are in the [latest release](../../releases/latest).
 | File | Purpose |
 |---|---|
 | `PPSA86920.zip` | **App tile for the PS5:** unzip and copy the folder `PPSA86920` to `/data/homebrew/` (e.g. via FTP). ShadowMountPlus registers the app. |
-| `usb_format.elf` | **The formatter (payload).** The app starts it by itself; without the app, send it to the ELF loader (port 9021). |
-| `PS5-USB-Formatierer.exe` | **Windows program with PS5 features:** USB on the PS5 (over the network), USB on PC for the PS5, PC standard. |
+| `usb_format.elf` | **The formatter (payload).** The app starts it by itself, the PC program sends it via “Send ELF”; otherwise send it to the ELF loader manually (port 9021). |
+| `PS5-USB-Formatierer.exe` | **Windows program with PS5 features:** USB on the PS5 (over the network), USB on PC for the PS5, PC standard – with the ELF built in. |
 | `USB-Formatierer.exe` | **Windows program without PS5 features:** all file systems, partitions and expert mode. |
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **The same two programs for Linux** (x86_64): unpack and start. |
 
@@ -102,7 +122,7 @@ All files are in the [latest release](../../releases/latest).
 ## 🚀 Quick start
 
 1. **Install:** copy the folder `PPSA86920` from the ZIP to `/data/homebrew/` on the PS5.
-2. **Start:** load the jailbreak and open the **USB-Formatierer** tile. The interface appears in the PS5 browser – via QR code or at `http://<PS5-IP>:8090` also on your phone or PC.
+2. **Start:** load the jailbreak and open the **USB-Formatierer** tile. The interface appears in the PS5 browser – via QR code or at `http://<PS5-IP>:8090` also on your phone or PC. Without the tile: click **Send ELF** in the “PS5-USB-Formatierer” PC program.
 3. **Format:** choose a drive, set the file system and label, press **Format** – done.
 
 > [!WARNING]
@@ -122,7 +142,7 @@ The **Help** button opens the detailed guide in five languages – in the web in
 <td align="center"><img src="docs/images/en/help.webp" alt="Guide"><br><sub><b>Guide in five languages behind the “Help” button</b></sub></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/en/win_ps5.webp" alt="Windows: USB on the PS5" width="420"><br><sub><b>Windows: USB on the PS5 – finds the PS5 on your home network</b></sub></td>
+<td align="center"><img src="docs/images/en/win_ps5.webp" alt="Windows: USB on the PS5" width="420"><br><sub><b>Windows: USB on the PS5 – finds the PS5 by itself, “Send ELF” sends the formatter over</b></sub></td>
 <td align="center"><img src="docs/images/en/win_std.webp" alt="Windows: USB Formatter" width="420"><br><sub><b>Windows: USB Formatter – all file systems</b></sub></td>
 </tr>
 <tr>
@@ -151,3 +171,5 @@ The USB Formatter is licensed under the [GNU General Public License 3.0](LICENSE
 - `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, see `NOTICE.txt`
 
 Use at your own risk – back up important data first.
+
+<div align="center"><sub>Developed by <a href="https://github.com/strongt1me">strongt1me</a> · for the PS5 community</sub></div>

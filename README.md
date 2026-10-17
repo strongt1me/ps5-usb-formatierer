@@ -39,7 +39,7 @@ Eingebundene Laufwerke meldet der Formatierer per Software ab und übernimmt sie
 <td width="33%" valign="top">
 
 ### 🕹️ Spiele im Blick
-Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien und Belegung. Doppelte Spiele erkennen, Spiele samt Kachel löschen.
+Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien und Belegung. Doppelte Spiele erkennen, Spiele über „Spiele löschen …“ samt Kachel entfernen.
 
 </td>
 </tr>
@@ -83,6 +83,26 @@ PS5-Browser, Handy oder PC (QR-Code) und zwei PC-Programme für Windows und Linu
 
 </td>
 </tr>
+<tr>
+<td valign="top">
+
+### 📤 ELF senden
+Das PC-Programm schickt den eingebauten Formatierer auf Knopfdruck an die PS5 (Port 9021) – und ersetzt eine dort laufende ältere Fassung.
+
+</td>
+<td valign="top">
+
+### 📡 Findet die PS5
+Die PC-Programme finden die PS5 im Heimnetz von selbst – auch aus WSL oder einer virtuellen Maschine heraus.
+
+</td>
+<td valign="top">
+
+### 🔒 Schutz vor Verwechslung
+Seriennummer-Abgleich: Steckt inzwischen ein baugleicher anderer Stick, wird nichts formatiert. Nach dem Befund „gefälscht“ oder „defekt“ wird das halb überschriebene alte Dateisystem entfernt.
+
+</td>
+</tr>
 </table>
 
 ## 📦 Download
@@ -92,8 +112,8 @@ Alle Dateien gibt es beim [neuesten Release](../../releases/latest).
 | Datei | Wofür |
 |---|---|
 | `PPSA86920.zip` | **App-Kachel für die PS5:** entpacken und den Ordner `PPSA86920` nach `/data/homebrew/` kopieren (z. B. per FTP). ShadowMountPlus meldet die App an. |
-| `usb_format.elf` | **Der Formatierer (Payload).** Die App startet ihn selbst; ohne App an den ELF-Loader schicken (Port 9021). |
-| `PS5-USB-Formatierer.exe` | **Windows-Programm mit PS5-Funktionen:** USB an der PS5 (übers Netz), USB am PC für die PS5, Am PC Standard. |
+| `usb_format.elf` | **Der Formatierer (Payload).** Die App startet ihn selbst, das PC-Programm schickt ihn per „ELF senden“; sonst von Hand an den ELF-Loader (Port 9021). |
+| `PS5-USB-Formatierer.exe` | **Windows-Programm mit PS5-Funktionen:** USB an der PS5 (übers Netz), USB am PC für die PS5, Am PC Standard – mit eingebauter ELF. |
 | `USB-Formatierer.exe` | **Windows-Programm ohne PS5-Funktionen:** alle Dateisysteme, Partitionen und Expertenmodus. |
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Dieselben beiden Programme für Linux** (x86_64): entpacken und starten. |
 
@@ -102,7 +122,7 @@ Alle Dateien gibt es beim [neuesten Release](../../releases/latest).
 ## 🚀 Schnellstart
 
 1. **Installieren:** Ordner `PPSA86920` aus dem ZIP nach `/data/homebrew/` auf die PS5 kopieren.
-2. **Starten:** Jailbreak laden und die Kachel **USB-Formatierer** öffnen. Die Oberfläche erscheint im PS5-Browser – per QR-Code oder unter `http://<PS5-IP>:8090` auch am Handy oder PC.
+2. **Starten:** Jailbreak laden und die Kachel **USB-Formatierer** öffnen. Die Oberfläche erscheint im PS5-Browser – per QR-Code oder unter `http://<PS5-IP>:8090` auch am Handy oder PC. Ohne Kachel: im PC-Programm „PS5-USB-Formatierer“ auf **ELF senden** klicken.
 3. **Formatieren:** Laufwerk wählen, Dateisystem und Bezeichnung festlegen, **Formatieren** – fertig.
 
 > [!WARNING]
@@ -122,7 +142,7 @@ Die ausführliche Anleitung in fünf Sprachen öffnet der Knopf **Hilfe** – in
 <td align="center"><img src="docs/images/de/help.webp" alt="Anleitung"><br><sub><b>Anleitung in fünf Sprachen hinter dem Knopf „Hilfe“</b></sub></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/de/win_ps5.webp" alt="Windows: USB an der PS5" width="420"><br><sub><b>Windows: USB an der PS5 – findet die PS5 im Heimnetz</b></sub></td>
+<td align="center"><img src="docs/images/de/win_ps5.webp" alt="Windows: USB an der PS5" width="420"><br><sub><b>Windows: USB an der PS5 – findet die PS5 selbst, „ELF senden“ schickt den Formatierer hin</b></sub></td>
 <td align="center"><img src="docs/images/de/win_std.webp" alt="Windows: USB-Formatierer" width="420"><br><sub><b>Windows: USB-Formatierer – alle Dateisysteme</b></sub></td>
 </tr>
 <tr>
@@ -151,3 +171,5 @@ Der USB-Formatierer steht unter der [GNU General Public License 3.0](LICENSE). E
 - `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, siehe `NOTICE.txt`
 
 Benutzung auf eigene Gefahr – wichtige Daten vorher sichern.
+
+<div align="center"><sub>Entwickelt von <a href="https://github.com/strongt1me">strongt1me</a> · für die PS5-Community</sub></div>

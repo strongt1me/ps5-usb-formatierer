@@ -39,7 +39,7 @@ Le formateur déconnecte par logiciel les lecteurs montés et les reprend avant 
 <td width="33%" valign="top">
 
 ### 🕹️ Les jeux en un coup d'œil
-Jeux (dossiers et images avec ID de titre), fichiers PKG et occupation. Détecte les jeux en double, supprime les jeux avec leur vignette.
+Jeux (dossiers et images avec ID de titre), fichiers PKG et occupation. Détecte les jeux en double, supprime les jeux avec leur vignette via « Supprimer des jeux … ».
 
 </td>
 </tr>
@@ -83,6 +83,26 @@ Navigateur de la PS5, téléphone ou PC (code QR) et deux programmes PC pour Win
 
 </td>
 </tr>
+<tr>
+<td valign="top">
+
+### 📤 Envoyer l'ELF
+Le programme PC envoie le formateur intégré à la PS5 d'un clic (port 9021) – et remplace une ancienne version déjà lancée.
+
+</td>
+<td valign="top">
+
+### 📡 Trouve la PS5
+Les programmes PC trouvent seuls la PS5 sur le réseau domestique – même depuis WSL ou une machine virtuelle.
+
+</td>
+<td valign="top">
+
+### 🔒 Pas de confusion
+Contrôle du numéro de série : si une autre clé du même modèle est branchée entre-temps, rien n'est formaté. Après le résultat « contrefaite » ou « défectueuse », l'ancien système de fichiers à moitié écrasé est supprimé.
+
+</td>
+</tr>
 </table>
 
 ## 📦 Téléchargement
@@ -92,8 +112,8 @@ Tous les fichiers se trouvent dans la [dernière version](../../releases/latest)
 | Fichier | Rôle |
 |---|---|
 | `PPSA86920.zip` | **Vignette de l'app pour la PS5 :** décompressez et copiez le dossier `PPSA86920` dans `/data/homebrew/` (par ex. via FTP). ShadowMountPlus enregistre l'app. |
-| `usb_format.elf` | **Le formateur (payload).** L'app le lance elle-même ; sans l'app, envoyez-le au chargeur ELF (port 9021). |
-| `PS5-USB-Formatierer.exe` | **Programme Windows avec fonctions PS5 :** USB sur la PS5 (via le réseau), USB sur PC pour la PS5, PC standard. |
+| `usb_format.elf` | **Le formateur (payload).** L'app le lance elle-même, le programme PC l'envoie via « Envoyer l'ELF » ; sinon, envoyez-le à la main au chargeur ELF (port 9021). |
+| `PS5-USB-Formatierer.exe` | **Programme Windows avec fonctions PS5 :** USB sur la PS5 (via le réseau), USB sur PC pour la PS5, PC standard – avec l'ELF intégré. |
 | `USB-Formatierer.exe` | **Programme Windows sans fonctions PS5 :** tous les systèmes de fichiers, partitions et mode expert. |
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Les deux mêmes programmes pour Linux** (x86_64) : décompresser et lancer. |
 
@@ -102,7 +122,7 @@ Tous les fichiers se trouvent dans la [dernière version](../../releases/latest)
 ## 🚀 Démarrage rapide
 
 1. **Installer :** copiez le dossier `PPSA86920` du ZIP dans `/data/homebrew/` sur la PS5.
-2. **Lancer :** chargez le jailbreak et ouvrez la vignette **USB-Formatierer**. L'interface s'affiche dans le navigateur de la PS5 – via le code QR ou à l'adresse `http://<IP-PS5>:8090` aussi sur téléphone ou PC.
+2. **Lancer :** chargez le jailbreak et ouvrez la vignette **USB-Formatierer**. L'interface s'affiche dans le navigateur de la PS5 – via le code QR ou à l'adresse `http://<IP-PS5>:8090` aussi sur téléphone ou PC. Sans vignette : dans le programme PC « PS5-USB-Formatierer », cliquez sur **Envoyer l'ELF**.
 3. **Formater :** choisissez un lecteur, réglez le système de fichiers et le nom, appuyez sur **Formater** – c'est fait.
 
 > [!WARNING]
@@ -122,7 +142,7 @@ Le bouton **Aide** ouvre le guide détaillé en cinq langues – dans l'interfac
 <td align="center"><img src="docs/images/fr/help.webp" alt="Guide"><br><sub><b>Guide en cinq langues derrière le bouton « Aide »</b></sub></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/fr/win_ps5.webp" alt="Windows : USB sur la PS5" width="420"><br><sub><b>Windows : USB sur la PS5 – trouve la PS5 sur le réseau domestique</b></sub></td>
+<td align="center"><img src="docs/images/fr/win_ps5.webp" alt="Windows : USB sur la PS5" width="420"><br><sub><b>Windows : USB sur la PS5 – trouve seul la PS5, « Envoyer l'ELF » y envoie le formateur</b></sub></td>
 <td align="center"><img src="docs/images/fr/win_std.webp" alt="Windows : Formateur USB" width="420"><br><sub><b>Windows : Formateur USB – tous les systèmes de fichiers</b></sub></td>
 </tr>
 <tr>
@@ -151,3 +171,5 @@ Le Formateur USB est distribué sous [GNU General Public License 3.0](LICENSE). 
 - `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, voir `NOTICE.txt`
 
 Utilisation à vos risques – sauvegardez d'abord vos données importantes.
+
+<div align="center"><sub>Développé par <a href="https://github.com/strongt1me">strongt1me</a> · pour la communauté PS5</sub></div>
