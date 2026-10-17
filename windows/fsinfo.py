@@ -109,7 +109,8 @@ def cluster_choices(fs, part, ss):
     elif fs == "ntfs":
         std = next((c for lim, c in ((16 * TB, 4 * KB), (32 * TB, 8 * KB), (64 * TB, 16 * KB), (128 * TB, 32 * KB))
                     if part <= lim), 64 * KB)
-        vals = [v for v in pow2 if ss <= v <= 2 * MB and part // v <= 0xFFFFFFFE]
+        # mkntfs scheitert unter etwa 16 Clustern bzw. 2 MB (bei nur 1 Cluster läuft es endlos)
+        vals = [v for v in pow2 if ss <= v <= 2 * MB and 16 <= part // v <= 0xFFFFFFFE] if part >= 2 * MB else []
     elif fs == "fat":   # FAT16: 4.085 bis 65.524 Cluster; unter 16 MB wird es (wie bei Windows) FAT12 mit höchstens 4.084
         std = next((c for lim, c in ((32 * MB, 512), (64 * MB, KB), (128 * MB, 2 * KB), (256 * MB, 4 * KB),
                                      (512 * MB, 8 * KB), (GB, 16 * KB), (2 * GB, 32 * KB)) if part <= lim), 64 * KB)
@@ -175,6 +176,15 @@ def plan(parts, size, scheme, ss=512):
         sizes.append(n)
         at += n
     return sizes, max(0, usable_end - at), None
+
+
+def plan_starts(sizes):
+    """Beginn (Bytes) jeder Partition laut plan(): ab 1 MiB lückenlos, alle Größen sind ganze MiB"""
+    starts, at = [], MB
+    for n in sizes:
+        starts.append(at)
+        at += n
+    return starts
 
 
 def part_arg(p, cluster):

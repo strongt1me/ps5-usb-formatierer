@@ -130,9 +130,15 @@ curl -s "$U/api/devices" >/dev/null
 # der Host meldet die Dateigröße (256 MB) - für den Test eine 2-GB-Datei vorgaukeln: echtes Image vergrößern,
 # Zugriffe hinter 256 MB laufen über (USBFMT_FAKE_REAL)
 truncate -s 2G "$W/fake.img"
+# altes "Dateisystem" vorne (MBR-Kennung, exFAT-Bootsektor bei 1 MB): nach dem Befund darf es nicht stehen bleiben
+printf '\x55\xaa' | dd of="$W/fake.img" bs=1 seek=510 conv=notrunc status=none
+printf 'EXFAT   ' | dd of="$W/fake.img" bs=1 seek=$((MIB + 3)) conv=notrunc status=none
 code=$(post "{\"device\":\"da0\",\"fs\":\"exfat\",\"size\":$((2048 * MIB)),\"verify\":true}" format)
 [ "$code" = 202 ] && wait_job && [ "$(q 'not d["ok"] and d["result"]["fake"] and d["result"]["real"] == 268435456' <"$W/st")" = True ] \
     && ok "Fälschung erkannt: $(q 'd["message"]' <"$W/st" | cut -c1-150)" || bad "Fälschung" "$(cat "$W/st")"
+[ "$(head -c $((2 * MIB)) "$W/fake.img" | tr -d '\000' | wc -c)" = 0 ] \
+    && ok "  altes Dateisystem nach dem Befund entfernt (wird nicht mit kaputtem Inhalt eingebunden)" \
+    || bad "  Anfang nach dem Befund nicht genullt"
 code=$(post "{\"device\":\"da0\",\"fs\":\"exfat\",\"size\":$((2048 * MIB)),\"limit\":268435456}" format)
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["result"]["limit"] == 268435456' <"$W/st")" = True ] \
     && ok "nur den echten Bereich formatiert: $(q 'd["message"]' <"$W/st" | cut -c1-150)" || bad "limit-Format" "$(cat "$W/st")"

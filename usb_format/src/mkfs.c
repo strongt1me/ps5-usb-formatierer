@@ -966,7 +966,7 @@ void mkfs_progress_reset(void) {
     ph_last = -1;
 }
 
-int layout_disk(blkdev_t *d, int scheme, uint64_t limit, part_t *p, int n, uint32_t serial, int *is_gpt) {
+int layout_plan(const blkdev_t *d, int scheme, uint64_t limit, part_t *p, int n, int *is_gpt) {
     const uint64_t edge = MIB / d->ss;
     uint64_t end = d->sectors;
     if (limit && limit / d->ss < end) end = limit / d->ss;
@@ -997,6 +997,16 @@ int layout_disk(blkdev_t *d, int scheme, uint64_t limit, part_t *p, int n, uint3
         at += count;
     }
     if (is_gpt) *is_gpt = gpt;
+    return 0;
+}
+
+int layout_disk(blkdev_t *d, int scheme, uint64_t limit, part_t *p, int n, uint32_t serial, int *is_gpt) {
+    int gpt = 0;
+    if (layout_plan(d, scheme, limit, p, n, &gpt)) return -1;
+    if (is_gpt) *is_gpt = gpt;
+    const uint64_t edge = MIB / d->ss;
+    uint64_t end = d->sectors;
+    if (limit && limit / d->ss < end) end = limit / d->ss;
 
     /* alte Tabellen vorne und hinten, dann Anfang und Ende jeder Partition (alte Dateisystem-Signaturen) */
     d->base = 0;

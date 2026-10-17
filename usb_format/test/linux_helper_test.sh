@@ -136,6 +136,14 @@ run blk8k 512M format ext4 X cluster=8192
 expect blk8k 0 "ext4 mit 8-KB-Blöcken abgelehnt"
 run lab17 512M format ext4 SIEBZEHN_ZEICHEN1
 expect lab17 0 "ext-Bezeichnung mit 17 Zeichen abgelehnt"
+run act2 512M layout scheme=mbr plain "part=exfat,$((100 * M)),0,auto,1,A" "part=fat32,rest,0,auto,1,B"
+expect act2 0 "MBR mit zwei startfähigen Partitionen abgelehnt"
+# FAT32 hinter 2 TiB (Beginn passt nicht ins 32-Bit-Feld): abgelehnt, BEVOR die Tabelle geschrieben wird
+run fatfar 2200G layout scheme=gpt plain "part=exfat,$((2100 * 1024 * M)),0,auto,0,A" "part=fat32,$((1024 * M)),0,auto,0,B"
+expect fatfar 0 "FAT32 hinter 2 TiB abgelehnt"
+grep -q "geht nur in den ersten" "$W/fatfar.txt" && ok "FAT32 hinter 2 TiB: verständliche Meldung" || bad "Meldung: $(result fatfar)"
+[ "$(head -c $((2 * M)) "$W/fatfar.img" | tr -d '\000' | wc -c)" = 0 ] && ok "FAT32 hinter 2 TiB: nichts geschrieben" || bad "Abbild beschrieben"
+rm -f "$W/fatfar.img"
 run kaputt 512M layout "part=exfat,abc,0,auto,0,X"
 expect kaputt 0 "kaputte Partitionsangabe abgelehnt"
 run ntfs 512M layout "part=ntfs,rest,0,auto,0,X"

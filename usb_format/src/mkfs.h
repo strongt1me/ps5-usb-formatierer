@@ -83,6 +83,9 @@ typedef struct {
  * alte Tabellen sowie die erste und letzte MiB jeder Partition (alte Signaturen). limit wie mkfs_opts_t.limit.
  * Die Dateisysteme schreibt der Aufrufer danach (mkfs_* mit d->base = start * ss). Löscht alle Daten. */
 int layout_disk(blkdev_t *d, int scheme, uint64_t limit, part_t *p, int n, uint32_t serial, int *is_gpt);
+/* nur die Lage berechnen (start/count, GPT ja/nein) - schreibt nichts; so lässt sich vorher prüfen, ob jedes
+ * Dateisystem an seine Stelle passt */
+int layout_plan(const blkdev_t *d, int scheme, uint64_t limit, part_t *p, int n, int *is_gpt);
 
 /* Fortschritt für den nächsten Einzelaufruf (mkfs_* direkt) wieder bei 0 beginnen lassen */
 void mkfs_progress_reset(void);

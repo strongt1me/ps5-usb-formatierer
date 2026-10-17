@@ -44,6 +44,8 @@ class PartitionDialog(tk.Toplevel):
         sz.grid(row=r, column=1, sticky="w")
         unit_gb = part["bytes"] >= 10 * GB
         self.size_var = tk.StringVar(value=self._num(part["bytes"] or room, unit_gb))
+        # angezeigt wird gerundet (z. B. 14,7 GB) - bleiben Zahl und Einheit unverändert, gilt die genaue alte Größe
+        self.orig = (part["bytes"], self.size_var.get(), 1 if unit_gb else 0)
         self.units = ["MB", "GB"]
         self.unit_combo = ttk.Combobox(sz, values=[unit(u) for u in self.units], state="readonly", width=5)
         self.unit_combo.current(1 if unit_gb else 0)
@@ -74,6 +76,9 @@ class PartitionDialog(tk.Toplevel):
         self.cluster_combo.grid(row=r, column=1, sticky="ew")
         self.cluster_vals = []
         self.cluster_want = part.get("cluster", 0)
+        # "Standard" bleibt 0 (folgt späteren Größenänderungen), nur eine selbst gewählte Einheit wird fest
+        self.cluster_chosen = bool(self.cluster_want)
+        self.cluster_combo.bind("<<ComboboxSelected>>", lambda e: setattr(self, "cluster_chosen", True))
         r += 1
 
         label(_("Bezeichnung:"), r)
@@ -130,6 +135,8 @@ class PartitionDialog(tk.Toplevel):
     def _bytes(self):
         if self.rest_var.get():
             return 0
+        if self.orig[0] and self.size_var.get() == self.orig[1] and self.unit_combo.current() == self.orig[2]:
+            return self.orig[0]
         try:
             v = float(self.size_var.get().replace(",", ".").strip())
             b = int(v * (GB if self.unit_combo.current() == 1 else MB)) // MB * MB   # "inf"/"nan": Fehler
@@ -184,7 +191,7 @@ class PartitionDialog(tk.Toplevel):
             messagebox.showerror(_("Partition"), _("{fs} passt nicht auf diese Größe.", fs=fs_display(self._fs())),
                                  parent=self)
             return
-        self.result = {"bytes": b, "fs": self._fs(), "cluster": self._cluster(),
+        self.result = {"bytes": b, "fs": self._fs(), "cluster": self._cluster() if self.cluster_chosen else 0,
                        "label": self.label_var.get(), "ptype": PTYPES[max(0, self.ptype_combo.current())][0],
                        "active": bool(self.active_var.get())}
         self.destroy()
@@ -235,6 +242,9 @@ class PartitionEditor(ttk.Frame):
 
     def set_context(self, dev, scheme):
         self.dev, self.scheme = dev, scheme
+        if dev and fsinfo.uses_gpt(dev["size"], scheme, self._ss()):
+            for p in self.parts:   # "startfähig" gibt es nur bei MBR - nicht weiter anzeigen und zusagen
+                p["active"] = False
         self.refresh()
 
     def set_enabled(self, on):
@@ -264,6 +274,12 @@ class PartitionEditor(ttk.Frame):
                 elif p["cluster"] and p["cluster"] not in vals:
                     self.error = _("Partition {n}: Die Zuordnungseinheit {size} passt nicht zu dieser Größe – bitte "
                                    "ändern.", n=i + 1, size=unit_text(p["cluster"]))
+                elif p["fs"] in ("FAT32", "FAT (FAT16)"):   # Beginn und Größe stehen in 32-Bit-Feldern
+                    start = fsinfo.plan_starts(self.sizes)[i]
+                    if start // self._ss() > 0xFFFFFFFF or self.sizes[i] // self._ss() > 0xFFFFFFFF:
+                        self.error = _("Partition {n}: {fs} geht nur in den ersten {size} des Datenträgers – bitte "
+                                       "weiter nach vorn legen oder exFAT wählen.", n=i + 1, fs=fs_display(p["fs"]),
+                                       size=size_text(0xFFFFFFFF * self._ss()))
         else:
             self.sizes, self.free, self.error = [], 0, None
         self.tree.delete(*self.tree.get_children())
@@ -337,6 +353,9 @@ class PartitionEditor(ttk.Frame):
         new = {"bytes": 0, "fs": "exFAT", "cluster": 0, "label": "", "ptype": "auto", "active": False}
         res = self._dialog(new, len(self.parts))
         if res:
+            if res["active"]:   # MBR: nur eine startfähig (wie beim Bearbeiten)
+                for p in self.parts:
+                    p["active"] = False
             self.parts.append(res)
         elif last is not None:
             last["bytes"] = old   # abgebrochen: alles wie vorher

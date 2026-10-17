@@ -1816,5 +1816,23 @@
   "it": "Il gioco è cambiato dalla ricerca – non è stato eliminato nulla. Ricarica l'elenco.",
   "es": "El juego ha cambiado desde la búsqueda – no se ha eliminado nada. Recarga la lista.",
   "fr": "Le jeu a changé depuis la recherche – rien n'a été supprimé. Rechargez la liste."
+ },
+ "Partition %d: %s geht nur in den ersten %s des Datenträgers – bitte weiter nach vorn legen oder exFAT wählen.": {
+  "en": "Partition %d: %s only works within the first %s of the drive – please move it further forward or choose exFAT.",
+  "it": "Partizione %d: %s funziona solo nei primi %s dell'unità – spostala più avanti o scegli exFAT.",
+  "es": "Partición %d: %s solo funciona dentro de los primeros %s de la unidad – muévela más hacia delante o elige exFAT.",
+  "fr": "Partition %d : %s ne fonctionne que dans les premiers %s du lecteur – placez-la plus en avant ou choisissez exFAT."
+ },
+ "Partition %d: Für NTFS zu klein bzw. Zuordnungseinheit zu groß (mindestens 16 Einheiten und 2 MB).": {
+  "en": "Partition %d: Too small for NTFS or allocation unit too large (at least 16 units and 2 MB).",
+  "it": "Partizione %d: troppo piccola per NTFS o unità di allocazione troppo grande (almeno 16 unità e 2 MB).",
+  "es": "Partición %d: demasiado pequeña para NTFS o unidad de asignación demasiado grande (al menos 16 unidades y 2 MB).",
+  "fr": "Partition %d : trop petite pour NTFS ou unité d'allocation trop grande (au moins 16 unités et 2 Mo)."
+ },
+ "Nur eine Partition darf startfähig sein.": {
+  "en": "Only one partition may be bootable.",
+  "it": "Solo una partizione può essere avviabile.",
+  "es": "Solo una partición puede ser de arranque.",
+  "fr": "Une seule partition peut être amorçable."
  }
 }

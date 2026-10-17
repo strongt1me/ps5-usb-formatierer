@@ -1295,7 +1295,9 @@ async function fakeDialog(st, r, d) {
     extra: stats, text2: tr("Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben. Für Spiele an der PS5 besser einen echten Datenträger verwenden – wenn überhaupt, dann nur den echten Bereich nutzen."),
     no: tr("Schließen"), yes: tr("Nur echte {real} formatieren", { real: fmtSize(r.real) }), yesCls: "solid primary"
   });
-  /* der geprüfte Stick - mit seiner Seriennummer, damit der Server einen inzwischen getauschten ablehnt */
+  /* der geprüfte Stick - mit seiner Seriennummer, damit der Server einen inzwischen getauschten ablehnt. Liste
+     frisch laden: die PS5 bindet ihn nach der Prüfung womöglich wieder ein (dann mit "replug") */
+  if (ok === "yes") await loadDevices();
   const cur = d && devices.find(x => x.name === d.name && sameStick(x, d));
   if (ok === "yes" && cur && r.real >= 64 * MB)
     runJob("/api/format", formatBody({ ...cur, ident: d.ident || cur.ident }, { verify: false, full: false, limit: r.real }));
@@ -1307,6 +1309,7 @@ async function badDialog(st, d) {
     text2: tr("Auf diesem Datenträger können Daten verloren gehen. Besser einen anderen verwenden."),
     no: tr("Schließen"), yes: tr("Trotzdem formatieren"), yesCls: "danger solid"
   });
+  if (ok === "yes") await loadDevices();   /* inzwischen wieder eingebunden? (replug) */
   const cur = d && devices.find(x => x.name === d.name && sameStick(x, d));
   if (ok === "yes" && cur) runJob("/api/format", formatBody({ ...cur, ident: d.ident || cur.ident }, { verify: false, full: false }));
 }
@@ -1315,7 +1318,9 @@ async function askRepair(st, checked) {
   const ok = await dialog({ title: tr("Fehler gefunden"), cls: "amber", text: st.message,
     text2: tr("Reparieren behebt die Fehler im Dateisystem. Beschädigte Dateien können dabei entfernt werden."),
     no: tr("Später"), yes: tr("Jetzt reparieren") });
-  /* das geprüfte Laufwerk (Name - nach dem Abmelden ggf. der neue - und Größe), nicht die vielleicht andere Auswahl */
+  /* das geprüfte Laufwerk (Name - nach dem Abmelden ggf. der neue - und Größe), nicht die vielleicht andere Auswahl;
+     Liste frisch: inzwischen wieder eingebunden? (replug) */
+  if (ok === "yes") await loadDevices();
   const d = checked && devices.find(x => (x.name === checked.name || x.name === st.device) && sameStick(x, checked));
   if (ok === "yes" && d)
     runJob("/api/check", { device: d.name, size: d.size, ident: checked.ident || d.ident || "", repair: true, replug: d.mounts.length > 0 });

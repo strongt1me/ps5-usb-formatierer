@@ -174,6 +174,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Nicht gelöscht – ", "Not deleted – ", "Non eliminato – ", "No borrado – ", "Non supprimé – "}},
     {{"Nicht unterstützte Sektorgröße %u", "Unsupported sector size %u", "Dimensione settore non supportata %u", "Tamaño de sector no admitido %u", "Taille de secteur non prise en charge %u"}},
     {{"Nur die letzte Partition darf den Rest bekommen", "Only the last partition may take the rest", "Solo l'ultima partizione può occupare il resto", "Solo la última partición puede ocupar el resto", "Seule la dernière partition peut prendre le reste"}},
+    {{"Nur eine Partition darf startfähig sein.", "Only one partition may be bootable.", "Solo una partizione può essere avviabile.", "Solo una partición puede ser de arranque.", "Une seule partition peut être amorçable."}},
     {{"Ordner anlegen", "Creating folders", "Creazione cartelle", "Creando carpetas", "Création des dossiers"}},
     {{"Ordner des Helfers unbekannt.", "Helper folder unknown.", "Cartella dell'helper sconosciuta.", "Carpeta del asistente desconocida.", "Dossier de l'assistant inconnu."}},
     {{"Ordner vorbereiten", "Preparing folders", "Preparazione cartelle", "Preparando carpetas", "Préparation des dossiers"}},
@@ -181,6 +182,8 @@ const i18n_entry_t i18n_table[] = {
     {{"Partition %d ist zu groß – es fehlen %llu MB", "Partition %d is too large – %llu MB are missing", "La partizione %d è troppo grande – mancano %llu MB", "La partición %d es demasiado grande – faltan %llu MB", "La partition %d est trop grande – il manque %llu Mo"}},
     {{"Partition %d passt nicht mehr auf den Datenträger", "Partition %d no longer fits on the drive", "La partizione %d non entra più nell'unità", "La partición %d ya no cabe en la unidad", "La partition %d ne tient plus sur le support"}},
     {{"Partition %d: %s", "Partition %d: %s", "Partizione %d: %s", "Partición %d: %s", "Partition %d : %s"}},
+    {{"Partition %d: %s geht nur in den ersten %s des Datenträgers – bitte weiter nach vorn legen oder exFAT wählen.", "Partition %d: %s only works within the first %s of the drive – please move it further forward or choose exFAT.", "Partizione %d: %s funziona solo nei primi %s dell'unità – spostala più avanti o scegli exFAT.", "Partición %d: %s solo funciona dentro de los primeros %s de la unidad – muévela más hacia delante o elige exFAT.", "Partition %d : %s ne fonctionne que dans les premiers %s du lecteur – placez-la plus en avant ou choisissez exFAT."}},
+    {{"Partition %d: Für NTFS zu klein bzw. Zuordnungseinheit zu groß (mindestens 16 Einheiten und 2 MB).", "Partition %d: Too small for NTFS or allocation unit too large (at least 16 units and 2 MB).", "Partizione %d: troppo piccola per NTFS o unità di allocazione troppo grande (almeno 16 unità e 2 MB).", "Partición %d: demasiado pequeña para NTFS o unidad de asignación demasiado grande (al menos 16 unidades y 2 MB).", "Partition %d : trop petite pour NTFS ou unité d'allocation trop grande (au moins 16 unités et 2 Mo)."}},
     {{"Partition anlegen", "Creating partition", "Creazione partizione", "Creando la partición", "Création de la partition"}},
     {{"Partition ohne Dateisystem", "partition without file system", "partizione senza file system", "partición sin sistema de archivos", "partition sans système de fichiers"}},
     {{"Partition suchen", "Finding partition", "Ricerca partizione", "Buscando partición", "Recherche de la partition"}},
@@ -306,4 +309,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 303;
+const unsigned i18n_count = 306;

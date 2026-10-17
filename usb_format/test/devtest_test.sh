@@ -65,6 +65,21 @@ rm -f "$W/fake.img"
 truncate -s 300M "$W/drop.img"
 USBFMT_FAKE_REAL=$((300 * MIB)) USBFMT_FAKE_MODE=drop "$W/dt" full "$W/drop.img" $((1024 * MIB)) >"$W/out" 2>&1
 expect_real "Vollständig, Daten hinter 300 MB verschwinden" 300 0
+rm -f "$W/drop.img"
+# Fälschung, die hinter der echten Grenze mit Ein-/Ausgabefehlern antwortet: gefälscht, nicht "defekt"
+for mode in verify full; do
+    truncate -s 300M "$W/eio.img"
+    USBFMT_FAKE_REAL=$((300 * MIB)) USBFMT_FAKE_MODE=eio "$W/dt" $mode "$W/eio.img" $((1024 * MIB)) >"$W/out" 2>&1
+    expect_real "$mode, hinter 300 MB Ein-/Ausgabefehler" 300 1
+    rm -f "$W/eio.img"
+done
+# toter Stick (nimmt nichts an, liest nur Nullen): defekt ab dem Anfang, nie "gefälscht, echt 0 Bytes"
+truncate -s 64M "$W/tot.img"
+for mode in verify full; do
+    USBFMT_FAKE_MODE=dead "$W/dt" $mode "$W/tot.img" $((64 * MIB)) >"$W/out" 2>&1
+    [ "$(val fake)" = 0 ] && [ "$(val bad)" = 1 ] && ok "toter Stick ($mode): defekt, nicht gefälscht" || bad "toter Stick ($mode)"
+done
+rm -f "$W/tot.img"
 
 head -c $((64 * MIB)) /dev/urandom >"$W/voll.img"
 cp "$W/voll.img" "$W/vorher.img"

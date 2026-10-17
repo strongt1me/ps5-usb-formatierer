@@ -454,7 +454,9 @@ class App(tk.Tk):
         enable(self.speed_btn, idle and dev)
         enable(self.del_btn, idle and not pc and self.api and self.games_tree.selection())
         enable(self.uninstall_chk, idle)
-        enable(self.rename_btn, idle and dev and any(v["fs"] in ("exFAT", "FAT32") for v in dev.get("volumes", [])))
+        # nur bei genau einem Laufwerk auf dem Datenträger: der Helfer nimmt nicht unbedingt das angezeigte
+        vols = dev.get("volumes", []) if dev else []
+        enable(self.rename_btn, idle and dev and len(vols) == 1 and vols[0]["fs"] in ("exFAT", "FAT32"))
         # Abbrechen nur bei Warten auf Abziehen, Echtheitsprüfung und Tempomessung (Formatieren selbst dauert Sekunden)
         if "cancellable" in self.ps5_flags:
             ps5_can = bool(self.ps5_flags["cancellable"])

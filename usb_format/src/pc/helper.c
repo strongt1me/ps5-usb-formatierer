@@ -146,6 +146,40 @@ static const char *check_part(const wpart_t *p) {
     return NULL;
 }
 
+/* Lage aller Partitionen vorab berechnen und prüfen, ob jedes Dateisystem an seine Stelle passt - sonst würde erst der
+ * Datenträger neu aufgeteilt (alles gelöscht) und dann scheiterte das Formatieren. 0 = passt. */
+static int plan_check(const session_t *s, uint64_t size, const fmtreq_t *q, char *err, size_t n) {
+    blkdev_t pd = {0};
+    pd.ss = s->info.ss;
+    pd.sectors = size / s->info.ss;
+    part_t pp[MAX_PARTS];
+    memset(pp, 0, sizeof(pp));
+    for (int i = 0; i < q->n; i++) pp[i].bytes = q->p[i].bytes;
+    if (layout_plan(&pd, q->scheme, q->limit, pp, q->n, NULL)) {
+        snprintf(err, n, "%s", mkfs_error());
+        return -1;
+    }
+    for (int i = 0; i < q->n; i++) {
+        const wpart_t *w = &q->p[i];
+        const uint64_t bytes = pp[i].count * pd.ss;
+        char lim[24];
+        /* FAT32/FAT16: Beginn und Größe in 32-Bit-Feldern des Bootsektors */
+        if ((w->fs == FS_FAT32 || w->fs == WFS_FAT16) && (pp[i].start > 0xFFFFFFFFull || pp[i].count > 0xFFFFFFFFull)) {
+            snprintf(err, n, T("Partition %d: %s geht nur in den ersten %s des Datenträgers – bitte weiter nach vorn "
+                               "legen oder exFAT wählen."), i + 1, fs_title(w->fs),
+                     size_text(0xFFFFFFFFull * pd.ss, lim, sizeof(lim)));
+            return -1;
+        }
+        /* NTFS: mkntfs scheitert unter etwa 16 Clustern bzw. 2 MB (bei 1 Cluster läuft es endlos) */
+        if (w->fs == FS_NTFS && (bytes < 2 * MIB || (w->cluster && bytes / w->cluster < 16))) {
+            snprintf(err, n, T("Partition %d: Für NTFS zu klein bzw. Zuordnungseinheit zu groß (mindestens 16 "
+                               "Einheiten und 2 MB)."), i + 1);
+            return -1;
+        }
+    }
+    return 0;
+}
+
 /* Baustein der Ergebnismeldung anhängen (fmt: deutscher Text, ausgegeben in der gewählten Sprache) */
 static int add_text(char *buf, size_t n, const char *fmt, ...) {
     va_list ap;
@@ -182,6 +216,12 @@ static int cmd_format(const char *disk, uint64_t size, fmtreq_t *q) {
         finish(0, "Ungültige Grenze für den echten Bereich.", NULL);
         return 1;
     }
+    int actives = 0;   /* MBR: höchstens eine startfähige Partition, sonst starten manche Rechner gar nicht */
+    for (int i = 0; i < q->n; i++) actives += q->p[i].active != 0;
+    if (actives > 1) {
+        finish(0, "Nur eine Partition darf startfähig sein.", NULL);
+        return 1;
+    }
     /* eine exFAT-/FAT32-Partition: genau der Weg der PS5 (auch die Ordnervorlage) */
     const int classic = q->n == 1 && q->p[0].ptype == PT_AUTO && !q->p[0].active && !q->p[0].bytes &&
                         (q->p[0].fs == FS_EXFAT || q->p[0].fs == FS_FAT32);
@@ -190,6 +230,12 @@ static int cmd_format(const char *disk, uint64_t size, fmtreq_t *q) {
     on_progress("Datenträger vorbereiten", 0);
     if (plat_session_open(&s, disk, size, 1, err, sizeof(err))) { finish(0, err, NULL); return 1; }
     const uint64_t use = q->limit ? q->limit : size;
+    if (!classic && plan_check(&s, size, q, err, sizeof(err))) {   /* vor Prüfung und Aufteilen: noch nichts geändert */
+        plat_session_close(&s, 0);
+        snprintf(msg, sizeof(msg), T("Formatieren fehlgeschlagen: %s"), err);
+        finish(0, msg, NULL);
+        return 1;
+    }
 
     devtest_t t;
     memset(&t, 0, sizeof(t));
@@ -206,6 +252,7 @@ static int cmd_format(const char *disk, uint64_t size, fmtreq_t *q) {
         if (rc == 0 && t.cancelled) {
             test_cancelled = 1;
         } else if (rc != 0 || t.fake || t.bad) {
+            if (dt_wrote()) dt_scrub(s.tfd, size);   /* kein altes Dateisystem mit teils überschriebenen Dateien */
             plat_session_close(&s, 1);
             snprintf(json, sizeof(json), "{\"test\":\"%s\",\"fake\":%s,\"bad\":%s,\"reported\":%llu,\"real\":%llu,"
                      "\"bad_at\":%llu}", tested == 2 ? "full" : "quick", t.fake ? "true" : "false",

@@ -30,6 +30,10 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
 
 /* Hat die letzte dt_verify/dt_full schon etwas auf den Datenträger geschrieben? (Abbrechen davor: unverändert) */
 int dt_wrote(void);
+/* Nach einer Prüfung ohne anschließendes Formatieren (gefälscht/defekt/Fehler): Anfang (2 MiB) und Ende (1 MiB) nullen -
+ * sonst bliebe das alte Dateisystem stehen, dessen Dateien die Prüfung teils überschrieben hat, und es würde mit
+ * kaputtem Inhalt wieder eingebunden. Fehler werden ignoriert. */
+void dt_scrub(int fd, uint64_t size);
 
 /* Bewertung für Spiele: "schnell", "ausreichend", "langsam" */
 const char *dt_rating(double read_mbps);

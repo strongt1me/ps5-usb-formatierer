@@ -37,9 +37,10 @@ static double now_s(void) {
 }
 
 #ifdef USBFMT_HOST
-/* Nur Host-Tests: gefälschten Stick nachbilden. USBFMT_FAKE_REAL=<Bytes>, USBFMT_FAKE_MODE=wrap (Standard) | drop */
+/* Nur Host-Tests: gefälschten Stick nachbilden. USBFMT_FAKE_REAL=<Bytes>, USBFMT_FAKE_MODE=wrap (Standard) | drop |
+ * eio (hinter der Grenze Ein-/Ausgabefehler) | dead (nimmt nichts an, liest nur Nullen; FAKE_REAL beliebig) */
 static uint64_t sim_real;
-static int sim_drop, sim_ready;
+static int sim_drop, sim_eio, sim_dead, sim_ready;
 
 static int sim_slow;   /* USBFMT_SLOW=1: je Zugriff 20 ms warten (Abbrechen testen) */
 static uint64_t sim_gone_at;   /* USBFMT_GONE_AT=<Byte>: ab dem ersten Zugriff dort ist der Stick "abgezogen" */
@@ -50,6 +51,8 @@ static void sim_load(void) {
     const char *r = getenv("USBFMT_FAKE_REAL"), *m = getenv("USBFMT_FAKE_MODE"), *g = getenv("USBFMT_GONE_AT");
     sim_real = r ? strtoull(r, NULL, 10) : 0;
     sim_drop = m && strcmp(m, "drop") == 0;
+    sim_eio = m && strcmp(m, "eio") == 0;
+    sim_dead = m && strcmp(m, "dead") == 0;
     sim_slow = getenv("USBFMT_SLOW") != NULL;
     sim_gone_at = g ? strtoull(g, NULL, 10) : 0;
     sim_ready = 1;
@@ -66,6 +69,11 @@ static ssize_t io_rw(int fd, int wr, void *buf, size_t len, uint64_t off) {
     sim_load();
     if (sim_slow) usleep(20000);
     if (sim_gone || (sim_gone_at && off + len > sim_gone_at)) { sim_gone = 1; errno = ENXIO; return -1; }
+    if (sim_dead) {   /* Schreiben verpufft, Lesen liefert Nullen (er antwortet also noch - nicht "abgezogen") */
+        if (!wr) memset(buf, 0, len);
+        return (ssize_t)len;
+    }
+    if (sim_eio && sim_real && off + len > sim_real) { errno = EIO; return -1; }
     if (sim_real) {
         for (size_t done = 0; done < len; ) {
             uint64_t o = off + done, phys = o % sim_real;
@@ -370,6 +378,36 @@ out:
     return rc;
 }
 
+void dt_scrub(int fd, uint64_t size) {
+    void *z = NULL;
+    if (posix_memalign(&z, 4096, MIB)) return;
+    memset(z, 0, MIB);
+    (void)io_rw(fd, 1, z, MIB, 0);
+    (void)io_rw(fd, 1, z, MIB, MIB);
+    if (size >= 4ull * MIB) (void)io_rw(fd, 1, z, MIB, (size - MIB) / MIB * MIB);   /* GPT-Sicherungskopie */
+    dev_sync(fd);
+    free(z);
+}
+
+/* Schreibfehler ab Position from: Ist dahinter nichts mehr beschreib- und lesbar (Stichproben an Zweierpotenz-Abständen
+ * und am Ende), ist das die Grenze eines gefälschten Sticks - einzelne defekte Bereiche ließen Stellen dahinter
+ * heil. 1 = alles dahinter tot. */
+static int tail_dead(int fd, uint64_t from, uint64_t size, uint64_t nonce, uint8_t *a, uint8_t *b) {
+    int tried = 0;
+    for (uint64_t d = MIB; tried < 12; d *= 2) {
+        uint64_t p = from + d > size - SAMPLE || d == 0 ? (size - SAMPLE) / SAMPLE * SAMPLE : (from + d) / SAMPLE * SAMPLE;
+        if (p <= from) break;
+        tagged(a, SAMPLE, nonce ^ 0x7a11u, p);
+        if (io_all(fd, 1, a, SAMPLE, p) == 0) {
+            dev_sync(fd);
+            if (io_all(fd, 0, b, SAMPLE, p) == 0 && memcmp(a, b, SAMPLE) == 0) return 0;
+        }
+        tried++;
+        if (p == (size - SAMPLE) / SAMPLE * SAMPLE) break;   /* das Ende ist geprüft */
+    }
+    return tried > 0;
+}
+
 /* Jeder 4-KiB-Block bekommt seine Position (wie f3write/f3read): Läuft die Adresse eines gefälschten Sticks über,
  * steht beim Prüfen an niedriger Stelle die Kennung einer höheren - die Differenz ist die echte Größe. Fehlende
  * oder falsche Daten ohne fremde Kennung sind defekte Bereiche bzw. (ab einer Stelle durchgehend) das Ende. */
@@ -381,17 +419,25 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
     char step[64];
     int rc = -1;
     if (!a || !b) goto out;
-    const uint64_t total = size / SAMPLE * SAMPLE, nonce = nonce64();
+    uint64_t total = size / SAMPLE * SAMPLE;
+    const uint64_t nonce = nonce64();
     io_failed = 0;
 
     double t0 = now_s(), last = 0;
-    uint64_t done = 0;
+    uint64_t done = 0, write_end = 0;   /* write_end: Schreibfehler hier, dahinter nichts mehr beschreibbar */
     while (done < total) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         size_t take = total - done < CHUNK ? (size_t)(total - done) : CHUNK;
         tagged(a, take, nonce, done);
         if (io_all(fd, 1, a, take, done)) {
             if (gone_error(fd, ss, done, err, errlen)) goto out;   /* abgezogen, nicht defekt */
+            /* gefälschte Sticks antworten hinter der echten Grenze oft mit Fehlern: ist dahinter alles tot, ist das
+             * das Ende des echten Speichers - geprüft wird dann nur das Geschriebene davor */
+            if (done >= MIB && tail_dead(fd, done, size, nonce, a, b)) {
+                write_end = done;
+                total = done;
+                break;
+            }
             snprintf(err, errlen, T("Schreibfehler bei %llu MB: %s – der Datenträger ist vermutlich defekt"),
                      (unsigned long long)(done / MIB), strerror(errno));
             r->bad = 1;
@@ -410,6 +456,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
     r->write_mbps = (double)total / (now_s() - t0) / 1e6;
 
     uint64_t alias = 0, first_lost = 0, lost = 0, blocks_after_lost = 0;
+    int have_lost = 0;   /* first_lost gültig (0 ist eine echte Position: schon der erste Block verloren) */
     t0 = now_s();
     last = 0;
     done = 0;
@@ -421,14 +468,14 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
         tagged(a, take, nonce, done);
         if (rerr || memcmp(a, b, take) != 0) {
             for (size_t o = 0; o < take; o += SAMPLE) {
-                if (!rerr && memcmp(a + o, b + o, SAMPLE) == 0) { if (first_lost) blocks_after_lost++; continue; }
+                if (!rerr && memcmp(a + o, b + o, SAMPLE) == 0) { if (have_lost) blocks_after_lost++; continue; }
                 uint64_t p = done + o, other = rerr ? 0 : tag_pos(b + o, nonce);
                 if (other > p) { alias = gcd64(alias, other - p); continue; }
-                if (!first_lost) first_lost = p;
+                if (!have_lost) { have_lost = 1; first_lost = p; }
                 lost++;
                 blocks_after_lost++;
             }
-        } else if (first_lost) {
+        } else if (have_lost) {
             blocks_after_lost += take / SAMPLE;
         }
         done += take;
@@ -441,14 +488,23 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
     }
     r->read_mbps = (double)total / (now_s() - t0) / 1e6;
 
-    /* ab first_lost (fast) alles verloren = Ende des echten Speichers, sonst einzelne defekte Bereiche */
-    uint64_t lost_limit = lost && lost * 10 >= blocks_after_lost * 9 ? first_lost : 0;
+    /* ab first_lost (fast) alles verloren = Ende des echten Speichers, sonst einzelne defekte Bereiche. Ein
+     * Schreibfehler mit totem Rest (write_end) ist ebenfalls ein Ende - sofern davor alles stimmte. */
+    const int tail_lost = lost && lost * 10 >= blocks_after_lost * 9;
+    uint64_t lost_limit = tail_lost ? first_lost : 0;
+    if (write_end && (!have_lost || first_lost >= write_end)) lost_limit = write_end;
+    else if (write_end && !tail_lost) {   /* davor schon einzelne defekte Bereiche: defekt, nicht gefälscht */
+        r->bad = 1;
+        r->bad_at = first_lost;
+    }
+    if (lost_limit && lost_limit < MIB) lost_limit = 0;   /* schon der Anfang verloren: kein nutzbarer Bereich */
     if (alias || lost_limit) {
         uint64_t real = alias && (!lost_limit || alias < lost_limit) ? alias : lost_limit;
         r->fake = 1;
         r->real_bytes = real / MIB * MIB;
+        if (!r->real_bytes) r->fake = 0;   /* weniger als 1 MiB echt: das ist ein defekter Stick */
     }
-    if (lost && !lost_limit) { r->bad = 1; r->bad_at = first_lost; }
+    if (have_lost && !r->fake && !r->bad) { r->bad = 1; r->bad_at = first_lost; }
     rc = 0;
 out:
     free(a); free(b);

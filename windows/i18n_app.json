@@ -1648,5 +1648,17 @@
   "it": "L'ELF è in fase di invio alla PS5. Se chiudi ora la finestra, in seguito potrebbe non esserci alcun formattatore in esecuzione. Chiudere comunque la finestra?",
   "es": "Se está enviando el ELF a la PS5. Si cierras ahora la ventana, puede que después no haya ningún formateador en marcha. ¿Cerrar la ventana de todos modos?",
   "fr": "L'ELF est en cours d'envoi à la PS5. Si la fenêtre est fermée maintenant, aucun formateur ne tournera peut-être plus ensuite. Fermer la fenêtre quand même ?"
+ },
+ "Partition {n}: {fs} geht nur in den ersten {size} des Datenträgers – bitte weiter nach vorn legen oder exFAT wählen.": {
+  "en": "Partition {n}: {fs} only works within the first {size} of the drive – please move it further forward or choose exFAT.",
+  "it": "Partizione {n}: {fs} funziona solo nei primi {size} dell'unità – spostala più avanti o scegli exFAT.",
+  "es": "Partición {n}: {fs} solo funciona dentro de los primeros {size} de la unidad – muévela más hacia delante o elige exFAT.",
+  "fr": "Partition {n} : {fs} ne fonctionne que dans les premiers {size} du lecteur – placez-la plus en avant ou choisissez exFAT."
+ },
+ "Unter Linux darf die Bezeichnung nicht mit „-“ beginnen.": {
+  "en": "On Linux, the label must not start with “-”.",
+  "it": "Su Linux l'etichetta non può iniziare con «-».",
+  "es": "En Linux, la etiqueta no puede empezar por «-».",
+  "fr": "Sous Linux, le nom ne doit pas commencer par « - »."
  }
 }

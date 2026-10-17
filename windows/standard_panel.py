@@ -310,8 +310,9 @@ class StandardPanel(ttk.Frame):
         enable(self.verify_chk, idle and self.quick_var.get())   # vollständig prüft ohnehin jede Stelle
         enable(self.start_btn, idle and dev and (self.editor.valid() if expert else bool(self.cluster_values)))
         enable(self.speed_btn, idle and dev)
-        enable(self.rename_btn, idle and dev and any(v["fs"] in ("exFAT", "FAT32", "NTFS", "FAT")
-                                                     for v in dev.get("volumes", [])))
+        # nur bei genau einem Laufwerk auf dem Datenträger: der Helfer nimmt nicht unbedingt das angezeigte
+        vols = dev.get("volumes", []) if dev else []
+        enable(self.rename_btn, idle and dev and len(vols) == 1 and vols[0]["fs"] in ("exFAT", "FAT32", "NTFS", "FAT"))
         self._hint(self.opt_hint, "" if self.quick_var.get() else
                    _("Vollständig: Jede Stelle wird beschrieben und geprüft – findet defekte Bereiche und gefälschte "
                      "Größen, dauert aber je nach Größe bis zu mehreren Stunden."))
@@ -532,7 +533,8 @@ class StandardPanel(ttk.Frame):
         dev = self._selected()
         if self.busy or not dev:
             return
-        vol = next((v for v in dev["volumes"] if v["fs"] in ("exFAT", "FAT32", "NTFS", "FAT")), None)
+        vols = dev["volumes"]
+        vol = vols[0] if len(vols) == 1 and vols[0]["fs"] in ("exFAT", "FAT32", "NTFS", "FAT") else None
         if not vol:
             return
         most = 32 if vol["fs"] == "NTFS" else 11
@@ -544,6 +546,11 @@ class StandardPanel(ttk.Frame):
         if not LABEL_CHARS.match(label) or len(label) > most:
             messagebox.showerror(_("Umbenennen"), _("Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (höchstens {n} "
                                                     "Zeichen).", n=most), parent=self)
+            return
+        # NTFS/FAT16 benennen unter Linux ntfslabel/fatlabel um - sie hielten "-..." für eine Option
+        if not IS_WIN and vol["fs"] in ("NTFS", "FAT") and label.startswith("-"):
+            messagebox.showerror(_("Umbenennen"), _("Unter Linux darf die Bezeichnung nicht mit „-“ beginnen."),
+                                 parent=self)
             return
         target = quote(label) if label else _("keine Bezeichnung (wird entfernt)")
         if not confirm(self, _("Umbenennen"), pc_dev_text(dev) + "\n\n" + _("Neue Bezeichnung: {label}", label=target)

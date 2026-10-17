@@ -366,6 +366,9 @@ static void *format_worker(void *arg) {
             fake_put(&j->dev, 0);              /* ganzer Stick geprüft und echt: frühere Kennzeichnung löschen */
         }
         if (!test_cancelled && (rc != 0 || t.fake || t.bad)) {
+            /* altes Dateisystem mit teils überschriebenen Dateien nicht stehen lassen: die PS5 bände es sonst mit
+             * kaputtem Inhalt wieder ein */
+            if (dt_wrote()) dt_scrub(fd, j->dev.size);
             close(fd);
             sb_add(&res, "{\"test\":\"%s\",\"fake\":%s,\"bad\":%s,\"reported\":%llu,\"real\":%llu,\"bad_at\":%llu",
                    tested == 2 ? "full" : "quick", t.fake ? "true" : "false", t.bad ? "true" : "false",
