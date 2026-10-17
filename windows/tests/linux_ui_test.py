@@ -29,6 +29,13 @@ def check(name, cond, extra=""):
 
 
 check("Plattform: Linux erkannt", not pc_common.IS_WIN and pc_common.HELPER_NAME == "usbfmt_linux")
+# PS5-Suche hinter einem NAT (WSL, VM): Stufe 3 fragt die üblichen Heimnetze, aber nicht das schon abgesuchte eigene
+import ipaddress  # noqa: E402
+import ps5_discovery  # noqa: E402
+nat = ps5_discovery.home_hosts([ipaddress.IPv4Interface("172.29.158.207/20")])
+lan = ps5_discovery.home_hosts([ipaddress.IPv4Interface("192.168.178.20/24")])
+check("PS5-Suche hinter NAT: Heimnetze werden gefragt", "192.168.178.40" in nat and "192.168.1.94" in nat, len(nat))
+check("PS5-Suche: eigenes Netz nicht doppelt", "192.168.178.40" not in lan and "192.168.1.94" in lan, len(lan))
 check("PcJob ist der pkexec-Weg", pc_common.PcJob is pc_linux.LinuxJob)
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
 check("Einstellungen unter XDG_CONFIG_HOME", pc_common.settings_file("X").startswith(os.environ["XDG_CONFIG_HOME"]))

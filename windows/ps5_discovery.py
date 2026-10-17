@@ -4,6 +4,9 @@
    mit host-type/host-name - auch im Ruhemodus (Status 620).
 2. Rueckfallebene: Suche nach einem bereits laufenden usb_format-Payload (TCP 8090) im eigenen Netz (echte
    Netzmaske; Netze groesser als /22 nur im eigenen /24, sonst dauerte die Suche Minuten).
+3. Nichts gefunden: Der Rechner steckt womöglich hinter einem NAT (WSL im Standardmodus, virtuelle Maschine) -
+   Broadcasts erreichen das Heimnetz dann nicht, einzelne Adressen aber schon. Dann die üblichen Heimnetze direkt
+   fragen: DDP an jede Adresse und TCP 8090.
 """
 import ctypes
 import http.client
@@ -17,6 +20,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 DDP_PORT = 9302
 DDP_SEARCH = b"SRCH * HTTP/1.1\ndevice-discovery-protocol-version:00030010\n"
+# Übliche Heimnetze (Router-Voreinstellungen: FritzBox, Speedport, TP-Link, Netgear, Google, Asus, ...) - nur für
+# Stufe 3, wenn im eigenen Netz nichts zu finden war
+HOME_NETS = ["192.168.178.0/24", "192.168.0.0/24", "192.168.1.0/24", "192.168.2.0/24", "192.168.179.0/24",
+             "192.168.188.0/24", "192.168.100.0/24", "192.168.10.0/24", "192.168.50.0/24", "192.168.68.0/24",
+             "192.168.86.0/24", "192.168.8.0/24", "10.0.0.0/24", "10.0.1.0/24", "10.1.1.0/24"]
 
 
 def local_ipv4s():
@@ -94,13 +102,16 @@ def parse_ddp(data):
     return {"name": fields.get("host-name") or "PS5", "standby": " 620 " in lines[0] + " "}
 
 
-def ddp_discover(local_ips, timeout=2.0, port=DDP_PORT, targets=None, nets=None):
+def ddp_discover(local_ips, timeout=2.0, port=DDP_PORT, targets=None, nets=None, hosts=()):
+    """hosts: zusätzlich jede dieser Adressen einzeln fragen - Antworten auf Broadcasts kommen nicht überall an
+    (WSL, manche WLAN-Router mit Client-Isolierung für Broadcasts)"""
     found = {}
     if targets is None:   # gerichteter Broadcast je Netz (echte Netzmaske) und der allgemeine
         targets = {"255.255.255.255"} | {str(n.network.broadcast_address) for n in (nets or [])
                                           if n.network.prefixlen < 31}
         if not nets:
             targets |= {ip.rsplit(".", 1)[0] + ".255" for ip in local_ips}
+        targets = sorted(targets) + list(hosts)
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         s.bind(("", 0))
@@ -156,22 +167,48 @@ def is_formatter(ip, port, timeout=0.4):
         conn.close()
 
 
-def scan_formatters(local_ips, port, hosts=None):
+def scan_formatters(local_ips, port, hosts=None, workers=128, timeout=0.4):
     if hosts is None:
         hosts = scan_hosts([ipaddress.IPv4Interface(f"{ip}/24") for ip in local_ips])
-    with ThreadPoolExecutor(max_workers=128) as pool:
-        results = pool.map(lambda h: (h, is_formatter(h, port)), hosts)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = pool.map(lambda h: (h, is_formatter(h, port, timeout)), hosts)
         return [h for h, ok in results if ok]
+
+
+def home_hosts(nets):
+    """Adressen der üblichen Heimnetze, die die normale Suche nicht schon abgedeckt hat"""
+    covered = [n.network if n.network.prefixlen >= 22 else ipaddress.IPv4Interface(f"{n.ip}/24").network for n in nets]
+    own = {str(n.ip) for n in nets}
+    hosts = []
+    for cidr in HOME_NETS:
+        net = ipaddress.IPv4Network(cidr)
+        if not any(net.overlaps(c) for c in covered):
+            hosts += [str(h) for h in net.hosts() if str(h) not in own]
+    return hosts
 
 
 def discover(api_port, timeout=2.0):
     """Liste von {ip, name, standby, formatter}, PS5 mit laufendem Formatierer zuerst."""
     nets = local_networks()
     ips = [str(n.ip) for n in nets]
+    own = scan_hosts(nets)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        ddp = pool.submit(ddp_discover, ips, timeout, nets=nets)
-        fmt = pool.submit(scan_formatters, ips, api_port, scan_hosts(nets))
+        ddp = pool.submit(ddp_discover, ips, timeout, nets=nets, hosts=own)
+        fmt = pool.submit(scan_formatters, ips, api_port, own)
         consoles, formatters = ddp.result(), set(fmt.result())
+    if not consoles and not formatters:   # Stufe 3: hinter einem NAT? Heimnetze direkt fragen
+        hosts = home_hosts(nets)
+        if hosts:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                ddp = pool.submit(ddp_discover, ips, timeout, targets=hosts)
+                fmt = pool.submit(scan_formatters, ips, api_port, hosts, 256, 0.3)   # ~3800 Adressen in ~5 s
+                consoles, formatters = ddp.result(), set(fmt.result())
+    # Die DDP-Antwort sagt nichts über den Formatierer, und die Abfrage von Port 8090 deckt nicht jede Adresse ab (der
+    # allgemeine Broadcast erreicht auch fremde Netze): jede gefundene PS5 direkt fragen - sonst würde der Payload
+    # womöglich ein zweites Mal geschickt
+    for ip in consoles:
+        if ip not in formatters and is_formatter(ip, api_port):
+            formatters.add(ip)
     result = {}
     for ip, info in consoles.items():
         result[ip] = {"ip": ip, "name": info["name"], "standby": info["standby"], "formatter": ip in formatters}
