@@ -14,12 +14,14 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <limits.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/fsuid.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>   /* auch BLKGETSIZE64, BLKSSZGET, BLKRRPART, BLKFLSBUF, BLKROGET (linux/fs.h verträgt sich mit
                           * sys/mount.h in älteren glibc nicht) */
@@ -898,6 +900,77 @@ static FILE *open_out(const char *path) {
     FILE *f = fdopen(fd, "w");
     if (!f) close(fd);
     return f;
+}
+
+/* primäre Gruppe des Aufrufers aus /etc/passwd (pkexec setzt keine SUDO_GID) */
+static gid_t passwd_gid(uid_t uid, gid_t fallback) {
+    FILE *f = fopen("/etc/passwd", "re");
+    char line[1024];
+    gid_t g = fallback;
+    while (f && fgets(line, sizeof(line), f)) {
+        char *fld[4] = {line, NULL, NULL, NULL};
+        for (int k = 1; k < 4 && fld[k - 1]; k++) {
+            char *c = strchr(fld[k - 1], ':');
+            if (c) { *c = 0; fld[k] = c + 1; }
+        }
+        if (fld[3] && (uid_t)strtoul(fld[2], NULL, 10) == uid) { g = (gid_t)strtoul(fld[3], NULL, 10); break; }
+    }
+    if (f) fclose(f);
+    return g;
+}
+
+/* Für einen Dateizugriff vorübergehend die Rechte des Aufrufers annehmen (fsuid/fsgid und nur dessen Gruppe).
+ * 0 = umgeschaltet bzw. ohnehin nicht root. */
+static int saved_ng = -1;
+static gid_t saved_groups[256];
+static int become_invoker(void) {
+    if (geteuid() != 0) return 0;
+    gid_t gid;
+    uid_t uid = invoker(&gid);
+    if (!getenv("SUDO_GID")) gid = passwd_gid(uid, gid);
+    if (!uid) return 0;   /* root selbst gestartet */
+    saved_ng = getgroups(256, saved_groups);
+    if (saved_ng < 0 || setgroups(1, &gid)) { saved_ng = -1; return -1; }
+    setfsgid(gid);
+    setfsuid(uid);
+    if ((uid_t)setfsuid((uid_t)-1) != uid || (gid_t)setfsgid((gid_t)-1) != gid) return -1;
+    return 0;
+}
+
+static void become_root(void) {
+    if (saved_ng < 0) return;
+    setfsuid(0);
+    setfsgid(0);
+    if (setgroups((size_t)saved_ng, saved_groups)) {}
+    saved_ng = -1;
+}
+
+FILE *plat_fopen(const char *path, int write, char *err, size_t n) {
+    int fd = -1, e = EPERM;
+    if (!become_invoker()) {
+        fd = open(path, write ? O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC : O_RDONLY | O_CLOEXEC, 0644);
+        e = errno;
+    }
+    become_root();
+    struct stat st;
+    if (fd >= 0 && (fstat(fd, &st) || !S_ISREG(st.st_mode))) { close(fd); fd = -1; e = EINVAL; }
+    FILE *f = fd >= 0 ? fdopen(fd, write ? "w" : "r") : NULL;
+    if (!f) {
+        if (fd >= 0) close(fd);
+        sys_error(err, n, write ? N_("Datei anlegen") : N_("Datei öffnen"), e);
+    }
+    return f;
+}
+
+int plat_rename(const char *from, const char *to) {
+    int rc = become_invoker() ? -1 : rename(from, to);
+    become_root();
+    return rc;
+}
+
+void plat_remove(const char *path) {
+    if (!become_invoker() && unlink(path)) {}
+    become_root();
 }
 
 static void *cancel_watch(void *arg) {

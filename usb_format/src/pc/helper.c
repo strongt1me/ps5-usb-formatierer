@@ -8,17 +8,22 @@
  *   layout <disk> <size> [scheme=..] [plain] [verify|full] [limit=B] part=<fs>,<bytes|rest>,<cluster>,<typ>,<0|1>,<label> ...
  *   speed  <disk> <size> [plain]
  *   label  <disk> <size> <label>
+ *   backup <disk> <size> <datei.img.zst>    Image sichern (dazu <datei>.sha256)
+ *   restore <disk> <size> <datei.img.zst>   Image zurückschreiben und nachlesen
  *
  * <size> ist die Größe aus "list": Passt sie nicht mehr (Stick getauscht), wird nichts angefasst. fs: exfat, fat32,
  * ntfs, fat, hfsplus, ext2, ext3, ext4 (layout auch none). cluster: Zuordnungseinheit in Bytes (fehlt/0 =
  * Standard). plain: Meldungen ohne PS5-Bezug. */
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "../devtest.h"
+#include "../fsdetect.h"
 #include "../i18n.h"
+#include "../imgbak.h"
 #include "../mkfs.h"
 #include "../mkfs_int.h"
 #include "../vollabel.h"
@@ -456,6 +461,127 @@ static int cmd_label(const char *disk, uint64_t size, const char *label) {
     return 0;
 }
 
+/* ------------------------------------------------------------------ Image-Sicherung */
+
+static int out_errno;
+static int out_file(void *ctx, const void *p, size_t n) {
+    if (fwrite(p, 1, n, ctx) == n) return 0;
+    out_errno = errno;
+    return -1;
+}
+
+static void write_error(int e, char *err, size_t n) {
+    if (e == ENOSPC) snprintf(err, n, "%s", T("Am Ziel ist nicht mehr genug Platz frei."));
+    else if (e == EFBIG) snprintf(err, n, "%s", T("Die Datei ist zu groß für das Dateisystem des Ziels (FAT32: höchstens 4 GB)."));
+    else snprintf(err, n, T("Schreiben der Sicherung fehlgeschlagen: %s"), strerror(e ? e : EIO));
+}
+static long in_file(void *ctx, void *p, size_t n) {
+    size_t r = fread(p, 1, n, ctx);
+    return r ? (long)r : ferror((FILE *)ctx) ? -1 : 0;
+}
+
+static const char *base_name(const char *path) {
+    const char *b = path;
+    for (const char *p = path; *p; p++)
+        if (*p == '/' || *p == '\\') b = p + 1;
+    return b;
+}
+
+/* Datenträger in die Datei path sichern (erst "<path>.part", fertig umbenannt), dazu "<path>.sha256" */
+static int cmd_backup(const char *disk, uint64_t size, const char *path) {
+    char err[512] = "", msg[768], json[1024], tmp[1100], side[1100], t1[32], t2[32];
+    session_t s;
+    size_t pl = strlen(path);
+    /* nur Namen auf .img.zst: der Helfer schreibt mit Administratorrechten - nie eine Datei anderer Art */
+    if (pl + 8 > sizeof(tmp) || pl < 9 || strcmp(path + pl - 8, ".img.zst")) { finish(0, "Ungültiger Dateiname.", NULL); return 2; }
+    snprintf(tmp, sizeof(tmp), "%s.part", path);
+    snprintf(side, sizeof(side), "%s.sha256", path);
+    on_progress("Belegte Bereiche ermitteln", 0);
+    /* gesperrt wie beim Formatieren: Was das System gerade schreibt, käme sonst halb ins Image */
+    if (plat_session_open(&s, disk, size, 1, err, sizeof(err))) { finish(0, err, NULL); return 1; }
+    ib_info_t info;
+    memset(&info, 0, sizeof(info));
+    snprintf(info.model, sizeof(info.model), "%s", s.info.model);
+    snprintf(info.ident, sizeof(info.ident), "%s", s.info.serial);
+    fsinfo_t fi;
+    if (!fs_probe(s.fd, s.info.ss, size, &fi)) {
+        snprintf(info.fs, sizeof(info.fs), "%s", fi.fs);
+        snprintf(info.label, sizeof(info.label), "%s", fi.label);
+    }
+    FILE *f = plat_fopen(tmp, 1, err, sizeof(err));
+    if (!f) { plat_session_close(&s, 0); finish(0, err, NULL); return 1; }
+    setvbuf(f, NULL, _IOFBF, 1 << 20);
+    ib_result_t r;
+    out_errno = 0;
+    int rc = ib_backup(s.fd, s.info.ss, size, &info, out_file, f, on_progress, &cancel_requested, &r, err, sizeof(err));
+    plat_session_close(&s, 1);   /* Partitionen neu melden: Linux-Desktops hängen sie dann wieder ein (wie nach Umbenennen) */
+    if (fflush(f) && !out_errno) out_errno = errno ? errno : EIO;
+    if (fclose(f) && !out_errno) out_errno = errno ? errno : EIO;
+    if (out_errno && !r.cancelled) {   /* auch nach einem Fehler von ib_backup: Ursache war das Schreiben */
+        rc = -1;
+        write_error(out_errno, err, sizeof(err));
+    }
+    if (rc || r.cancelled) {
+        plat_remove(tmp);
+        if (r.cancelled && !rc) { finish(0, "Abgebrochen.", NULL); return 1; }
+        snprintf(msg, sizeof(msg), T("Sichern fehlgeschlagen: %s"), err);
+        finish(0, msg, NULL);
+        return 1;
+    }
+    FILE *h = plat_fopen(side, 1, err, sizeof(err));
+    int hok = h && fprintf(h, "%s  %s\n", r.sha_file, base_name(path)) > 0;
+    if (h && fclose(h)) hok = 0;
+    if (!hok || plat_rename(tmp, path)) {
+        plat_remove(tmp);
+        plat_remove(side);
+        snprintf(msg, sizeof(msg), T("Sichern fehlgeschlagen: %s"), err[0] ? err : T("Datei nicht anlegbar"));
+        finish(0, msg, NULL);
+        return 1;
+    }
+    snprintf(msg, sizeof(msg), T("%s gesichert: %s belegt, Datei %s."), title(&s), size_text(r.used, t1, sizeof(t1)),
+             size_text(r.file_bytes, t2, sizeof(t2)));
+    snprintf(json, sizeof(json), "{\"size\":%llu,\"used\":%llu,\"file_bytes\":%llu,\"sha256\":\"%s\",\"sha256_data\":\"%s\"}",
+             (unsigned long long)size, (unsigned long long)r.used, (unsigned long long)r.file_bytes, r.sha_file, r.sha_img);
+    finish(1, msg, json);
+    return 0;
+}
+
+/* Image aus path auf den Datenträger schreiben; vorher passt es? danach Nachlesen */
+static int cmd_restore(const char *disk, uint64_t size, const char *path) {
+    char err[512] = "", msg[768], json[256], t1[32];
+    on_progress("Image prüfen", 0);
+    FILE *f = plat_fopen(path, 0, err, sizeof(err));
+    if (!f) { finish(0, err, NULL); return 1; }
+    setvbuf(f, NULL, _IOFBF, 1 << 20);
+    ib_info_t info;
+    ib_reader_t *rd = ib_open(in_file, f, &info, err, sizeof(err));
+    if (!rd) { fclose(f); finish(0, err, NULL); return 1; }
+    if (info.size > size) {
+        ib_close(rd);
+        fclose(f);
+        char a[32], b[32];
+        snprintf(msg, sizeof(msg), T("Das Image (%s) ist größer als der Datenträger (%s)."), size_text(info.size, a, sizeof(a)),
+                 size_text(size, b, sizeof(b)));
+        finish(0, msg, NULL);
+        return 1;
+    }
+    session_t s;
+    if (plat_session_open(&s, disk, size, 1, err, sizeof(err))) { ib_close(rd); fclose(f); finish(0, err, NULL); return 1; }
+    ib_result_t r;
+    int rc = ib_restore(rd, s.fd, s.tfd, s.info.ss, size, on_progress, &cancel_requested, &r, err, sizeof(err));
+    ib_close(rd);
+    fclose(f);
+    plat_session_close(&s, 1);   /* neue Partitionstabelle einlesen lassen */
+    if (!rc && r.cancelled) { finish(0, "Abgebrochen – der Datenträger ist nur teilweise beschrieben.", NULL); return 1; }
+    if (rc) { snprintf(msg, sizeof(msg), T("Wiederherstellen fehlgeschlagen: %s"), err); finish(0, msg, NULL); return 1; }
+    snprintf(msg, sizeof(msg), T("Image auf %s wiederhergestellt und geprüft (%s geschrieben)."), title(&s),
+             size_text(r.used, t1, sizeof(t1)));
+    snprintf(json, sizeof(json), "{\"size\":%llu,\"written\":%llu,\"sha256_data\":\"%s\"}", (unsigned long long)r.size,
+             (unsigned long long)r.used, r.sha_img);
+    finish(1, msg, json);
+    return 0;
+}
+
 /* ------------------------------------------------------------------ Befehlszeile */
 
 static int parse_fs(const char *s) {
@@ -520,7 +646,7 @@ int helper_command(int argc, char **argv) {
        Angaben suchen: eine Bezeichnung "serial=..." bliebe sonst nicht die Bezeichnung */
     static char want_serial[64];
     want_serial[0] = 0;
-    int first_opt = !strcmp(cmd, "format") ? 4 : !strcmp(cmd, "label") ? 3 : 2;
+    int first_opt = !strcmp(cmd, "format") ? 4 : !strcmp(cmd, "label") || !strcmp(cmd, "backup") || !strcmp(cmd, "restore") ? 3 : 2;
     for (int k = first_opt; k < rest; k++)
         if (!strncmp(a[k], "serial=", 7)) {
             snprintf(want_serial, sizeof(want_serial), "%s", a[k] + 7);
@@ -541,6 +667,8 @@ int helper_command(int argc, char **argv) {
     }
     if (!strcmp(cmd, "speed")) return cmd_speed(disk, size, rest >= 3 && !strcmp(a[2], "plain"));
     if (!strcmp(cmd, "label") && rest >= 3) return cmd_label(disk, size, a[2]);
+    if (!strcmp(cmd, "backup") && rest == 3) return cmd_backup(disk, size, a[2]);
+    if (!strcmp(cmd, "restore") && rest == 3) return cmd_restore(disk, size, a[2]);
     if ((!strcmp(cmd, "format") && rest >= 4) || !strcmp(cmd, "layout")) {
         static fmtreq_t q;
         memset(&q, 0, sizeof(q));

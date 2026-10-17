@@ -13,8 +13,14 @@
  *   POST /api/label      {"device","size","label","replug"} Bezeichnung ändern (exFAT/FAT32)
  *   POST /api/delete     {"keys":"<key>,<key>","uninstall":true} Spiele löschen (Schlüssel aus /api/library; über
  *                         ShadowMountPlus, das eingebundene Abbilder selbst freigibt; uninstall: Kachel entfernen)
+ *   GET  /api/images     Orte für Image-Sicherungen (/data und eingebundene USB-Laufwerke, je Ordner usbfmt-backup)
+ *                         samt der .img.zst darin
+ *   POST /api/backup     {"device","size","ident","replug","dest":"<Ordner aus /api/images>"|"download"} Image sichern;
+ *                         "download" liefert {"token","name"} für GET /api/backup/download?token=...
+ *   POST /api/restore    {"device","size","ident","replug","path":"<.img.zst aus /api/images>"} Image zurückschreiben
+ *   POST /api/restore/upload?device=..&size=..&ident=..&replug=1  Körper: die .img.zst (application/octet-stream)
  *   POST /api/cancel     {} laufenden Auftrag abbrechen (Warten auf Abziehen, Prüfen, Beschreiben)
- *   GET  /api/status     Fortschritt des laufenden/letzten Auftrags: "kind" und "result" (Einzelheiten)
+ *   GET  /api/status     Fortschritt des laufenden/letzten Auftrags: "kind", "job" (laufende Nummer) und "result"
  *   GET  /api/info       LAN-Adresse der PS5 (fuer den Hinweis im PS5-Browser)
  *   POST /api/open       {} Web-UI im PS5-Browser öffnen (für die App, app/title/starter.c)
  *   GET  /api/settings   {"theme":"auto|light|dark","scale_tv":160,"scale_pc":100,"lang":"de|en|it|es|fr|"};
@@ -25,6 +31,7 @@
  *   POST /api/quit       Server beenden
  */
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -45,6 +52,7 @@
 #include "exfat_fsck.h"
 #include "fsdetect.h"
 #include "i18n.h"
+#include "imgbak.h"
 #include "library.h"
 #include "mkfs.h"
 #include "platform.h"
@@ -192,6 +200,7 @@ static struct {
     int  cancelled;       /* Auftrag endete, weil "Abbrechen" gewählt wurde */
 } st;
 
+static unsigned job_seq;   /* zählt angenommene Aufträge (unter lock) - Download/Hochladen starten erst mit der Verbindung */
 static volatile int quit_requested;
 static int quitting;   /* /api/quit angenommen: keine neuen Aufträge mehr (unter lock) */
 static volatile int cancel_requested;   /* POST /api/cancel */
@@ -218,8 +227,8 @@ static void set_flags(int cancellable, int replug) {
     pthread_mutex_unlock(&lock);
 }
 
-enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE };
-static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete"};
+enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE };
+static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore"};
 
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
@@ -243,8 +252,20 @@ typedef struct {
     /* Spiele löschen */
     del_item_t *items;
     int      nitems, uninstall;
+    /* Image sichern (path: Zielordner) bzw. wiederherstellen (path: Image-Datei, schon geöffnet in img/rd) */
+    char     path[512];
+    FILE    *img;
+    ib_reader_t *rd;
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
 } job_t;
+
+static void job_free(job_t *j) {
+    if (!j) return;
+    free(j->items);
+    ib_close(j->rd);
+    if (j->img) fclose(j->img);
+    free(j);
+}
 
 static const char *const TEMPLATE_DIRS[] = {"homebrew", "etaHEN/games", "pkg", NULL};
 
@@ -635,7 +656,7 @@ static void api_library(int c, int refresh);
 
 /* Flaches JSON-Objekt mit String-, Zahl- und Bool-Werten einlesen */
 #define KV_MAX 16
-typedef struct { char key[16]; char val[64]; } kv_t;
+typedef struct { char key[16]; char val[512]; } kv_t;   /* Werte bis 511 Bytes (Pfade der Image-Dateien) */
 
 static const char *ws(const char *p) { while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++; return p; }
 
@@ -714,7 +735,8 @@ static void respond_ex(int c, int code, const char *ctype, const char *body, siz
     char hdr[1024];
     const char *reason = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 400 ? "Bad Request" :
                          code == 403 ? "Forbidden" : code == 404 ? "Not Found" : code == 405 ? "Method Not Allowed" :
-                         code == 409 ? "Conflict" : code == 415 ? "Unsupported Media Type" :
+                         code == 409 ? "Conflict" : code == 411 ? "Length Required" :
+                         code == 415 ? "Unsupported Media Type" :
                          code == 503 ? "Service Unavailable" : "Error";
     int n = snprintf(hdr, sizeof(hdr),
                      "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
@@ -1182,8 +1204,8 @@ static void api_open(int c) {
 static void api_status(int c) {
     sbuf_t b = {0};
     pthread_mutex_lock(&lock);
-    sb_add(&b, "{\"busy\":%s,\"done\":%s,\"ok\":%s,\"percent\":%d,\"kind\":",
-           st.busy ? "true" : "false", st.done ? "true" : "false", st.ok ? "true" : "false", st.percent);
+    sb_add(&b, "{\"busy\":%s,\"done\":%s,\"ok\":%s,\"percent\":%d,\"job\":%u,\"kind\":",
+           st.busy ? "true" : "false", st.done ? "true" : "false", st.ok ? "true" : "false", st.percent, job_seq);
     sb_str(&b, st.kind);
     sb_add(&b, ",\"device\":");
     sb_str(&b, st.device);
@@ -1267,23 +1289,29 @@ static int request_replug(int c, kv_t *kv, int n, const usbdev_t *d, int *replug
     return 0;
 }
 
-static void start_job(int c, job_t *j, void *(*fn)(void *)) {
+/* Auftrag anmelden (einer zur Zeit). 0 = angemeldet; sonst ist die Fehlerantwort gesendet und j freigegeben. */
+static int claim_job(int c, job_t *j) {
     pthread_mutex_lock(&lock);
     if (st.busy || quitting) {
         int q = quitting;
         pthread_mutex_unlock(&lock);
-        free(j->items);
-        free(j);
+        job_free(j);
         respond_error(c, 409, q ? N_("Der Formatierer wird gerade beendet") : N_("Es läuft bereits ein Auftrag"));
-        return;
+        return -1;
     }
     memset(&st, 0, sizeof(st));
     st.busy = 1;
+    job_seq++;
     snprintf(st.kind, sizeof(st.kind), "%s", JOB_KIND[j->kind]);
     snprintf(st.device, sizeof(st.device), "%s", j->dev.name);
     snprintf(st.step, sizeof(st.step), "%s", T("Startet"));
     __atomic_store_n(&cancel_requested, 0, __ATOMIC_RELAXED);
     pthread_mutex_unlock(&lock);
+    return 0;
+}
+
+static void start_job(int c, job_t *j, void *(*fn)(void *)) {
+    if (claim_job(c, j)) return;
 
     pthread_t t;
     pthread_attr_t attr;
@@ -1292,8 +1320,7 @@ static void start_job(int c, job_t *j, void *(*fn)(void *)) {
     int trc = pthread_create(&t, &attr, fn, j);
     pthread_attr_destroy(&attr);
     if (trc != 0) {
-        free(j->items);
-        free(j);
+        job_free(j);
         pthread_mutex_lock(&lock);
         st.busy = 0;
         pthread_mutex_unlock(&lock);
@@ -1420,6 +1447,568 @@ static void api_label(int c, const char *body) {
     j->replug = replug;
     memcpy(j->label, label, strlen(label));
     start_job(c, j, label_worker);
+}
+
+/* ------------------------------------------------------------ Image-Sicherung (.img.zst) */
+
+#define IMG_DIR    "usbfmt-backup"   /* Ordner der Sicherungen: /data/usbfmt-backup bzw. <USB-Laufwerk>/usbfmt-backup */
+#define IMG_EXT    ".img.zst"
+#define MAX_LOCS   (1 + MAX_DEVS * MAX_MOUNTS)
+#define MAX_IMAGES 64                /* je Ordner */
+
+typedef struct {
+    char root[96];      /* Einhängepunkt bzw. /data */
+    char dir[128];      /* root/usbfmt-backup */
+    char device[16];    /* leer: intern */
+    char fs[16], label[48];
+} imgloc_t;
+
+/* Orte für Sicherungen: intern neben dem Datenordner des Formatierers (/data/usb_format -> /data) und jedes
+ * eingebundene USB-Laufwerk, das nicht vom System gesperrt ist */
+static int img_locations(imgloc_t *loc, int max) {
+    int n = 0;
+    snprintf(loc[0].root, sizeof(loc[0].root), "%s", plat_data_dir());
+    char *sl = strrchr(loc[0].root, '/');
+    if (sl && sl != loc[0].root) *sl = 0;
+    snprintf(loc[0].dir, sizeof(loc[0].dir), "%s/%s", loc[0].root, IMG_DIR);
+    loc[0].device[0] = loc[0].fs[0] = loc[0].label[0] = 0;
+    n = 1;
+    usbdev_t *devs = calloc(MAX_DEVS, sizeof(*devs));
+    int nd = devs ? plat_scan(devs, MAX_DEVS) : 0;
+    for (int i = 0; i < nd; i++) {
+        if (devs[i].locked) continue;
+        for (int m = 0; m < devs[i].nmounts && n < max; m++, n++) {
+            snprintf(loc[n].root, sizeof(loc[n].root), "%s", devs[i].mounts[m].path);
+            snprintf(loc[n].dir, sizeof(loc[n].dir), "%s/%s", devs[i].mounts[m].path, IMG_DIR);
+            snprintf(loc[n].device, sizeof(loc[n].device), "%s", devs[i].name);
+            snprintf(loc[n].fs, sizeof(loc[n].fs), "%s", devs[i].mounts[m].fstype);
+            snprintf(loc[n].label, sizeof(loc[n].label), "%s", devs[i].label);
+        }
+    }
+    free(devs);
+    return n;
+}
+
+static int ends_with(const char *s, const char *tail) {
+    size_t a = strlen(s), b = strlen(tail);
+    return a >= b && !strcmp(s + a - b, tail);
+}
+
+/* Image-Datei aus einem der Orte (direkt im Ordner usbfmt-backup, keine Verknüpfung hinaus)? Liefert den Ort. */
+static const imgloc_t *img_path_loc(const char *path, const imgloc_t *loc, int n) {
+    const char *slash = strrchr(path, '/');
+    if (!slash || !ends_with(path, ".zst") || strstr(path, "/../") || slash[1] == '.') return NULL;
+    char *rp = realpath(path, NULL);
+    const imgloc_t *hit = NULL;
+    struct stat sb;
+    for (int i = 0; rp && i < n && !hit; i++) {
+        char *rd = realpath(loc[i].dir, NULL);
+        size_t l = rd ? strlen(rd) : 0;
+        if (rd && !strncmp(rp, rd, l) && rp[l] == '/' && !strchr(rp + l + 1, '/') && !stat(rp, &sb) && S_ISREG(sb.st_mode))
+            hit = &loc[i];
+        free(rd);
+    }
+    free(rp);
+    return hit;
+}
+
+static long file_in(void *ctx, void *p, size_t n) {
+    size_t r = fread(p, 1, n, ctx);
+    return r ? (long)r : ferror((FILE *)ctx) ? -1 : 0;
+}
+
+typedef struct { FILE *f; int err; } fout_t;
+
+static int file_out(void *ctx, const void *p, size_t n) {
+    fout_t *o = ctx;
+    if (fwrite(p, 1, n, o->f) == n) return 0;
+    o->err = errno ? errno : EIO;
+    return -1;
+}
+
+static void write_error(int e, char *err, size_t n) {
+    if (e == ENOSPC) snprintf(err, n, "%s", T("Am Ziel ist nicht mehr genug Platz frei."));
+    else if (e == EFBIG) snprintf(err, n, "%s", T("Die Datei ist zu groß für das Dateisystem des Ziels (FAT32: höchstens 4 GB)."));
+    else snprintf(err, n, T("Schreiben der Sicherung fehlgeschlagen: %s"), strerror(e));
+}
+
+/* Angaben für den Kopf der Sicherung */
+static void img_info_of(const usbdev_t *d, ib_info_t *info) {
+    memset(info, 0, sizeof(*info));
+    snprintf(info->model, sizeof(info->model), "%s", d->model);
+    snprintf(info->label, sizeof(info->label), "%s", d->label);
+    snprintf(info->fs, sizeof(info->fs), "%s", d->format);
+    snprintf(info->ident, sizeof(info->ident), "%s", d->ident);
+    time_t now = time(NULL);
+    struct tm tmv;
+    localtime_r(&now, &tmv);
+    strftime(info->created, sizeof(info->created), "%Y-%m-%d %H:%M", &tmv);
+}
+
+static void img_result(sbuf_t *res, const char *file, const char *name, const ib_result_t *r) {
+    sb_add(res, "{\"file\":");
+    sb_str(res, file);
+    sb_add(res, ",\"name\":");
+    sb_str(res, name);
+    sb_add(res, ",\"size\":%llu,\"used\":%llu,\"bytes\":%llu,\"sha256\":\"%s\",\"sha256_data\":\"%s\"}",
+           (unsigned long long)r->size, (unsigned long long)r->used, (unsigned long long)r->file_bytes, r->sha_file,
+           r->sha_img);
+}
+
+static void *backup_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    char err[256] = "", title[160], name[160], file[700], part[720], side[720], s1[24], s2[24];
+    sbuf_t msg = {0}, res = {0};
+    ib_info_t info;
+    img_info_of(&j->dev, &info);
+    ib_file_name(&info, name, sizeof(name));
+    if (mkdir(j->path, 0777) != 0 && errno != EEXIST) {
+        sb_tr(&msg, "Der Ordner %s lässt sich nicht anlegen: %s", j->path, strerror(errno));
+        job_done(j, 0, &msg, &res, 0);
+        return NULL;
+    }
+    /* derselbe Name in derselben Minute schon da: Nummer anhängen */
+    snprintf(file, sizeof(file), "%s/%s", j->path, name);
+    for (int k = 2; k < 100 && access(file, F_OK) == 0; k++)
+        snprintf(file, sizeof(file), "%s/%.*s_%d%s", j->path, (int)(strlen(name) - strlen(IMG_EXT)), name, k, IMG_EXT);
+    snprintf(name, sizeof(name), "%s", strrchr(file, '/') + 1);
+    snprintf(part, sizeof(part), "%s.part", file);
+    snprintf(side, sizeof(side), "%s.sha256", file);
+
+    int fd = job_acquire(j, err, sizeof(err));   /* eingebunden: kurz abmelden, sonst sicherte man halb Geschriebenes */
+    if (fd < 0) { sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
+    int ofd = open(part, O_WRONLY | O_CREAT | O_EXCL, 0666);
+    fout_t o = {ofd >= 0 ? fdopen(ofd, "wb") : NULL, 0};
+    if (!o.f) {
+        sb_tr(&msg, "Die Datei %s lässt sich nicht anlegen: %s", part, strerror(errno));
+        if (ofd >= 0) close(ofd);
+        close(fd);
+        job_done(j, 0, &msg, &res, 1);
+        return NULL;
+    }
+    setvbuf(o.f, NULL, _IOFBF, 1 << 20);
+    set_flags(1, 0);
+    ib_result_t r;
+    int rc = ib_backup(fd, j->dev.ss, j->dev.size, &info, file_out, &o, on_progress, &cancel_requested, &r, err,
+                       sizeof(err));
+    set_flags(0, 0);
+    close(fd);   /* die PS5 bindet den Stick gleich wieder ein */
+    if (fflush(o.f) != 0 && !o.err) o.err = errno ? errno : EIO;
+    if (fsync(fileno(o.f)) != 0 && !o.err && errno != EINVAL) o.err = errno;
+    if (fclose(o.f) != 0 && !o.err) o.err = errno ? errno : EIO;
+    if (o.err && !r.cancelled) { rc = -1; write_error(o.err, err, sizeof(err)); }
+    FILE *h = !rc && !r.cancelled ? fopen(side, "w") : NULL;
+    int hok = h && fprintf(h, "%s  %s\n", r.sha_file, name) > 0;
+    if (h && fclose(h) != 0) hok = 0;
+    if (!rc && !r.cancelled && (!hok || rename(part, file) != 0)) {
+        rc = -1;
+        snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht anlegen: %s"), hok ? file : side, strerror(errno));
+    }
+    if (rc || r.cancelled) {
+        unlink(part);
+        if (!hok) unlink(side);
+        if (rc) sb_tr(&msg, "Sichern fehlgeschlagen: %s", err);
+        else sb_tr(&msg, "Abgebrochen.");
+        job_done(j, 0, &msg, &res, 1);
+        return NULL;
+    }
+    sb_tr(&msg, "%s gesichert: %s belegt, Datei %s.", dev_title(&j->dev, title, sizeof(title)),
+          size_text(r.used, s1, sizeof(s1)), size_text(r.file_bytes, s2, sizeof(s2)));
+    sb_add(&msg, " %s", file);
+    img_result(&res, file, name, &r);
+    job_done(j, 1, &msg, &res, 1);
+    return NULL;
+}
+
+/* Sicherung als Download: POST /api/backup {"dest":"download"} legt ein Einmal-Zeichen an, GET
+ * /api/backup/download?token=... liefert dann den Datenstrom. Eine fremde Webseite kann das Zeichen nicht lesen und
+ * so keinen Stick abmelden lassen. */
+static struct {
+    char   token[33];
+    job_t *job;
+    time_t when;
+} dl;
+
+typedef struct {
+    int  c, sent_head, broken;
+    char name[160];
+} chunk_t;
+
+static int send_ok(int c, const void *p, size_t len) {
+    const char *b = p;
+    while (len) {
+        ssize_t n = send(c, b, len, 0);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) return -1;
+        b += n;
+        len -= (size_t)n;
+    }
+    return 0;
+}
+
+static int chunk_out(void *ctx, const void *p, size_t n) {
+    chunk_t *k = ctx;
+    char h[600];
+    if (!k->sent_head) {
+        int hl = snprintf(h, sizeof(h),
+                          "HTTP/1.1 200 OK\r\nContent-Type: application/zstd\r\n"
+                          "Content-Disposition: attachment; filename=\"%s\"\r\nTransfer-Encoding: chunked\r\n"
+                          "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n",
+                          k->name);
+        if (send_ok(k->c, h, (size_t)hl)) { k->broken = 1; return -1; }
+        k->sent_head = 1;
+    }
+    int hl = snprintf(h, sizeof(h), "%zx\r\n", n);
+    if (send_ok(k->c, h, (size_t)hl) || send_ok(k->c, p, n) || send_ok(k->c, "\r\n", 2)) { k->broken = 1; return -1; }
+    return 0;
+}
+
+static void api_download(int c, const char *query) {
+    char tok[40] = "";
+    const char *t = query ? strstr(query, "token=") : NULL;
+    if (t) snprintf(tok, sizeof(tok), "%.*s", (int)strcspn(t + 6, "&"), t + 6);
+    pthread_mutex_lock(&lock);
+    job_t *j = NULL;
+    if (dl.job && tok[0] && !strcmp(tok, dl.token)) {
+        if (time(NULL) - dl.when <= 120) j = dl.job;
+        else job_free(dl.job);
+        dl.job = NULL;
+        dl.token[0] = 0;
+    }
+    pthread_mutex_unlock(&lock);
+    if (!j) { respond_error(c, 404, "Der Download ist nicht mehr gültig – bitte neu starten."); return; }
+    if (claim_job(c, j)) return;
+    i18n_set(j->lang);
+    struct timeval tv = {300, 0};   /* der Browser fragt womöglich erst nach dem Speicherort */
+    setsockopt(c, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    char err[256] = "", title[160], s1[24], s2[24];
+    sbuf_t msg = {0}, res = {0};
+    ib_info_t info;
+    img_info_of(&j->dev, &info);
+    chunk_t k = {c, 0, 0, ""};
+    ib_file_name(&info, k.name, sizeof(k.name));
+    int fd = job_acquire(j, err, sizeof(err));
+    if (fd < 0) {
+        respond_error(c, 409, err);
+        sb_add(&msg, "%s", err);
+        job_done(j, 0, &msg, &res, 0);
+        return;
+    }
+    set_flags(1, 0);
+    ib_result_t r;
+    int rc = ib_backup(fd, j->dev.ss, j->dev.size, &info, chunk_out, &k, on_progress, &cancel_requested, &r, err,
+                       sizeof(err));
+    set_flags(0, 0);
+    close(fd);
+    if (!rc && !r.cancelled && send_ok(c, "0\r\n\r\n", 5)) k.broken = 1;
+    if (k.broken) {
+        sb_tr(&msg, "Der Download wurde abgebrochen (Verbindung zum Browser getrennt).");
+        job_done(j, 0, &msg, &res, 1);
+        return;
+    }
+    if (!k.sent_head) respond_error(c, 500, rc ? err : T("Abgebrochen."));
+    if (rc || r.cancelled) {
+        if (rc) sb_tr(&msg, "Sichern fehlgeschlagen: %s", err);
+        else sb_tr(&msg, "Abgebrochen.");
+        job_done(j, 0, &msg, &res, 1);   /* angefangener Download bleibt unvollständig (ohne Endstück) */
+        return;
+    }
+    sb_tr(&msg, "%s gesichert: %s belegt, Datei %s.", dev_title(&j->dev, title, sizeof(title)),
+          size_text(r.used, s1, sizeof(s1)), size_text(r.file_bytes, s2, sizeof(s2)));
+    img_result(&res, "", k.name, &r);
+    job_done(j, 1, &msg, &res, 1);
+}
+
+static void api_backup(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX), replug;
+    usbdev_t d;
+    if (n < 0) { respond_error(c, 400, "Ungültige Anfrage"); return; }
+    const char *dest = kv_get(kv, n, "dest");
+    if (!dest) { respond_error(c, 400, "dest ist erforderlich"); return; }
+    if (request_device(c, kv, n, &d) || request_replug(c, kv, n, &d, &replug)) return;
+    job_t *j = new_job(c, JOB_BACKUP);
+    if (!j) return;
+    j->dev = d;
+    j->replug = replug;
+    if (!strcmp(dest, "download")) {
+        uint8_t rnd[16];
+        arc4random_buf(rnd, sizeof(rnd));
+        ib_info_t info;
+        char name[160];
+        img_info_of(&d, &info);
+        ib_file_name(&info, name, sizeof(name));
+        pthread_mutex_lock(&lock);
+        job_free(dl.job);
+        dl.job = j;
+        dl.when = time(NULL);
+        for (int i = 0; i < 16; i++) snprintf(dl.token + 2 * i, 3, "%02x", rnd[i]);
+        sbuf_t b = {0};
+        sb_add(&b, "{\"token\":\"%s\",\"name\":", dl.token);
+        pthread_mutex_unlock(&lock);
+        sb_str(&b, name);
+        sb_add(&b, "}");
+        respond_json(c, 200, &b);
+        free(b.p);
+        return;
+    }
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    int nl = loc ? img_locations(loc, MAX_LOCS) : 0;
+    const imgloc_t *at = NULL;
+    for (int i = 0; i < nl && !at; i++)
+        if (!strcmp(loc[i].dir, dest)) at = &loc[i];
+    const char *bad = !at ? N_("Unbekanntes Ziel – Liste neu laden.")
+                    : !strcmp(at->device, d.name) ? N_("Die Sicherung kann nicht auf dem Datenträger liegen, der gesichert wird.")
+                    : NULL;
+    struct statvfs vs;
+    if (!bad && (statvfs(at->root, &vs) != 0 || (uint64_t)vs.f_bavail * vs.f_frsize < 64 * MIB))
+        bad = N_("Am Ziel ist zu wenig Platz frei (mindestens 64 MB).");
+    if (!bad) snprintf(j->path, sizeof(j->path), "%s", at->dir);
+    free(loc);
+    if (bad) { job_free(j); respond_error(c, 400, bad); return; }
+    start_job(c, j, backup_worker);
+}
+
+/* Image zurückschreiben (j->rd ist geöffnet, der Kopf geprüft) - für Datei und Hochladen */
+static void restore_run(job_t *j) {
+    char err[256] = "", title[160], s1[24];
+    sbuf_t msg = {0}, res = {0};
+    int fd = job_acquire(j, err, sizeof(err));
+    if (fd < 0) { sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return; }
+    set_flags(1, 0);
+    ib_result_t r;
+    int rc = ib_restore(j->rd, fd, fd, j->dev.ss, j->dev.size, on_progress, &cancel_requested, &r, err, sizeof(err));
+    set_flags(0, 0);
+    close(fd);   /* die PS5 bindet ihn danach selbst ein */
+    ib_close(j->rd);
+    j->rd = NULL;
+    if (j->img) fclose(j->img);
+    j->img = NULL;
+    if (!rc && r.cancelled) {
+        if (r.used) sb_tr(&msg, "Abgebrochen – der Datenträger ist nur teilweise beschrieben.");
+        else sb_tr(&msg, "Abgebrochen – der Datenträger wurde nicht verändert.");
+        job_done(j, 0, &msg, &res, 1);
+        return;
+    }
+    if (rc) { sb_tr(&msg, "Wiederherstellen fehlgeschlagen: %s", err); job_done(j, 0, &msg, &res, 1); return; }
+    sb_tr(&msg, "Image auf %s wiederhergestellt und geprüft (%s geschrieben).", dev_title(&j->dev, title, sizeof(title)),
+          size_text(r.used, s1, sizeof(s1)));
+    sb_add(&msg, " %s", T("Die PS5 bindet ihn gleich selbst ein."));
+    sb_add(&res, "{\"size\":%llu,\"written\":%llu,\"sha256_data\":\"%s\"}", (unsigned long long)r.size,
+           (unsigned long long)r.used, r.sha_img);
+    job_done(j, 1, &msg, &res, 1);
+}
+
+static void *restore_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    restore_run(j);
+    return NULL;
+}
+
+/* Kopf gelesen: passt das Image auf den Datenträger (auch auf den echten Teil eines gefälschten)? 0 = ja */
+static int restore_fits(int c, const ib_info_t *info, const usbdev_t *d) {
+    char m[256], a[24], b[24];
+    uint64_t real = fake_get(d);
+    if (info->size > d->size) {
+        snprintf(m, sizeof(m), T("Das Image (%s) ist größer als der Datenträger (%s)."), size_text(info->size, a, sizeof(a)),
+                 size_text(d->size, b, sizeof(b)));
+    } else if (real && info->size > real) {
+        snprintf(m, sizeof(m), T("Dieser Stick hat nur etwa %s echten Speicher – das Image (%s) passt nicht hinein."),
+                 size_text(real, a, sizeof(a)), size_text(info->size, b, sizeof(b)));
+    } else {
+        return 0;
+    }
+    respond_error(c, 400, m);
+    return -1;
+}
+
+static void api_restore(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX), replug;
+    usbdev_t d;
+    if (n < 0) { respond_error(c, 400, "Ungültige Anfrage"); return; }
+    const char *path = kv_get(kv, n, "path");
+    if (!path) { respond_error(c, 400, "path ist erforderlich"); return; }
+    if (request_device(c, kv, n, &d) || request_replug(c, kv, n, &d, &replug)) return;
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    int nl = loc ? img_locations(loc, MAX_LOCS) : 0;
+    const imgloc_t *at = img_path_loc(path, loc, nl);
+    const char *bad = !at ? N_("Image-Datei nicht gefunden – Liste neu laden.")
+                    : !strcmp(at->device, d.name) ? N_("Die Image-Datei liegt auf dem Datenträger, der überschrieben werden soll.")
+                    : NULL;
+    free(loc);
+    if (bad) { respond_error(c, 400, bad); return; }
+    char err[256] = "";
+    FILE *f = fopen(path, "rb");
+    if (!f) { snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht öffnen: %s"), path, strerror(errno)); respond_error(c, 400, err); return; }
+    setvbuf(f, NULL, _IOFBF, 1 << 20);
+    ib_info_t info;
+    ib_reader_t *rd = ib_open(file_in, f, &info, err, sizeof(err));
+    if (!rd) { fclose(f); respond_error(c, 400, err); return; }
+    if (restore_fits(c, &info, &d)) { ib_close(rd); fclose(f); return; }
+    job_t *j = new_job(c, JOB_RESTORE);
+    if (!j) { ib_close(rd); fclose(f); return; }
+    j->dev = d;
+    j->replug = replug;
+    j->img = f;
+    j->rd = rd;
+    snprintf(j->path, sizeof(j->path), "%s", path);
+    start_job(c, j, restore_worker);
+}
+
+/* Wert aus der Adresse (?a=b&c=d), %XX und + entschlüsselt */
+static int query_get(const char *q, const char *key, char *out, size_t n) {
+    size_t kl = strlen(key);
+    for (const char *p = q; p && *p; p = strchr(p, '&') ? strchr(p, '&') + 1 : NULL) {
+        if (strncmp(p, key, kl) || p[kl] != '=') continue;
+        size_t i = 0;
+        for (p += kl + 1; *p && *p != '&' && i + 1 < n; p++) {
+            unsigned v;
+            if (*p == '%' && p[1] && p[2] && sscanf(p + 1, "%2x", &v) == 1) { out[i++] = (char)v; p += 2; }
+            else out[i++] = *p == '+' ? ' ' : *p;
+        }
+        out[i] = 0;
+        return 0;
+    }
+    return -1;
+}
+
+typedef struct {
+    int                c;
+    const char        *pre;      /* schon mit dem Kopf empfangene Bytes */
+    size_t             pre_len, pre_pos;
+    unsigned long long left;     /* noch zu empfangen */
+} upin_t;
+
+static long upload_in(void *ctx, void *p, size_t n) {
+    upin_t *u = ctx;
+    if (u->pre_pos < u->pre_len) {
+        size_t k = u->pre_len - u->pre_pos < n ? u->pre_len - u->pre_pos : n;
+        memcpy(p, u->pre + u->pre_pos, k);
+        u->pre_pos += k;
+        return (long)k;
+    }
+    if (!u->left) return 0;
+    if (n > u->left) n = (size_t)u->left;
+    ssize_t r;
+    do r = recv(u->c, p, n, 0); while (r < 0 && errno == EINTR);
+    if (r <= 0) return -1;
+    u->left -= (unsigned long long)r;
+    return (long)r;
+}
+
+/* Image hochladen und dabei zurückschreiben (aus dem Browser am PC/Handy) - läuft in dieser Verbindung */
+static void api_upload(int c, const char *query, const char *pre, size_t have, unsigned long long clen) {
+    kv_t kv[4];
+    int n = 0;
+    static const char *const keys[] = {"device", "size", "ident", "replug"};
+    for (int i = 0; i < 4; i++)
+        if (!query_get(query, keys[i], kv[n].val, sizeof(kv[n].val))) {
+            snprintf(kv[n].key, sizeof(kv[n].key), "%s", keys[i]);
+            if (!strcmp(keys[i], "replug") && !strcmp(kv[n].val, "1")) strcpy(kv[n].val, "true");
+            n++;
+        }
+    usbdev_t d;
+    int replug;
+    if (request_device(c, kv, n, &d) || request_replug(c, kv, n, &d, &replug)) return;
+    struct timeval tv = {300, 0};   /* während des Abmeldens/Einsteckens kommen keine Daten */
+    setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    upin_t u = {c, pre, have < clen ? have : (size_t)clen, 0, clen - (have < clen ? have : clen)};
+    char err[256] = "";
+    ib_info_t info;
+    ib_reader_t *rd = ib_open(upload_in, &u, &info, err, sizeof(err));
+    if (!rd) { respond_error(c, 400, err); return; }
+    if (restore_fits(c, &info, &d)) { ib_close(rd); return; }
+    job_t *j = new_job(c, JOB_RESTORE);
+    if (!j) { ib_close(rd); return; }
+    j->dev = d;
+    j->replug = replug;
+    j->rd = rd;
+    if (claim_job(c, j)) return;
+    restore_run(j);
+    pthread_mutex_lock(&lock);
+    int ok = st.ok;
+    char m[512];
+    snprintf(m, sizeof(m), "%s", st.message);
+    pthread_mutex_unlock(&lock);
+    if (ok) respond_ok(c, 200);
+    else respond_error(c, 500, m);
+}
+
+/* Orte und vorhandene Sicherungen */
+static void api_images(int c) {
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    if (!loc) { respond_error(c, 500, "Kein Speicher"); return; }
+    int nl = img_locations(loc, MAX_LOCS);
+    sbuf_t b = {0};
+    sb_add(&b, "{\"locations\":[");
+    for (int i = 0; i < nl; i++) {
+        struct statvfs vs;
+        sb_add(&b, "%s{\"dir\":", i ? "," : "");
+        sb_str(&b, loc[i].dir);
+        sb_add(&b, ",\"root\":");
+        sb_str(&b, loc[i].root);
+        sb_add(&b, ",\"device\":");
+        sb_str(&b, loc[i].device);
+        sb_add(&b, ",\"fs\":");
+        sb_str(&b, loc[i].fs);
+        sb_add(&b, ",\"label\":");
+        sb_str(&b, loc[i].label);
+        if (statvfs(loc[i].root, &vs) == 0)
+            sb_add(&b, ",\"free\":%llu,\"total\":%llu", (unsigned long long)vs.f_bavail * vs.f_frsize,
+                   (unsigned long long)vs.f_blocks * vs.f_frsize);
+        sb_add(&b, "}");
+    }
+    sb_add(&b, "],\"images\":[");
+    int first = 1;
+    char *path = malloc(1024);
+    for (int i = 0; path && i < nl; i++) {
+        DIR *dir = opendir(loc[i].dir);
+        struct dirent *e;
+        int count = 0;
+        while (dir && (e = readdir(dir)) && count < MAX_IMAGES) {
+            if (e->d_name[0] == '.' || !ends_with(e->d_name, ".zst")) continue;
+            if (snprintf(path, 1024, "%s/%s", loc[i].dir, e->d_name) >= 1024) continue;
+            struct stat sb;
+            if (stat(path, &sb) != 0 || !S_ISREG(sb.st_mode)) continue;
+            FILE *f = fopen(path, "rb");
+            char err[160] = "";
+            ib_info_t info;
+            ib_reader_t *rd = f ? ib_open(file_in, f, &info, err, sizeof(err)) : NULL;
+            if (f) fclose(f);
+            if (!rd) continue;   /* keine Sicherung (andere .zst) */
+            ib_close(rd);
+            count++;
+            sb_add(&b, "%s{\"path\":", first ? "" : ",");
+            first = 0;
+            sb_str(&b, path);
+            sb_add(&b, ",\"name\":");
+            sb_str(&b, e->d_name);
+            sb_add(&b, ",\"dir\":");
+            sb_str(&b, loc[i].dir);
+            sb_add(&b, ",\"device\":");
+            sb_str(&b, loc[i].device);
+            sb_add(&b, ",\"bytes\":%llu,\"size\":%llu,\"used\":%llu,\"own\":%s,\"model\":", (unsigned long long)sb.st_size,
+                   (unsigned long long)info.size, (unsigned long long)info.used, info.has_map ? "true" : "false");
+            sb_str(&b, info.model);
+            sb_add(&b, ",\"label\":");
+            sb_str(&b, info.label);
+            sb_add(&b, ",\"fs\":");
+            sb_str(&b, info.fs);
+            sb_add(&b, ",\"created\":");
+            sb_str(&b, info.created);
+            snprintf(path + strlen(path), 1024 - strlen(path), ".sha256");
+            sb_add(&b, ",\"sha256\":%s}", access(path, F_OK) == 0 ? "true" : "false");
+        }
+        if (dir) closedir(dir);
+    }
+    free(path);
+    free(loc);
+    sb_add(&b, "]}");
+    respond_json(c, 200, &b);
+    free(b.p);
 }
 
 /* ------------------------------------------------------------ Spiele löschen */
@@ -1792,11 +2381,21 @@ static void handle(int c) {
     *body = 0;
     body += 4;
 
-    char method[8], path[128], host[96] = "", tmp[32];
-    if (sscanf(req, "%7s %127s", method, path) != 2) { respond_error(c, 400, "Ungültige Anfrage"); goto out; }
+    char method[8], path[512], host[96] = "", tmp[48];
+    if (sscanf(req, "%7s %511s", method, path) != 2) { respond_error(c, 400, "Ungültige Anfrage"); goto out; }
     i18n_set(request_lang(path, req));   /* Antworten und Aufträge dieser Verbindung in dieser Sprache */
     if (!header(req, "Host", host, sizeof(host)) || !host_ok(host)) {
         respond_error(c, 403, "Ungültiger Host. Bitte die PS5 über ihre IP-Adresse aufrufen.");
+        goto out;
+    }
+    /* Image hochladen: Körper beliebig groß, wird beim Lesen gleich geschrieben */
+    if (!strncmp(method, "POST", 5) && !strncmp(path, "/api/restore/upload?", 20)) {
+        unsigned long long up = header(req, "Content-Length", tmp, sizeof(tmp)) ? strtoull(tmp, NULL, 10) : 0;
+        if (!origin_ok(req, host)) respond_error(c, 403, "Fremder Ursprung abgelehnt");
+        else if (!header(req, "Content-Type", tmp, sizeof(tmp)) || strcasecmp(tmp, "application/octet-stream") != 0)
+            respond_error(c, 415, "Content-Type muss application/octet-stream sein");
+        else if (!up) respond_error(c, 411, "Content-Length fehlt");
+        else api_upload(c, path + 20, body, len - (size_t)(body - req), up);
         goto out;
     }
     if (header(req, "Content-Length", tmp, sizeof(tmp))) clen = strtol(tmp, NULL, 10);
@@ -1863,6 +2462,14 @@ static void handle(int c) {
         api_label(c, body);
     else if (strcmp(path, "/api/delete") == 0 && is_post)
         api_delete(c, body);
+    else if (strcmp(path, "/api/images") == 0 && is_get)
+        api_images(c);
+    else if (strcmp(path, "/api/backup") == 0 && is_post)
+        api_backup(c, body);
+    else if (strcmp(path, "/api/backup/download") == 0 && is_get)
+        api_download(c, q);
+    else if (strcmp(path, "/api/restore") == 0 && is_post)
+        api_restore(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {
         /* Warten auf Abziehen/Einstecken, Prüfen und Beschreiben brechen ab; das Formatieren selbst nicht */
         __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);

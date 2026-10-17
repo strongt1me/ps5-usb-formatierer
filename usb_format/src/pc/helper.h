@@ -76,5 +76,11 @@ int  plat_disk_serial(const char *disk, char *buf, size_t n);
 void serial_clean(char *s);
 /* Partitionstyp im MBR (für die Ergebnis-Daten), -1 = GPT/unbekannt */
 int  plat_read_mbr_type(const diskinfo_t *di);
+/* Dateien der Image-Sicherung (Pfad in UTF-8). Linux: mit den Rechten des Aufrufers, nicht als root - sonst ließe
+ * sich jede Datei des Systems auf den Stick "wiederherstellen" oder überall eine anlegen.
+ * write: neu anlegen (vorhandene ersetzen). Fehlertext in err. */
+FILE *plat_fopen(const char *path, int write, char *err, size_t n);
+int   plat_rename(const char *from, const char *to);   /* ersetzt to; 0 = ok */
+void  plat_remove(const char *path);
 
 #endif

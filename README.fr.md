@@ -5,9 +5,9 @@
 # Formateur USB
 
 **Formatez clés et disques USB – directement sur la PS5 ou sur le PC.**<br>
-Avec test d'authenticité et de vitesse, gestion des jeux, tous les systèmes de fichiers courants et vos propres partitions.
+Avec test d'authenticité et de vitesse, sauvegarde image, gestion des jeux, tous les systèmes de fichiers courants et vos propres partitions.
 
-[![Version](https://img.shields.io/badge/Version-2.4.9-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.5.0-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plateforme](https://img.shields.io/badge/Plateforme-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-téléchargement)
 [![Langues](https://img.shields.io/badge/Langues-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-fonctions)
@@ -103,6 +103,14 @@ Contrôle du numéro de série : si une autre clé du même modèle est branché
 
 </td>
 </tr>
+<tr>
+<td colspan="3" valign="top">
+
+### 💾 Sauvegarder et restaurer des images
+Sauvegarde un lecteur entier en <code>.img.zst</code> – seulement les zones occupées, compressées avec zstd, avec un <code>.sha256</code>. Sur la PS5 vers le stockage interne, un autre lecteur USB ou en téléchargement ; sur le PC dans n'importe quel dossier. Réécriture avec vérification ensuite – aussi par envoi depuis un téléphone ou un PC. <code>zstd -d</code> en fait une image ordinaire.
+
+</td>
+</tr>
 </table>
 
 ## 📦 Téléchargement
@@ -169,6 +177,7 @@ Le Formateur USB est distribué sous [GNU General Public License 3.0](LICENSE). 
 - `usb_format/tools/bin` – mkntfs (ntfs-3g) et mke2fs (e2fsprogs), GPL, voir `THIRD_PARTY_NOTICES.txt`
 - `windows/mke2fs` – mke2fs d'e2fsprogs 1.47.1 pour ext2/3/4 sur le PC, GPL, voir `NOTICE.txt`
 - `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, voir `NOTICE.txt`
+- `usb_format/third_party/zstd` – zstd 1.5.7 (Meta Platforms) pour la sauvegarde image, **licence BSD** (ou GPL-2.0), voir `LICENSE` sur place
 
 Utilisation à vos risques – sauvegardez d'abord vos données importantes.
 

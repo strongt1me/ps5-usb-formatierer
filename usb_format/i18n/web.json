@@ -1150,5 +1150,305 @@
   "it": "Sviluppato da strongt1me · per la community PS5",
   "es": "Desarrollado por strongt1me · para la comunidad de PS5",
   "fr": "Développé par strongt1me · pour la communauté PS5"
+ },
+ "intern": {
+  "en": "internal",
+  "it": "interno",
+  "es": "interno",
+  "fr": "interne"
+ },
+ "Intern (PS5-Speicher)": {
+  "en": "Internal (PS5 storage)",
+  "it": "Interno (memoria PS5)",
+  "es": "Interno (almacenamiento PS5)",
+  "fr": "Interne (stockage PS5)"
+ },
+ "{size} frei": {
+  "en": "{size} free",
+  "it": "{size} liberi",
+  "es": "{size} libres",
+  "fr": "{size} libres"
+ },
+ "Download in diesen Browser": {
+  "en": "Download to this browser",
+  "it": "Download in questo browser",
+  "es": "Descargar en este navegador",
+  "fr": "Télécharger dans ce navigateur"
+ },
+ "Datei von diesem Gerät hochladen …": {
+  "en": "Upload a file from this device …",
+  "it": "Carica un file da questo dispositivo …",
+  "es": "Subir un archivo desde este dispositivo …",
+  "fr": "Envoyer un fichier depuis cet appareil …"
+ },
+ "Keine Sicherung gefunden": {
+  "en": "No backup found",
+  "it": "Nessun backup trovato",
+  "es": "No se encontró ninguna copia",
+  "fr": "Aucune sauvegarde trouvée"
+ },
+ "Gesichert werden nur die belegten {size}, gepackt – freier Platz kostet nichts.": {
+  "en": "Only the used {size} are backed up, compressed – free space costs nothing.",
+  "it": "Vengono salvati solo i {size} occupati, compressi – lo spazio libero non costa nulla.",
+  "es": "Solo se guardan los {size} ocupados, comprimidos – el espacio libre no ocupa nada.",
+  "fr": "Seuls les {size} occupés sont sauvegardés, compressés – l'espace libre ne coûte rien."
+ },
+ "Bei exFAT und FAT32 werden nur belegte Bereiche gesichert, sonst der ganze Datenträger.": {
+  "en": "With exFAT and FAT32 only used areas are backed up, otherwise the whole drive.",
+  "it": "Con exFAT e FAT32 vengono salvate solo le aree occupate, altrimenti l'intera unità.",
+  "es": "Con exFAT y FAT32 solo se guardan las áreas ocupadas; si no, la unidad entera.",
+  "fr": "Avec exFAT et FAT32, seules les zones occupées sont sauvegardées, sinon le lecteur entier."
+ },
+ "Das Ziel ist FAT32: Eine Datei darf dort höchstens 4 GB groß werden – besser intern oder auf exFAT sichern.": {
+  "en": "The destination is FAT32: a file there can be 4 GB at most – better back up internally or to exFAT.",
+  "it": "La destinazione è FAT32: un file lì può essere al massimo di 4 GB – meglio salvare internamente o su exFAT.",
+  "es": "El destino es FAT32: un archivo allí puede tener como máximo 4 GB – mejor guardar en interno o en exFAT.",
+  "fr": "La destination est en FAT32 : un fichier y est limité à 4 Go – mieux vaut sauvegarder en interne ou sur exFAT."
+ },
+ "Ordner: {dir}": {
+  "en": "Folder: {dir}",
+  "it": "Cartella: {dir}",
+  "es": "Carpeta: {dir}",
+  "fr": "Dossier : {dir}"
+ },
+ "Das Laufwerk wird dafür kurz abgemeldet.": {
+  "en": "The drive is briefly disconnected for this.",
+  "it": "L'unità viene scollegata brevemente.",
+  "es": "La unidad se desconecta brevemente para ello.",
+  "fr": "Le lecteur est brièvement déconnecté pour cela."
+ },
+ "Dieses Image ({image}) ist größer als das Laufwerk ({size}).": {
+  "en": "This image ({image}) is larger than the drive ({size}).",
+  "it": "Questa immagine ({image}) è più grande dell'unità ({size}).",
+  "es": "Esta imagen ({image}) es mayor que la unidad ({size}).",
+  "fr": "Cette image ({image}) est plus grande que le lecteur ({size})."
+ },
+ "Image von {size}, davon {used} belegt.": {
+  "en": "Image of {size}, {used} of it used.",
+  "it": "Immagine di {size}, di cui {used} occupati.",
+  "es": "Imagen de {size}, de los que {used} ocupados.",
+  "fr": "Image de {size}, dont {used} occupés."
+ },
+ "Image sichern": {
+  "en": "Back up image",
+  "it": "Salva immagine",
+  "es": "Guardar imagen",
+  "fr": "Sauvegarder l'image"
+ },
+ "{dev} wird gesichert nach: {dest}": {
+  "en": "{dev} will be backed up to: {dest}",
+  "it": "{dev} verrà salvata in: {dest}",
+  "es": "{dev} se guardará en: {dest}",
+  "fr": "{dev} sera sauvegardé dans : {dest}"
+ },
+ "Sichern": {
+  "en": "Back up",
+  "it": "Salva",
+  "es": "Guardar",
+  "fr": "Sauvegarder"
+ },
+ "Der Download hat nicht begonnen.": {
+  "en": "The download did not start.",
+  "it": "Il download non è partito.",
+  "es": "La descarga no ha comenzado.",
+  "fr": "Le téléchargement n'a pas commencé."
+ },
+ "Keine Image-Sicherung": {
+  "en": "Not an image backup",
+  "it": "Non è un backup immagine",
+  "es": "No es una copia de imagen",
+  "fr": "Pas une sauvegarde image"
+ },
+ "{name} ist keine Image-Sicherung (.img.zst).": {
+  "en": "{name} is not an image backup (.img.zst).",
+  "it": "{name} non è un backup immagine (.img.zst).",
+  "es": "{name} no es una copia de imagen (.img.zst).",
+  "fr": "{name} n'est pas une sauvegarde image (.img.zst)."
+ },
+ "Größe unbekannt": {
+  "en": "Size unknown",
+  "it": "Dimensione sconosciuta",
+  "es": "Tamaño desconocido",
+  "fr": "Taille inconnue"
+ },
+ "{name} wurde mit zstd ohne Größenangabe gepackt und lässt sich so nicht wiederherstellen.": {
+  "en": "{name} was packed with zstd without a size and cannot be restored this way.",
+  "it": "{name} è stato compresso con zstd senza dimensione e non può essere ripristinato così.",
+  "es": "{name} se comprimió con zstd sin tamaño y no se puede restaurar así.",
+  "fr": "{name} a été compressé avec zstd sans taille et ne peut pas être restauré ainsi."
+ },
+ "Image zu groß": {
+  "en": "Image too large",
+  "it": "Immagine troppo grande",
+  "es": "Imagen demasiado grande",
+  "fr": "Image trop grande"
+ },
+ "Das Image ({image}) ist größer als {dev} ({size}).": {
+  "en": "The image ({image}) is larger than {dev} ({size}).",
+  "it": "L'immagine ({image}) è più grande di {dev} ({size}).",
+  "es": "La imagen ({image}) es mayor que {dev} ({size}).",
+  "fr": "L'image ({image}) est plus grande que {dev} ({size})."
+ },
+ "{dev} hat nur {real} echten Speicher – das Image ({image}) passt nicht hinein.": {
+  "en": "{dev} has only {real} of real memory – the image ({image}) does not fit.",
+  "it": "{dev} ha solo {real} di memoria reale – l'immagine ({image}) non ci sta.",
+  "es": "{dev} solo tiene {real} de memoria real – la imagen ({image}) no cabe.",
+  "fr": "{dev} n'a que {real} de mémoire réelle – l'image ({image}) ne tient pas."
+ },
+ "Image: {name}": {
+  "en": "Image: {name}",
+  "it": "Immagine: {name}",
+  "es": "Imagen: {name}",
+  "fr": "Image : {name}"
+ },
+ "gesichert von {src}": {
+  "en": "backed up from {src}",
+  "it": "salvata da {src}",
+  "es": "copiada de {src}",
+  "fr": "sauvegardée depuis {src}"
+ },
+ "Größe {size}": {
+  "en": "Size {size}",
+  "it": "Dimensione {size}",
+  "es": "Tamaño {size}",
+  "fr": "Taille {size}"
+ },
+ "Fremdes Image: Es wird vollständig geschrieben.": {
+  "en": "Foreign image: it is written completely.",
+  "it": "Immagine esterna: viene scritta per intero.",
+  "es": "Imagen externa: se escribe por completo.",
+  "fr": "Image externe : elle est écrite entièrement."
+ },
+ "Darauf liegen jetzt {what} – sie werden überschrieben.": {
+  "en": "It currently holds {what} – they will be overwritten.",
+  "it": "Ora contiene {what} – verranno sovrascritti.",
+  "es": "Ahora contiene {what} – se sobrescribirán.",
+  "fr": "Il contient actuellement {what} – ils seront écrasés."
+ },
+ "Das Image ist kleiner – der Rest des Laufwerks bleibt ungenutzt.": {
+  "en": "The image is smaller – the rest of the drive remains unused.",
+  "it": "L'immagine è più piccola – il resto dell'unità resta inutilizzato.",
+  "es": "La imagen es más pequeña – el resto de la unidad queda sin usar.",
+  "fr": "L'image est plus petite – le reste du lecteur reste inutilisé."
+ },
+ "Die Datei wird dabei hochgeladen – diese Seite bis zum Ende geöffnet lassen.": {
+  "en": "The file is uploaded in the process – keep this page open until the end.",
+  "it": "Il file viene caricato durante l'operazione – lascia aperta questa pagina fino alla fine.",
+  "es": "El archivo se sube durante el proceso – deja esta página abierta hasta el final.",
+  "fr": "Le fichier est envoyé pendant l'opération – laissez cette page ouverte jusqu'à la fin."
+ },
+ "Alle Daten werden überschrieben": {
+  "en": "All data will be overwritten",
+  "it": "Tutti i dati verranno sovrascritti",
+  "es": "Se sobrescribirán todos los datos",
+  "fr": "Toutes les données seront écrasées"
+ },
+ "{dev} wird mit dem Image überschrieben.": {
+  "en": "{dev} will be overwritten with the image.",
+  "it": "{dev} verrà sovrascritta con l'immagine.",
+  "es": "{dev} se sobrescribirá con la imagen.",
+  "fr": "{dev} sera écrasé par l'image."
+ },
+ "Ich weiß, dass alles auf dem Laufwerk unwiderruflich überschrieben wird": {
+  "en": "I understand that everything on the drive will be irreversibly overwritten",
+  "it": "So che tutto sull'unità verrà sovrascritto in modo irreversibile",
+  "es": "Sé que todo lo que hay en la unidad se sobrescribirá de forma irreversible",
+  "fr": "Je sais que tout le contenu du lecteur sera écrasé de façon irréversible"
+ },
+ "Wiederherstellen": {
+  "en": "Restore",
+  "it": "Ripristina",
+  "es": "Restaurar",
+  "fr": "Restaurer"
+ },
+ "Die Verbindung ist beim Hochladen abgebrochen.": {
+  "en": "The connection was lost during the upload.",
+  "it": "La connessione si è interrotta durante il caricamento.",
+  "es": "La conexión se interrumpió durante la subida.",
+  "fr": "La connexion a été interrompue pendant l'envoi."
+ },
+ "Das Hochladen hat nicht begonnen.": {
+  "en": "The upload did not start.",
+  "it": "Il caricamento non è partito.",
+  "es": "La subida no ha comenzado.",
+  "fr": "L'envoi n'a pas commencé."
+ },
+ "Sichern abgebrochen": {
+  "en": "Backup cancelled",
+  "it": "Backup annullato",
+  "es": "Copia cancelada",
+  "fr": "Sauvegarde annulée"
+ },
+ "Wiederherstellen abgebrochen": {
+  "en": "Restore cancelled",
+  "it": "Ripristino annullato",
+  "es": "Restauración cancelada",
+  "fr": "Restauration annulée"
+ },
+ "Sichern fehlgeschlagen": {
+  "en": "Backup failed",
+  "it": "Backup non riuscito",
+  "es": "Error en la copia",
+  "fr": "Échec de la sauvegarde"
+ },
+ "Wiederherstellen fehlgeschlagen": {
+  "en": "Restore failed",
+  "it": "Ripristino non riuscito",
+  "es": "Error al restaurar",
+  "fr": "Échec de la restauration"
+ },
+ "Image wiederhergestellt": {
+  "en": "Image restored",
+  "it": "Immagine ripristinata",
+  "es": "Imagen restaurada",
+  "fr": "Image restaurée"
+ },
+ "Sicherung fertig": {
+  "en": "Backup complete",
+  "it": "Backup completato",
+  "es": "Copia terminada",
+  "fr": "Sauvegarde terminée"
+ },
+ "Daneben liegt die Prüfsumme als .sha256-Datei.": {
+  "en": "The checksum is stored next to it as a .sha256 file.",
+  "it": "Accanto c'è il checksum come file .sha256.",
+  "es": "Al lado está la suma de comprobación como archivo .sha256.",
+  "fr": "La somme de contrôle se trouve à côté dans un fichier .sha256."
+ },
+ "Die Datei ist heruntergeladen. Die Prüfsumme lässt sich als .sha256-Datei dazu speichern.": {
+  "en": "The file has been downloaded. The checksum can be saved alongside it as a .sha256 file.",
+  "it": "Il file è stato scaricato. Il checksum può essere salvato accanto come file .sha256.",
+  "es": "El archivo se ha descargado. La suma de comprobación se puede guardar como archivo .sha256.",
+  "fr": "Le fichier est téléchargé. La somme de contrôle peut être enregistrée à côté dans un fichier .sha256."
+ },
+ "Prüfsumme speichern": {
+  "en": "Save checksum",
+  "it": "Salva checksum",
+  "es": "Guardar suma de comprobación",
+  "fr": "Enregistrer la somme de contrôle"
+ },
+ "Sichern & wiederherstellen": {
+  "en": "Back up & restore",
+  "it": "Salva e ripristina",
+  "es": "Guardar y restaurar",
+  "fr": "Sauvegarder et restaurer"
+ },
+ "Image sichern nach": {
+  "en": "Back up image to",
+  "it": "Salva immagine in",
+  "es": "Guardar imagen en",
+  "fr": "Sauvegarder l'image vers"
+ },
+ "Image wiederherstellen aus": {
+  "en": "Restore image from",
+  "it": "Ripristina immagine da",
+  "es": "Restaurar imagen desde",
+  "fr": "Restaurer l'image depuis"
+ },
+ "Wiederherstellen …": {
+  "en": "Restore …",
+  "it": "Ripristina …",
+  "es": "Restaurar …",
+  "fr": "Restaurer …"
  }
 }

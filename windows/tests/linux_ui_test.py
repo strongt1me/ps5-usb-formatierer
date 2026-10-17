@@ -81,6 +81,23 @@ check("Arbeitsordner aufgeräumt", not os.path.exists(job.tmpdir))
 data = open(img, "rb").read(2 * 1024 * 1024)
 check("Abbild hat jetzt eine Partitionstabelle", data[510:512] == b"\x55\xaa")
 
+# Image sichern und zurückschreiben über denselben Weg (Dateien mit den Rechten des Aufrufers)
+bak = os.path.join(work, "Sicherung Jürgen.img.zst")
+res = pc_linux.LinuxJob(["--image", img, "backup", "image", str(size), bak], helper=HELPER, digest=digest).follow(
+    lambda pct, step: None)
+check("Image sichern über den Startweg", res[0] and os.path.getsize(bak) > 0 and os.path.exists(bak + ".sha256"), res)
+info = pc_common.image_info(bak)
+check("image_info liest den Kopf", info and info.get("size") == size and info.get("label") == "LINUX", info)
+img2 = os.path.join(work, "ziel.img")
+with open(img2, "wb") as f:
+    f.write(os.urandom(1024 * 1024))
+    f.truncate(size)
+res = pc_linux.LinuxJob(["--image", img2, "restore", "image", str(size), bak], helper=HELPER, digest=digest).follow(
+    lambda pct, step: None)
+check("Image wiederherstellen über den Startweg", res[0] and "geprüft" in res[1], res)
+check("wiederhergestellt: Partitionstabelle wie die Quelle", open(img2, "rb").read(512) == open(img, "rb").read(512))
+check("image_info: keine zstd-Datei", pc_common.image_info(img) is None)
+
 job = pc_linux.LinuxJob(["--image", img, "speed", "image", str(size), "plain"], helper=HELPER, digest="0" * 64)
 res = job.follow(lambda pct, step: None)
 check("veränderter Helfer (falsche Prüfsumme): nicht gestartet", not res[0] and "verändert" in res[1], res)
@@ -172,6 +189,31 @@ pump(app, timeout=0.3)
 hint = p.label_hint.cget("text") if hasattr(p, "label_hint") else ""
 check("ext4: kein Windows-Hinweis zum Laufwerksbuchstaben", "Windows" not in hint, hint)
 shot(app, "linux_std.png")
+check("Sichern/Wiederherstellen bereit", "disabled" not in p.backup_btn.state() and "disabled" not in p.restore_btn.state())
+check("Datei auf dem Stick selbst erkannt", pc_common.on_device("/media/user/SANDISK/x.img.zst", DEVICES[0])
+      and not pc_common.on_device(bak, DEVICES[0]))
+name = pc_common.image_file_name(DEVICES[0])
+check("Vorschlag für den Dateinamen", name.startswith("SanDisk_Ultra_SANDISK_") and name.endswith(".img.zst"), name)
+# Abläufe mit gestellten Dialogen: welcher Auftrag geht an den Helfer?
+jobs, errors = [], []
+p._job = lambda args, cancellable=False, after=None: jobs.append(args)
+sp.messagebox.showerror = lambda title, msg, parent=None: errors.append(msg)
+sp.confirm = lambda *a, **k: True
+p._ask = lambda dev, what, ok_text=None: True
+sp.filedialog.asksaveasfilename = lambda **k: "/media/user/SANDISK/sicher"
+p._backup()
+check("Sichern auf den Stick selbst abgelehnt", not jobs and errors and "nicht auf dem Datenträger" in errors[-1], errors)
+sp.filedialog.asksaveasfilename = lambda **k: os.path.join(work, "neu")
+p._backup()
+check("Sichern: Auftrag mit .img.zst", jobs and jobs[-1][:3] == ["backup", "sdb", str(DEVICES[0]["size"])]
+      and jobs[-1][3] == os.path.join(work, "neu.img.zst"), jobs)
+sp.filedialog.askopenfilename = lambda **k: bak
+p._restore()
+check("Wiederherstellen: Auftrag mit der Datei", jobs[-1][:4] == ["restore", "sdb", str(DEVICES[0]["size"]), bak], jobs)
+sp.filedialog.askopenfilename = lambda **k: img
+n = len(jobs)
+p._restore()
+check("Wiederherstellen: keine Image-Datei abgelehnt", len(jobs) == n and "keine Image-Sicherung" in errors[-1], errors[-1:])
 p.expert_var.set(True)
 p._expert_changed()
 pump(app, timeout=0.3)

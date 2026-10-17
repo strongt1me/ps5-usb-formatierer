@@ -22,7 +22,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs util-linux xvfb tk-dev \
-            libtk8.6 python3-tk
+            libtk8.6 python3-tk zstd
           for t in mke2fs mkfs.fat mkntfs fsck.exfat fsck.hfsplus e2fsck sfdisk; do command -v $t || echo "fehlt: $t"; done
 
       - uses: actions/setup-python@v5
@@ -98,7 +98,11 @@ jobs:
       - name: Werkzeuge
         run: |
           sudo apt-get update
-          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs mtools makefs gdisk
+          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs mtools makefs gdisk zstd
+
+      - name: Image-Sicherung mit dem zstd-Programm entpackbar?
+        working-directory: usb_format
+        run: zstd --version && bash test/imgbak_test.sh | tee /tmp/ib.log | grep -E "zstd|bestanden|FEHLER" && ! grep -q FEHLER /tmp/ib.log
 
       - name: Payload-Tests (Host)
         working-directory: usb_format
@@ -106,7 +110,8 @@ jobs:
           fails=0
           for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
                    test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
-                   test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh; do
+                   test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh \
+                   test/imgbak_test.sh test/backup_test.sh; do
             echo "== $t"
             bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
           done

@@ -2,21 +2,22 @@
 HFS+ (Mac), jede Zuordnungseinheit, MBR oder GPT, Schnell- oder vollständige Formatierung; im Expertenmodus mehrere
 Partitionen mit Typ und Startkennung. Ohne PS5-Optionen.
 Dritter Modus des PS5-USB-Formatierers und einziger Inhalt des eigenständigen USB-Formatierers."""
+import os
 import queue
 import subprocess
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import fsinfo
 from fsinfo import (FILESYSTEMS, KB, LABEL_CHARS, MB, SCHEMES, available_filesystems, cluster_choices, mbr_limit,
                     partition_bytes, unit_text, uses_gpt)
 from i18n import _, quote
 from partition_editor import PartitionEditor
-from pc_common import (IS_WIN, PcJob, admin_wait_text, ask_string, confirm, data_kept_admin_text, disk_name,
-                       fmt_size, hwnd_of, irreversible_admin_text, pc_dev_text, pc_list, pc_used, pc_volumes_text,
-                       serial_args)
+from pc_common import (IMAGE_EXT, IS_WIN, PcJob, admin_wait_text, ask_string, confirm, data_kept_admin_text,
+                       disk_name, fmt_size, hwnd_of, image_file_name, image_info, irreversible_admin_text, on_device,
+                       pc_dev_text, pc_list, pc_used, pc_volumes_text, serial_args)
 
 __all__ = ["StandardPanel", "SCHEMES", "FILESYSTEMS", "KB", "MB"]
 
@@ -162,8 +163,17 @@ class StandardPanel(ttk.Frame):
             row=row, column=0, columnspan=2, sticky="w")
         row += 1
 
+        img = ttk.Frame(self)
+        img.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        row += 1
+        ttk.Label(img, text=_("Image-Sicherung:")).pack(side="left")
+        self.backup_btn = ttk.Button(img, text=_("Sichern …"), command=self._backup)
+        self.backup_btn.pack(side="left", padx=(6, 0))
+        self.restore_btn = ttk.Button(img, text=_("Wiederherstellen …"), command=self._restore)
+        self.restore_btn.pack(side="left", padx=(6, 0))
+
         btns = ttk.Frame(self)
-        btns.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        btns.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         self.speed_btn = ttk.Button(btns, text=_("Tempo messen"), command=self._speed)
         self.speed_btn.pack(side="left")
         self.rename_btn = ttk.Button(btns, text=_("Umbenennen"), command=self._rename)
@@ -310,6 +320,8 @@ class StandardPanel(ttk.Frame):
         enable(self.verify_chk, idle and self.quick_var.get())   # vollständig prüft ohnehin jede Stelle
         enable(self.start_btn, idle and dev and (self.editor.valid() if expert else bool(self.cluster_values)))
         enable(self.speed_btn, idle and dev)
+        enable(self.backup_btn, idle and dev)
+        enable(self.restore_btn, idle and dev)
         # nur bei genau einem Laufwerk auf dem Datenträger: der Helfer nimmt nicht unbedingt das angezeigte
         vols = dev.get("volumes", []) if dev else []
         enable(self.rename_btn, idle and dev and len(vols) == 1 and vols[0]["fs"] in ("exFAT", "FAT32", "NTFS", "FAT"))
@@ -381,7 +393,7 @@ class StandardPanel(ttk.Frame):
         auto = "GPT" if uses_gpt(dev["size"], "auto", dev.get("ss", 512)) else "MBR"
         return {"auto": _("automatisch ({scheme})", scheme=auto), "mbr": "MBR", "gpt": "GPT"}[self.scheme_key]
 
-    def _ask(self, dev, what):
+    def _ask(self, dev, what, ok_text=None):
         """Rückfrage vor dem Löschen; what: Beschreibung des neuen Inhalts"""
         vols = pc_volumes_text(dev)
         used = pc_used(dev)
@@ -394,7 +406,7 @@ class StandardPanel(ttk.Frame):
             self, _("Alle Daten werden gelöscht"),
             f"{head}\n{vols + chr(10) if vols else ''}\n{what}\n\n{data_warn}"
             + irreversible_admin_text(),
-            _("Formatieren"),
+            ok_text or _("Formatieren"),
             _("Ich weiß, dass die {size} Daten unwiderruflich gelöscht werden", size=fmt_size(used)) if has_data
             else None)
 
@@ -562,6 +574,96 @@ class StandardPanel(ttk.Frame):
             (messagebox.showinfo if ok else messagebox.showerror)(_("Umbenennen"), msg, parent=self)
 
         self._job(["label", str(dev["disk"]), str(dev["size"]), label, *serial_args(dev)], after=after)
+
+    # ------------------------------------------------------------------ Image sichern / wiederherstellen
+
+    def _image_dir(self):
+        d = self.settings.get("image_dir", "")
+        return d if d and os.path.isdir(d) else os.path.expanduser("~")
+
+    def _backup(self):
+        dev = self._selected()
+        if self.busy or not dev:
+            return
+        title = _("Image sichern")
+        path = filedialog.asksaveasfilename(
+            parent=self, title=title, initialdir=self._image_dir(), initialfile=image_file_name(dev),
+            defaultextension=IMAGE_EXT, filetypes=[(_("Image-Sicherung"), "*" + IMAGE_EXT)])
+        if not path:
+            return
+        if not path.lower().endswith(IMAGE_EXT):   # Linux-Dialoge hängen die Endung nicht immer an
+            path += IMAGE_EXT
+        if on_device(path, dev):
+            messagebox.showerror(title, _("Die Sicherung kann nicht auf dem Datenträger liegen, der gesichert wird – "
+                                          "bitte ein anderes Laufwerk wählen."), parent=self)
+            return
+        self.settings["image_dir"] = os.path.dirname(path)
+        self.save()
+        used = pc_used(dev)
+        text = pc_dev_text(dev) + "\n\n" + _("wird gesichert nach:") + "\n   " + path + "\n\n" + _(
+            "Gesichert werden nur die belegten Bereiche (freier Platz von exFAT und FAT32 wird übersprungen), gepackt "
+            "mit zstd; daneben entsteht eine .sha256-Datei. Während der Sicherung ist der Datenträger gesperrt.")
+        if used:
+            text += "\n" + _("Belegt laut System: {size}.", size=fmt_size(used))
+        if not confirm(self, title, text + "\n\n" + data_kept_admin_text(), _("Sichern")):
+            return
+
+        def after(ok, msg, info):
+            (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
+
+        self._job(["backup", str(dev["disk"]), str(dev["size"]), path, *serial_args(dev)], cancellable=True,
+                  after=after)
+
+    def _restore(self):
+        dev = self._selected()
+        if self.busy or not dev:
+            return
+        title = _("Image wiederherstellen")
+        path = filedialog.askopenfilename(
+            parent=self, title=title, initialdir=self._image_dir(),
+            filetypes=[(_("Image-Sicherung"), "*" + IMAGE_EXT + " *.zst"), (_("Alle Dateien"), "*")])
+        if not path:
+            return
+        try:
+            info = image_info(path)
+        except OSError as e:
+            messagebox.showerror(title, _("Die Datei lässt sich nicht lesen: {e}", e=e), parent=self)
+            return
+        if info is None:
+            messagebox.showerror(title, _("Das ist keine Image-Sicherung (.img.zst)."), parent=self)
+            return
+        if on_device(path, dev):
+            messagebox.showerror(title, _("Die Image-Datei liegt auf dem Datenträger, der überschrieben werden soll – "
+                                          "bitte erst auf ein anderes Laufwerk kopieren."), parent=self)
+            return
+        size = info.get("size", 0)
+        if size > dev["size"]:
+            messagebox.showerror(title, _("Das Image ({image}) ist größer als dieser Datenträger ({size}).",
+                                          image=fmt_size(size), size=fmt_size(dev["size"])), parent=self)
+            return
+        self.settings["image_dir"] = os.path.dirname(path)
+        self.save()
+        lines = [_("wird mit dem Image überschrieben:"), "   " + _("Datei: {name}", name=os.path.basename(path))]
+        if info.get("model") or info.get("label"):
+            src = info.get("model", "")
+            if info.get("label"):
+                src += (" " if src else "") + quote(info["label"])
+            lines.append("   " + _("Gesichert von: {src}", src=src))
+        if info.get("created"):
+            lines.append("   " + _("Stand: {date}", date=info["created"]))
+        lines.append("   " + (_("Größe: {size}", size=fmt_size(size)) if size else _("Größe: unbekannt")))
+        if size and size < dev["size"] - MB:
+            lines.append("   " + _("Das Image ist kleiner – der Rest des Datenträgers bleibt ungenutzt."))
+        if "created" not in info:
+            lines.append("   " + _("Fremdes Image: Es wird vollständig geschrieben."))
+        if not self._ask(dev, "\n".join(lines), _("Wiederherstellen")):
+            return
+
+        def after(ok, msg, info):
+            (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
+
+        self._job(["restore", str(dev["disk"]), str(dev["size"]), path, *serial_args(dev)], cancellable=True,
+                  after=after)
 
     def _job(self, args, cancellable=False, after=None):
         """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread"""

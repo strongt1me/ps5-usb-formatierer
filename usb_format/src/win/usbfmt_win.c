@@ -778,6 +778,39 @@ int plat_os_label(const char *diskid, uint64_t size, const char *label, diskinfo
     return label_by_windows(disk, size, label, di, err, n);
 }
 
+/* ------------------------------------------------------------------ Dateien der Image-Sicherung */
+
+static int wide(const char *path, WCHAR *w, int n) { return MultiByteToWideChar(CP_UTF8, 0, path, -1, w, n) > 0; }
+
+FILE *plat_fopen(const char *path, int write, char *err, size_t n) {
+    WCHAR w[1024];
+    if (!wide(path, w, 1024)) { snprintf(err, n, "%s", T("Ungültiger Dateiname.")); return NULL; }
+    HANDLE h = CreateFileW(w, write ? GENERIC_WRITE : GENERIC_READ, FILE_SHARE_READ, NULL,
+                           write ? CREATE_ALWAYS : OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    if (h == INVALID_HANDLE_VALUE) { win_error(err, n, write ? N_("Datei anlegen") : N_("Datei öffnen")); return NULL; }
+    if (GetFileType(h) != FILE_TYPE_DISK) {   /* nur gewöhnliche Dateien - keine Geräte oder Pipes */
+        CloseHandle(h);
+        snprintf(err, n, "%s", T("Keine gültige Image-Datei (.img.zst)."));
+        return NULL;
+    }
+    int fd = _open_osfhandle((intptr_t)h, (write ? _O_WRONLY : _O_RDONLY) | _O_BINARY);
+    if (fd < 0) { CloseHandle(h); snprintf(err, n, "%s", T("Datei öffnen")); return NULL; }
+    FILE *f = _fdopen(fd, write ? "wb" : "rb");
+    if (!f) { _close(fd); snprintf(err, n, "%s", T("Datei öffnen")); }
+    return f;
+}
+
+int plat_rename(const char *from, const char *to) {
+    WCHAR a[1024], b[1024];
+    if (!wide(from, a, 1024) || !wide(to, b, 1024)) return -1;
+    return MoveFileExW(a, b, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) ? 0 : -1;
+}
+
+void plat_remove(const char *path) {
+    WCHAR w[1024];
+    if (wide(path, w, 1024)) DeleteFileW(w);
+}
+
 /* ------------------------------------------------------------------ Start */
 
 /* Ausgabedatei als Administrator anlegen - aber nur NEU und nur genau dort, wo verlangt: Ein Schadprogramm ohne

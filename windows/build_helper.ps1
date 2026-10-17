@@ -7,7 +7,8 @@ param([switch]$Test)
 $ErrorActionPreference = "Stop"
 $src = Join-Path $PSScriptRoot "..\usb_format\src"
 $files = "win\usbfmt_win.c", "win\wincompat.c", "pc\helper.c", "mkfs.c", "hfsplus.c", "upcase.c", "devtest.c", "vollabel.c",
-         "fsdetect.c", "fsread.c", "extfs.c", "i18n.c", "i18n_table.c" | ForEach-Object { Join-Path $src $_ }
+         "fsdetect.c", "fsread.c", "extfs.c", "i18n.c", "i18n_table.c", "sha256.c", "imgbak.c" | ForEach-Object { Join-Path $src $_ }
+$zstdInc = Join-Path $src "..\third_party\zstd\lib"
 
 # SHA-256 einer Datei (ohne Get-FileHash: das fehlt Windows PowerShell, wenn es aus PowerShell 7 heraus startet)
 function Sha256($path) {
@@ -32,10 +33,15 @@ Set-Content -Encoding ascii (Join-Path $src "win\mke2fs_hash.h") @"
 #define MKE2FS_SHA256 "$mhash"
 "@
 
+# zstd (Image-Sicherung) einmal ohne die Warnungen des Projekts übersetzen
+$zstdObj = Join-Path $env:TEMP "usbfmt_zstd_all.o"
+python -m ziglang cc -target x86_64-windows-gnu -O2 -w -DNDEBUG -isystem $zstdInc -c (Join-Path $src "zstd_all.c") -o $zstdObj
+if ($LASTEXITCODE -ne 0) { throw "Bau von zstd fehlgeschlagen" }
+
 function Build($out, [string[]]$extra) {
     python -m ziglang cc -target x86_64-windows-gnu -O2 -municode -std=gnu11 -Wall -Wno-unused-function `
-        -D_FILE_OFFSET_BITS=64 -include (Join-Path $src "win\wincompat.h") @extra `
-        @files -o $out
+        -D_FILE_OFFSET_BITS=64 -include (Join-Path $src "win\wincompat.h") -isystem $zstdInc @extra `
+        @files $zstdObj -o $out
     if ($LASTEXITCODE -ne 0) { throw "Bau von $out fehlgeschlagen" }
     Remove-Item ([IO.Path]::ChangeExtension($out, ".pdb")) -ErrorAction SilentlyContinue
 }

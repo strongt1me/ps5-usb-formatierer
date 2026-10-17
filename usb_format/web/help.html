@@ -192,6 +192,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
   <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a9 9 0 1 1 17 0"/></symbol>
   <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.5"/><path d="M12 17.1v.2"/></symbol>
+  <symbol id="i-disk" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
   <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></symbol>
   <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
 </svg>
@@ -227,6 +228,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#de-fs">Dateisysteme im Vergleich</a></li>
   <li><a href="#de-cluster">Zuordnungseinheit &amp; Partitionstabelle</a></li>
   <li><a href="#de-test">Echtheit &amp; Tempo</a></li>
+  <li><a href="#de-image">Image sichern &amp; wiederherstellen</a></li>
   <li><a href="#de-faq">Hilfe bei Problemen</a></li>
   <li><a href="#de-license">Lizenzen</a></li>
 </ol>
@@ -282,7 +284,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
       und freien Platz. Doppelte Spiele (gleiche Titel-ID an mehreren Orten) werden gemeldet. Über „Spiele löschen …“ entfernen Sie
       Spiele – auf Wunsch samt Kachel auf der Startseite.</li>
     <li><b>Werkzeuge nutzen.</b> „Tempo messen“ misst das Lesetempo. „Prüfen &amp; reparieren“ prüft exFAT und behebt Fehler.
-      „Umbenennen“ ändert die Bezeichnung (exFAT, FAT32), die Daten bleiben erhalten.</li>
+      „Umbenennen“ ändert die Bezeichnung (exFAT, FAT32), die Daten bleiben erhalten. „Sichern &amp; wiederherstellen“ legt ein Image des Laufwerks an oder schreibt eines zurück (siehe unten).</li>
     <li><b>Formatieren.</b> Dateisystem wählen: <b>exFAT (64 KB)</b> ist die richtige Wahl für Spiele und ShadowMountPlus; FAT32 speichert
       Dateien nur bis 4 GB. Volumebezeichnung eingeben und Optionen setzen:
       <ul>
@@ -379,6 +381,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   </ul>
 </section>
 
+<section id="de-image">
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Image sichern und wiederherstellen</h2>
+  <p>Ein Image ist eine vollständige Kopie des Laufwerks – Partitionstabelle, Dateisystem und alle Dateien. Damit stellen Sie einen Stick
+    genau so wieder her, wie er war, oder übertragen ihn auf einen gleich großen oder größeren.</p>
+  <ul class="check">
+    <li><b>Klein und schnell:</b> Bei exFAT und FAT32 werden nur belegte Bereiche gelesen, freier Platz kostet nichts. Gepackt wird mit zstd.
+      Andere Dateisysteme werden vollständig gesichert.</li>
+    <li><b>Offenes Format:</b> <code>Modell_Bezeichnung_Datum.img.zst</code> ist eine gewöhnliche zstd-Datei. <code>zstd -d</code> macht daraus
+      ein rohes Image, das jedes Werkzeug schreiben kann (z. B. balenaEtcher oder dd). Daneben liegt die Prüfsumme als <code>.sha256</code>.</li>
+    <li><b>Geprüft:</b> Beim Wiederherstellen kontrolliert der Formatierer die Prüfsummen des Images und liest danach alles Geschriebene noch
+      einmal – ein defekter oder gefälschter Stick fällt so auf.</li>
+  </ul>
+  <h3>An der PS5</h3>
+  <p>Laufwerk wählen und „Sichern &amp; wiederherstellen“ öffnen.</p>
+  <ul class="check">
+    <li><b>Sichern nach:</b> intern (PS5-Speicher, Ordner <code>/data/usbfmt-backup</code>), auf ein anderes eingebundenes USB-Laufwerk
+      (Ordner <code>usbfmt-backup</code>) oder – am PC oder Handy – als Download in den Browser.</li>
+    <li><b>Wiederherstellen aus:</b> einer Sicherung aus diesen Ordnern oder – am PC oder Handy – einer hochgeladenen Datei.</li>
+    <li>Eingebundene Laufwerke meldet der Formatierer dafür kurz per Software ab, wie beim Formatieren. Laufende Spiele vorher beenden.</li>
+  </ul>
+  <h3>Am PC</h3>
+  <p>Im USB-Formatierer und im Bereich „Am PC Standard“: Laufwerk wählen, dann unter „Image-Sicherung“ auf „Sichern …“ oder
+    „Wiederherstellen …“. Die Datei wählen Sie im gewohnten Dateidialog – sie darf nicht auf dem Laufwerk selbst liegen.</p>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Wiederherstellen überschreibt alle Daten auf dem Ziel.</b>
+    Das Ziel muss mindestens so groß sein wie das gesicherte Laufwerk; ist es größer, bleibt der Rest ungenutzt.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 speichert Dateien nur bis 4 GB. Für große Sicherungen ein Ziel mit exFAT oder NTFS wählen.</div></div>
+</section>
+
 <section id="de-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Hilfe bei Problemen</h2>
   <details><summary>„ELF-Loader (Port 9021) nicht erreichbar“</summary><p>Der Jailbreak läuft nicht (mehr). Jailbreak laden und die App erneut starten.</p></details>
@@ -398,7 +428,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Lizenzen</h2>
   <p>Der Formatierer nutzt freie Software unter der GPL: <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) im Payload, <b>mkntfs</b> (ntfs-3g)
     und <b>mke2fs</b> (e2fsprogs) für NTFS und ext4 an der PS5, <b>mke2fs.exe</b> (e2fsprogs) in den Windows-Programmen sowie
-    <b>libc.prx</b> (GPL-3.0-or-later) in der App. Die Lizenztexte liegen den Dateien bei.</p>
+    <b>libc.prx</b> (GPL-3.0-or-later) in der App. Für die Image-Sicherung ist <b>zstd</b> (Meta Platforms, BSD-Lizenz) eingebaut. Die Lizenztexte liegen den Dateien bei.</p>
   <p class="small">Benutzung auf eigene Gefahr – sichern Sie wichtige Daten vorher.</p>
 </section>
 <footer>USB-Formatierer · Anleitung</footer>
@@ -423,6 +453,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#en-fs">File systems compared</a></li>
   <li><a href="#en-cluster">Allocation unit &amp; partition table</a></li>
   <li><a href="#en-test">Authenticity &amp; speed</a></li>
+  <li><a href="#en-image">Back up &amp; restore images</a></li>
   <li><a href="#en-faq">Troubleshooting</a></li>
   <li><a href="#en-license">Licences</a></li>
 </ol>
@@ -478,7 +509,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
       free space. Duplicate games (same title ID in several places) are reported. Use “Delete games …” to remove games –
       optionally including their tile on the home screen.</li>
     <li><b>Use the tools.</b> “Measure speed” measures the read speed. “Check &amp; repair” checks exFAT and fixes errors.
-      “Rename” changes the label (exFAT, FAT32) and keeps the data.</li>
+      “Rename” changes the label (exFAT, FAT32) and keeps the data. “Back up &amp; restore” creates an image of the drive or writes one back (see below).</li>
     <li><b>Format.</b> Choose the file system: <b>exFAT (64 KB)</b> is the right choice for games and ShadowMountPlus; FAT32 only stores
       files up to 4 GB. Enter a volume label and set the options:
       <ul>
@@ -575,6 +606,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   </ul>
 </section>
 
+<section id="en-image">
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Back up and restore images</h2>
+  <p>An image is a complete copy of the drive – partition table, file system and all files. Use it to restore a stick exactly as it was,
+    or to transfer it to one of the same size or larger.</p>
+  <ul class="check">
+    <li><b>Small and fast:</b> with exFAT and FAT32 only used areas are read, free space costs nothing. Compression is zstd.
+      Other file systems are backed up completely.</li>
+    <li><b>Open format:</b> <code>Model_Label_Date.img.zst</code> is an ordinary zstd file. <code>zstd -d</code> turns it into a raw image
+      that any tool can write (e.g. balenaEtcher or dd). The checksum is stored next to it as <code>.sha256</code>.</li>
+    <li><b>Verified:</b> when restoring, the formatter checks the image's checksums and then reads back everything it wrote – a
+      defective or fake stick shows up this way.</li>
+  </ul>
+  <h3>On the PS5</h3>
+  <p>Select the drive and open “Back up &amp; restore”.</p>
+  <ul class="check">
+    <li><b>Back up to:</b> internal (PS5 storage, folder <code>/data/usbfmt-backup</code>), another mounted USB drive
+      (folder <code>usbfmt-backup</code>) or – on a PC or phone – as a download to the browser.</li>
+    <li><b>Restore from:</b> a backup from these folders or – on a PC or phone – an uploaded file.</li>
+    <li>Mounted drives are briefly disconnected by software for this, just like when formatting. Close running games first.</li>
+  </ul>
+  <h3>On the PC</h3>
+  <p>In the USB Formatter and in the “PC standard” area: select the drive, then under “Image backup” click “Back up …” or
+    “Restore …”. You choose the file in the usual file dialog – it must not be on the drive itself.</p>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Restoring overwrites all data on the target.</b>
+    The target must be at least as large as the backed-up drive; if it is larger, the rest stays unused.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 stores files of up to 4 GB only. For large backups choose a destination with exFAT or NTFS.</div></div>
+</section>
+
 <section id="en-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Troubleshooting</h2>
   <details><summary>“ELF loader (port 9021) not reachable”</summary><p>The jailbreak is not running (any more). Load the jailbreak and start the app again.</p></details>
@@ -594,7 +653,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Licences</h2>
   <p>The formatter uses free software under the GPL: <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) in the payload, <b>mkntfs</b> (ntfs-3g)
     and <b>mke2fs</b> (e2fsprogs) for NTFS and ext4 on the PS5, <b>mke2fs.exe</b> (e2fsprogs) in the Windows programs and
-    <b>libc.prx</b> (GPL-3.0-or-later) in the app. The licence texts come with the files.</p>
+    <b>libc.prx</b> (GPL-3.0-or-later) in the app. The image backup uses the built-in <b>zstd</b> (Meta Platforms, BSD licence). The licence texts come with the files.</p>
   <p class="small">Use at your own risk – back up important data first.</p>
 </section>
 <footer>USB Formatter · Guide</footer>
@@ -619,6 +678,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#it-fs">File system a confronto</a></li>
   <li><a href="#it-cluster">Unità di allocazione e tabella</a></li>
   <li><a href="#it-test">Autenticità e velocità</a></li>
+  <li><a href="#it-image">Salvare e ripristinare immagini</a></li>
   <li><a href="#it-faq">Risoluzione dei problemi</a></li>
   <li><a href="#it-license">Licenze</a></li>
 </ol>
@@ -674,7 +734,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
       e lo spazio libero. I giochi doppi (stesso ID titolo in più posizioni) vengono segnalati. Con «Elimina giochi …» rimuovi i giochi –
       se vuoi, anche il loro riquadro nella schermata iniziale.</li>
     <li><b>Usa gli strumenti.</b> «Misura velocità» misura la velocità di lettura. «Controlla e ripara» controlla exFAT e corregge gli errori.
-      «Rinomina» cambia l'etichetta (exFAT, FAT32) mantenendo i dati.</li>
+      «Rinomina» cambia l'etichetta (exFAT, FAT32) mantenendo i dati. «Salva e ripristina» crea un'immagine dell'unità o ne riscrive una (vedi sotto).</li>
     <li><b>Formatta.</b> Scegli il file system: <b>exFAT (64 KB)</b> è la scelta giusta per i giochi e ShadowMountPlus; FAT32 salva
       file solo fino a 4 GB. Inserisci un'etichetta e imposta le opzioni:
       <ul>
@@ -771,6 +831,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   </ul>
 </section>
 
+<section id="it-image">
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Salvare e ripristinare immagini</h2>
+  <p>Un'immagine è una copia completa dell'unità – tabella delle partizioni, file system e tutti i file. Così ripristini una chiavetta
+    esattamente com'era o la trasferisci su una di uguale capacità o più grande.</p>
+  <ul class="check">
+    <li><b>Piccola e veloce:</b> con exFAT e FAT32 vengono lette solo le aree occupate, lo spazio libero non costa nulla. La compressione è zstd.
+      Gli altri file system vengono salvati per intero.</li>
+    <li><b>Formato aperto:</b> <code>Modello_Etichetta_Data.img.zst</code> è un normale file zstd. <code>zstd -d</code> lo trasforma in
+      un'immagine grezza scrivibile con qualsiasi strumento (ad es. balenaEtcher o dd). Accanto c'è il checksum come <code>.sha256</code>.</li>
+    <li><b>Verificata:</b> durante il ripristino il formattatore controlla i checksum dell'immagine e poi rilegge tutto ciò che ha scritto –
+      così una chiavetta difettosa o contraffatta viene scoperta.</li>
+  </ul>
+  <h3>Sulla PS5</h3>
+  <p>Scegli l'unità e apri «Salva e ripristina».</p>
+  <ul class="check">
+    <li><b>Salva in:</b> interno (memoria PS5, cartella <code>/data/usbfmt-backup</code>), un'altra unità USB montata
+      (cartella <code>usbfmt-backup</code>) oppure – su PC o telefono – come download nel browser.</li>
+    <li><b>Ripristina da:</b> un backup in queste cartelle oppure – su PC o telefono – un file caricato.</li>
+    <li>Le unità montate vengono scollegate brevemente via software, come per la formattazione. Chiudi prima i giochi in esecuzione.</li>
+  </ul>
+  <h3>Sul PC</h3>
+  <p>Nel Formattatore USB e nell'area «PC standard»: scegli l'unità, poi in «Backup immagine» clicca «Salva …» o
+    «Ripristina …». Il file si sceglie nella solita finestra – non deve trovarsi sull'unità stessa.</p>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Il ripristino sovrascrive tutti i dati della destinazione.</b>
+    La destinazione deve essere grande almeno quanto l'unità salvata; se è più grande, il resto resta inutilizzato.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 memorizza file solo fino a 4 GB. Per backup grandi scegli una destinazione exFAT o NTFS.</div></div>
+</section>
+
 <section id="it-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Risoluzione dei problemi</h2>
   <details><summary>«ELF loader (porta 9021) non raggiungibile»</summary><p>Il jailbreak non è (più) attivo. Carica il jailbreak e avvia di nuovo l'app.</p></details>
@@ -790,7 +878,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Licenze</h2>
   <p>Il formattatore usa software libero con licenza GPL: <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) nel payload, <b>mkntfs</b> (ntfs-3g)
     e <b>mke2fs</b> (e2fsprogs) per NTFS ed ext4 sulla PS5, <b>mke2fs.exe</b> (e2fsprogs) nei programmi Windows e
-    <b>libc.prx</b> (GPL-3.0-or-later) nell'app. I testi delle licenze sono allegati ai file.</p>
+    <b>libc.prx</b> (GPL-3.0-or-later) nell'app. Per il backup immagine è integrato <b>zstd</b> (Meta Platforms, licenza BSD). I testi delle licenze sono allegati ai file.</p>
   <p class="small">Uso a proprio rischio – fai prima un backup dei dati importanti.</p>
 </section>
 <footer>Formattatore USB · Guida</footer>
@@ -815,6 +903,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#es-fs">Sistemas de archivos</a></li>
   <li><a href="#es-cluster">Unidad de asignación y tabla</a></li>
   <li><a href="#es-test">Autenticidad y velocidad</a></li>
+  <li><a href="#es-image">Guardar y restaurar imágenes</a></li>
   <li><a href="#es-faq">Solución de problemas</a></li>
   <li><a href="#es-license">Licencias</a></li>
 </ol>
@@ -870,7 +959,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
       y el espacio libre. Se avisa de los juegos duplicados (mismo ID de título en varios sitios). Con «Borrar juegos …» eliminas juegos –
       si quieres, también su icono de la pantalla de inicio.</li>
     <li><b>Usar las herramientas.</b> «Medir velocidad» mide la velocidad de lectura. «Comprobar y reparar» comprueba exFAT y corrige errores.
-      «Renombrar» cambia la etiqueta (exFAT, FAT32) y conserva los datos.</li>
+      «Renombrar» cambia la etiqueta (exFAT, FAT32) y conserva los datos. «Guardar y restaurar» crea una imagen de la unidad o vuelve a escribir una (ver abajo).</li>
     <li><b>Formatear.</b> Elige el sistema de archivos: <b>exFAT (64 KB)</b> es la opción correcta para juegos y ShadowMountPlus; FAT32 solo guarda
       archivos de hasta 4 GB. Escribe una etiqueta y ajusta las opciones:
       <ul>
@@ -967,6 +1056,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   </ul>
 </section>
 
+<section id="es-image">
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Guardar y restaurar imágenes</h2>
+  <p>Una imagen es una copia completa de la unidad – tabla de particiones, sistema de archivos y todos los archivos. Con ella restauras un
+    pendrive tal como estaba o lo pasas a otro del mismo tamaño o mayor.</p>
+  <ul class="check">
+    <li><b>Pequeña y rápida:</b> con exFAT y FAT32 solo se leen las áreas ocupadas, el espacio libre no ocupa nada. Se comprime con zstd.
+      Los demás sistemas de archivos se guardan completos.</li>
+    <li><b>Formato abierto:</b> <code>Modelo_Etiqueta_Fecha.img.zst</code> es un archivo zstd normal. <code>zstd -d</code> lo convierte en
+      una imagen en bruto que cualquier herramienta puede escribir (p. ej. balenaEtcher o dd). Al lado está la suma de comprobación como <code>.sha256</code>.</li>
+    <li><b>Comprobada:</b> al restaurar, el formateador verifica las sumas de comprobación de la imagen y después vuelve a leer todo lo escrito –
+      así se detecta un pendrive defectuoso o falso.</li>
+  </ul>
+  <h3>En la PS5</h3>
+  <p>Elige la unidad y abre «Guardar y restaurar».</p>
+  <ul class="check">
+    <li><b>Guardar en:</b> interno (almacenamiento de la PS5, carpeta <code>/data/usbfmt-backup</code>), otra unidad USB montada
+      (carpeta <code>usbfmt-backup</code>) o – en el PC o el móvil – como descarga en el navegador.</li>
+    <li><b>Restaurar desde:</b> una copia de estas carpetas o – en el PC o el móvil – un archivo subido.</li>
+    <li>Las unidades montadas se desconectan brevemente por software, igual que al formatear. Cierra antes los juegos en ejecución.</li>
+  </ul>
+  <h3>En el PC</h3>
+  <p>En el Formateador USB y en el área «PC estándar»: elige la unidad y, en «Copia de imagen», pulsa «Guardar …» o
+    «Restaurar …». El archivo se elige en el diálogo habitual – no puede estar en la propia unidad.</p>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Restaurar sobrescribe todos los datos del destino.</b>
+    El destino debe ser al menos tan grande como la unidad copiada; si es mayor, el resto queda sin usar.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 solo guarda archivos de hasta 4 GB. Para copias grandes elige un destino con exFAT o NTFS.</div></div>
+</section>
+
 <section id="es-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Solución de problemas</h2>
   <details><summary>«Cargador ELF (puerto 9021) inaccesible»</summary><p>El jailbreak no está (o ya no está) activo. Carga el jailbreak y vuelve a iniciar la app.</p></details>
@@ -986,7 +1103,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Licencias</h2>
   <p>El formateador usa software libre bajo la GPL: <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) en el payload, <b>mkntfs</b> (ntfs-3g)
     y <b>mke2fs</b> (e2fsprogs) para NTFS y ext4 en la PS5, <b>mke2fs.exe</b> (e2fsprogs) en los programas de Windows y
-    <b>libc.prx</b> (GPL-3.0-or-later) en la app. Los textos de las licencias acompañan a los archivos.</p>
+    <b>libc.prx</b> (GPL-3.0-or-later) en la app. Para la copia de imagen se integra <b>zstd</b> (Meta Platforms, licencia BSD). Los textos de las licencias acompañan a los archivos.</p>
   <p class="small">Uso bajo tu propia responsabilidad – haz antes una copia de seguridad de los datos importantes.</p>
 </section>
 <footer>Formateador USB · Guía</footer>
@@ -1011,6 +1128,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#fr-fs">Systèmes de fichiers comparés</a></li>
   <li><a href="#fr-cluster">Unité d'allocation et table</a></li>
   <li><a href="#fr-test">Authenticité et vitesse</a></li>
+  <li><a href="#fr-image">Sauvegarder &amp; restaurer des images</a></li>
   <li><a href="#fr-faq">Dépannage</a></li>
   <li><a href="#fr-license">Licences</a></li>
 </ol>
@@ -1066,7 +1184,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
       et l'espace libre. Les jeux en double (même ID de titre à plusieurs endroits) sont signalés. « Supprimer des jeux … » retire des jeux –
       si vous le souhaitez, avec leur vignette sur l'écran d'accueil.</li>
     <li><b>Utiliser les outils.</b> « Mesurer la vitesse » mesure la vitesse de lecture. « Vérifier et réparer » contrôle exFAT et corrige les erreurs.
-      « Renommer » change le nom de volume (exFAT, FAT32) en conservant les données.</li>
+      « Renommer » change le nom de volume (exFAT, FAT32) en conservant les données. « Sauvegarder et restaurer » crée une image du lecteur ou en réécrit une (voir plus bas).</li>
     <li><b>Formater.</b> Choisissez le système de fichiers : <b>exFAT (64 Ko)</b> est le bon choix pour les jeux et ShadowMountPlus ; FAT32 ne stocke
       que des fichiers de 4 Go maximum. Saisissez un nom de volume et réglez les options :
       <ul>
@@ -1163,6 +1281,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   </ul>
 </section>
 
+<section id="fr-image">
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Sauvegarder et restaurer des images</h2>
+  <p>Une image est une copie complète du lecteur – table de partitions, système de fichiers et tous les fichiers. Elle permet de restaurer
+    une clé exactement comme elle était ou de la transférer sur une clé de même taille ou plus grande.</p>
+  <ul class="check">
+    <li><b>Petite et rapide :</b> avec exFAT et FAT32, seules les zones occupées sont lues, l'espace libre ne coûte rien. La compression est zstd.
+      Les autres systèmes de fichiers sont sauvegardés entièrement.</li>
+    <li><b>Format ouvert :</b> <code>Modèle_Nom_Date.img.zst</code> est un fichier zstd ordinaire. <code>zstd -d</code> en fait une image
+      brute que tout outil peut écrire (p. ex. balenaEtcher ou dd). La somme de contrôle se trouve à côté dans un <code>.sha256</code>.</li>
+    <li><b>Vérifiée :</b> lors de la restauration, le formateur contrôle les sommes de l'image puis relit tout ce qu'il a écrit –
+      une clé défectueuse ou contrefaite est ainsi repérée.</li>
+  </ul>
+  <h3>Sur la PS5</h3>
+  <p>Choisissez le lecteur et ouvrez « Sauvegarder et restaurer ».</p>
+  <ul class="check">
+    <li><b>Sauvegarder vers :</b> interne (stockage PS5, dossier <code>/data/usbfmt-backup</code>), un autre lecteur USB monté
+      (dossier <code>usbfmt-backup</code>) ou – sur PC ou téléphone – en téléchargement dans le navigateur.</li>
+    <li><b>Restaurer depuis :</b> une sauvegarde de ces dossiers ou – sur PC ou téléphone – un fichier envoyé.</li>
+    <li>Les lecteurs montés sont brièvement déconnectés par logiciel, comme pour le formatage. Fermez d'abord les jeux en cours.</li>
+  </ul>
+  <h3>Sur le PC</h3>
+  <p>Dans le Formateur USB et dans la zone « PC standard » : choisissez le lecteur, puis sous « Sauvegarde image » cliquez sur
+    « Sauvegarder … » ou « Restaurer … ». Le fichier se choisit dans la boîte de dialogue habituelle – il ne doit pas se trouver sur le lecteur lui-même.</p>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">La restauration écrase toutes les données de la cible.</b>
+    La cible doit être au moins aussi grande que le lecteur sauvegardé ; si elle est plus grande, le reste n'est pas utilisé.</div></div>
+  <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 ne stocke que des fichiers jusqu'à 4 Go. Pour les grosses sauvegardes, choisissez une destination en exFAT ou NTFS.</div></div>
+</section>
+
 <section id="fr-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Dépannage</h2>
   <details><summary>« Chargeur ELF (port 9021) injoignable »</summary><p>Le jailbreak n'est pas (ou plus) actif. Chargez le jailbreak et relancez l'app.</p></details>
@@ -1182,7 +1328,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <h2><span class="ic"><svg class="i"><use href="#i-doc" xlink:href="#i-doc"/></svg></span>Licences</h2>
   <p>Le formateur utilise des logiciels libres sous GPL : <b>exfatprogs</b> (fsck.exfat, GPL-2.0-or-later) dans le payload, <b>mkntfs</b> (ntfs-3g)
     et <b>mke2fs</b> (e2fsprogs) pour NTFS et ext4 sur la PS5, <b>mke2fs.exe</b> (e2fsprogs) dans les programmes Windows et
-    <b>libc.prx</b> (GPL-3.0-or-later) dans l'app. Les textes des licences accompagnent les fichiers.</p>
+    <b>libc.prx</b> (GPL-3.0-or-later) dans l'app. La sauvegarde image intègre <b>zstd</b> (Meta Platforms, licence BSD). Les textes des licences accompagnent les fichiers.</p>
   <p class="small">Utilisation à vos risques – sauvegardez d'abord vos données importantes.</p>
 </section>
 <footer>Formateur USB · Guide</footer>

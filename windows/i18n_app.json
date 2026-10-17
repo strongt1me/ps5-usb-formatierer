@@ -1660,5 +1660,155 @@
   "it": "Su Linux l'etichetta non può iniziare con «-».",
   "es": "En Linux, la etiqueta no puede empezar por «-».",
   "fr": "Sous Linux, le nom ne doit pas commencer par « - »."
+ },
+ "Image-Sicherung:": {
+  "en": "Image backup:",
+  "it": "Backup immagine:",
+  "es": "Copia de imagen:",
+  "fr": "Sauvegarde image :"
+ },
+ "Sichern …": {
+  "en": "Back up …",
+  "it": "Salva …",
+  "es": "Guardar …",
+  "fr": "Sauvegarder …"
+ },
+ "Wiederherstellen …": {
+  "en": "Restore …",
+  "it": "Ripristina …",
+  "es": "Restaurar …",
+  "fr": "Restaurer …"
+ },
+ "Image sichern": {
+  "en": "Back up image",
+  "it": "Salva immagine",
+  "es": "Guardar imagen",
+  "fr": "Sauvegarder l'image"
+ },
+ "Image-Sicherung": {
+  "en": "Image backup",
+  "it": "Backup immagine",
+  "es": "Copia de imagen",
+  "fr": "Sauvegarde image"
+ },
+ "Die Sicherung kann nicht auf dem Datenträger liegen, der gesichert wird – bitte ein anderes Laufwerk wählen.": {
+  "en": "The backup cannot be stored on the drive being backed up – please choose another drive.",
+  "it": "Il backup non può trovarsi sull'unità da salvare – scegli un'altra unità.",
+  "es": "La copia no puede guardarse en la unidad que se está copiando – elige otra unidad.",
+  "fr": "La sauvegarde ne peut pas se trouver sur le lecteur sauvegardé – choisissez un autre lecteur."
+ },
+ "Gesichert werden nur die belegten Bereiche (freier Platz von exFAT und FAT32 wird übersprungen), gepackt mit zstd; daneben entsteht eine .sha256-Datei. Während der Sicherung ist der Datenträger gesperrt.": {
+  "en": "Only the used areas are backed up (free space of exFAT and FAT32 is skipped), compressed with zstd; a .sha256 file is created next to it. The drive is locked during the backup.",
+  "it": "Vengono salvate solo le aree occupate (lo spazio libero di exFAT e FAT32 viene saltato), compresse con zstd; accanto viene creato un file .sha256. Durante il backup l'unità è bloccata.",
+  "es": "Solo se guardan las áreas ocupadas (el espacio libre de exFAT y FAT32 se omite), comprimidas con zstd; al lado se crea un archivo .sha256. Durante la copia la unidad está bloqueada.",
+  "fr": "Seules les zones occupées sont sauvegardées (l'espace libre d'exFAT et FAT32 est ignoré), compressées avec zstd ; un fichier .sha256 est créé à côté. Le lecteur est verrouillé pendant la sauvegarde."
+ },
+ "wird gesichert nach:": {
+  "en": "will be backed up to:",
+  "it": "verrà salvata in:",
+  "es": "se guardará en:",
+  "fr": "sera sauvegardé dans :"
+ },
+ "Belegt laut System: {size}.": {
+  "en": "Used according to the system: {size}.",
+  "it": "Occupato secondo il sistema: {size}.",
+  "es": "Ocupado según el sistema: {size}.",
+  "fr": "Occupé selon le système : {size}."
+ },
+ "Sichern": {
+  "en": "Back up",
+  "it": "Salva",
+  "es": "Guardar",
+  "fr": "Sauvegarder"
+ },
+ "Image wiederherstellen": {
+  "en": "Restore image",
+  "it": "Ripristina immagine",
+  "es": "Restaurar imagen",
+  "fr": "Restaurer l'image"
+ },
+ "Alle Dateien": {
+  "en": "All files",
+  "it": "Tutti i file",
+  "es": "Todos los archivos",
+  "fr": "Tous les fichiers"
+ },
+ "Die Datei lässt sich nicht lesen: {e}": {
+  "en": "The file cannot be read: {e}",
+  "it": "Impossibile leggere il file: {e}",
+  "es": "No se puede leer el archivo: {e}",
+  "fr": "Impossible de lire le fichier : {e}"
+ },
+ "Das ist keine Image-Sicherung (.img.zst).": {
+  "en": "This is not an image backup (.img.zst).",
+  "it": "Questo non è un backup immagine (.img.zst).",
+  "es": "Esto no es una copia de imagen (.img.zst).",
+  "fr": "Ce n'est pas une sauvegarde image (.img.zst)."
+ },
+ "Die Image-Datei liegt auf dem Datenträger, der überschrieben werden soll – bitte erst auf ein anderes Laufwerk kopieren.": {
+  "en": "The image file is on the drive that is to be overwritten – please copy it to another drive first.",
+  "it": "Il file immagine si trova sull'unità da sovrascrivere – copialo prima su un'altra unità.",
+  "es": "El archivo de imagen está en la unidad que se va a sobrescribir – cópialo antes a otra unidad.",
+  "fr": "Le fichier image se trouve sur le lecteur à écraser – copiez-le d'abord sur un autre lecteur."
+ },
+ "Das Image ({image}) ist größer als dieser Datenträger ({size}).": {
+  "en": "The image ({image}) is larger than this drive ({size}).",
+  "it": "L'immagine ({image}) è più grande di questa unità ({size}).",
+  "es": "La imagen ({image}) es mayor que esta unidad ({size}).",
+  "fr": "L'image ({image}) est plus grande que ce lecteur ({size})."
+ },
+ "wird mit dem Image überschrieben:": {
+  "en": "will be overwritten with the image:",
+  "it": "verrà sovrascritta con l'immagine:",
+  "es": "se sobrescribirá con la imagen:",
+  "fr": "sera écrasé par l'image :"
+ },
+ "Datei: {name}": {
+  "en": "File: {name}",
+  "it": "File: {name}",
+  "es": "Archivo: {name}",
+  "fr": "Fichier : {name}"
+ },
+ "Gesichert von: {src}": {
+  "en": "Backed up from: {src}",
+  "it": "Salvata da: {src}",
+  "es": "Copiada de: {src}",
+  "fr": "Sauvegardée depuis : {src}"
+ },
+ "Stand: {date}": {
+  "en": "Date: {date}",
+  "it": "Data: {date}",
+  "es": "Fecha: {date}",
+  "fr": "Date : {date}"
+ },
+ "Größe: {size}": {
+  "en": "Size: {size}",
+  "it": "Dimensione: {size}",
+  "es": "Tamaño: {size}",
+  "fr": "Taille : {size}"
+ },
+ "Größe: unbekannt": {
+  "en": "Size: unknown",
+  "it": "Dimensione: sconosciuta",
+  "es": "Tamaño: desconocido",
+  "fr": "Taille : inconnue"
+ },
+ "Das Image ist kleiner – der Rest des Datenträgers bleibt ungenutzt.": {
+  "en": "The image is smaller – the rest of the drive remains unused.",
+  "it": "L'immagine è più piccola – il resto dell'unità resta inutilizzato.",
+  "es": "La imagen es más pequeña – el resto de la unidad queda sin usar.",
+  "fr": "L'image est plus petite – le reste du lecteur reste inutilisé."
+ },
+ "Fremdes Image: Es wird vollständig geschrieben.": {
+  "en": "Foreign image: it is written completely.",
+  "it": "Immagine esterna: viene scritta per intero.",
+  "es": "Imagen externa: se escribe por completo.",
+  "fr": "Image externe : elle est écrite entièrement."
+ },
+ "Wiederherstellen": {
+  "en": "Restore",
+  "it": "Ripristina",
+  "es": "Restaurar",
+  "fr": "Restaurer"
  }
 }

@@ -1834,5 +1834,275 @@
   "it": "Solo una partizione può essere avviabile.",
   "es": "Solo una partición puede ser de arranque.",
   "fr": "Une seule partition peut être amorçable."
+ },
+ "%s gesichert: %s belegt, Datei %s.": {
+  "en": "%s backed up: %s used, file %s.",
+  "it": "%s salvato: %s occupati, file %s.",
+  "es": "%s guardado: %s ocupados, archivo %s.",
+  "fr": "%s sauvegardé : %s occupés, fichier %s."
+ },
+ "Abgebrochen – der Datenträger ist nur teilweise beschrieben.": {
+  "en": "Cancelled – the drive has only been partially written.",
+  "it": "Annullato – l'unità è stata scritta solo in parte.",
+  "es": "Cancelado – la unidad solo se ha escrito parcialmente.",
+  "fr": "Annulé – le lecteur n'a été écrit que partiellement."
+ },
+ "Am Ziel ist nicht mehr genug Platz frei.": {
+  "en": "Not enough free space left at the destination.",
+  "it": "Spazio libero insufficiente nella destinazione.",
+  "es": "No queda suficiente espacio libre en el destino.",
+  "fr": "Plus assez d'espace libre à la destination."
+ },
+ "Belegte Bereiche ermitteln": {
+  "en": "Finding used areas",
+  "it": "Ricerca delle aree occupate",
+  "es": "Buscando áreas ocupadas",
+  "fr": "Recherche des zones occupées"
+ },
+ "Das Image (%s) ist größer als der Datenträger (%s).": {
+  "en": "The image (%s) is larger than the drive (%s).",
+  "it": "L'immagine (%s) è più grande dell'unità (%s).",
+  "es": "La imagen (%s) es mayor que la unidad (%s).",
+  "fr": "L'image (%s) est plus grande que le lecteur (%s)."
+ },
+ "Das Image ist größer als der Datenträger.": {
+  "en": "The image is larger than the drive.",
+  "it": "L'immagine è più grande dell'unità.",
+  "es": "La imagen es mayor que la unidad.",
+  "fr": "L'image est plus grande que le lecteur."
+ },
+ "Datei nicht anlegbar": {
+  "en": "File could not be created",
+  "it": "Impossibile creare il file",
+  "es": "No se pudo crear el archivo",
+  "fr": "Impossible de créer le fichier"
+ },
+ "Datei öffnen": {
+  "en": "Open file",
+  "it": "Apertura file",
+  "es": "Abrir archivo",
+  "fr": "Ouverture du fichier"
+ },
+ "Datei anlegen": {
+  "en": "Create file",
+  "it": "Creazione file",
+  "es": "Crear archivo",
+  "fr": "Création du fichier"
+ },
+ "Die Datei ist zu groß für das Dateisystem des Ziels (FAT32: höchstens 4 GB).": {
+  "en": "The file is too large for the destination's file system (FAT32: 4 GB at most).",
+  "it": "Il file è troppo grande per il file system della destinazione (FAT32: al massimo 4 GB).",
+  "es": "El archivo es demasiado grande para el sistema de archivos del destino (FAT32: 4 GB como máximo).",
+  "fr": "Le fichier est trop volumineux pour le système de fichiers de la destination (FAT32 : 4 Go au maximum)."
+ },
+ "Die Größe des Images ist unbekannt (mit zstd ohne Größenangabe gepackt).": {
+  "en": "The image size is unknown (packed with zstd without a size).",
+  "it": "La dimensione dell'immagine è sconosciuta (compressa con zstd senza dimensione).",
+  "es": "El tamaño de la imagen es desconocido (comprimida con zstd sin tamaño).",
+  "fr": "La taille de l'image est inconnue (compressée avec zstd sans taille)."
+ },
+ "Die Image-Datei ist beschädigt (zstd: %s).": {
+  "en": "The image file is damaged (zstd: %s).",
+  "it": "Il file immagine è danneggiato (zstd: %s).",
+  "es": "El archivo de imagen está dañado (zstd: %s).",
+  "fr": "Le fichier image est endommagé (zstd : %s)."
+ },
+ "Die Image-Datei ist beschädigt.": {
+  "en": "The image file is damaged.",
+  "it": "Il file immagine è danneggiato.",
+  "es": "El archivo de imagen está dañado.",
+  "fr": "Le fichier image est endommagé."
+ },
+ "Die Image-Datei ist unvollständig.": {
+  "en": "The image file is incomplete.",
+  "it": "Il file immagine è incompleto.",
+  "es": "El archivo de imagen está incompleto.",
+  "fr": "Le fichier image est incomplet."
+ },
+ "Die Prüfsumme des Images stimmt nicht – die Datei ist beschädigt.": {
+  "en": "The image checksum does not match – the file is damaged.",
+  "it": "Il checksum dell'immagine non corrisponde – il file è danneggiato.",
+  "es": "La suma de comprobación de la imagen no coincide – el archivo está dañado.",
+  "fr": "La somme de contrôle de l'image ne correspond pas – le fichier est endommagé."
+ },
+ "Geschriebenes prüfen": {
+  "en": "Verifying written data",
+  "it": "Verifica dei dati scritti",
+  "es": "Comprobando lo escrito",
+  "fr": "Vérification des données écrites"
+ },
+ "Image auf %s wiederhergestellt und geprüft (%s geschrieben).": {
+  "en": "Image restored to %s and verified (%s written).",
+  "it": "Immagine ripristinata su %s e verificata (%s scritti).",
+  "es": "Imagen restaurada en %s y comprobada (%s escritos).",
+  "fr": "Image restaurée sur %s et vérifiée (%s écrits)."
+ },
+ "Image prüfen": {
+  "en": "Checking image",
+  "it": "Verifica dell'immagine",
+  "es": "Comprobando la imagen",
+  "fr": "Vérification de l'image"
+ },
+ "Keine gültige Image-Datei (.img.zst).": {
+  "en": "Not a valid image file (.img.zst).",
+  "it": "Non è un file immagine valido (.img.zst).",
+  "es": "No es un archivo de imagen válido (.img.zst).",
+  "fr": "Fichier image non valide (.img.zst)."
+ },
+ "Lesen der Sicherung fehlgeschlagen": {
+  "en": "Reading the backup failed",
+  "it": "Lettura del backup non riuscita",
+  "es": "Error al leer la copia de seguridad",
+  "fr": "Échec de la lecture de la sauvegarde"
+ },
+ "Prüfung nach dem Schreiben: Der Datenträger liefert andere Daten zurück – er ist vermutlich defekt oder gefälscht.": {
+  "en": "Check after writing: the drive returns different data – it is probably defective or fake.",
+  "it": "Verifica dopo la scrittura: l'unità restituisce dati diversi – probabilmente è difettosa o contraffatta.",
+  "es": "Comprobación tras escribir: la unidad devuelve otros datos – probablemente está defectuosa o es falsa.",
+  "fr": "Vérification après écriture : le lecteur renvoie d'autres données – il est probablement défectueux ou contrefait."
+ },
+ "Schreiben der Sicherung fehlgeschlagen": {
+  "en": "Writing the backup failed",
+  "it": "Scrittura del backup non riuscita",
+  "es": "Error al escribir la copia de seguridad",
+  "fr": "Échec de l'écriture de la sauvegarde"
+ },
+ "Schreiben der Sicherung fehlgeschlagen: %s": {
+  "en": "Writing the backup failed: %s",
+  "it": "Scrittura del backup non riuscita: %s",
+  "es": "Error al escribir la copia de seguridad: %s",
+  "fr": "Échec de l'écriture de la sauvegarde : %s"
+ },
+ "Sichern": {
+  "en": "Backing up",
+  "it": "Salvataggio",
+  "es": "Guardando",
+  "fr": "Sauvegarde"
+ },
+ "Sichern fehlgeschlagen: %s": {
+  "en": "Backup failed: %s",
+  "it": "Backup non riuscito: %s",
+  "es": "Error en la copia de seguridad: %s",
+  "fr": "Échec de la sauvegarde : %s"
+ },
+ "Ungültige Größe": {
+  "en": "Invalid size",
+  "it": "Dimensione non valida",
+  "es": "Tamaño no válido",
+  "fr": "Taille non valide"
+ },
+ "Ungültiger Dateiname.": {
+  "en": "Invalid file name.",
+  "it": "Nome file non valido.",
+  "es": "Nombre de archivo no válido.",
+  "fr": "Nom de fichier non valide."
+ },
+ "Wiederherstellen": {
+  "en": "Restoring",
+  "it": "Ripristino",
+  "es": "Restaurando",
+  "fr": "Restauration"
+ },
+ "Wiederherstellen fehlgeschlagen: %s": {
+  "en": "Restore failed: %s",
+  "it": "Ripristino non riuscito: %s",
+  "es": "Error al restaurar: %s",
+  "fr": "Échec de la restauration : %s"
+ },
+ "Der Ordner %s lässt sich nicht anlegen: %s": {
+  "en": "The folder %s cannot be created: %s",
+  "it": "Impossibile creare la cartella %s: %s",
+  "es": "No se puede crear la carpeta %s: %s",
+  "fr": "Impossible de créer le dossier %s : %s"
+ },
+ "Die Datei %s lässt sich nicht anlegen: %s": {
+  "en": "The file %s cannot be created: %s",
+  "it": "Impossibile creare il file %s: %s",
+  "es": "No se puede crear el archivo %s: %s",
+  "fr": "Impossible de créer le fichier %s : %s"
+ },
+ "Der Download ist nicht mehr gültig – bitte neu starten.": {
+  "en": "The download is no longer valid – please start it again.",
+  "it": "Il download non è più valido – avvialo di nuovo.",
+  "es": "La descarga ya no es válida – iníciala de nuevo.",
+  "fr": "Le téléchargement n'est plus valide – relancez-le."
+ },
+ "Der Download wurde abgebrochen (Verbindung zum Browser getrennt).": {
+  "en": "The download was aborted (connection to the browser lost).",
+  "it": "Il download è stato interrotto (connessione al browser persa).",
+  "es": "La descarga se interrumpió (conexión con el navegador perdida).",
+  "fr": "Le téléchargement a été interrompu (connexion au navigateur perdue)."
+ },
+ "dest ist erforderlich": {
+  "en": "dest is required",
+  "it": "dest è obbligatorio",
+  "es": "dest es obligatorio",
+  "fr": "dest est obligatoire"
+ },
+ "Unbekanntes Ziel – Liste neu laden.": {
+  "en": "Unknown destination – reload the list.",
+  "it": "Destinazione sconosciuta – ricarica l'elenco.",
+  "es": "Destino desconocido – vuelve a cargar la lista.",
+  "fr": "Destination inconnue – rechargez la liste."
+ },
+ "Die Sicherung kann nicht auf dem Datenträger liegen, der gesichert wird.": {
+  "en": "The backup cannot be stored on the drive being backed up.",
+  "it": "Il backup non può trovarsi sull'unità da salvare.",
+  "es": "La copia no puede guardarse en la unidad que se está copiando.",
+  "fr": "La sauvegarde ne peut pas se trouver sur le lecteur sauvegardé."
+ },
+ "Am Ziel ist zu wenig Platz frei (mindestens 64 MB).": {
+  "en": "Not enough free space at the destination (at least 64 MB).",
+  "it": "Spazio libero insufficiente nella destinazione (almeno 64 MB).",
+  "es": "No hay suficiente espacio libre en el destino (al menos 64 MB).",
+  "fr": "Pas assez d'espace libre à la destination (au moins 64 Mo)."
+ },
+ "Dieser Stick hat nur etwa %s echten Speicher – das Image (%s) passt nicht hinein.": {
+  "en": "This stick has only about %s of real memory – the image (%s) does not fit.",
+  "it": "Questa chiavetta ha solo circa %s di memoria reale – l'immagine (%s) non ci sta.",
+  "es": "Este pendrive solo tiene unos %s de memoria real – la imagen (%s) no cabe.",
+  "fr": "Cette clé n'a qu'environ %s de mémoire réelle – l'image (%s) ne tient pas."
+ },
+ "path ist erforderlich": {
+  "en": "path is required",
+  "it": "path è obbligatorio",
+  "es": "path es obligatorio",
+  "fr": "path est obligatoire"
+ },
+ "Image-Datei nicht gefunden – Liste neu laden.": {
+  "en": "Image file not found – reload the list.",
+  "it": "File immagine non trovato – ricarica l'elenco.",
+  "es": "Archivo de imagen no encontrado – vuelve a cargar la lista.",
+  "fr": "Fichier image introuvable – rechargez la liste."
+ },
+ "Die Image-Datei liegt auf dem Datenträger, der überschrieben werden soll.": {
+  "en": "The image file is on the drive that is to be overwritten.",
+  "it": "Il file immagine si trova sull'unità da sovrascrivere.",
+  "es": "El archivo de imagen está en la unidad que se va a sobrescribir.",
+  "fr": "Le fichier image se trouve sur le lecteur à écraser."
+ },
+ "Die Datei %s lässt sich nicht öffnen: %s": {
+  "en": "The file %s cannot be opened: %s",
+  "it": "Impossibile aprire il file %s: %s",
+  "es": "No se puede abrir el archivo %s: %s",
+  "fr": "Impossible d'ouvrir le fichier %s : %s"
+ },
+ "Content-Type muss application/octet-stream sein": {
+  "en": "Content-Type must be application/octet-stream",
+  "it": "Content-Type deve essere application/octet-stream",
+  "es": "Content-Type debe ser application/octet-stream",
+  "fr": "Content-Type doit être application/octet-stream"
+ },
+ "Content-Length fehlt": {
+  "en": "Content-Length missing",
+  "it": "Content-Length mancante",
+  "es": "Falta Content-Length",
+  "fr": "Content-Length manquant"
+ },
+ "Das Image besteht aus mehreren zstd-Rahmen und wurde nur teilweise geschrieben – bitte mit „zstd -d“ entpacken und mit „zstd“ neu packen.": {
+  "en": "The image consists of several zstd frames and was only partially written – please unpack it with “zstd -d” and repack it with “zstd”.",
+  "it": "L'immagine è composta da più frame zstd ed è stata scritta solo in parte – decomprimila con «zstd -d» e ricomprimila con «zstd».",
+  "es": "La imagen consta de varios bloques zstd y solo se escribió en parte – descomprímela con «zstd -d» y vuelve a comprimirla con «zstd».",
+  "fr": "L'image se compose de plusieurs trames zstd et n'a été écrite qu'en partie – décompressez-la avec « zstd -d » et recompressez-la avec « zstd »."
  }
 }

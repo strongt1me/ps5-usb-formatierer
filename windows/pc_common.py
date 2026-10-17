@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+import struct
 import subprocess
 import sys
 import tempfile
@@ -216,6 +217,66 @@ def pc_volumes_text(dev):
             t += ", " + _("{size} belegt", size=fmt_size(used))
         lines.append(t)
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------- Image-Sicherung (.img.zst)
+
+IMAGE_EXT = ".img.zst"
+_IMG_MAGIC, _ZSTD_MAGIC = 0x184D2A5A, 0xFD2FB528
+
+
+def image_info(path):
+    """Angaben einer Image-Datei: eigene .img.zst -> dict mit size, used, model, label, fs, created; mit zstd selbst
+    gepacktes Image -> {"size": ...} bzw. {} (Größe unbekannt); None = keine zstd-Datei. OSError bei Lesefehlern."""
+    with open(path, "rb") as f:
+        head = f.read(18)
+        if len(head) < 8:
+            return None
+        magic, n = struct.unpack_from("<II", head)
+        if magic == _ZSTD_MAGIC:   # Rahmenkopf: Inhaltsgröße, falls angegeben
+            fhd = head[4]
+            single, fcs = fhd >> 5 & 1, fhd >> 6
+            off = 5 + (0 if single else 1) + (0, 1, 2, 4)[fhd & 3]
+            width = (1 if single else 0, 2, 4, 8)[fcs]
+            if not width or len(head) < off + width:
+                return {}
+            size = int.from_bytes(head[off:off + width], "little") + (256 if width == 2 else 0)
+            return {"size": size}
+        if magic != _IMG_MAGIC or n > 64 * 1024 * 1024:
+            return None
+        f.seek(8)
+        data = f.read(min(n, 8192))
+        tag = b"USBFMT-IMAGE 1\n"
+        if not data.startswith(tag):
+            return None
+        try:
+            info = json.loads(data[len(tag):].split(b"\n", 1)[0].decode("utf-8", "replace"))
+        except ValueError:
+            return None
+        return info if isinstance(info, dict) and isinstance(info.get("size"), int) else None
+
+
+def image_file_name(dev):
+    """Vorschlag "<Modell>_<Bezeichnung>_<Datum_Zeit>.img.zst" (nur A-Z a-z 0-9 - _), wie der PS5-Teil"""
+    def clean(t):
+        return re.sub(r"_+", "_", re.sub(r"[^A-Za-z0-9-]", "_", t or "")).strip("_")
+    vols = dev.get("volumes", [])
+    parts = [clean(dev.get("model")) or "USB", clean(vols[0]["label"]) if len(vols) == 1 else "",
+             time.strftime("%Y-%m-%d_%H_%M")]
+    return "_".join(p for p in parts if p) + IMAGE_EXT
+
+
+def on_device(path, dev):
+    """Liegt die Datei auf einem Laufwerk dieses Datenträgers? (Das wird beim Sichern/Wiederherstellen gesperrt.)"""
+    full = os.path.realpath(os.path.abspath(path))
+    for v in dev.get("volumes", []):
+        if IS_WIN:
+            drive = os.path.splitdrive(full)[0].upper()
+            if drive and drive in v["letters"].upper().split():
+                return True
+        elif v["letters"] and (full == v["letters"] or full.startswith(v["letters"].rstrip("/") + "/")):
+            return True
+    return False
 
 
 class _ShellExecuteInfo(ctypes.Structure):

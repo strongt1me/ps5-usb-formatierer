@@ -120,6 +120,45 @@ expect vc 0 "Abbrechen vor dem ersten Schreiben: nicht formatiert"
 grep -q "nicht verändert" "$W/vc.txt" && ok "Meldung: nicht verändert" || bad "Meldung: $(grep -P '^R' "$W/vc.txt")"
 [ "$(head -c $((4 * M)) "$W/vc.img" | tr -d '\000' | wc -c)" = 0 ] && ok "Abbild unberührt" || bad "Abbild beschrieben"
 
+# ------------------------------------------------------------------ Image sichern und wiederherstellen
+# exfat.img (1 GiB, umbenannt in "NEU NAME") sichern, in ein Abbild voller Zufall zurückschreiben, vergleichen
+"$H" --out "$W/bak.txt" --image "$W/exfat.img" backup image $((1024 * M)) "$W/s.img.zst" >/dev/null 2>&1
+expect bak 1 "Image sichern"
+[ -s "$W/s.img.zst" ] && [ ! -e "$W/s.img.zst.part" ] && ok "Sicherung: Datei fertig, keine .part übrig" || bad "Sicherung: Dateien"
+(cd "$W" && sha256sum -c --quiet s.img.zst.sha256) && ok "Sicherung: .sha256 stimmt (sha256sum -c)" || bad "Sicherung: .sha256"
+fb=$(stat -c %s "$W/s.img.zst")
+[ "$fb" -lt $((2 * M)) ] && ok "Sicherung klein: $((fb / 1024)) KB für 1 GiB" || bad "Sicherung zu groß: $fb"
+grep -qP '"sha256":"[0-9a-f]{64}"' "$W/bak.txt" && ok "Ergebnis nennt die SHA-256" || bad "Ergebnis: $(result bak)"
+if has zstd; then
+    zstd -q -d -c "$W/s.img.zst" | cmp -s - "$W/exfat.img" && ok "zstd -d ergibt genau das Abbild" || bad "zstd -d"
+fi
+head -c $((1024 * M)) /dev/urandom >"$W/rst.img"
+"$H" --out "$W/rst.txt" --image "$W/rst.img" restore image $((1024 * M)) "$W/s.img.zst" >/dev/null 2>&1
+expect rst 1 "Image wiederherstellen"
+grep -q "geprüft" "$W/rst.txt" && ok "Meldung: geprüft" || bad "Meldung: $(result rst)"
+part "$W/rst.img" 1
+has fsck.exfat && { fsck.exfat -n "$W/p.img" >/dev/null 2>&1 && ok "wiederhergestellt: fsck.exfat" || bad "wiederhergestellt: fsck.exfat"; }
+has exfatlabel && { exfatlabel "$W/p.img" 2>/dev/null | grep -q "NEU NAME" && ok "wiederhergestellt: Bezeichnung" || bad "wiederhergestellt: Bezeichnung"; }
+truncate -s 512M "$W/rk.img"
+"$H" --out "$W/rk.txt" --image "$W/rk.img" restore image $((512 * M)) "$W/s.img.zst" >/dev/null 2>&1
+expect rk 0 "Image größer als Ziel: abgelehnt"
+grep -q "größer als der Datenträger" "$W/rk.txt" && ok "Meldung: größer als der Datenträger" || bad "Meldung: $(result rk)"
+"$H" --out "$W/bn.txt" --image "$W/exfat.img" backup image $((1024 * M)) "$W/s.txt" >/dev/null 2>&1
+expect bn 0 "Sichern nur in .img.zst"
+"$H" --out "$W/rn.txt" --image "$W/rk.img" restore image $((512 * M)) "$W/fehlt.img.zst" >/dev/null 2>&1
+expect rn 0 "fehlende Image-Datei gemeldet"
+head -c 100000 /dev/urandom >"$W/zufall.img.zst"
+"$H" --out "$W/rz.txt" --image "$W/rk.img" restore image $((512 * M)) "$W/zufall.img.zst" >/dev/null 2>&1
+expect rz 0 "keine Image-Datei abgelehnt"
+[ "$(head -c $((4 * M)) "$W/rk.img" | tr -d '\000' | wc -c)" = 0 ] && ok "abgelehnt: Ziel unberührt" || bad "Ziel beschrieben"
+"$H" --out "$W/rd.txt" --image "$W/rk.img" restore image $((512 * M)) "$W" >/dev/null 2>&1
+expect rd 0 "Ordner statt Image abgelehnt"
+touch "$W/cancel2"
+"$H" --out "$W/bc.txt" --cancel "$W/cancel2" --image "$W/exfat.img" backup image $((1024 * M)) "$W/c.img.zst" >/dev/null 2>&1
+expect bc 0 "Sichern abgebrochen"
+[ ! -e "$W/c.img.zst" ] && [ ! -e "$W/c.img.zst.part" ] && [ ! -e "$W/c.img.zst.sha256" ] && ok "abgebrochen: keine Dateien übrig" \
+    || bad "abgebrochen: Reste $(ls "$W"/c.img.zst* 2>/dev/null)"
+
 # ------------------------------------------------------------------ Seriennummer (serial=)
 # an der Stelle der Bezeichnung ist "serial=..." die Bezeichnung (hier ungültig) - nicht verrutschen lassen
 run serlab 512M format exfat "serial=AB" plain
