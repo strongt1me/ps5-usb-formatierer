@@ -1810,5 +1810,155 @@
   "it": "Ripristina",
   "es": "Restaurar",
   "fr": "Restaurer"
+ },
+ "{name} ({dev}, {size}) sichern nach:": {
+  "en": "Back up {name} ({dev}, {size}) to:",
+  "it": "Salva {name} ({dev}, {size}) in:",
+  "es": "Guardar {name} ({dev}, {size}) en:",
+  "fr": "Sauvegarder {name} ({dev}, {size}) vers :"
+ },
+ "{name} ({dev}, {size}) wiederherstellen aus:": {
+  "en": "Restore {name} ({dev}, {size}) from:",
+  "it": "Ripristina {name} ({dev}, {size}) da:",
+  "es": "Restaurar {name} ({dev}, {size}) desde:",
+  "fr": "Restaurer {name} ({dev}, {size}) depuis :"
+ },
+ "{name} ({dev}, {size}) wird gesichert nach:": {
+  "en": "{name} ({dev}, {size}) will be backed up to:",
+  "it": "{name} ({dev}, {size}) verrà salvata in:",
+  "es": "{name} ({dev}, {size}) se guardará en:",
+  "fr": "{name} ({dev}, {size}) sera sauvegardé vers :"
+ },
+ "{name} ({dev}, {size}) wird mit dem Image überschrieben.": {
+  "en": "{name} ({dev}, {size}) will be overwritten with the image.",
+  "it": "{name} ({dev}, {size}) verrà sovrascritta con l'immagine.",
+  "es": "{name} ({dev}, {size}) se sobrescribirá con la imagen.",
+  "fr": "{name} ({dev}, {size}) sera écrasé par l'image."
+ },
+ "{size} frei": {
+  "en": "{size} free",
+  "it": "{size} liberi",
+  "es": "{size} libres",
+  "fr": "{size} libres"
+ },
+ "Alle Daten werden überschrieben": {
+  "en": "All data will be overwritten",
+  "it": "Tutti i dati verranno sovrascritti",
+  "es": "Se sobrescribirán todos los datos",
+  "fr": "Toutes les données seront écrasées"
+ },
+ "auf diesen PC (Datei speichern …)": {
+  "en": "to this PC (save file …)",
+  "it": "su questo PC (salva file …)",
+  "es": "en este PC (guardar archivo …)",
+  "fr": "sur ce PC (enregistrer le fichier …)"
+ },
+ "Darauf liegen {n} Spiele, die überschrieben werden.": {
+  "en": "It holds {n} games that will be overwritten.",
+  "it": "Contiene {n} giochi che verranno sovrascritti.",
+  "es": "Contiene {n} juegos que se sobrescribirán.",
+  "fr": "Il contient {n} jeux qui seront écrasés."
+ },
+ "Das Hochladen hat nicht begonnen.": {
+  "en": "The upload did not start.",
+  "it": "Il caricamento non è partito.",
+  "es": "La subida no ha comenzado.",
+  "fr": "L'envoi n'a pas commencé."
+ },
+ "Der Download hat nicht begonnen.": {
+  "en": "The download did not start.",
+  "it": "Il download non è partito.",
+  "es": "La descarga no ha comenzado.",
+  "fr": "Le téléchargement n'a pas commencé."
+ },
+ "Der Download ist unvollständig oder verfälscht angekommen – bitte erneut sichern.": {
+  "en": "The download arrived incomplete or corrupted – please back up again.",
+  "it": "Il download è arrivato incompleto o alterato – salva di nuovo.",
+  "es": "La descarga llegó incompleta o alterada – vuelve a guardar.",
+  "fr": "Le téléchargement est arrivé incomplet ou altéré – sauvegardez à nouveau."
+ },
+ "Die Datei lässt sich nicht speichern: {e}": {
+  "en": "The file cannot be saved: {e}",
+  "it": "Impossibile salvare il file: {e}",
+  "es": "No se puede guardar el archivo: {e}",
+  "fr": "Impossible d'enregistrer le fichier : {e}"
+ },
+ "Die Datei wird dabei auf die PS5 hochgeladen.": {
+  "en": "The file is uploaded to the PS5 in the process.",
+  "it": "Il file viene caricato sulla PS5 durante l'operazione.",
+  "es": "El archivo se sube a la PS5 durante el proceso.",
+  "fr": "Le fichier est envoyé à la PS5 pendant l'opération."
+ },
+ "Die Größe des Images ist unbekannt (mit zstd ohne Größenangabe gepackt).": {
+  "en": "The image size is unknown (packed with zstd without a size).",
+  "it": "La dimensione dell'immagine è sconosciuta (compressa con zstd senza dimensione).",
+  "es": "El tamaño de la imagen es desconocido (comprimida con zstd sin tamaño).",
+  "fr": "La taille de l'image est inconnue (compressée avec zstd sans taille)."
+ },
+ "Die Prüfsumme stimmt (SHA-256 {sha}).": {
+  "en": "The checksum matches (SHA-256 {sha}).",
+  "it": "Il checksum corrisponde (SHA-256 {sha}).",
+  "es": "La suma de comprobación coincide (SHA-256 {sha}).",
+  "fr": "La somme de contrôle correspond (SHA-256 {sha})."
+ },
+ "Die PS5 antwortet nicht: {e}": {
+  "en": "The PS5 is not responding: {e}",
+  "it": "La PS5 non risponde: {e}",
+  "es": "La PS5 no responde: {e}",
+  "fr": "La PS5 ne répond pas : {e}"
+ },
+ "Die PS5 nutzt diesen Datenträger gerade. Der Formatierer meldet ihn dafür kurz per Software ab; läuft ein Spiel oder eine App, lehnt er ab – dann erst beenden.": {
+  "en": "The PS5 is using this drive. The formatter briefly disconnects it by software; if a game or app is running, it refuses – close it first.",
+  "it": "La PS5 sta usando questa unità. Il formattatore la scollega brevemente via software; se è in esecuzione un gioco o un'app, rifiuta – chiudilo prima.",
+  "es": "La PS5 está usando esta unidad. El formateador la desconecta brevemente por software; si hay un juego o una app en ejecución, se niega – ciérralo primero.",
+  "fr": "La PS5 utilise ce lecteur. Le formateur le déconnecte brièvement par logiciel ; si un jeu ou une app est en cours, il refuse – fermez-le d'abord."
+ },
+ "einer Datei auf diesem PC (hochladen) …": {
+  "en": "a file on this PC (upload) …",
+  "it": "un file su questo PC (caricamento) …",
+  "es": "un archivo de este PC (subir) …",
+  "fr": "un fichier de ce PC (envoyer) …"
+ },
+ "Gesichert werden nur die belegten Bereiche, gepackt mit zstd; daneben entsteht eine .sha256-Datei. Die Daten auf dem Laufwerk bleiben erhalten.": {
+  "en": "Only the used areas are backed up, compressed with zstd; a .sha256 file is created next to it. The data on the drive is kept.",
+  "it": "Vengono salvate solo le aree occupate, compresse con zstd; accanto viene creato un file .sha256. I dati sull'unità restano invariati.",
+  "es": "Solo se guardan las áreas ocupadas, comprimidas con zstd; al lado se crea un archivo .sha256. Los datos de la unidad se conservan.",
+  "fr": "Seules les zones occupées sont sauvegardées, compressées avec zstd ; un fichier .sha256 est créé à côté. Les données du lecteur sont conservées."
+ },
+ "Gespeichert: {path}": {
+  "en": "Saved: {path}",
+  "it": "Salvato: {path}",
+  "es": "Guardado: {path}",
+  "fr": "Enregistré : {path}"
+ },
+ "Ich weiß, dass alles auf dem Laufwerk unwiderruflich überschrieben wird": {
+  "en": "I understand that everything on the drive will be irreversibly overwritten",
+  "it": "So che tutto sull'unità verrà sovrascritto in modo irreversibile",
+  "es": "Sé que todo lo que hay en la unidad se sobrescribirá de forma irreversible",
+  "fr": "Je sais que tout le contenu du lecteur sera écrasé de façon irréversible"
+ },
+ "intern auf der PS5": {
+  "en": "internal on the PS5",
+  "it": "interno sulla PS5",
+  "es": "interno en la PS5",
+  "fr": "en interne sur la PS5"
+ },
+ "Sichern konnte nicht gestartet werden: {e}": {
+  "en": "Backup could not be started: {e}",
+  "it": "Impossibile avviare il backup: {e}",
+  "es": "No se pudo iniciar la copia: {e}",
+  "fr": "Impossible de lancer la sauvegarde : {e}"
+ },
+ "Weiter": {
+  "en": "Next",
+  "it": "Avanti",
+  "es": "Siguiente",
+  "fr": "Suivant"
+ },
+ "Wiederherstellen konnte nicht gestartet werden: {e}": {
+  "en": "Restore could not be started: {e}",
+  "it": "Impossibile avviare il ripristino: {e}",
+  "es": "No se pudo iniciar la restauración: {e}",
+  "fr": "Impossible de lancer la restauration : {e}"
  }
 }

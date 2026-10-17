@@ -548,6 +548,44 @@ def ask_string(root, title, prompt, initial=""):
     return result["text"]
 
 
+def ask_choice(root, title, prompt, options, ok_text):
+    """Auswahl aus einer Liste (Optionsfelder, das erste vorgewählt). Liefert den Index oder None (abgebrochen)."""
+    win = tk.Toplevel(root)
+    win.withdraw()
+    win.title(title)
+    win.transient(root)
+    win.resizable(False, False)
+    frm = ttk.Frame(win, padding=(18, 14, 18, 14))
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text=prompt, wraplength=520, justify="left").pack(anchor="w")
+    var = tk.IntVar(value=0)
+    for i, text in enumerate(options):
+        ttk.Radiobutton(frm, text=text, value=i, variable=var).pack(anchor="w", pady=(8 if i == 0 else 3, 0))
+    result = {"i": None}
+
+    def done(ok):
+        result["i"] = var.get() if ok else None
+        win.destroy()
+
+    btns = ttk.Frame(frm)
+    btns.pack(anchor="e", pady=(16, 0))
+    ok_btn = ttk.Button(btns, text=ok_text, command=lambda: done(True))
+    ok_btn.pack(side="left")
+    ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(False)).pack(side="left", padx=(6, 0))
+    win.bind("<Escape>", lambda e: done(False))
+    win.protocol("WM_DELETE_WINDOW", lambda: done(False))
+    win.update_idletasks()
+    top = root.winfo_toplevel()
+    x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
+    y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(_inside(win, top, x, y))
+    win.deiconify()
+    ok_btn.focus_set()
+    win.grab_set()
+    root.wait_window(win)
+    return result["i"]
+
+
 def work_area(win):
     """Nutzbarer Bereich (ohne Taskleiste) des Bildschirms, auf dem das Fenster steht: (x, y, breite, höhe)"""
     if IS_WIN:

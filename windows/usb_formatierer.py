@@ -5,6 +5,7 @@ Port 8090). Laeuft der Payload noch nicht, wird er an den ELF-Loader der PS5 (Po
 Am PC formatiert der Windows-Helfer (pc_common) - für die PS5 oder frei ("Am PC Standard", standard_panel).
 Sprachen: Deutsch, English, Italiano, Español, Français (i18n).
 """
+import hashlib
 import http.client
 import json
 import os
@@ -17,15 +18,17 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 import urllib.error
+import urllib.parse
 import urllib.request
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import i18n
 import pc_common
 import ps5_discovery
 from i18n import _, quote
-from pc_common import (PcJob, admin_wait_text, ask_string, confirm, disk_name, enable_dpi_awareness, fmt_size, footer,
-                       hwnd_of, irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used,
+from pc_common import (IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, confirm, disk_name,
+                       enable_dpi_awareness, fmt_size, footer, hwnd_of, image_file_name, image_info,
+                       irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used,
                        pc_volumes_text, resource_path, serial_args, setup_window, show_centered, top_bar)
 from standard_panel import StandardPanel
 
@@ -141,6 +144,60 @@ class Api:
 
     def cancel(self):
         return self._call("/api/cancel", {})
+
+    # Image-Sicherung (.img.zst): Orte und Sicherungen auf der PS5, sichern, zurückschreiben, Download, Hochladen
+    @staticmethod
+    def _dev(dev):
+        return {"device": dev["name"], "size": dev["size"], "ident": dev.get("ident", ""), "replug": bool(dev["mounts"])}
+
+    def images(self):
+        return self._call("/api/images", timeout=15)
+
+    def backup(self, dev, dest):
+        return self._call("/api/backup", dict(self._dev(dev), dest=dest))
+
+    def restore(self, dev, path):
+        return self._call("/api/restore", dict(self._dev(dev), path=path))
+
+    @staticmethod
+    def _http_error(e):
+        try:
+            msg = json.loads(e.read().decode("utf-8", "replace")).get("error")
+        except (ValueError, OSError, AttributeError):
+            msg = None
+        return ApiError(str(msg) if msg else _("HTTP-Fehler {code}", code=e.code))
+
+    def download(self, token, path):
+        """Sicherung nach path laden (Chunked bis zum Ende). Liefert (Bytes, SHA-256)."""
+        url = f"{self.base}/api/backup/download?token={urllib.parse.quote(token)}&lang={i18n.lang()}"
+        h, n = hashlib.sha256(), 0
+        try:
+            with _OPENER.open(url, timeout=300) as r, open(path, "wb") as f:
+                while True:
+                    b = r.read(1 << 20)
+                    if not b:
+                        break
+                    f.write(b)
+                    h.update(b)
+                    n += len(b)
+        except urllib.error.HTTPError as e:
+            raise self._http_error(e) from None
+        return n, h.hexdigest()
+
+    def upload(self, dev, path):
+        """Image-Datei hochladen; die PS5 schreibt sie dabei auf den Datenträger"""
+        q = {"device": dev["name"], "size": dev["size"], "ident": dev.get("ident", ""), "lang": i18n.lang()}
+        if dev["mounts"]:
+            q["replug"] = "1"
+        with open(path, "rb") as f:
+            req = urllib.request.Request(f"{self.base}/api/restore/upload?{urllib.parse.urlencode(q)}", data=f,
+                                         method="POST", headers={"Content-Type": "application/octet-stream",
+                                                                 "Content-Length": str(os.path.getsize(path))})
+            try:
+                with _OPENER.open(req, timeout=300) as r:
+                    r.read()
+            except urllib.error.HTTPError as e:
+                raise self._http_error(e) from None
 
     def quit(self):
         """Formatierer auf der PS5 beenden (lehnt ab, solange ein Auftrag läuft)"""
@@ -366,6 +423,16 @@ class App(tk.Tk):
             row=row, column=0, columnspan=2, sticky="w")
         row += 1
 
+        # Image-Sicherung des Datenträgers an der PS5 (wie "Sichern & wiederherstellen" in der Weboberfläche)
+        self.img_row = ttk.Frame(frm)
+        self.img_row.grid(row=row, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        ttk.Label(self.img_row, text=_("Image-Sicherung:")).pack(side="left")
+        self.backup_btn = ttk.Button(self.img_row, text=_("Sichern …"), command=self._ps5_backup)
+        self.backup_btn.pack(side="left", padx=(6, 0))
+        self.restore_btn = ttk.Button(self.img_row, text=_("Wiederherstellen …"), command=self._ps5_restore)
+        self.restore_btn.pack(side="left", padx=(6, 0))
+        row += 1
+
         btns = ttk.Frame(frm)
         btns.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         self.tools = ttk.Frame(btns)   # nur am PC
@@ -453,6 +520,8 @@ class App(tk.Tk):
         enable(self.start_btn, idle and dev and (pc or formattable(dev)))
         enable(self.speed_btn, idle and dev)
         enable(self.del_btn, idle and not pc and self.api and self.games_tree.selection())
+        for w in (self.backup_btn, self.restore_btn):
+            enable(w, idle and not pc and self.api and dev and not dev.get("locked"))
         enable(self.uninstall_chk, idle)
         # nur bei genau einem Laufwerk auf dem Datenträger: der Helfer nimmt nicht unbedingt das angezeigte
         vols = dev.get("volumes", []) if dev else []
@@ -487,7 +556,7 @@ class App(tk.Tk):
         self.std_panel.grid_remove()
         self.ps5_body.grid()
         self.title(_("PS5-USB formatieren"))
-        for w in (self.ps5_caption, self.host_entry, self.host_btns, self.games_box, self.ps5_warn):
+        for w in (self.ps5_caption, self.host_entry, self.host_btns, self.games_box, self.ps5_warn, self.img_row):
             w.grid_remove() if pc else w.grid()
         if pc:
             self.tools.pack(side="left", before=self.start_btn)
@@ -993,6 +1062,264 @@ class App(tk.Tk):
                 self.q.put(("error", _("Löschen konnte nicht gestartet werden: {e}", e=e)))
                 return
             self._follow(api, foreign=False, done_title=_("Spiele gelöscht."))
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    # ------------------------------------------------------------------ Image-Sicherung an der PS5
+
+    def _replug_note(self, dev):
+        return _("Die PS5 nutzt diesen Datenträger gerade. Der Formatierer meldet ihn dafür kurz per Software ab; "
+                 "läuft ein Spiel oder eine App, lehnt er ab – dann erst beenden.") + "\n\n" if dev["mounts"] else ""
+
+    def _loc_text(self, loc):
+        if not loc.get("device"):
+            where = _("intern auf der PS5")
+        else:
+            d = next((x for x in self.ps5_devices if x["name"] == loc["device"]), None)
+            where = (f"{dev_title(d)} ({loc['device']})" if d else loc["device"]) + \
+                (" " + quote(loc["label"]) if loc.get("label") else "")
+        free = " · " + _("{size} frei", size=fmt_size(loc["free"])) if loc.get("free") is not None else ""
+        return where + free
+
+    def _wait_claim(self, api, seq, failed):
+        """Download und Hochladen beginnen den Auftrag erst mit ihrer Verbindung: warten, bis die PS5 ihn annimmt"""
+        end = time.time() + 90
+        while time.time() < end:
+            if failed():
+                return False
+            try:
+                if (api.status().get("job") or 0) > seq:
+                    return True
+            except (ConnectionError, ApiError):
+                pass
+            time.sleep(0.4)
+        return False
+
+    def _images(self):
+        try:
+            return self.api.images()
+        except (ConnectionError, ApiError) as e:
+            messagebox.showerror(_("Image-Sicherung"), _("Die PS5 antwortet nicht: {e}", e=e), parent=self)
+            return None
+
+    def _ps5_backup(self):
+        dev = self._selected_device()
+        if self.busy or not dev or not self.api:
+            return
+        title = _("Image sichern")
+        imgs = self._images()
+        if imgs is None:
+            return
+        locs = [loc for loc in imgs.get("locations", []) if loc.get("device") != dev["name"]]
+        choice = ask_choice(self, title, _("{name} ({dev}, {size}) sichern nach:", name=dev_title(dev), dev=dev["name"],
+                                           size=fmt_size(dev["size"])),
+                            [self._loc_text(loc) for loc in locs] + [_("auf diesen PC (Datei speichern …)")], _("Weiter"))
+        if choice is None:
+            return
+        to_pc = choice == len(locs)
+        path = None
+        if to_pc:
+            name = image_file_name({"model": dev.get("model", ""), "volumes": [{"label": dev.get("label", "")}]})
+            path = filedialog.asksaveasfilename(parent=self, title=title, initialfile=name, defaultextension=IMAGE_EXT,
+                                                initialdir=self.settings.get("image_dir") or os.path.expanduser("~"),
+                                                filetypes=[(_("Image-Sicherung"), "*" + IMAGE_EXT)])
+            if not path:
+                return
+            if not path.lower().endswith(IMAGE_EXT):
+                path += IMAGE_EXT
+            self.settings["image_dir"] = os.path.dirname(path)
+            save_settings(self.settings)
+        target = path if to_pc else self._loc_text(locs[choice])
+        if not self._confirm(title, _("{name} ({dev}, {size}) wird gesichert nach:", name=dev_title(dev), dev=dev["name"],
+                                      size=fmt_size(dev["size"])) + "\n   " + target + "\n\n" + self._replug_note(dev) +
+                             _("Gesichert werden nur die belegten Bereiche, gepackt mit zstd; daneben entsteht eine "
+                               ".sha256-Datei. Die Daten auf dem Laufwerk bleiben erhalten."), _("Sichern")):
+            return
+        if self.busy or not self.api:
+            return
+        api = self.api
+        if not to_pc:
+            def shown(ok, msg, result):
+                (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
+
+            def on_ps5():
+                try:
+                    api.backup(dev, locs[choice]["dir"])
+                except (ConnectionError, ApiError) as e:
+                    self.q.put(("error", _("Sichern konnte nicht gestartet werden: {e}", e=e)))
+                    return
+                self._follow(api, foreign=False, after=shown)
+
+            self.pbar["value"] = 0
+            self._run(on_ps5)
+            return
+
+        part = path + ".part"
+        state = {}
+
+        def download(token):
+            try:
+                state["bytes"], state["sha"] = api.download(token, part)
+            except (ConnectionError, ApiError, OSError) as e:
+                state["error"] = str(e) or type(e).__name__
+
+        def done(ok, msg, result):
+            t = state.get("thread")
+            if t:
+                t.join(60)   # die letzten Bytes kommen gleich nach dem Ende des Auftrags
+            good = ok and not state.get("error") and state.get("sha") and state.get("sha") == result.get("sha256")
+            if good:
+                try:
+                    os.replace(part, path)
+                    with open(path + ".sha256", "w", encoding="utf-8", newline="\n") as f:
+                        f.write(f"{state['sha']}  {os.path.basename(path)}\n")
+                except OSError as e:
+                    good, msg = False, _("Die Datei lässt sich nicht speichern: {e}", e=e)
+            if not good:
+                try:
+                    os.remove(part)
+                except OSError:
+                    pass
+                if ok and not state.get("error"):
+                    msg = _("Der Download ist unvollständig oder verfälscht angekommen – bitte erneut sichern.")
+                messagebox.showerror(title, state.get("error") or msg, parent=self)
+                return
+            messagebox.showinfo(title, msg + "\n\n" + _("Gespeichert: {path}", path=path) + "\n" +
+                                _("Die Prüfsumme stimmt (SHA-256 {sha}).", sha=state["sha"][:16] + "…"), parent=self)
+
+        def work():
+            try:
+                seq = api.status().get("job") or 0
+                token = api.backup(dev, "download")["token"]
+            except (ConnectionError, ApiError, KeyError) as e:
+                self.q.put(("error", _("Sichern konnte nicht gestartet werden: {e}", e=e)))
+                return
+            t = threading.Thread(target=download, args=(token,), daemon=True)
+            state["thread"] = t
+            t.start()
+            if not self._wait_claim(api, seq, lambda: "error" in state):
+                t.join(5)
+                try:
+                    os.remove(part)
+                except OSError:
+                    pass
+                self.q.put(("error", state.get("error") or _("Der Download hat nicht begonnen.")))
+                return
+            self._follow(api, foreign=False, after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _ps5_restore(self):
+        dev = self._selected_device()
+        if self.busy or not dev or not self.api:
+            return
+        title = _("Image wiederherstellen")
+        imgs = self._images()
+        if imgs is None:
+            return
+        images = [i for i in imgs.get("images", []) if i.get("device") != dev["name"]]
+
+        def img_text(i):
+            src = " ".join(x for x in (i.get("model", ""), quote(i["label"]) if i.get("label") else "") if x) or i["name"]
+            where = _("intern auf der PS5") if not i.get("device") else i["device"]
+            return " · ".join(x for x in (src, i.get("created", ""), fmt_size(i["size"]), where) if x)
+
+        choice = ask_choice(self, title, _("{name} ({dev}, {size}) wiederherstellen aus:", name=dev_title(dev),
+                                           dev=dev["name"], size=fmt_size(dev["size"])),
+                            [img_text(i) for i in images] + [_("einer Datei auf diesem PC (hochladen) …")], _("Weiter"))
+        if choice is None:
+            return
+        path = None
+        if choice == len(images):
+            path = filedialog.askopenfilename(parent=self, title=title,
+                                              initialdir=self.settings.get("image_dir") or os.path.expanduser("~"),
+                                              filetypes=[(_("Image-Sicherung"), "*" + IMAGE_EXT + " *.zst"),
+                                                         (_("Alle Dateien"), "*")])
+            if not path:
+                return
+            try:
+                info = image_info(path)
+            except OSError as e:
+                messagebox.showerror(title, _("Die Datei lässt sich nicht lesen: {e}", e=e), parent=self)
+                return
+            if info is None:
+                messagebox.showerror(title, _("Das ist keine Image-Sicherung (.img.zst)."), parent=self)
+                return
+            info = dict(info, name=os.path.basename(path))
+        else:
+            info = images[choice]
+        size = info.get("size", 0)
+        if not size:
+            messagebox.showerror(title, _("Die Größe des Images ist unbekannt (mit zstd ohne Größenangabe gepackt)."),
+                                 parent=self)
+            return
+        if size > dev["size"] or (dev.get("fake_real") and size > dev["fake_real"]):
+            messagebox.showerror(title, _("Das Image ({image}) ist größer als dieser Datenträger ({size}).",
+                                          image=fmt_size(size), size=fmt_size(dev.get("fake_real") or dev["size"])),
+                                 parent=self)
+            return
+        lines = [_("Datei: {name}", name=info.get("name", ""))]
+        src = " ".join(x for x in (info.get("model", ""), quote(info["label"]) if info.get("label") else "") if x)
+        if src:
+            lines.append(_("Gesichert von: {src}", src=src))
+        if info.get("created"):
+            lines.append(_("Stand: {date}", date=info["created"]))
+        lines.append(_("Größe: {size}", size=fmt_size(size)))
+        if "created" not in info:
+            lines.append(_("Fremdes Image: Es wird vollständig geschrieben."))
+        games = sorted(g["name"] or g["id"] for g in self.games.get(dev["name"], []))
+        warn = (_("Darauf liegen {n} Spiele, die überschrieben werden.", n=len(games)) + "\n\n") if games else ""
+        if not self._confirm(_("Alle Daten werden überschrieben"),
+                             _("{name} ({dev}, {size}) wird mit dem Image überschrieben.", name=dev_title(dev),
+                               dev=dev["name"], size=fmt_size(dev["size"])) + "\n\n   " + "\n   ".join(lines) + "\n\n" +
+                             warn + self._replug_note(dev) +
+                             (_("Die Datei wird dabei auf die PS5 hochgeladen.") + "\n\n" if path else "") +
+                             _("Das lässt sich nicht rückgängig machen."), _("Wiederherstellen"),
+                             _("Ich weiß, dass alles auf dem Laufwerk unwiderruflich überschrieben wird")):
+            return
+        if self.busy or not self.api:
+            return
+        api = self.api
+
+        def done(ok, msg, result):
+            (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
+
+        if not path:
+            def work():
+                try:
+                    api.restore(dev, info["path"])
+                except (ConnectionError, ApiError) as e:
+                    self.q.put(("error", _("Wiederherstellen konnte nicht gestartet werden: {e}", e=e)))
+                    return
+                self._follow(api, foreign=False, after=done)
+
+            self.pbar["value"] = 0
+            self._run(work)
+            return
+
+        state = {}
+
+        def upload():
+            try:
+                api.upload(dev, path)
+            except (ConnectionError, ApiError, OSError) as e:
+                state["error"] = str(e) or type(e).__name__
+
+        def work():
+            try:
+                seq = api.status().get("job") or 0
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Wiederherstellen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            t = threading.Thread(target=upload, daemon=True)
+            t.start()
+            if not self._wait_claim(api, seq, lambda: "error" in state):
+                t.join(5)
+                self.q.put(("error", state.get("error") or _("Das Hochladen hat nicht begonnen.")))
+                return
+            self._follow(api, foreign=False, after=done)
 
         self.pbar["value"] = 0
         self._run(work)

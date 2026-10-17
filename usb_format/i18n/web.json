@@ -1450,5 +1450,11 @@
   "it": "Ripristina …",
   "es": "Restaurar …",
   "fr": "Restaurer …"
+ },
+ "Auftrag nicht gestartet": {
+  "en": "Job not started",
+  "it": "Operazione non avviata",
+  "es": "Tarea no iniciada",
+  "fr": "Tâche non lancée"
  }
 }
