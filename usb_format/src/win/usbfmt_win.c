@@ -111,6 +111,8 @@ static int disk_info(int n, diskinfo_t *di) {
         snprintf(di->model, sizeof(di->model), "%s%s%s", vendor, vendor[0] && product[0] ? " " : "", product);
         if (d->SerialNumberOffset && d->SerialNumberOffset < r)
             trim_copy(di->serial, sizeof(di->serial), (const char *)buf + d->SerialNumberOffset);
+        serial_clean(di->serial);
+        di->serial_known = 1;
     }
     CloseHandle(h);
     return ok ? 0 : -1;
@@ -123,7 +125,7 @@ int plat_disk_serial(const char *disk, char *buf, size_t n) {
     buf[0] = 0;
     if (end == disk || *end || num < 0 || num >= MAX_DISKS || disk_info((int)num, &di)) return -1;
     snprintf(buf, n, "%s", di.serial);
-    return 0;
+    return di.serial_known ? 0 : 1;
 }
 
 /* Datenträgernummern eines Volumes (Pfad ohne abschließenden \) */

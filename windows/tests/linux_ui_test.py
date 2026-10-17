@@ -169,6 +169,19 @@ p.expert_var.set(True)
 p._expert_changed()
 pump(app, timeout=0.3)
 shot(app, "linux_expert.png")
+# Arbeitsbereich mit mehreren Monitoren (xrandr gestellt - Xvfb hat keins): Fenster auf einem Monitor bzw. auf keinem
+real_monitors = pc_common._x11_monitors
+try:
+    pc_common._x11_monitors = lambda: [(-5000, 0, 1000, 800, False), (0, 0, 100000, 100000, False)]
+    wa = pc_common.work_area(app)
+    check("Arbeitsbereich: Monitor unter dem Fenster", wa == (0, 32, 100000, 100000 - 80), wa)
+    pc_common._x11_monitors = lambda: [(200000, 0, 1920, 1080, False), (300000, 0, 2560, 1440, True)]
+    wa = pc_common.work_area(app)
+    check("Arbeitsbereich: sonst der Hauptmonitor", wa == (300000, 32, 2560, 1440 - 80), wa)
+except Exception as e:
+    check("Arbeitsbereich mit xrandr-Monitoren", False, repr(e))
+finally:
+    pc_common._x11_monitors = real_monitors
 app.destroy()
 
 app = uf.App()

@@ -42,6 +42,10 @@ int  lib_parse_smp_log(const char *log, size_t len, lib_hint_t **h, int *n);
 int  lib_scan(const char *root, int usb_root, lib_root_t *out);
 void lib_free(lib_root_t *r);
 
+/* Liegt unter path noch das Spiel, das die Suche dort fand (Titel-ID; bei Abbildern auch die Größe)? Schützt vor dem
+ * Löschen eines inzwischen dort abgelegten anderen Spiels. 1 = ja. Liest keine Hinweise (thread-sicher). */
+int  lib_same_game(const char *path, const char *id, uint64_t size);
+
 /* Feld der obersten Ebene eines JSON-Objekts (Antworten von ShadowMountPlus); 0 = gefunden */
 int lib_json_str(const char *json, size_t len, const char *key, char *out, size_t n);
 int lib_json_num(const char *json, size_t len, const char *key, long long *v);

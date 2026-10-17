@@ -115,6 +115,20 @@ done
 code=$(post '{"keys":"zzzzzzzz"}' delete)
 [ "$code" = 404 ] && ok "unbekannter Schlüssel: nichts gelöscht" || bad "unbekannter Schlüssel" "$code $(cat "$W/body")"
 
+# ---------------------------------------------------------------- seit der Suche ausgetauscht: nichts löschen
+game "$H/Tausch" PPSA07777   # zweite Kopie (ShadowMountPlus führt PPSA07777 woanders)
+start USBFMT_SMP_PORT=$SMP_PORT
+library
+K=$(key "$H/Tausch")
+code=$(post "{\"keys\":\"${K}XYZ\"}" delete)
+[ "$code" = 404 ] && [ -d "$H/Tausch" ] && ok "Schlüssel mit Anhang: nichts gelöscht" || bad "Schlüssel mit Anhang" "$code $(cat "$W/body")"
+rm -rf "$H/Tausch"
+game "$H/Tausch" PPSA08888   # per FTP/PC: unter demselben Ordner liegt jetzt ein anderes Spiel
+echo wichtig >"$H/Tausch/daten.bin"
+code=$(post "{\"keys\":\"$K\"}" delete)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q 'seit der Suche geändert' "$W/st" \
+    && [ -f "$H/Tausch/daten.bin" ] && ok "anderes Spiel unter dem alten Pfad: nicht gelöscht" || bad "ausgetauschtes Spiel" "$code $(cat "$W/st")"
+
 echo
 [ $fails -eq 0 ] && echo "Alle Lösch-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."
 exit $((fails > 0))

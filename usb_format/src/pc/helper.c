@@ -459,15 +459,22 @@ static int parse_part(const char *spec, wpart_t *p) {
     return 0;
 }
 
+void serial_clean(char *s) {
+    for (; *s; s++)
+        if ((unsigned char)*s < 0x20 || (unsigned char)*s > 0x7e) *s = '_';
+}
+
 int helper_command(int argc, char **argv) {
     const char *cmd = argv[0];
     int rest = argc - 1;
     char **a = argv + 1;
     if (!strcmp(cmd, "list")) return plat_list();
-    /* serial=...: Seriennummer laut Liste - überall erlaubt, hier herausgenommen */
+    /* serial=...: Seriennummer laut Liste - unter den Optionen erlaubt, hier herausgenommen. Erst hinter den festen
+       Angaben suchen: eine Bezeichnung "serial=..." bliebe sonst nicht die Bezeichnung */
     static char want_serial[64];
     want_serial[0] = 0;
-    for (int k = 2; k < rest; k++)
+    int first_opt = !strcmp(cmd, "format") ? 4 : !strcmp(cmd, "label") ? 3 : 2;
+    for (int k = first_opt; k < rest; k++)
         if (!strncmp(a[k], "serial=", 7)) {
             snprintf(want_serial, sizeof(want_serial), "%s", a[k] + 7);
             memmove(&a[k], &a[k + 1], (size_t)(rest - k - 1) * sizeof(*a));
@@ -477,9 +484,10 @@ int helper_command(int argc, char **argv) {
     if (rest < 2) { finish(0, "Aufruf unvollständig.", NULL); return 2; }
     const char *disk = a[0];
     uint64_t size = strtoull(a[1], NULL, 10);
-    /* gleiche Nummer und Größe, aber andere Seriennummer: ein baugleicher Datenträger wurde getauscht - nichts tun */
+    /* gleiche Nummer und Größe, aber andere (oder jetzt gar keine) Seriennummer: ein baugleicher Datenträger wurde
+       getauscht - nichts tun. Nur wenn sich das Gerät nicht befragen lässt, entscheidet allein die Größe. */
     char now_serial[64];
-    if (want_serial[0] && !plat_disk_serial(disk, now_serial, sizeof(now_serial)) && now_serial[0] &&
+    if (want_serial[0] && plat_disk_serial(disk, now_serial, sizeof(now_serial)) == 0 &&
         strcmp(want_serial, now_serial) != 0) {
         finish(0, "Unter dieser Nummer steckt jetzt ein anderer Datenträger – bitte die Liste aktualisieren.", NULL);
         return 1;

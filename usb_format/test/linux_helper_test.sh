@@ -120,6 +120,14 @@ expect vc 0 "Abbrechen vor dem ersten Schreiben: nicht formatiert"
 grep -q "nicht verändert" "$W/vc.txt" && ok "Meldung: nicht verändert" || bad "Meldung: $(grep -P '^R' "$W/vc.txt")"
 [ "$(head -c $((4 * M)) "$W/vc.img" | tr -d '\000' | wc -c)" = 0 ] && ok "Abbild unberührt" || bad "Abbild beschrieben"
 
+# ------------------------------------------------------------------ Seriennummer (serial=)
+# an der Stelle der Bezeichnung ist "serial=..." die Bezeichnung (hier ungültig) - nicht verrutschen lassen
+run serlab 512M format exfat "serial=AB" plain
+expect serlab 0 "Bezeichnung \"serial=AB\" nicht als Seriennummer gelesen"
+grep -q "Ungültige Bezeichnung" "$W/serlab.txt" && ok "als Bezeichnung geprüft und abgelehnt" || bad "Meldung: $(result serlab)"
+run seropt 512M format exfat X plain serial=XYZ
+expect seropt 1 "serial= als Option: Gerät ohne udev-Daten - die Größe entscheidet"
+
 # ------------------------------------------------------------------ Fehlerfälle
 run mbr5 1G layout scheme=mbr "part=exfat,$((100 * M)),0,auto,0,A" "part=exfat,$((100 * M)),0,auto,0,B" \
     "part=exfat,$((100 * M)),0,auto,0,C" "part=exfat,$((100 * M)),0,auto,0,D" "part=exfat,rest,0,auto,0,E"

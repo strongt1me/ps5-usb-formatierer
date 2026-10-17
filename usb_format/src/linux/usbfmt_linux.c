@@ -312,28 +312,30 @@ static void trim_spaces(char *s) {
     while (l && s[l - 1] == ' ') s[--l] = 0;
 }
 
-/* Seriennummer des Datenträgers laut udev (ID_SERIAL_SHORT) - lesbar ohne Root */
-static void udev_serial(const char *disk, char *out_, size_t n) {
+/* Seriennummer des Datenträgers laut udev (ID_SERIAL_SHORT) - lesbar ohne Root. Rückgabe 1: udev kennt das Gerät
+   (noch) nicht - dann ist ein leeres Ergebnis kein Beleg für "hat keine Seriennummer" */
+static int udev_serial(const char *disk, char *out_, size_t n) {
     char path[96], devno[32], line[512];
     unsigned maj, min;
     out_[0] = 0;
     snprintf(path, sizeof(path), "/sys/block/%s/dev", disk);
-    if (read_line(path, devno, sizeof(devno)) || sscanf(devno, "%u:%u", &maj, &min) != 2) return;
+    if (read_line(path, devno, sizeof(devno)) || sscanf(devno, "%u:%u", &maj, &min) != 2) return 1;
     snprintf(path, sizeof(path), "/run/udev/data/b%u:%u", maj, min);
     FILE *f = fopen(path, "re");
-    if (!f) return;
+    if (!f) return 1;
     while (fgets(line, sizeof(line), f)) {
         line[strcspn(line, "\n")] = 0;
         if (!strncmp(line, "E:ID_SERIAL_SHORT=", 18)) { snprintf(out_, n, "%s", line + 18); break; }
     }
     fclose(f);
+    serial_clean(out_);
+    return 0;
 }
 
 int plat_disk_serial(const char *disk, char *buf, size_t n) {
     buf[0] = 0;
     if (!valid_name(disk)) return -1;
-    udev_serial(disk, buf, n);
-    return 0;
+    return udev_serial(disk, buf, n);
 }
 
 static int disk_info(const char *disk, diskinfo_t *di) {
@@ -358,7 +360,7 @@ static int disk_info(const char *disk, diskinfo_t *di) {
     trim_spaces(vendor);
     trim_spaces(model);
     snprintf(di->model, sizeof(di->model), "%s%s%s", vendor, vendor[0] && model[0] ? " " : "", model);
-    udev_serial(disk, di->serial, sizeof(di->serial));
+    di->serial_known = !udev_serial(disk, di->serial, sizeof(di->serial));
     return di->size > 0 && di->ss >= 512 ? 0 : -1;
 }
 

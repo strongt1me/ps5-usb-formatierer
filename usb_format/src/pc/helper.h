@@ -28,6 +28,7 @@ typedef struct {
     unsigned long media;    /* nur Windows: MEDIA_TYPE für FormatEx */
     char          model[128];
     char          serial[64];   /* Seriennummer (kann leer sein) - erkennt einen getauschten baugleichen Stick */
+    int           serial_known; /* 1: das Gerät ließ sich befragen - leeres serial heißt dann "hat keine" */
 } diskinfo_t;
 
 typedef struct plat_session plat_session_t;   /* je Plattform: gesperrte Volumes, Handles ... */
@@ -68,8 +69,11 @@ int  plat_mke2fs(const diskinfo_t *di, int index, uint64_t start, uint64_t count
  * gemeinsame Teil selbst (exFAT/FAT32). di erhält die Angaben des Datenträgers. */
 int  plat_os_label(const char *disk, uint64_t size, const char *label, diskinfo_t *di, int *handled, char *err,
                    size_t n);
-/* Seriennummer des Datenträgers ohne ihn zu öffnen ("" = unbekannt); 0 = gefunden */
+/* Seriennummer des Datenträgers ohne ihn zu öffnen: 0 = Gerät befragt (buf leer = hat keine), 1 = nicht feststellbar,
+ * -1 = kein solcher Datenträger */
 int  plat_disk_serial(const char *disk, char *buf, size_t n);
+/* Seriennummer auf druckbares ASCII bringen (sonst "_") - Liste und Prüfung vergleichen dann exakt dieselbe Zeichenkette */
+void serial_clean(char *s);
 /* Partitionstyp im MBR (für die Ergebnis-Daten), -1 = GPT/unbekannt */
 int  plat_read_mbr_type(const diskinfo_t *di);
 

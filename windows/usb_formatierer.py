@@ -102,10 +102,10 @@ class Api:
         req = urllib.request.Request(f"{self.base}{path}{sep}lang={i18n.lang()}", data=data, headers=headers)
         try:
             with _OPENER.open(req, timeout=timeout) as r:
-                result = json.loads(r.read().decode("utf-8"))
+                result = json.loads(r.read().decode("utf-8", "replace"))
         except urllib.error.HTTPError as e:
             try:
-                msg = json.loads(e.read().decode("utf-8")).get("error")
+                msg = json.loads(e.read().decode("utf-8", "replace")).get("error")
             except (ValueError, OSError, AttributeError):
                 msg = None
             raise ApiError(str(msg) if msg else _("HTTP-Fehler {code}", code=e.code)) from None

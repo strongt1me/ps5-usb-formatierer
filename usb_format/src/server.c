@@ -136,13 +136,30 @@ static void sb_tr(sbuf_t *b, const char *fmt, ...) {
     va_end(ap);
 }
 
+/* Länge einer gültigen UTF-8-Folge ab s (1-4), 0 = ungültig (auch einzelne Surrogate und zu lange Folgen) */
+static int utf8_len(const unsigned char *s) {
+    if (s[0] < 0x80) return 1;
+    int n = s[0] >= 0xF0 && s[0] <= 0xF4 ? 4 : s[0] >= 0xE0 && s[0] <= 0xEF ? 3 : s[0] >= 0xC2 && s[0] <= 0xDF ? 2 : 0;
+    if (!n) return 0;
+    for (int i = 1; i < n; i++)
+        if ((s[i] & 0xC0) != 0x80) return 0;
+    if (n == 3 && ((s[0] == 0xE0 && s[1] < 0xA0) || (s[0] == 0xED && s[1] >= 0xA0))) return 0;
+    if (n == 4 && ((s[0] == 0xF0 && s[1] < 0x90) || (s[0] == 0xF4 && s[1] >= 0x90))) return 0;
+    return n;
+}
+
+/* JSON-Zeichenkette; ungültiges UTF-8 (FAT-Bezeichnungen in alter Codepage, kaputte Namen in param.json) wird zu
+ * U+FFFD - sonst lehnte das PC-Programm die ganze Antwort ab */
 static void sb_str(sbuf_t *b, const char *s) {
+    const unsigned char *p = (const unsigned char *)s;
     sb_add(b, "\"");
-    for (; *s; s++) {
-        unsigned char c = (unsigned char)*s;
-        if (c == '"' || c == '\\') sb_add(b, "\\%c", c);
-        else if (c < 0x20) sb_add(b, "\\u%04x", c);
-        else sb_add(b, "%c", c);
+    while (*p) {
+        int n = utf8_len(p);
+        if (!n) { sb_add(b, "\\ufffd"); p++; continue; }
+        if (*p == '"' || *p == '\\') sb_add(b, "\\%c", *p);
+        else if (*p < 0x20) sb_add(b, "\\u%04x", *p);
+        else sb_add(b, "%.*s", n, (const char *)p);
+        p += n;
     }
     sb_add(b, "\"");
 }
@@ -207,6 +224,8 @@ static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", 
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
     char id[16], name[128], path[256], root[96], device[16];
+    uint64_t size;   /* Abbild: Größe laut Suche */
+    dev_t    dev;    /* st_dev der Wurzel laut Suche: noch derselbe eingehängte Datenträger? */
 } del_item_t;
 
 typedef struct {
@@ -510,7 +529,17 @@ typedef struct {
     char       device[16];   /* leer: interner Ordner (z. B. /data/homebrew) */
     int        usb;
     lib_root_t r;
+    /* welcher Datenträger dort eingehängt war: steckt am selben Anschluss ein anderer (oder wurde neu eingehängt),
+       gilt die Liste als veraltet */
+    dev_t      dev;          /* st_dev der Wurzel - jede Einhängung bekommt eine neue */
+    uint64_t   size;
+    char       ident[64];
 } libroot_t;
+
+static dev_t root_dev(const char *path) {
+    struct stat s;
+    return stat(path, &s) == 0 ? s.st_dev : (dev_t)-1;
+}
 
 static pthread_mutex_t lib_lock = PTHREAD_MUTEX_INITIALIZER;
 static libroot_t *lib_snap;
@@ -547,12 +576,16 @@ static void *lib_worker(void *arg) {
             for (int m = 0; m < devs[i].nmounts && n < cap; m++) {
                 snprintf(roots[n].device, sizeof(roots[n].device), "%s", devs[i].name);
                 roots[n].usb = 1;
+                roots[n].dev = root_dev(devs[i].mounts[m].path);
+                roots[n].size = devs[i].size;
+                snprintf(roots[n].ident, sizeof(roots[n].ident), "%s", devs[i].ident);
                 lib_scan(devs[i].mounts[m].path, 1, &roots[n].r);
                 n++;
             }
         }
         for (int k = 0; roots && extra && extra[k] && extra[k + 1] && n < cap; k += 2) {
             roots[n].usb = !strcmp(extra[k + 1], "usb");
+            roots[n].dev = root_dev(extra[k]);
             lib_scan(extra[k], roots[n].usb, &roots[n].r);
             if (roots[n].r.ntitles || roots[n].r.pkgs) n++;
             else lib_free(&roots[n].r);
@@ -800,14 +833,30 @@ static void api_devices(int c) {
     free(b.p);
 
     /* Laufwerk eingebunden, das die Spieleliste noch nicht kennt (z. B. die Spiele-SSD wurde angesteckt, nachdem
-     * der Formatierer gestartet war): neu suchen - sonst fehlte beim Formatieren die Warnung vor den Spielen darauf */
+     * der Formatierer gestartet war) oder an dessen Einhängepunkt jetzt ein anderer Datenträger steckt: neu suchen -
+     * sonst fehlte beim Formatieren die Warnung vor den Spielen darauf, und gelöscht würde nach einer alten Liste.
+     * Veraltete Einträge fallen sofort weg ("wird durchsucht" statt der Spiele des vorigen Sticks). */
+    dev_t mdev[MAX_DEVS][MAX_MOUNTS];
+    for (int i = 0; i < n; i++)
+        for (int m = 0; m < devs[i].nmounts; m++) mdev[i][m] = root_dev(devs[i].mounts[m].path);
     int stale = 0;
     pthread_mutex_lock(&lib_lock);
-    for (int i = 0; i < n && !busy && lib_snap && !lib_busy && !stale; i++)
-        for (int m = 0; !devs[i].locked && m < devs[i].nmounts && !stale; m++) {
+    for (int i = 0; i < n && !busy && lib_snap && !lib_busy; i++)
+        for (int m = 0; !devs[i].locked && m < devs[i].nmounts; m++) {
             int known = 0;
-            for (int k = 0; k < lib_n && !known; k++) known = !strcmp(lib_snap[k].r.root, devs[i].mounts[m].path);
-            stale = !known;
+            for (int k = 0; k < lib_n; k++) {
+                libroot_t *r = &lib_snap[k];
+                if (strcmp(r->r.root, devs[i].mounts[m].path) != 0) continue;
+                if (!r->device[0]) known = 1;   /* fester Ordner (z. B. /mnt/ext0): wie bisher nur über den Pfad */
+                else if (strcmp(r->device, devs[i].name) != 0 || r->size != devs[i].size || r->dev != mdev[i][m] ||
+                    (r->ident[0] && devs[i].ident[0] && strcmp(r->ident, devs[i].ident) != 0)) {
+                    lib_free(&r->r);   /* veraltet: Eintrag entfernen */
+                    memmove(r, r + 1, (size_t)(lib_n - k - 1) * sizeof(*r));
+                    lib_n--;
+                    k--;
+                } else known = 1;
+            }
+            stale |= !known;
         }
     pthread_mutex_unlock(&lib_lock);
     if (stale) lib_refresh();
@@ -1176,8 +1225,19 @@ static int request_device(int c, kv_t *kv, int n, usbdev_t *out) {
             respond_error(c, 409, "Gerätegröße hat sich geändert (anderer Stick?). Liste neu laden.");
             return -1;
         }
-        /* gleicher Name und gleiche Größe, aber andere Seriennummer: ein baugleicher Stick wurde getauscht */
-        if (ident && ident[0] && devs[i].ident[0] && strcmp(ident, devs[i].ident) != 0) {
+        /* Seriennummer gerade leer (frisch eingesteckt, GEOM-Abfrage gescheitert): kurz nachlesen - bleibt sie leer,
+           ist es nicht sicher der Stick aus der Liste */
+        usbdev_t *again = ident && ident[0] && !devs[i].ident[0] ? calloc(MAX_DEVS, sizeof(*again)) : NULL;
+        for (int t = 0; again && t < 10 && !devs[i].ident[0]; t++) {
+            usleep(100 * 1000);
+            int na = plat_scan(again, MAX_DEVS);
+            for (int k = 0; k < na; k++)
+                if (!strcmp(again[k].name, dev) && again[k].size == devs[i].size)
+                    memcpy(devs[i].ident, again[k].ident, sizeof(devs[i].ident));
+        }
+        free(again);
+        /* gleicher Name und gleiche Größe, aber andere (oder keine) Seriennummer: ein baugleicher Stick wurde getauscht */
+        if (ident && ident[0] && strcmp(ident, devs[i].ident) != 0) {
             respond_error(c, 409, "Unter diesem Namen steckt jetzt ein anderer Stick. Liste neu laden.");
             return -1;
         }
@@ -1565,7 +1625,11 @@ static void *delete_worker(void *arg) {
                 else other_copy = 1;
             }
         err[0] = 0;
-        if (managed) {
+        if (root_dev(it->root) != it->dev || !lib_same_game(it->path, it->id, it->size)) {
+            /* seit der Suche getauscht: anderer Stick am Anschluss oder ein anderes Spiel unter dem Pfad */
+            rc = -1;
+            snprintf(err, sizeof(err), "%s", T("Spiel hat sich seit der Suche geändert – nichts gelöscht. Liste neu laden."));
+        } else if (managed) {
             rc = smp_delete(it, base, span, err, sizeof(err));
             stale = 1;
             if (rc == 0 && j->uninstall) {   /* Kachel entfernen; Quelle ist weg, ein neuer Suchlauf holt sie nicht zurück */
@@ -1659,10 +1723,12 @@ static void api_delete(int c, const char *body) {
     j->uninstall = uninstall;
     j->items = calloc(MAX_DELETE, sizeof(*j->items));
     if (!j->items) { free(j); respond_error(c, 500, "Kein Speicher"); return; }
-    int ambiguous = 0;
+    int ambiguous = 0, badkey = 0;
     pthread_mutex_lock(&lib_lock);
     for (char *p = keys, *save = NULL, *tok; (tok = strtok_r(p, ",", &save)); p = NULL) {
-        uint32_t want = (uint32_t)strtoul(tok, NULL, 16);
+        char *kend;
+        uint32_t want = (uint32_t)strtoul(tok, &kend, 16);
+        if (kend == tok || *kend) { badkey = 1; break; }   /* kein reiner Schlüssel: lieber gar nichts löschen */
         /* Schlüssel sind 32-Bit-Prüfsummen: passt einer zu mehreren Spielen (Zufall oder ein präparierter Stick),
          * wird nichts gelöscht statt womöglich ein anderes Spiel */
         int hits = 0;
@@ -1683,11 +1749,13 @@ static void api_delete(int c, const char *body) {
                 snprintf(it->path, sizeof(it->path), "%s", tt->path);
                 snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
                 snprintf(it->device, sizeof(it->device), "%s", lib_snap[i].device);
+                it->size = tt->size;
+                it->dev = lib_snap[i].dev;
             }
         }
     }
     pthread_mutex_unlock(&lib_lock);
-    if (ambiguous || !j->nitems) {
+    if (ambiguous || badkey || !j->nitems) {
         free(j->items);
         free(j);
         respond_error(c, ambiguous ? 409 : 404, ambiguous ? N_("Auswahl nicht eindeutig – nichts gelöscht. Liste neu laden.")

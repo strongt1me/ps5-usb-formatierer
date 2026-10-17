@@ -172,6 +172,47 @@ code=$(post "{\"device\":\"da0\",\"size\":$(size_of "$W/serie.img"),\"ident\":\"
 [ "$code" = 202 ] && wait_job && ok "gleiche Seriennummer: Auftrag läuft" || bad "gleiche Seriennummer" "$code $(cat "$W/body")"
 code=$(post "{\"device\":\"da0\",\"size\":$(size_of "$W/serie.img")}" speed)
 [ "$code" = 202 ] && wait_job && ok "ohne Seriennummer (ältere Oberfläche): Auftrag läuft" || bad "ohne ident" "$code $(cat "$W/body")"
+: >"$W/serie.img.ident"   # jetzt steckt dort ein baugleicher Stick ohne Seriennummer
+code=$(post "{\"device\":\"da0\",\"size\":$(size_of "$W/serie.img"),\"ident\":\"$ID\"}" speed)
+[ "$code" = 409 ] && grep -q "anderer Stick" "$W/body" && ok "Stick meldet keine Seriennummer mehr: abgelehnt (409)" \
+    || bad "fehlende Seriennummer" "$code $(cat "$W/body")"
+rm -f "$W/serie.img.ident"
+
+# ---------------------------------------------------------------- anderer Stick am selben Anschluss: Liste veraltet
+mkdir -p "$W/mnt3/usb0/homebrew"
+truncate -s 128M "$W/tausch.img"
+echo ALT >"$W/tausch.img.ident"
+start "$W/tausch.img" "1" USBFMT_MOUNTROOT="$W/mnt3"
+for _ in $(seq 1 50); do curl -s "$U/api/library" >"$W/lib"; grep -q '"scanning":false' "$W/lib" && break; sleep 0.1; done
+[ "$(q 'len([t for t in d["titles"] if t["device"] == "da0"])' <"$W/lib")" = 0 ] && ok "Tausch: erster Stick ohne Spiele" || bad "Tausch: Ausgangslage" "$(cat "$W/lib")"
+mkdir -p "$W/mnt3/usb0/homebrew/Astro/sce_sys"   # der andere Stick (gleicher Anschluss, gleiche Größe) hat ein Spiel
+cp "$W/mnt/usb0/homebrew/Astro/sce_sys/param.json" "$W/mnt3/usb0/homebrew/Astro/sce_sys/" 2>/dev/null ||
+    printf '{"titleId":"PPSA01325"}' >"$W/mnt3/usb0/homebrew/Astro/sce_sys/param.json"
+echo NEU >"$W/tausch.img.ident"
+curl -s "$U/api/devices" >/dev/null   # die Oberfläche fragt zuerst die Laufwerke ab
+curl -s "$U/api/library" >"$W/lib"
+[ "$(q 'd["scanning"] or len([t for t in d["titles"] if t["device"] == "da0"]) == 1' <"$W/lib")" = True ] && ok "Tausch: alte Liste verworfen (sucht neu)" \
+    || bad "Tausch: alte Liste noch gültig" "$(cat "$W/lib")"
+for _ in $(seq 1 50); do curl -s "$U/api/library" >"$W/lib"; grep -q '"scanning":false' "$W/lib" && break; sleep 0.1; done
+[ "$(q 'len([t for t in d["titles"] if t["device"] == "da0"])' <"$W/lib")" = 1 ] && ok "Tausch: Spiel des neuen Sticks gefunden" || bad "Tausch: neue Liste" "$(cat "$W/lib")"
+
+# ---------------------------------------------------------------- Bezeichnung in alter Codepage: trotzdem gültiges JSON
+truncate -s 64M "$W/oem.img"
+python3 - "$W/oem.img" <<'EOF'
+import struct, sys
+b = bytearray(512)
+b[0:3] = b"\xEB\x58\x90"; b[3:11] = b"MSWIN4.1"
+struct.pack_into("<HBHB", b, 11, 512, 1, 32, 2)
+struct.pack_into("<I", b, 36, 1000); struct.pack_into("<I", b, 44, 2)
+b[0x47:0x52] = b"M\x9aLLER     "   # "MÜLLER" in CP850, wie Windows es auf FAT32 ablegt
+b[0x52:0x5A] = b"FAT32   "; b[510:512] = b"\x55\xAA"
+with open(sys.argv[1], "r+b") as f:
+    f.write(b)
+EOF
+start "$W/oem.img" "0"
+curl -s "$U/api/devices" >"$W/dev"
+python3 -c 'import json,sys; d=json.loads(open(sys.argv[1],"rb").read().decode("utf-8")); assert "�" in d["devices"][0]["label"], d' "$W/dev" \
+    && ok "Bezeichnung mit Byte 0x9A: gültiges UTF-8 (U+FFFD)" || bad "Bezeichnung in alter Codepage" "$(od -c "$W/dev" | head -5)"
 
 echo
 [ $fails -eq 0 ] && echo "Alle Funktions-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."

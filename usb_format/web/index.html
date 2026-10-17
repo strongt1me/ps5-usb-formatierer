@@ -562,7 +562,23 @@ function fmtSize(b) {
 const mbps = v => Math.round(v).toLocaleString(LOCALE[LANG]) + " " + units()[2] + "/s";
 /* Anführungszeichen der Sprache */
 function q(s) { return LANG === "de" ? "„" + s + "“" : LANG === "en" ? "“" + s + "”" : LANG === "fr" ? "« " + s + " »" : "«" + s + "»"; }
-const devKey = d => d.name + ":" + d.size + ":" + (d.ident || "");   /* mit Seriennummer: baugleiche Sticks */
+/* Schlüssel eines Laufwerks, mit Seriennummer (baugleiche Sticks). Fehlt sie in einer Abfrage kurz (frisch eingesteckt),
+   gilt die zuletzt bekannte - sonst sprängen Auswahl und Haken */
+const knownIdent = {};
+const devKey = d => {
+  const k = d.name + ":" + d.size;
+  if (d.ident) knownIdent[k] = d.ident;
+  return k + ":" + (d.ident || knownIdent[k] || "");
+};
+/* derselbe Stick? Seriennummern nur vergleichen, wenn beide eine haben */
+const sameStick = (x, d) => x.size === d.size && (!x.ident || !d.ident || x.ident === d.ident);
+/* Schlüssel aus einer früheren Liste auf die neue übertragen (Seriennummer erst jetzt bekannt) */
+function rekey(k) {
+  const m = k && /^([^:]*):([^:]*):(.*)$/.exec(k);
+  if (!m || devices.some(x => devKey(x) === k)) return k;
+  const d = devices.find(x => x.name === m[1] && String(x.size) === m[2] && (!m[3] || !x.ident || x.ident === m[3]));
+  return d ? devKey(d) : k;
+}
 
 /* Laufwerksname laut Geraet; bei SSD-Gehaeusen meldet sich nur der USB-Brueckenchip */
 function devTitle(d) { return d.model || tr("USB-Laufwerk"); }
@@ -1030,6 +1046,10 @@ async function loadDevices() {
   try {
     const r = await api("/api/devices");
     devices = r.devices;
+    selected = rekey(selected);
+    verifyFor = rekey(verifyFor);
+    for (const m of [speedOf, checkOf])
+      for (const k of Object.keys(m)) { const n = rekey(k); if (n !== k) { m[n] = m[k]; delete m[k]; } }
     if (!devices.some(d => devKey(d) === selected && formattable(d))) {
       /* vorausgewählt wird nur ein freier Stick, nie ein eingebundener (z. B. die Spiele-SSD) */
       const free = devices.filter(d => formattable(d) && !d.mounts.length);
@@ -1258,9 +1278,10 @@ async function fakeDialog(st, r, d) {
     extra: stats, text2: tr("Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben. Für Spiele an der PS5 besser einen echten Datenträger verwenden – wenn überhaupt, dann nur den echten Bereich nutzen."),
     no: tr("Schließen"), yes: tr("Nur echte {real} formatieren", { real: fmtSize(r.real) }), yesCls: "solid primary"
   });
-  const cur = d && devices.find(x => x.name === d.name && x.size === d.size);
+  /* der geprüfte Stick - mit seiner Seriennummer, damit der Server einen inzwischen getauschten ablehnt */
+  const cur = d && devices.find(x => x.name === d.name && sameStick(x, d));
   if (ok === "yes" && cur && r.real >= 64 * MB)
-    runJob("/api/format", formatBody(cur, { verify: false, full: false, limit: r.real }));
+    runJob("/api/format", formatBody({ ...cur, ident: d.ident || cur.ident }, { verify: false, full: false, limit: r.real }));
 }
 
 async function badDialog(st, d) {
@@ -1269,8 +1290,8 @@ async function badDialog(st, d) {
     text2: tr("Auf diesem Datenträger können Daten verloren gehen. Besser einen anderen verwenden."),
     no: tr("Schließen"), yes: tr("Trotzdem formatieren"), yesCls: "danger solid"
   });
-  const cur = d && devices.find(x => x.name === d.name && x.size === d.size);
-  if (ok === "yes" && cur) runJob("/api/format", formatBody(cur, { verify: false, full: false }));
+  const cur = d && devices.find(x => x.name === d.name && sameStick(x, d));
+  if (ok === "yes" && cur) runJob("/api/format", formatBody({ ...cur, ident: d.ident || cur.ident }, { verify: false, full: false }));
 }
 
 async function askRepair(st, checked) {
@@ -1278,8 +1299,9 @@ async function askRepair(st, checked) {
     text2: tr("Reparieren behebt die Fehler im Dateisystem. Beschädigte Dateien können dabei entfernt werden."),
     no: tr("Später"), yes: tr("Jetzt reparieren") });
   /* das geprüfte Laufwerk (Name - nach dem Abmelden ggf. der neue - und Größe), nicht die vielleicht andere Auswahl */
-  const d = checked && devices.find(x => (x.name === checked.name || x.name === st.device) && x.size === checked.size);
-  if (ok === "yes" && d) runJob("/api/check", { device: d.name, size: d.size, ident: d.ident || "", repair: true, replug: d.mounts.length > 0 });
+  const d = checked && devices.find(x => (x.name === checked.name || x.name === st.device) && sameStick(x, checked));
+  if (ok === "yes" && d)
+    runJob("/api/check", { device: d.name, size: d.size, ident: checked.ident || d.ident || "", repair: true, replug: d.mounts.length > 0 });
 }
 
 /* ---------------------------------------------------------------- Formatieren */
@@ -1367,7 +1389,11 @@ function setPickMode(on) {
   pickMode = on;
   picked.clear();
   renderContent();
+  /* Fokus für den Controller: beim Einschalten aufs erste Spiel; beim Ausschalten steht "Spiele löschen …" wieder da -
+     außer während eines Auftrags, dann aufs gewählte Laufwerk statt ins Leere */
+  const ae = document.activeElement;
   if (on) { const cb = $("content").querySelector(".game.pick input"); if (cb) cb.focus(); }
+  else if (!ae || ae === document.body) { const t = $("devs").querySelector(".dev.sel input") || $("devs").querySelector("input"); if (t) t.focus(); }
 }
 
 /* Ausgewählte Spiele löschen - über ShadowMountPlus, das eingebundene Abbilder selbst freigibt */

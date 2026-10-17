@@ -148,7 +148,7 @@ def is_formatter(ip, port, timeout=0.4):
             body += chunk
             if len(body) > 256 * 1024 or time.time() > deadline:
                 return False
-        data = json.loads(body.decode("utf-8"))
+        data = json.loads(body.decode("utf-8", "replace"))
         return isinstance(data, dict) and "devices" in data
     except (OSError, ValueError, http.client.HTTPException):   # z. B. ein anderes Gerät, das kein HTTP spricht
         return False

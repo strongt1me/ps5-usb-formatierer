@@ -356,7 +356,7 @@ static int soft_unplug(const char *disk) {
         snprintf(p, sizeof(p), "/dev/%s", e->d_name);
         int fd = open(p, O_RDWR);
         if (fd < 0) continue;
-        if (usb_mass_storage(fd) && usb_serial(fd, ser, sizeof(ser)) == 0 && strcmp(ser, ident) == 0) {
+        if (usb_mass_storage(fd) && usb_serial(fd, ser, sizeof(ser)) == 0 && (ident_clean(ser), strcmp(ser, ident) == 0)) {
             snprintf(node, sizeof(node), "%s", p);
             matches++;
         }

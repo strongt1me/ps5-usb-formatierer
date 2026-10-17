@@ -51,8 +51,15 @@ int plat_scan(usbdev_t *out, int max) {
         snprintf(d->label, sizeof(d->label), "%s", fi.label);
         snprintf(d->scheme, sizeof(d->scheme), "%s", fi.scheme);
         d->part_end = fi.start ? fi.start + fi.size : 0;
-        const char *base = strrchr(p, '/');   /* Test: Dateiname als "Seriennummer" */
+        const char *base = strrchr(p, '/');   /* Test: Dateiname als "Seriennummer" - oder der Inhalt von <abbild>.ident */
         snprintf(d->ident, sizeof(d->ident), "%s", base ? base + 1 : p);
+        char idp[512];
+        FILE *idf = snprintf(idp, sizeof(idp), "%s.ident", p) < (int)sizeof(idp) ? fopen(idp, "r") : NULL;
+        if (idf) {
+            if (!fgets(d->ident, sizeof(d->ident), idf)) d->ident[0] = 0;
+            d->ident[strcspn(d->ident, "\n")] = 0;
+            fclose(idf);
+        }
         if (fd >= 0) close(fd);
         const char *models = getenv("USBFMT_MODELS");
         for (int k = 0; models && k < n; k++) {

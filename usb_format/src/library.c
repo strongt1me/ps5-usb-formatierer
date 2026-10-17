@@ -444,3 +444,37 @@ void lib_free(lib_root_t *r) {
     free(r->titles);
     memset(r, 0, sizeof(*r));
 }
+
+int lib_same_game(const char *path, const char *id, uint64_t size) {
+    struct stat st;
+    char *buf;
+    int same = 0;
+    if (stat(path, &st) != 0 || !(buf = malloc(PARAM_MAX + 1))) return 0;
+    if (S_ISDIR(st.st_mode)) {   /* Ordner: Titel-ID aus param.json/param.sfo wie bei der Suche */
+        lib_root_t r;
+        memset(&r, 0, sizeof(r));
+        folder_game(&r, path, "", buf);
+        same = r.ntitles == 1 && !strcmp(r.titles[0].id, id);
+        lib_free(&r);
+    } else if (S_ISREG(st.st_mode) && (uint64_t)st.st_size == size) {
+        /* Abbild: gleiche Größe und - wenn lesbar - gleiche Titel-ID (.ffpfs/.ffpfsc liest nur der Kernel) */
+        char now[16] = "", name[128];
+        int fd = open(path, O_RDONLY);
+        fsr_t *f = fd >= 0 ? fsr_open(fd, 0) : NULL;
+        if (f) {
+            long n;
+            if ((n = fsr_read_file(f, "sce_sys/param.json", buf, PARAM_MAX)) <= 0 ||
+                lib_parse_param_json(buf, (size_t)n, now, sizeof(now), name, sizeof(name)) != 0) {
+                now[0] = 0;
+                if ((n = fsr_read_file(f, "sce_sys/param.sfo", buf, PARAM_MAX)) > 0 &&
+                    lib_parse_param_sfo((const uint8_t *)buf, (size_t)n, now, sizeof(now), name, sizeof(name)) != 0)
+                    now[0] = 0;
+            }
+            fsr_close(f);
+        }
+        if (fd >= 0) close(fd);
+        same = !now[0] || !strcmp(now, id);
+    }
+    free(buf);
+    return same;
+}

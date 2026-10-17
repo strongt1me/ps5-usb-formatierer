@@ -158,7 +158,7 @@ def pc_list():
     if r.returncode != 0:
         raise RuntimeError(_("Helfer meldet Fehler {code}: {text}", code=r.returncode,
                              text=r.stderr.decode("utf-8", "replace").strip() or _("keine Angabe")))
-    devices = json.loads(r.stdout.decode("utf-8") or "[]")
+    devices = json.loads(r.stdout.decode("utf-8", "replace") or "[]")
     for d in devices:   # fehlende Felder (andere Helfer-Version) nicht zum Absturz werden lassen
         d.setdefault("model", "")
         d.setdefault("serial", "")
@@ -523,7 +523,7 @@ def work_area(win):
         else:
             px, py = win.winfo_pointerxy()
         hit = next((m for m in mons if m[0] <= px < m[0] + m[2] and m[1] <= py < m[1] + m[3]), None)
-        x, y, w, h = hit or next((m for m in mons if m[4]), mons[0])[:4]
+        x, y, w, h = (hit or next((m for m in mons if m[4]), mons[0]))[:4]
     return x, y + 32, w, h - 32 - 48
 
 

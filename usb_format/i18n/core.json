@@ -1810,5 +1810,11 @@
   "it": "Con questo numero ora c'è un'altra unità – aggiorna l'elenco.",
   "es": "Ahora hay otra unidad con este número – actualiza la lista.",
   "fr": "Un autre lecteur est maintenant connecté sous ce numéro – actualisez la liste."
+ },
+ "Spiel hat sich seit der Suche geändert – nichts gelöscht. Liste neu laden.": {
+  "en": "The game has changed since the scan – nothing deleted. Reload the list.",
+  "it": "Il gioco è cambiato dalla ricerca – non è stato eliminato nulla. Ricarica l'elenco.",
+  "es": "El juego ha cambiado desde la búsqueda – no se ha eliminado nada. Recarga la lista.",
+  "fr": "Le jeu a changé depuis la recherche – rien n'a été supprimé. Rechargez la liste."
  }
 }

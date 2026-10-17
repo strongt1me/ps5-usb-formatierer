@@ -54,6 +54,13 @@ int geom_disk_descr(const char *xml, const char *name, char *out, size_t n) {
     return geom_disk_field(xml, name, "descr", out, n);
 }
 
+void ident_clean(char *s) {
+    for (; *s; s++)
+        if ((unsigned char)*s < 0x20 || (unsigned char)*s > 0x7e) *s = '_';
+}
+
 int geom_disk_ident(const char *xml, const char *name, char *out, size_t n) {
-    return geom_disk_field(xml, name, "ident", out, n);
+    int r = geom_disk_field(xml, name, "ident", out, n);
+    ident_clean(out);
+    return r;
 }

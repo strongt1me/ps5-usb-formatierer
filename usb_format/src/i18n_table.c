@@ -213,6 +213,7 @@ const i18n_entry_t i18n_table[] = {
     {{"ShadowMountPlus meldet seit 10 Minuten keinen Fortschritt – abgebrochen", "ShadowMountPlus has reported no progress for 10 minutes – cancelled", "ShadowMountPlus non segnala progressi da 10 minuti – annullato", "ShadowMountPlus no informa de ningún progreso desde hace 10 minutos – cancelado", "ShadowMountPlus ne signale aucune progression depuis 10 minutes – annulé"}},
     {{"ShadowMountPlus nicht erreichbar", "ShadowMountPlus not reachable", "ShadowMountPlus non raggiungibile", "ShadowMountPlus inaccesible", "ShadowMountPlus injoignable"}},
     {{"ShadowMountPlus nicht erreichbar – zum Schutz eingebundener Spiele nichts gelöscht", "ShadowMountPlus not reachable – nothing deleted to protect mounted games", "ShadowMountPlus non raggiungibile – nulla eliminato per proteggere i giochi montati", "ShadowMountPlus inaccesible – no se ha borrado nada para proteger los juegos montados", "ShadowMountPlus injoignable – rien supprimé pour protéger les jeux montés"}},
+    {{"Spiel hat sich seit der Suche geändert – nichts gelöscht. Liste neu laden.", "The game has changed since the scan – nothing deleted. Reload the list.", "Il gioco è cambiato dalla ricerca – non è stato eliminato nulla. Ricarica l'elenco.", "El juego ha cambiado desde la búsqueda – no se ha eliminado nada. Recarga la lista.", "Le jeu a changé depuis la recherche – rien n'a été supprimé. Rechargez la liste."}},
     {{"Spiele löschen", "Deleting games", "Eliminazione giochi", "Borrando juegos", "Suppression des jeux"}},
     {{"Spiele löschen: Dateien zählen", "Deleting games: counting files", "Eliminazione giochi: conteggio file", "Borrando juegos: contando archivos", "Suppression des jeux : comptage des fichiers"}},
     {{"Spiele nicht gefunden – Liste neu laden", "Games not found – reload the list", "Giochi non trovati – ricarica l'elenco", "Juegos no encontrados – recarga la lista", "Jeux introuvables – rechargez la liste"}},
@@ -305,4 +306,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 302;
+const unsigned i18n_count = 303;
