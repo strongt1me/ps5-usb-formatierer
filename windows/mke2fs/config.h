@@ -1,4 +1,4 @@
-/* config.h für e2fsprogs 1.47.1 unter Windows (zig cc -target x86_64-windows-gnu) - von Hand statt configure.
+/* config.h für e2fsprogs 1.47.4 unter Windows (zig cc -target x86_64-windows-gnu) - von Hand statt configure.
  * Nur, was mingw wirklich hat: kein fsync, kein pread, kein mmap; Ein-/Ausgabe über lib/ext2fs/windows_io.c. */
 #define DISABLE_BACKTRACE 1
 #define HAVE_DIRENT_H 1
@@ -44,6 +44,7 @@
 #define SIZEOF_OFF_T 8
 #define SIZEOF_SHORT 2
 #define SIZEOF_TIME_T 8
+#define SIZEOF_VOID_P 8
 #define STDC_HEADERS 1
 #define VERSION "0.14.1"
 

@@ -735,6 +735,21 @@ AUTHOR = "strongt1me"
 AUTHOR_URL = "https://github.com/strongt1me"
 
 
+def app_version():
+    """Version der Programme: Datei VERSION (im fertigen Programm mitgeliefert, in der Entwicklung im Projektordner)"""
+    for path in (resource_path("VERSION"),
+                 os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "VERSION")):
+        try:
+            with open(path, encoding="ascii") as f:
+                return f.read().strip()
+        except (OSError, ValueError):
+            pass
+    return ""
+
+
+APP_VERSION = app_version()
+
+
 def credit(parent, ps5=True):
     """Profilbild und Name des Entwicklers, als Link zum GitHub-Profil; der Community-Spruch nur bei den PS5-Programmen"""
     frm = ttk.Frame(parent)
@@ -764,10 +779,14 @@ def credit(parent, ps5=True):
 
 
 def footer(parent, ps5=True):
-    """Fußzeile unten: Trennlinie und mittig der Entwickler"""
+    """Fußzeile unten: Trennlinie und mittig der Entwickler, daneben die Version"""
     frm = ttk.Frame(parent)
     ttk.Separator(frm).pack(fill="x", pady=(12, 8))
-    credit(frm, ps5).pack()
+    row = ttk.Frame(frm)
+    row.pack()
+    credit(row, ps5).pack(side="left")
+    if APP_VERSION:
+        ttk.Label(row, text=f"·  v{APP_VERSION}", foreground="#6b7280").pack(side="left", padx=(8, 0))
     return frm
 
 

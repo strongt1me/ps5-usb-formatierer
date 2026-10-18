@@ -423,6 +423,7 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
   </div>
   <div class="foot">
     <a class="credit" id="credit" href="https://github.com/strongt1me" target="_blank" rel="noopener"><img src="/avatar.png" alt="" width="24" height="24"><span>Entwickelt von strongt1me · für die PS5-Community</span></a>
+    <span class="credit" id="ver" hidden></span>
     <label class="theme" for="theme">Design
       <select id="theme">
         <option value="auto">Automatisch</option>
@@ -1944,13 +1945,15 @@ function showHost() {
   lan.append(qrSvg(lanUrl), text);
   lan.hidden = false;
 }
-if (onConsole) {
-  api("/api/info").then(info => {
-    if (!info.ip || info.ip.startsWith("127.")) return;
-    lanUrl = "http://" + info.ip + ":" + info.port;
-    showHost();
-  }).catch(() => {});
-}
+api("/api/info").then(info => {
+  if (info.version) {   // Version des Formatierers (Datei VERSION im Projekt) unten neben dem Entwickler
+    $("ver").textContent = "v" + info.version;
+    $("ver").hidden = false;
+  }
+  if (!onConsole || !info.ip || info.ip.startsWith("127.")) return;
+  lanUrl = "http://" + info.ip + ":" + info.port;
+  showHost();
+}).catch(() => {});
 collectStatic();
 $("lang").value = LANG;
 applyStatic();

@@ -12,6 +12,6 @@ OBJS=$(bash test/build_exfatprogs.sh "$OBJ" | tail -1)
 # shellcheck disable=SC2086
 gcc -O2 -w -DNDEBUG ${HOST_CFLAGS:-} -isystem third_party/zstd/lib -c src/zstd_all.c -o "$OBJ/zstd_all.o"
 # shellcheck disable=SC2086
-gcc -Wall -Wextra -Werror -O2 -DUSBFMT_HOST -isystem third_party/zstd/lib ${HOST_CFLAGS:-} "$@" -o "$OUT" \
+gcc -Wall -Wextra -Werror -O2 -DUSBFMT_HOST "-DUSBFMT_VERSION=\"$(cat ../VERSION)\"" -isystem third_party/zstd/lib ${HOST_CFLAGS:-} "$@" -o "$OUT" \
     src/main.c src/server.c src/mkfs.c src/hfsplus.c src/upcase.c src/i18n.c src/i18n_table.c src/extfs.c src/fsdetect.c src/fsread.c src/vollabel.c \
     src/devtest.c src/library.c src/smpapi.c src/sha256.c src/imgbak.c src/platform_host.c $OBJS "$OBJ/zstd_all.o" -lpthread

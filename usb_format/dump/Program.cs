@@ -1,10 +1,11 @@
 // Baut die App "USB-Formatierer" (PPSA86920, Medien) als Dump-Ordner für den Homebrew-Ordner der PS5
 // (z. B. /data/homebrew/PPSA86920 – ShadowMountPlus meldet ihn an; es nimmt nur PPSA-/CUSA-Kennungen):
 //   PPSA86920/eboot.bin           Starter als nativer Titel, in WSL umgewandelt und signiert (app/build_title.sh)
-//   PPSA86920/sce_sys/param.json  Titel, Kategorie Medien
+//   PPSA86920/sce_sys/param.json  Titel, Kategorie Medien, Version (aus der Datei VERSION)
 //   PPSA86920/sce_sys/icon0.png   Kachelsymbol, dazu pic0/pic1 (Kachel-Hintergrund)
 //   PPSA86920/sce_module/libc.prx vom App-Lader verlangt (app/sce_module/NOTICE.txt)
 
+using System.Text.RegularExpressions;
 using LibProsperoPkg.Content;
 
 string repo = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
@@ -34,6 +35,26 @@ Console.WriteLine($"eboot.bin übernommen ({self.Length} Bytes, nativer Titel)."
 
 foreach (var file in Directory.GetFiles(Path.Combine(app, "sce_sys")))
     File.Copy(file, Path.Combine(target, "sce_sys", Path.GetFileName(file)));
+// Version der App (Datei VERSION im Projekt, wie Formatierer und PC-Programme) als contentVersion, z. B. 2.5.3 ->
+// 02.005.003 - die PS5 zeigt sie unter "Informationen" der Kachel
+string version = File.ReadAllText(Path.Combine(repo, "..", "VERSION")).Trim();
+var v = Regex.Match(version, @"^(\d+)\.(\d+)\.(\d+)$");
+if (!v.Success)
+{
+    Console.Error.WriteLine($"VERSION ungültig: {version}");
+    return 1;
+}
+string contentVersion = $"{int.Parse(v.Groups[1].Value):00}.{int.Parse(v.Groups[2].Value):000}.{int.Parse(v.Groups[3].Value):000}";
+string paramJson = Path.Combine(target, "sce_sys", "param.json");
+string param = File.ReadAllText(paramJson);
+string patched = Regex.Replace(param, "\"contentVersion\": \"[0-9.]*\"", $"\"contentVersion\": \"{contentVersion}\"");
+if (patched == param && !param.Contains($"\"contentVersion\": \"{contentVersion}\""))
+{
+    Console.Error.WriteLine("param.json: contentVersion nicht gefunden.");
+    return 1;
+}
+File.WriteAllText(paramJson, patched);
+Console.WriteLine($"Version {version} (contentVersion {contentVersion})");
 Console.WriteLine("sce_sys übernommen: " + string.Join(", ", Directory.GetFiles(Path.Combine(target, "sce_sys")).Select(Path.GetFileName)));
 
 // Der App-Lader verlangt sce_module/libc.prx in jedem Titel (sonst PRX_SCE_MODULE_LOAD_ERROR), siehe app/sce_module/NOTICE.txt

@@ -33,15 +33,18 @@ ZSTD_OBJ := build/zstd_all.o
 LIBS := -lpthread -lkernel_sys -lSceSystemService -lSceUserService
 HDRS := $(wildcard src/*.h)
 
-CFLAGS := -Wall -Werror -O2
+# Version der Programme: Datei VERSION im Projekt (auch PC-Programme und App-Kachel), z. B. 2.5.3
+APP_VERSION := $(shell cat ../VERSION)
+CFLAGS := -Wall -Werror -O2 -DUSBFMT_VERSION='"$(APP_VERSION)"'
 
 all: $(ELF)
 
 # server.c bettet web/index.html und web/help.html, platform_ps5.c die Werkzeuge per .incbin ein -> aus dem
 # Projektordner bauen. Vorher: Übersetzungen vollständig (Meldungen und Weboberfläche)?
 $(ELF): $(SRCS) $(HDRS) web/index.html web/help.html web/bg.jpg web/page-dark.jpg web/page-light.jpg web/avatar.png $(TOOLS) \
-        $(EXFAT_OBJS) $(ZSTD_OBJ) i18n/core.json i18n/web.json
+        $(EXFAT_OBJS) $(ZSTD_OBJ) i18n/core.json i18n/web.json ../VERSION
 	@command -v python3 >/dev/null || { echo "python3 fehlt - ohne es wären die Übersetzungen ungeprüft"; exit 1; }
+	@echo "$(APP_VERSION)" | grep -Eqx "[0-9]+\.[0-9]+\.[0-9]+" || { echo "VERSION ungültig: $(APP_VERSION)"; exit 1; }
 	python3 tools/i18n_gen.py && python3 tools/web_i18n.py --check
 	$(CC) $(CFLAGS) $(EXFAT_INC) $(ZSTD_INC) -o $@ $(SRCS) $(EXFAT_OBJS) $(ZSTD_OBJ) $(LIBS)
 	@# größer als 8 MB macht die ELF auf der PS5 Probleme

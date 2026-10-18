@@ -1,15 +1,15 @@
 Die Werkzeuge in diesem Ordner sind unveränderte Übersetzungen fremder Open-Source-Projekte für die PS5
 (Bauanleitung: tools/build_fstools.sh). Sie werden in usb_format.elf eingebettet.
 
-mkntfs.elf   ntfs-3g / ntfsprogs 2022.10.3  – GNU General Public License v2 oder neuer
-             Quelle: https://download.tuxera.com/opensource/ntfs-3g_ntfsprogs-2022.10.3.tgz
-             SHA-256: f20e36ee68074b845e3629e6bced4706ad053804cbaf062fbae60738f854170c
+mkntfs.elf   ntfs-3g / ntfsprogs 2026.9.28  – GNU General Public License v2 oder neuer
+             Quelle: https://download.tuxera.com/opensource/ntfs-3g_ntfsprogs-2026.9.28.tgz
+             SHA-256: 350d9415c59f7c3fa74e23985ad2d56423c6a168337368f672e2e362d8f295c8
              Projekt: https://github.com/tuxera/ntfs-3g
 
-mke2fs.elf   e2fsprogs 1.47.1               – GNU General Public License v2
+mke2fs.elf   e2fsprogs 1.47.4               – GNU General Public License v2
              (Bibliotheken teils LGPL/BSD/MIT, siehe Quellpaket)
-             Quelle: https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.1/e2fsprogs-1.47.1.tar.xz
-             SHA-256: 5a33dc047fd47284bca4bb10c13cfe7896377ae3d01cb81a05d406025d99e0d1
+             Quelle: https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.4/e2fsprogs-1.47.4.tar.xz
+             SHA-256: fd5bf388cbdbe006a3d3b318d983b2948382440acc85a87f1e7d108653e8db0b
              Projekt: https://e2fsprogs.sourceforge.net/
 
 Weil usb_format.elf diese GPL-Programme enthält, ist bei Weitergabe auch der Quelltext des Formatierers

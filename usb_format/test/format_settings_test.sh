@@ -63,6 +63,8 @@ code=$(curl -s -o "$W/help" -w '%{http_code}' "$U/help?lang=en")
 [ "$code" = 200 ] && [ "$(grep -c '<article' "$W/help")" = 5 ] && ok "Anleitung /help mit fünf Sprachen" \
     || bad "Anleitung: $code, $(grep -c '<article' "$W/help") Sprachen"
 curl -s "$U/api/status" | grep -q '"cancelled":false' && ok "Status meldet cancelled" || bad "Status ohne cancelled"
+V=$(cat ../VERSION)
+curl -s "$U/api/info" | grep -q "\"version\":\"$V\"" && ok "/api/info meldet Version $V" || bad "Version: $(curl -s "$U/api/info")"
 
 kill $PID; wait $PID 2>/dev/null
 start

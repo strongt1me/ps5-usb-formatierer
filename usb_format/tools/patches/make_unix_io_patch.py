@@ -1,4 +1,4 @@
-"""Ändert libntfs-3g/unix_io.c (ntfs-3g 2022.10.3): Ein-/Ausgabe auf Zeichengeräten sektorgenau ausrichten.
+"""Ändert libntfs-3g/unix_io.c (ntfs-3g 2026.9.28): Ein-/Ausgabe auf Zeichengeräten sektorgenau ausrichten.
 FreeBSD-Rohgeräte (so auch /dev/daNsM auf der PS5) lehnen Zugriffe ab, die nicht auf Sektorgrenzen beginnen
 und enden (EINVAL) - mkntfs scheiterte daran mit "Couldn't create root directory: Invalid argument".
 Aufruf: python3 make_unix_io_patch.py <unix_io.c>   (ändert die Datei an Ort und Stelle)"""

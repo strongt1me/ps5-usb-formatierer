@@ -1,16 +1,16 @@
 mke2fs.exe - ext2/ext3/ext4 für den USB-Formatierer unter Windows
 ==================================================================
 
-mke2fs.exe ist mke2fs aus e2fsprogs 1.47.1 von Theodore Ts'o und anderen, unverändert, für Windows übersetzt
+mke2fs.exe ist mke2fs aus e2fsprogs 1.47.4 von Theodore Ts'o und anderen, unverändert, für Windows übersetzt
 (lib/ext2fs/windows_io.c aus e2fsprogs selbst).
 
 Lizenz: GNU General Public License Version 2 (mke2fs), GNU Library General Public License Version 2
 (lib/ext2fs, lib/e2p), BSD-artige Lizenz (lib/uuid), MIT-artige Lizenz (lib/et). Volltexte in den Quellen.
 
 Quellen:
-  e2fsprogs-1.47.1.tar.xz
-  https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.1/
-  SHA-256 5a33dc047fd47284bca4bb10c13cfe7896377ae3d01cb81a05d406025d99e0d1
+  e2fsprogs-1.47.4.tar.xz
+  https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.4/
+  SHA-256 fd5bf388cbdbe006a3d3b318d983b2948382440acc85a87f1e7d108653e8db0b
 
 Bauanleitung für Windows (config.h, erzeugte Dateien, Bauskript): Ordner windows/mke2fs/ dieses Projekts,
 Aufruf: powershell -File windows\mke2fs\build_mke2fs.ps1

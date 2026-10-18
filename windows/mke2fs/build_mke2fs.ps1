@@ -1,14 +1,14 @@
-# Baut windows\mke2fs.exe (mke2fs aus e2fsprogs 1.47.1, unverändert) für ext2/ext3/ext4 am PC.
-# Benötigt: python -m pip install ziglang. Die Quellen (e2fsprogs-1.47.1.tar.xz, kernel.org) werden bei Bedarf geladen,
+# Baut windows\mke2fs.exe (mke2fs aus e2fsprogs 1.47.4, unverändert) für ext2/ext3/ext4 am PC.
+# Benötigt: python -m pip install ziglang. Die Quellen (e2fsprogs-1.47.4.tar.xz, kernel.org) werden bei Bedarf geladen,
 # per SHA-256 geprüft und nach windows\mke2fs\build entpackt. Statt configure: config.h und die erzeugten Dateien in gen\
 # (Fehlertabellen, CRC-Tabelle, Standardprofil, Typ-Header mit Windows-Größen).
 param([string]$Tarball = "")
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
 $work = Join-Path $here "build"
-$name = "e2fsprogs-1.47.1"
-$sha = "5a33dc047fd47284bca4bb10c13cfe7896377ae3d01cb81a05d406025d99e0d1"
-$url = "https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.1/$name.tar.xz"
+$name = "e2fsprogs-1.47.4"
+$sha = "fd5bf388cbdbe006a3d3b318d983b2948382440acc85a87f1e7d108653e8db0b"
+$url = "https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.4/$name.tar.xz"
 New-Item -ItemType Directory -Force $work | Out-Null
 
 $tar = if ($Tarball) { $Tarball } else { Join-Path $work "$name.tar.xz" }
@@ -41,7 +41,7 @@ $cflags = @("-target", "x86_64-windows-gnu", "-O2", "-std=gnu11", "-DHAVE_CONFIG
 # wie die Makefiles von e2fsprogs (lib/*/Makefile.in), ohne Teile, die mke2fs nicht braucht oder Windows nicht kann
 $libs = [ordered]@{
     "et"      = @("lib\et", "error_message et_name init_et com_err com_right")
-    "e2p"     = @("lib\e2p", "feature hashstr iod ls ljs mntopts parse_num pe pf ps uuid ostype percent crypto_mode encoding errcode")
+    "e2p"     = @("lib\e2p", "feature fgetflags hashstr iod ls ljs mntopts parse_num pe pf ps uuid ostype percent crypto_mode encoding errcode")
     "uuid"    = @("lib\uuid", "clear compare copy gen_uuid isnull pack parse unpack unparse uuid_time")
     "support" = @("lib\support", "cstring mkquota plausible profile parse_qtype print_fs_flags profile_helpers quotaio quotaio_v2 quotaio_tree dict devname")
     "blkid"   = @("lib\blkid", "cache dev devname devno getsize llseek probe read resolve save tag version")

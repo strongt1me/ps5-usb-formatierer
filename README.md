@@ -7,7 +7,7 @@
 **USB-Sticks und -Festplatten formatieren – direkt an der PS5 oder am PC.**<br>
 Mit Echtheits- und Tempotest, Image-Sicherung, Spieleverwaltung, allen gängigen Dateisystemen und eigenen Partitionen.
 
-[![Version](https://img.shields.io/badge/Version-2.5.2-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.5.3-185fa5?style=for-the-badge)](../../releases/latest)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plattform](https://img.shields.io/badge/Plattform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funktionen)
@@ -178,7 +178,7 @@ Der USB-Formatierer steht unter der [GNU General Public License 3.0](LICENSE). E
 
 - `usb_format/third_party/exfatprogs` – exfatprogs 1.4.3, **GPL-2.0-or-later** (fsck.exfat ist in den Formatierer eingebunden, damit unterliegt auch `usb_format.elf` der GPL)
 - `usb_format/tools/bin` – mkntfs (ntfs-3g) und mke2fs (e2fsprogs), GPL, siehe `THIRD_PARTY_NOTICES.txt`
-- `windows/mke2fs` – mke2fs aus e2fsprogs 1.47.1 für ext2/3/4 am PC, GPL, siehe `NOTICE.txt`
+- `windows/mke2fs` – mke2fs aus e2fsprogs 1.47.4 für ext2/3/4 am PC, GPL, siehe `NOTICE.txt`
 - `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, siehe `NOTICE.txt`
 - `usb_format/third_party/zstd` – zstd 1.5.7 (Meta Platforms) für die Image-Sicherung, **BSD-Lizenz** (wahlweise GPL-2.0), siehe `LICENSE` dort
 

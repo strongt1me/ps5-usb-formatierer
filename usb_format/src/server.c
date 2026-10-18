@@ -21,7 +21,7 @@
  *   POST /api/restore/upload?device=..&size=..&ident=..&replug=1  Körper: die .img.zst (application/octet-stream)
  *   POST /api/cancel     {} laufenden Auftrag abbrechen (Warten auf Abziehen, Prüfen, Beschreiben)
  *   GET  /api/status     Fortschritt des laufenden/letzten Auftrags: "kind", "job" (laufende Nummer) und "result"
- *   GET  /api/info       LAN-Adresse der PS5 (fuer den Hinweis im PS5-Browser)
+ *   GET  /api/info       LAN-Adresse der PS5 (fuer den Hinweis im PS5-Browser) und "version" des Formatierers
  *   POST /api/open       {} Web-UI im PS5-Browser öffnen (für die App, app/title/starter.c)
  *   GET  /api/settings   {"theme":"auto|light|dark","scale_tv":160,"scale_pc":100,"lang":"de|en|it|es|fr|"};
  *                         POST ändert (einzeln oder zusammen) und speichert es
@@ -1022,7 +1022,9 @@ static void api_info(int c) {
     plat_local_ip(ip, sizeof(ip));
     sb_add(&b, "{\"ip\":");
     sb_str(&b, ip);
-    sb_add(&b, ",\"port\":%d}", SERVER_PORT);
+    sb_add(&b, ",\"port\":%d,\"version\":", SERVER_PORT);
+    sb_str(&b, USBFMT_VERSION);
+    sb_add(&b, "}");
     respond_json(c, 200, &b);
     free(b.p);
 }
