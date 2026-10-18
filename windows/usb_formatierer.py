@@ -26,10 +26,11 @@ import i18n
 import pc_common
 import ps5_discovery
 from i18n import _, quote
-from pc_common import (IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, confirm, disk_name,
+from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, confirm, disk_name,
                        enable_dpi_awareness, fmt_size, footer, hwnd_of, image_file_name, image_info,
                        irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used, show_scan,
-                       pc_volumes_text, resource_path, serial_args, setup_window, show_centered, top_bar)
+                       pc_volumes_text, resource_path, serial_args, setup_window, show_centered, top_bar,
+                       version_tuple)
 from standard_panel import StandardPanel
 
 APP_NAME = "PS5USBFormatierer"
@@ -129,6 +130,9 @@ class Api:
 
     def library(self):
         return self._call("/api/library", timeout=8)
+
+    def info(self, timeout=4):
+        return self._call("/api/info", timeout=timeout)
 
     def delete_games(self, keys, uninstall):
         return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall})
@@ -264,6 +268,7 @@ class App(tk.Tk):
         self.lib_loading = False
         self.lib_known = False     # Spieleliste mindestens einmal geladen (sonst Inhalt unbekannt)
         self.lib_bar = False       # Fortschritt der Spielesuche steht gerade im Balken
+        self.version_asked = set()   # (PS5, Version), zu denen der Versionsabgleich schon gefragt hat
         self.ps5_step = ""         # aktueller Schritt eines PS5-Auftrags (für "Abbrechen")
         self.ps5_flags = {}        # dazu: replug/cancellable, falls der Payload sie meldet
 
@@ -826,9 +831,10 @@ class App(tk.Tk):
 
         self._run(work)
 
-    def _send_elf(self):
+    def _send_elf(self, ask=True):
         """usb_format.elf aus diesem Programm an den ELF-Loader der PS5 (Port 9021) schicken. Läuft dort schon ein
-        Formatierer, wird er nach Rückfrage beendet und ersetzt - nie während eines Auftrags."""
+        Formatierer, wird er nach Rückfrage beendet und ersetzt - nie während eines Auftrags. ask=False: die Rückfrage
+        hat schon der Versionsabgleich gestellt."""
         if self.busy:
             return
         host = self._chosen_host()
@@ -852,13 +858,13 @@ class App(tk.Tk):
                 st = {"busy": False}
             except ConnectionError:
                 # keine Antwort: ob dort einer läuft, ist unklar - ohne ihn zu beenden, startete die neue Fassung nicht
-                self.q.put(("elf_ask", host, payload, "unclear", prev_status))
+                self.q.put(("elf_ask", host, payload, "unclear", prev_status, ask))
                 return
-            self.q.put(("elf_ask", host, payload, st, prev_status))
+            self.q.put(("elf_ask", host, payload, st, prev_status, ask))
 
         self._run(check)
 
-    def _elf_ask(self, host, payload, st, prev_status=""):
+    def _elf_ask(self, host, payload, st, prev_status="", ask=True):
         self.status_var.set(prev_status)
         size = fmt_size(os.path.getsize(payload))
         if st == "unclear":
@@ -876,7 +882,7 @@ class App(tk.Tk):
         else:
             text = _("Die in dieses Programm eingebaute usb_format.elf ({size}) an {host} senden – an den ELF-Loader der "
                      "PS5 (Port {port}). Danach startet dort der Formatierer.", host=host, size=size, port=LOADER_PORT)
-        if not confirm(self, _("ELF senden"), text, _("Ersetzen") if running else _("Senden")):
+        if ask and not confirm(self, _("ELF senden"), text, _("Ersetzen") if running else _("Senden")):
             return
         api = Api(host)
 
@@ -916,7 +922,8 @@ class App(tk.Tk):
             except OSError as e:
                 self.q.put(("error", loader_error(host, e, stopped=running)))
                 return
-            for _attempt in range(30):
+            for attempt in range(30):
+                self.q.put(("scan", attempt * 100 // 30, _("Warte, bis der Formatierer auf der PS5 antwortet …")))
                 time.sleep(0.5)
                 try:
                     devs = api.devices(timeout=2)
@@ -1420,7 +1427,8 @@ class App(tk.Tk):
             self.q.put(("formatting", False))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step, {})))
             try:
-                devices = pc_list()
+                # danach neu einlesen - mit Fortschritt, schlafende Platten laufen dabei womöglich erst an
+                devices = pc_list(lambda pct, text: self.q.put(("scan", pct, text)))
             except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
                 devices = None
             self.q.put(("pcdone", op, ok, msg, info, devices, after))
@@ -1574,6 +1582,10 @@ class App(tk.Tk):
             self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
             self._fill_devices(msg[2].get("devices") or [])
             self._load_library()
+            self._check_version(msg[1])
+        elif kind == "ps5version":
+            if msg[1] is self.api:
+                self._version_notice(msg[2])
         elif kind == "devices":
             self.busy = self.formatting
             self._fill_devices(msg[1].get("devices") or [])
@@ -1681,6 +1693,37 @@ class App(tk.Tk):
             messagebox.showerror(_("PS5-USB formatieren"), msg[1], parent=self)
         elif kind == "bgerror":   # Hintergrund (Spieleliste, Wächter): laufende Aufträge nicht berühren
             self.status_var.set(msg[1])
+
+    def _check_version(self, api):
+        """Version des Formatierers auf der PS5 im Hintergrund holen (ab 2.5.3 in /api/info)"""
+        def work():
+            try:
+                info = api.info()
+            except (ConnectionError, ApiError):
+                return
+            self.q.put(("ps5version", api, str(info.get("version") or "") if isinstance(info, dict) else ""))
+
+        threading.Thread(target=self._guard(work, background=True), daemon=True).start()
+
+    def _version_notice(self, ps5):
+        """Läuft auf der PS5 eine andere Fassung als die eingebaute? Ältere: anbieten, die neue zu senden (einmal je PS5
+        und Version); neuere: Hinweis, dieses Programm zu aktualisieren"""
+        app, mine, theirs = APP_VERSION, version_tuple(APP_VERSION), version_tuple(ps5)
+        if not mine or theirs == mine or self.busy or self.formatting or self.mode_var.get() != "ps5":
+            return
+        key = (self.settings.get("host", ""), ps5)
+        if key in self.version_asked:
+            return
+        self.version_asked.add(key)
+        if theirs and theirs > mine:
+            self.status_var.set(_("Auf der PS5 läuft eine neuere Fassung des Formatierers ({ps5}) als in diesem "
+                                  "Programm ({app}). Bitte das Programm aktualisieren.", ps5=ps5, app=app))
+            return
+        if confirm(self, _("Neuere Fassung verfügbar"),
+                   _("Auf der PS5 läuft der Formatierer {ps5}, dieses Programm bringt {app} mit. Jetzt die neue Fassung "
+                     "an die PS5 senden? Der laufende Formatierer wird dabei beendet und ersetzt.",
+                     ps5=ps5 or _("in einer älteren Fassung"), app=app), _("Senden")):
+            self._send_elf(ask=False)
 
     def _scan_finished(self):
         """Suche/Einlesen fertig: Balken kurz voll, dann leer - solange kein Auftrag läuft"""

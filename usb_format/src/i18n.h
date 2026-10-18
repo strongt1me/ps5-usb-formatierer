@@ -12,7 +12,8 @@ void        i18n_set(int lang);            /* für den aktuellen Thread */
 int         i18n_get(void);
 int         i18n_parse(const char *code);   /* "de", "en", "it", "es", "fr" (auch "en-US") -> LANG_*, sonst -1 */
 const char *i18n_code(int lang);
-const char *T(const char *de);
+/* format_arg: das Ergebnis ist ein Format wie der deutsche Text - der Compiler prüft printf-Angaben gegen ihn */
+const char *T(const char *de) __attribute__((format_arg(1)));
 
 /* Kennzeichnung für tools/i18n_gen.py in Tabellen, die zur Laufzeit erst über T() übersetzt werden */
 #define N_(s) (s)

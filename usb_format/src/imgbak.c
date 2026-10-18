@@ -25,6 +25,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <zstd.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "i18n.h"
 #include "sha256.h"
@@ -390,6 +393,21 @@ static int emit_zero(emit_t *e, uint64_t len, volatile int *cancel, int *cancell
     return 0;
 }
 
+int ib_threads = -1;
+
+/* Threads für zstd: gepackt wird nebenher, während dieser Thread liest, prüft (SHA-256) und schreibt */
+static int compress_threads(void) {
+    if (ib_threads >= 0) return ib_threads;
+#ifdef _WIN32
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    long n = (long)si.dwNumberOfProcessors;
+#else
+    long n = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+    return n >= 4 ? 4 : n >= 2 ? (int)n - 1 : 0;
+}
+
 int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out, void *octx,
               ib_progress_fn progress, volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
@@ -440,6 +458,9 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
     if (!cc || !page || !obuf) { snprintf(err, errlen, "%s", T("Kein Speicher")); goto out; }
     ZSTD_CCtx_setParameter(cc, ZSTD_c_compressionLevel, 3);
     ZSTD_CCtx_setParameter(cc, ZSTD_c_checksumFlag, 1);
+    const int workers = compress_threads();
+    if (workers > 0 && !ZSTD_isError(ZSTD_CCtx_setParameter(cc, ZSTD_c_nbWorkers, workers)))
+        ZSTD_CCtx_setParameter(cc, ZSTD_c_jobSize, 4 << 20);   /* kleine Aufträge: wenig Speicher je Thread */
 
     for (uint64_t seg = 0; seg < size; ) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }

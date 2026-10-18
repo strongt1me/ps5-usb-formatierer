@@ -3,7 +3,8 @@
  *   imgbak_test backup <image> <ziel.img.zst> [ss] -> Sichern, Ausgabe: belegt, Dateigröße, SHA (Image, Datei)
  *   imgbak_test info <quelle.img.zst>              -> Angaben aus dem Kopf
  *   imgbak_test restore <quelle.img.zst> <image> [ss] [kaputt] -> Wiederherstellen (kaputt: Nachlesen verfälschen)
- *   imgbak_test name <modell> <label> <zeit>      -> Dateiname */
+ *   imgbak_test name <modell> <label> <zeit>      -> Dateiname
+ * IB_THREADS=n (Umgebung): Kompressions-Threads beim Sichern, 0 = ohne Hilfsthreads */
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +23,7 @@ int main(int argc, char **argv) {
     char err[256] = "";
     if (argc < 3) return 2;
     const char *cmd = argv[1];
+    if (getenv("IB_THREADS")) ib_threads = atoi(getenv("IB_THREADS"));   /* sonst nach Kernzahl */
     if (!strcmp(cmd, "name") && argc == 5) {
         ib_info_t i = {0};
         snprintf(i.model, sizeof(i.model), "%s", argv[2]);

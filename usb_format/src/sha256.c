@@ -1,7 +1,14 @@
-/* SHA-256 nach FIPS 180-4 */
+/* SHA-256 nach FIPS 180-4. Auf x86-64 mit SHA-Befehlen (SHA-NI: AMD Zen - auch die PS5 -, Intel ab Ice Lake/Goldmont)
+ * rechnet der Prozessor die Runden selbst - etwa fünfmal schneller; sonst die einfache Fassung. */
 #include "sha256.h"
 
 #include <string.h>
+
+#if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+#include <cpuid.h>
+#include <immintrin.h>
+#define SHA_NI 1
+#endif
 
 static const uint32_t K[64] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -33,6 +40,66 @@ static void block(sha256_t *s, const uint8_t *p) {
     s->h[0] += a; s->h[1] += b; s->h[2] += c; s->h[3] += d; s->h[4] += e; s->h[5] += f; s->h[6] += g; s->h[7] += h;
 }
 
+#ifdef SHA_NI
+/* n Blöcke mit SHA-NI (Aufbau wie in Intels Beschreibung der SHA-Erweiterungen): Zustand als ABEF/CDGH, je vier
+ * Runden mit zwei sha256rnds2, Nachrichtenplan W[t] = msg2(msg1(W[t-4], W[t-3]) + W[t-1:t-2], W[t-1]) */
+__attribute__((target("sha,sse4.1,ssse3")))
+static void blocks_ni(uint32_t h[8], const uint8_t *p, size_t n) {
+    const __m128i swap = _mm_set_epi64x(0x0c0d0e0f08090a0bULL, 0x0405060700010203ULL);
+    __m128i tmp = _mm_shuffle_epi32(_mm_loadu_si128((const __m128i *)&h[0]), 0xB1);      /* CDAB */
+    __m128i st1 = _mm_shuffle_epi32(_mm_loadu_si128((const __m128i *)&h[4]), 0x1B);      /* EFGH */
+    __m128i st0 = _mm_alignr_epi8(tmp, st1, 8);                                           /* ABEF */
+    st1 = _mm_blend_epi16(st1, tmp, 0xF0);                                                /* CDGH */
+    for (; n; n--, p += 64) {
+        const __m128i abef = st0, cdgh = st1;
+        __m128i w[4];
+        for (int t = 0; t < 16; t++) {
+            __m128i m;
+            if (t < 4) {
+                m = _mm_shuffle_epi8(_mm_loadu_si128((const __m128i *)(p + 16 * t)), swap);
+            } else {
+                m = _mm_sha256msg1_epu32(w[(t - 4) & 3], w[(t - 3) & 3]);
+                m = _mm_add_epi32(m, _mm_alignr_epi8(w[(t - 1) & 3], w[(t - 2) & 3], 4));
+                m = _mm_sha256msg2_epu32(m, w[(t - 1) & 3]);
+            }
+            w[t & 3] = m;
+            m = _mm_add_epi32(m, _mm_loadu_si128((const __m128i *)&K[4 * t]));
+            st1 = _mm_sha256rnds2_epu32(st1, st0, m);
+            st0 = _mm_sha256rnds2_epu32(st0, st1, _mm_shuffle_epi32(m, 0x0E));
+        }
+        st0 = _mm_add_epi32(st0, abef);
+        st1 = _mm_add_epi32(st1, cdgh);
+    }
+    tmp = _mm_shuffle_epi32(st0, 0x1B);                                                   /* FEBA */
+    st1 = _mm_shuffle_epi32(st1, 0xB1);                                                   /* DCHG */
+    _mm_storeu_si128((__m128i *)&h[0], _mm_blend_epi16(tmp, st1, 0xF0));                  /* DCBA */
+    _mm_storeu_si128((__m128i *)&h[4], _mm_alignr_epi8(st1, tmp, 8));                     /* HGFE */
+}
+
+static int hw = -1;   /* -1: noch nicht nachgesehen */
+
+int sha256_hw(void) {
+    if (hw < 0) {
+        unsigned a, b, c, d;
+        int ok = __get_cpuid(1, &a, &b, &c, &d) && (c & (1u << 19)) && (c & (1u << 9));   /* SSE4.1, SSSE3 */
+        hw = ok && __get_cpuid_count(7, 0, &a, &b, &c, &d) && (b & (1u << 29));             /* SHA */
+    }
+    return hw;
+}
+
+void sha256_use_hw(int on) { hw = on ? -1 : 0; }
+#else
+int sha256_hw(void) { return 0; }
+void sha256_use_hw(int on) { (void)on; }
+#endif
+
+static void blocks(sha256_t *s, const uint8_t *p, size_t n) {
+#ifdef SHA_NI
+    if (sha256_hw()) { blocks_ni(s->h, p, n); return; }
+#endif
+    for (; n; n--, p += 64) block(s, p);
+}
+
 void sha256_init(sha256_t *s) {
     static const uint32_t H0[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
@@ -51,10 +118,12 @@ void sha256_update(sha256_t *s, const void *data, size_t n) {
         p += take;
         n -= take;
         if (s->used < 64) return;
-        block(s, s->buf);
+        blocks(s, s->buf, 1);
         s->used = 0;
     }
-    for (; n >= 64; p += 64, n -= 64) block(s, p);
+    blocks(s, p, n / 64);
+    p += n / 64 * 64;
+    n %= 64;
     memcpy(s->buf, p, n);
     s->used = n;
 }

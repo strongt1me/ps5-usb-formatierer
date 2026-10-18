@@ -97,6 +97,7 @@ else: print(struct.unpack('<I', d[454:458])[0] * $ss)" "$W/t.img")
 }
 
 roundtrip "exFAT MBR 512" disk exfat $((256 * 1048576)) 512 --mbr
+IB_THREADS=0 roundtrip "exFAT MBR 512, ohne Hilfsthreads" disk exfat $((256 * 1048576)) 512 --mbr
 roundtrip "exFAT GPT 512" disk exfat $((256 * 1048576)) 512 --gpt
 roundtrip "exFAT ohne Tabelle" part exfat $((256 * 1048576)) 512
 roundtrip "exFAT 4K-Sektoren" disk exfat $((256 * 1048576)) 4096 --gpt

@@ -1996,5 +1996,29 @@
   "it": "In attesa che il formattatore sulla PS5 risponda …",
   "es": "Esperando a que el formateador de la PS5 responda …",
   "fr": "En attente de la réponse du formateur sur la PS5 …"
+ },
+ "Neuere Fassung verfügbar": {
+  "en": "Newer version available",
+  "it": "Versione più recente disponibile",
+  "es": "Versión más reciente disponible",
+  "fr": "Version plus récente disponible"
+ },
+ "Auf der PS5 läuft der Formatierer {ps5}, dieses Programm bringt {app} mit. Jetzt die neue Fassung an die PS5 senden? Der laufende Formatierer wird dabei beendet und ersetzt.": {
+  "en": "The PS5 is running formatter {ps5}; this program includes {app}. Send the new version to the PS5 now? The running formatter will be stopped and replaced.",
+  "it": "Sulla PS5 è in esecuzione il formattatore {ps5}, questo programma include la {app}. Inviare ora la nuova versione alla PS5? Il formattatore in esecuzione verrà chiuso e sostituito.",
+  "es": "En la PS5 se ejecuta el formateador {ps5}; este programa incluye la {app}. ¿Enviar ahora la nueva versión a la PS5? El formateador en ejecución se cerrará y se sustituirá.",
+  "fr": "La PS5 exécute le formateur {ps5}, ce programme contient la {app}. Envoyer maintenant la nouvelle version à la PS5 ? Le formateur en cours sera arrêté et remplacé."
+ },
+ "in einer älteren Fassung": {
+  "en": "in an older version",
+  "it": "in una versione precedente",
+  "es": "en una versión anterior",
+  "fr": "dans une version plus ancienne"
+ },
+ "Auf der PS5 läuft eine neuere Fassung des Formatierers ({ps5}) als in diesem Programm ({app}). Bitte das Programm aktualisieren.": {
+  "en": "The PS5 is running a newer formatter ({ps5}) than the one in this program ({app}). Please update this program.",
+  "it": "Sulla PS5 è in esecuzione un formattatore più recente ({ps5}) di quello di questo programma ({app}). Aggiorna il programma.",
+  "es": "En la PS5 se ejecuta un formateador más reciente ({ps5}) que el de este programa ({app}). Actualiza el programa.",
+  "fr": "La PS5 exécute un formateur plus récent ({ps5}) que celui de ce programme ({app}). Veuillez mettre à jour ce programme."
  }
 }

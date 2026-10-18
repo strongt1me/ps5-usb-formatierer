@@ -2,7 +2,7 @@
 (usb_format/test/pc_flow_test.sh startet ihn auf 127.0.0.1:8090 mit da0 = exFAT mit Daten, eingebunden; da1 eingebunden;
 da2 frei). Echtes Programmfenster, nur Auswahl-, Datei- und Rückfragedialoge sind gestellt.
 Geprüft: Sichern auf den PC (Download, .sha256), Sichern auf der PS5, Hochladen, Wiederherstellen aus einer
-PS5-Sicherung, Sperre bei laufendem Spiel, Ablehnen einer Datei ohne Sicherung.
+PS5-Sicherung, Sperre bei laufendem Spiel, Ablehnen einer Datei ohne Sicherung, Versionsabgleich mit der PS5.
 Aufruf: python3 tests/ps5_image_flow_test.py <sandbox-ordner des testservers>"""
 import hashlib
 import json
@@ -144,6 +144,22 @@ app._ps5_restore()
 pump(lambda: len(msgs) > n, 10)
 check("keine Image-Datei: abgelehnt", msgs[-1:] and msgs[-1][0] == "error" and "keine Image-Sicherung" in msgs[-1][1],
       msgs[-1:])
+
+# Versionsabgleich: der Testserver hat dieselbe Version wie das Programm - also keine Rückfrage
+asked = []
+uf.confirm = lambda root, title, text, ok, ack=None: (asked.append(text), False)[1]
+srv_version = app.api.info().get("version")
+app._version_notice(srv_version)
+check("gleiche Version wie der Formatierer: keine Rückfrage", srv_version == uf.APP_VERSION and not asked,
+      (srv_version, uf.APP_VERSION, asked))
+app._version_notice("2.4.0")
+app._version_notice("2.4.0")
+check("ältere Fassung auf der PS5: einmal angeboten", len(asked) == 1 and "2.4.0" in asked[0], asked)
+app._version_notice("")
+check("ohne Versionsangabe (vor 2.5.3): angeboten", len(asked) == 2, asked)
+app._version_notice("99.0.0")
+check("neuere Fassung auf der PS5: nur Hinweis", len(asked) == 2 and "99.0.0" in app.status_var.get(),
+      app.status_var.get())
 
 app._on_close()
 shutil.rmtree(W, ignore_errors=True)

@@ -797,6 +797,12 @@ def app_version():
 APP_VERSION = app_version()
 
 
+def version_tuple(v):
+    """"2.5.6" -> (2, 5, 6); None, wenn keine gültige Versionsnummer (ältere Formatierer melden keine)"""
+    m = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", str(v or "").strip())
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
 def credit(parent, ps5=True):
     """Profilbild und Name des Entwicklers, als Link zum GitHub-Profil; der Community-Spruch nur bei den PS5-Programmen"""
     frm = ttk.Frame(parent)

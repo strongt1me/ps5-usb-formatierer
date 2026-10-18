@@ -17,6 +17,9 @@
 #define IB_BLOCK (64u * 1024u)
 
 typedef void (*ib_progress_fn)(const char *step, int pct);
+
+/* Kompressions-Threads beim Sichern: -1 = nach Zahl der Kerne (höchstens 4), 0 = im aufrufenden Thread */
+extern int ib_threads;
 typedef int  (*ib_out_fn)(void *ctx, const void *p, size_t n);   /* 0 = geschrieben */
 typedef long (*ib_in_fn)(void *ctx, void *p, size_t n);          /* gelesene Bytes, 0 = Ende, < 0 = Fehler */
 

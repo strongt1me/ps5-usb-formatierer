@@ -15,6 +15,9 @@ typedef struct {
 void sha256_init(sha256_t *s);
 void sha256_update(sha256_t *s, const void *data, size_t n);
 void sha256_final(sha256_t *s, uint8_t out[32]);
+/* Rechnet der Prozessor selbst (SHA-NI, x86-64)? sha256_use_hw(0) erzwingt die einfache Fassung (für Tests) */
+int  sha256_hw(void);
+void sha256_use_hw(int on);
 /* 64 Hex-Zeichen + Nullbyte */
 void sha256_hex(const uint8_t d[32], char out[65]);
 

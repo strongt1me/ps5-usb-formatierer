@@ -1456,5 +1456,11 @@
   "it": "Operazione non avviata",
   "es": "Tarea no iniciada",
   "fr": "Tâche non lancée"
+ },
+ "Laufwerk wird durchsucht … {pct} %": {
+  "en": "Scanning drive … {pct} %",
+  "it": "Ricerca nell'unità … {pct} %",
+  "es": "Buscando en la unidad … {pct} %",
+  "fr": "Analyse du lecteur … {pct} %"
  }
 }

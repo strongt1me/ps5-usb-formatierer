@@ -1,9 +1,10 @@
 /*
  * zstd 1.5.7 (third_party/zstd, BSD-Lizenz bzw. GPL-2.0 - siehe dort LICENSE/COPYING) als eine Übersetzungseinheit:
- * Kompression und Dekompression, ohne Altformate, Mehrkern und Assembler. Eingebunden über -isystem
+ * Kompression (auch auf mehreren Kernen) und Dekompression, ohne Altformate und Assembler. Eingebunden über -isystem
  * third_party/zstd/lib, damit die strengen Warnungen des Projekts nicht für den fremden Code gelten.
  */
 #define ZSTD_DISABLE_ASM 1
+#define ZSTD_MULTITHREAD 1   /* Sichern: Kompression in Hilfsthreads (ib_threads) */
 #define ZSTD_LEGACY_SUPPORT 0
 #define ZSTD_TRACE 0
 #define ZSTD_NO_INTRINSICS_IF_UNAVAILABLE 1

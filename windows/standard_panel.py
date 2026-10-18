@@ -682,7 +682,8 @@ class StandardPanel(ttk.Frame):
             self.q.put(("started",))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step)))
             try:
-                devices = pc_list()
+                # danach neu einlesen - mit Fortschritt, schlafende Platten laufen dabei womöglich erst an
+                devices = pc_list(lambda pct, text: self.q.put(("scan", pct, text)))
             except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
                 devices = None
             self.q.put(("done", ok, msg, info, devices, after))
