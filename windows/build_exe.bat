@@ -1,7 +1,7 @@
 @echo off
 rem Baut beide Windows-Programme (benoetigt: pip install pyinstaller pillow ziglang):
-rem   PS5-USB-Formatierer.exe  PS5 im Netz, USB am PC fuer die PS5 und "Am PC Standard"
-rem   USB-Formatierer.exe      nur "Am PC Standard": frei formatieren, ohne PS5-Funktionen
+rem   PS5-USB-Formatierer.exe  PS5 im Netz, "Am PC - fuer PS5" und "Am PC - frei"
+rem   USB-Formatierer.exe      nur "Am PC - frei": frei formatieren, ohne PS5-Funktionen
 rem usb_format.elf muss vorher gebaut sein und wird in die PS5-Fassung eingebettet.
 rem In beiden: Helfer usbfmt_win.exe, mke2fs.exe (ext2/3/4, GPL) samt Lizenzhinweis, Uebersetzungen und die
 rem Anleitung (usb_format\web\help.html, dieselbe wie in der Weboberflaeche).

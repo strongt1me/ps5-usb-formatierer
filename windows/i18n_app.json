@@ -1391,23 +1391,23 @@
   "es": "Apple HFS+",
   "fr": "Apple HFS+"
  },
- "USB an der PS5": {
-  "en": "USB on the PS5",
-  "it": "USB sulla PS5",
-  "es": "USB en la PS5",
-  "fr": "USB sur la PS5"
+ "An der PS5": {
+  "en": "On the PS5",
+  "it": "Sulla PS5",
+  "es": "En la PS5",
+  "fr": "Sur la PS5"
  },
- "USB am PC (für PS5)": {
-  "en": "USB on PC (for PS5)",
-  "it": "USB sul PC (per PS5)",
-  "es": "USB en el PC (para PS5)",
-  "fr": "USB sur PC (pour PS5)"
+ "Am PC – für PS5": {
+  "en": "On PC – for PS5",
+  "it": "Sul PC – per PS5",
+  "es": "En el PC – para PS5",
+  "fr": "Sur le PC – pour PS5"
  },
- "Am PC Standard": {
-  "en": "PC standard",
-  "it": "PC standard",
-  "es": "PC estándar",
-  "fr": "PC standard"
+ "Am PC – frei": {
+  "en": "On PC – any format",
+  "it": "Sul PC – libero",
+  "es": "En el PC – libre",
+  "fr": "Sur le PC – libre"
  },
  "Ohne Dateisystem": {
   "en": "No file system",
@@ -1960,5 +1960,41 @@
   "it": "Impossibile avviare il ripristino: {e}",
   "es": "No se pudo iniciar la restauración: {e}",
   "fr": "Impossible de lancer la restauration : {e}"
+ },
+ "Lese Datenträger: {names} …": {
+  "en": "Reading drives: {names} …",
+  "it": "Lettura unità: {names} …",
+  "es": "Leyendo unidades: {names} …",
+  "fr": "Lecture des supports : {names} …"
+ },
+ "Schlafende Festplatten laufen dabei erst an – das kann einige Sekunden dauern.": {
+  "en": "Sleeping hard drives have to spin up first – this can take a few seconds.",
+  "it": "I dischi in standby devono prima avviarsi – può richiedere alcuni secondi.",
+  "es": "Los discos en reposo tienen que arrancar primero – puede tardar unos segundos.",
+  "fr": "Les disques en veille doivent d'abord démarrer – cela peut prendre quelques secondes."
+ },
+ "Spiele auf der PS5 werden gesucht: {where} …": {
+  "en": "Searching for games on the PS5: {where} …",
+  "it": "Ricerca dei giochi sulla PS5: {where} …",
+  "es": "Buscando juegos en la PS5: {where} …",
+  "fr": "Recherche des jeux sur la PS5 : {where} …"
+ },
+ "Spiele auf der PS5 werden gesucht …": {
+  "en": "Searching for games on the PS5 …",
+  "it": "Ricerca dei giochi sulla PS5 …",
+  "es": "Buscando juegos en la PS5 …",
+  "fr": "Recherche des jeux sur la PS5 …"
+ },
+ "Keine PS5 im eigenen Netz – suche in weiteren Heimnetzen …": {
+  "en": "No PS5 on your own network – searching other home networks …",
+  "it": "Nessuna PS5 nella tua rete – ricerca in altre reti domestiche …",
+  "es": "Ninguna PS5 en tu red – buscando en otras redes domésticas …",
+  "fr": "Aucune PS5 sur votre réseau – recherche dans d'autres réseaux domestiques …"
+ },
+ "Warte, bis der Formatierer auf der PS5 antwortet …": {
+  "en": "Waiting for the formatter on the PS5 to respond …",
+  "it": "In attesa che il formattatore sulla PS5 risponda …",
+  "es": "Esperando a que el formateador de la PS5 responda …",
+  "fr": "En attente de la réponse du formateur sur la PS5 …"
  }
 }

@@ -1,6 +1,6 @@
 /* Gemeinsamer Teil der PC-Helfer (siehe helper.h): formatiert USB-Datenträger am PC mit demselben Code wie der
  * PS5-Payload (exFAT 64 KB / FAT32, MBR, ab 2 TiB GPT), misst das Tempo, prüft die Echtheit und benennt um. Für
- * "Am PC Standard" zusätzlich jede Zuordnungseinheit, MBR/GPT nach Wahl, mehrere Partitionen, HFS+ sowie NTFS,
+ * "Am PC – frei" zusätzlich jede Zuordnungseinheit, MBR/GPT nach Wahl, mehrere Partitionen, HFS+ sowie NTFS,
  * FAT16 und ext2/3/4 mit den Mitteln des Systems.
  *
  *   list                                    USB-Datenträger als JSON (ohne Administratorrechte)
@@ -84,6 +84,18 @@ static const char *rating_text(double read_mbps) {
  * von FormatEx oder mkntfs) würden die Zeile sonst zerlegen - das Programm fände dann kein Ergebnis */
 static void field(const char *s) {
     for (; *s; s++) fputc((unsigned char)*s < 0x20 || *s == 0x7f ? ' ' : *s, out);
+}
+
+/* Zeile "P<TAB>prozent[<TAB>Modell]..." auf stderr: Beim Lesen der Laufwerke laufen schlafende Festplatten erst an
+ * (Sekunden je Platte) - so sieht das Programm, dass es weitergeht und worauf es wartet */
+void list_progress(int pct, const char *const *pending, int np) {
+    fprintf(stderr, "P\t%d", pct);
+    for (int i = 0; i < np; i++) {
+        fputc('\t', stderr);
+        for (const char *p = pending[i]; *p; p++) fputc(*p == '\t' || *p == '\n' || *p == '\r' ? ' ' : *p, stderr);
+    }
+    fputc('\n', stderr);
+    fflush(stderr);
 }
 
 /* step ist der deutsche Schrittname (oder schon übersetzt) - ausgegeben wird er in der gewählten Sprache */

@@ -7,7 +7,7 @@
 **Formatta chiavette e dischi USB – direttamente sulla PS5 o sul PC.**<br>
 Con test di autenticità e velocità, backup immagine, gestione dei giochi, tutti i file system più diffusi e partizioni personalizzate.
 
-[![Versione](https://img.shields.io/badge/Versione-2.5.5-185fa5?style=for-the-badge)](../../releases/latest)
+[![Versione](https://img.shields.io/badge/Versione-2.5.6-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licenza](https://img.shields.io/badge/Licenza-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Piattaforma](https://img.shields.io/badge/Piattaforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Lingue](https://img.shields.io/badge/Lingue-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funzioni)
@@ -121,7 +121,7 @@ Tutti i file sono nell'[ultima release](../../releases/latest).
 |---|---|
 | `PPSA86920.zip` | **Riquadro app per la PS5:** estrai e copia la cartella `PPSA86920` in `/data/homebrew/` (ad es. via FTP). ShadowMountPlus registra l'app. |
 | `usb_format.elf` | **Il formattatore (payload).** L'app lo avvia da sola, il programma per PC lo invia con «Invia ELF»; altrimenti invialo a mano all'ELF loader (porta 9021). |
-| `PS5-USB-Formatierer.exe` | **Programma Windows con funzioni PS5:** USB sulla PS5 (in rete), USB sul PC per la PS5, PC standard – con l'ELF integrato. |
+| `PS5-USB-Formatierer.exe` | **Programma Windows con funzioni PS5:** «Sulla PS5» (in rete), «Sul PC – per PS5», «Sul PC – libero» – con l'ELF integrato. |
 | `USB-Formatierer.exe` | **Programma Windows senza funzioni PS5:** tutti i file system, partizioni e modalità esperto. |
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Gli stessi due programmi per Linux** (x86_64): estrai e avvia. |
 
@@ -153,7 +153,7 @@ Il pulsante **Aiuto** apre la guida dettagliata in cinque lingue – nell'interf
 <td colspan="2" align="center"><img src="docs/images/it/backup.webp" alt="Salvare e ripristinare immagini" width="640"><br><sub><b>Salvare e ripristinare immagini – nella memoria interna, su un'altra unità USB o come download</b></sub></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/it/win_ps5.webp" alt="Windows: USB sulla PS5" width="420"><br><sub><b>Windows: USB sulla PS5 – trova da solo la PS5, «Invia ELF» le invia il formattatore</b></sub></td>
+<td align="center"><img src="docs/images/it/win_ps5.webp" alt="Windows: Sulla PS5" width="420"><br><sub><b>Windows: Sulla PS5 – trova da solo la PS5, «Invia ELF» le invia il formattatore</b></sub></td>
 <td align="center"><img src="docs/images/it/win_std.webp" alt="Windows: Formattatore USB" width="420"><br><sub><b>Windows: Formattatore USB – tutti i file system</b></sub></td>
 </tr>
 <tr>

@@ -382,13 +382,23 @@ int plat_list(void) {
             char t[32];
             memcpy(t, names[j], 32); memcpy(names[j], names[j - 1], 32); memcpy(names[j - 1], t, 32);
         }
+    /* erst die USB-Datenträger (nur /sys), dann ihre Partitionen - das Lesen der Dateisysteme weckt schlafende
+       Festplatten; Fortschritt auf stderr (list_progress) */
+    static diskinfo_t usb[64];
+    int nu = 0;
+    list_progress(0, NULL, 0);
+    for (int k = 0; k < nn; k++)
+        if (!disk_info(names[k], &usb[nu]) && usb_disk(names[k]) && !system_disk(names[k])) nu++;
     int first = 1;
     fprintf(out, "[");
-    for (int k = 0; k < nn; k++) {
-        diskinfo_t di;
-        if (disk_info(names[k], &di) || !usb_disk(names[k]) || system_disk(names[k])) continue;
+    for (int k = 0; k < nu; k++) {
+        const diskinfo_t *dp = &usb[k];
+        const char *pending[64];
+        for (int i = k; i < nu; i++) pending[i - k] = usb[i].model[0] ? usb[i].model : usb[i].id;
+        list_progress(10 + 90 * k / nu, pending, nu - k);
+        diskinfo_t di = *dp;
         partinfo_t v[MAX_PARTS_SCAN];
-        int nv = disk_parts(names[k], v, MAX_PARTS_SCAN);
+        int nv = disk_parts(di.id, v, MAX_PARTS_SCAN);
         fprintf(out, "%s{\"disk\":", first ? "" : ",");
         json_str(out, di.id);
         fprintf(out, ",\"size\":%llu,\"ss\":%u,\"removable\":%s,\"model\":", (unsigned long long)di.size, di.ss,
@@ -411,6 +421,7 @@ int plat_list(void) {
         fprintf(out, "]}");
         first = 0;
     }
+    list_progress(100, NULL, 0);
     fprintf(out, "]\n");
     return 0;
 }

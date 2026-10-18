@@ -106,7 +106,7 @@ jobs:
         working-directory: usb_format
         run: zstd --version && bash test/imgbak_test.sh | tee /tmp/ib.log | grep -E "zstd|bestanden|FEHLER" && ! grep -q FEHLER /tmp/ib.log
 
-      - name: PC-Programm "USB an der PS5" - Image-Sicherung gegen den Testserver (Xvfb)
+      - name: PC-Programm "An der PS5" - Image-Sicherung gegen den Testserver (Xvfb)
         working-directory: usb_format
         run: bash test/pc_flow_test.sh
 

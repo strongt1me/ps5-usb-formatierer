@@ -198,21 +198,67 @@ static int system_disk(int n) {
     return 0;
 }
 
+typedef struct {
+    diskinfo_t di;
+    volinfo_t  v[MAX_VOLS];
+    int        nv;
+    HANDLE     th;
+} listdisk_t;
+
+static DWORD WINAPI list_worker(LPVOID arg) {
+    listdisk_t *d = arg;
+    d->nv = disk_volumes(d->di.num, d->v, MAX_VOLS);
+    return 0;
+}
+
+/* Erst die Datenträger (schnell, ohne Zugriff auf die Laufwerke), dann ihre Laufwerke - die Abfrage von Bezeichnung und
+ * freiem Platz weckt schlafende Festplatten. Das geschieht für alle Datenträger zugleich: mehrere schlafende Platten
+ * laufen gemeinsam an statt nacheinander. Fortschritt auf stderr (list_progress). */
 int plat_list(void) {
-    int first = 1;
-    fprintf(out, "[");
+    static listdisk_t disks[MAX_DISKS];
+    int k = 0, shown = -1;
     for (int n = 0; n < MAX_DISKS; n++) {
-        diskinfo_t di;
-        if (disk_info(n, &di) || !usb_bus(di.bus) || system_disk(n)) continue;
-        volinfo_t v[MAX_VOLS];
-        int nv = disk_volumes(n, v, MAX_VOLS);
-        fprintf(out, "%s{\"disk\":%d,\"size\":%llu,\"ss\":%u,\"removable\":%s,\"model\":", first ? "" : ",", n,
-                (unsigned long long)di.size, di.ss, di.removable ? "true" : "false");
-        json_str(out, di.model);
+        int pct = n * 10 / MAX_DISKS;
+        if (pct != shown) list_progress(shown = pct, NULL, 0);
+        if (disk_info(n, &disks[k].di) || !usb_bus(disks[k].di.bus) || system_disk(n)) continue;
+        disks[k].nv = 0;
+        disks[k].th = NULL;
+        k++;
+    }
+    for (int i = 0; i < k; i++)   /* ohne Thread: hier nacheinander */
+        if (!(disks[i].th = CreateThread(NULL, 0, list_worker, &disks[i], 0, NULL))) list_worker(&disks[i]);
+    for (int done = 0;;) {
+        const char *pending[MAX_DISKS];
+        HANDLE wait[MAX_DISKS];
+        int np = 0;
+        for (int i = 0; i < k; i++)
+            if (disks[i].th) {
+                pending[np] = disks[i].di.model[0] ? disks[i].di.model : disks[i].di.id;
+                wait[np++] = disks[i].th;
+            }
+        done = k - np;
+        list_progress(10 + (k ? 90 * done / k : 90), pending, np);
+        if (!np) break;
+        DWORD r = WaitForMultipleObjects((DWORD)np, wait, FALSE, INFINITE);
+        if (r >= WAIT_OBJECT_0 + (DWORD)np) {   /* Warten geht nicht: alle abwarten */
+            for (int i = 0; i < np; i++) WaitForSingleObject(wait[i], INFINITE);
+            for (int i = 0; i < k; i++) if (disks[i].th) { CloseHandle(disks[i].th); disks[i].th = NULL; }
+            continue;
+        }
+        for (int i = 0; i < k; i++)
+            if (disks[i].th == wait[r - WAIT_OBJECT_0]) { CloseHandle(disks[i].th); disks[i].th = NULL; }
+    }
+    fprintf(out, "[");
+    for (int j = 0; j < k; j++) {
+        const diskinfo_t *di = &disks[j].di;
+        const volinfo_t *v = disks[j].v;
+        fprintf(out, "%s{\"disk\":%d,\"size\":%llu,\"ss\":%u,\"removable\":%s,\"model\":", j ? "," : "", di->num,
+                (unsigned long long)di->size, di->ss, di->removable ? "true" : "false");
+        json_str(out, di->model);
         fprintf(out, ",\"serial\":");
-        json_str(out, di.serial);
+        json_str(out, di->serial);
         fprintf(out, ",\"volumes\":[");
-        for (int i = 0; i < nv; i++) {
+        for (int i = 0; i < disks[j].nv; i++) {
             fprintf(out, "%s{\"letters\":", i ? "," : "");
             json_str(out, v[i].letters);
             fprintf(out, ",\"fs\":");
@@ -222,7 +268,6 @@ int plat_list(void) {
             fprintf(out, ",\"total\":%llu,\"free\":%llu}", (unsigned long long)v[i].total, (unsigned long long)v[i].free);
         }
         fprintf(out, "]}");
-        first = 0;
     }
     fprintf(out, "]\n");
     return 0;

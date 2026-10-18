@@ -142,7 +142,7 @@ class NoJob:
         raise RuntimeError("Test: keine Aufträge")
 
 
-sp.pc_list = uf.pc_list = lambda: [dict(d, volumes=[dict(v) for v in d["volumes"]]) for d in DEVICES]
+sp.pc_list = uf.pc_list = lambda progress=None: [dict(d, volumes=[dict(v) for v in d["volumes"]]) for d in DEVICES]
 sp.PcJob = uf.PcJob = NoJob
 usb_standard.load_settings = lambda name: {"lang": "de"}
 usb_standard.save_settings = lambda name, data: None
@@ -240,7 +240,7 @@ shot(app, "linux_ps5_std.png")
 app.mode_var.set("pc")
 app._mode_changed()
 pump(app, lambda: app.devices and not app.busy)
-check("Modus USB am PC (für PS5): Liste", len(app.devices) == 3, len(app.devices))
+check("Modus Am PC – für PS5: Liste", len(app.devices) == 3, len(app.devices))
 shot(app, "linux_ps5_pc.png")
 app._on_close()
 print(f"{ok_count} bestanden, {bad_count} fehlgeschlagen")

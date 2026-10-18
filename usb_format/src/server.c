@@ -3,6 +3,7 @@
  *   GET  /               Weboberflaeche
  *   GET  /api/devices    USB-Geräte mit Format, Bezeichnung, Partitionstabelle und Belegung der Einbindungen
  *   GET  /api/library    Spiele auf allen Laufwerken (Hintergrundsuche, wie ShadowMountPlus); ?refresh=1 sucht neu
+ *                         während der Suche "progress": {done, total, root} (durchsuchte Ordner)
  *   POST /api/format     {"device":"da0","fs":"exfat|fat32|ntfs|ext4","label":"...","size":<bytes>,
  *                         "cluster":<bytes, 0 = Standard>, "replug":true (für eingebundene Sticks),
  *                         "verify":true (vorher Echtheit und Tempo prüfen), "full":true (jede Stelle beschreiben
@@ -617,6 +618,9 @@ static dev_t root_dev(const char *path) {
 static pthread_mutex_t lib_lock = PTHREAD_MUTEX_INITIALIZER;
 static libroot_t *lib_snap;
 static int lib_n, lib_busy, lib_again;
+/* Fortschritt der laufenden Suche: durchsuchte Ordner von allen und der gerade durchsuchte (für /api/library) */
+static int lib_done, lib_total;
+static char lib_cur[160];
 static time_t lib_when;
 
 /* Kurzer Schlüssel eines Spiels für /api/delete (FNV-1a über den Pfad): gelöscht wird nur, was die Suche fand */
@@ -631,6 +635,16 @@ static void lib_free_all(libroot_t *r, int n) {
     free(r);
 }
 
+/* done < 0: nächster Ordner (path) beginnt - der vorige ist fertig */
+static void lib_progress(int done, int total, const char *path) {
+    pthread_mutex_lock(&lib_lock);
+    if (done >= 0) lib_done = done;
+    else if (lib_cur[0]) lib_done++;
+    lib_total = total;
+    snprintf(lib_cur, sizeof(lib_cur), "%s", path ? path : "");
+    pthread_mutex_unlock(&lib_lock);
+}
+
 static void *lib_worker(void *arg) {
     (void)arg;
     for (;;) {
@@ -642,8 +656,11 @@ static void *lib_worker(void *arg) {
         usbdev_t *devs = calloc(MAX_DEVS, sizeof(*devs));
         int nd = devs ? plat_scan(devs, MAX_DEVS) : 0;
         const char *const *extra = plat_library_roots();
-        int cap = (nd > 0 ? nd : 0) * MAX_MOUNTS + 16, n = 0;
+        int cap = (nd > 0 ? nd : 0) * MAX_MOUNTS + 16, n = 0, total = 0;
         libroot_t *roots = calloc((size_t)cap, sizeof(*roots));
+        for (int i = 0; i < nd; i++) total += devs[i].locked ? 0 : devs[i].nmounts;
+        for (int k = 0; extra && extra[k] && extra[k + 1]; k += 2) total++;
+        lib_progress(0, total, NULL);
         for (int i = 0; roots && i < nd; i++) {
             if (devs[i].locked) continue;
             for (int m = 0; m < devs[i].nmounts && n < cap; m++) {
@@ -652,6 +669,7 @@ static void *lib_worker(void *arg) {
                 roots[n].dev = root_dev(devs[i].mounts[m].path);
                 roots[n].size = devs[i].size;
                 snprintf(roots[n].ident, sizeof(roots[n].ident), "%s", devs[i].ident);
+                lib_progress(-1, total, devs[i].mounts[m].path);
                 lib_scan(devs[i].mounts[m].path, 1, &roots[n].r);
                 n++;
             }
@@ -659,6 +677,7 @@ static void *lib_worker(void *arg) {
         for (int k = 0; roots && extra && extra[k] && extra[k + 1] && n < cap; k += 2) {
             roots[n].usb = !strcmp(extra[k + 1], "usb");
             roots[n].dev = root_dev(extra[k]);
+            lib_progress(-1, total, extra[k]);
             lib_scan(extra[k], roots[n].usb, &roots[n].r);
             if (roots[n].r.ntitles || roots[n].r.pkgs) n++;
             else lib_free(&roots[n].r);
@@ -946,8 +965,14 @@ static void api_library(int c, int refresh) {
         lib_refresh();
         pthread_mutex_lock(&lib_lock);
     }
-    sb_add(&b, "{\"scanning\":%s,\"age\":%ld,\"roots\":[", lib_busy ? "true" : "false",
+    sb_add(&b, "{\"scanning\":%s,\"age\":%ld,", lib_busy ? "true" : "false",
            lib_when ? (long)(time(NULL) - lib_when) : -1L);
+    if (lib_busy) {   /* Fortschritt der laufenden Suche: durchsuchte Ordner von allen, der gerade durchsuchte */
+        sb_add(&b, "\"progress\":{\"done\":%d,\"total\":%d,\"root\":", lib_done, lib_total);
+        sb_str(&b, lib_cur);
+        sb_add(&b, "},");
+    }
+    sb_add(&b, "\"roots\":[");
     for (int i = 0; i < lib_n; i++) {
         const libroot_t *r = &lib_snap[i];
         sb_add(&b, "%s{\"root\":", i ? "," : "");

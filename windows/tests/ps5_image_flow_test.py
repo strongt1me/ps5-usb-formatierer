@@ -1,4 +1,4 @@
-"""PS5-USB-Formatierer, Modus "USB an der PS5": Image-Sicherung gegen den Testserver des Formatierers
+"""PS5-USB-Formatierer, Modus "An der PS5": Image-Sicherung gegen den Testserver des Formatierers
 (usb_format/test/pc_flow_test.sh startet ihn auf 127.0.0.1:8090 mit da0 = exFAT mit Daten, eingebunden; da1 eingebunden;
 da2 frei). Echtes Programmfenster, nur Auswahl-, Datei- und Rückfragedialoge sind gestellt.
 Geprüft: Sichern auf den PC (Download, .sha256), Sichern auf der PS5, Hochladen, Wiederherstellen aus einer
@@ -34,7 +34,7 @@ def check(name, cond, extra=""):
 
 uf.load_settings = lambda: {"lang": "de", "mode": "ps5", "host": "127.0.0.1"}
 uf.save_settings = lambda data: None
-ps5_discovery.discover = lambda port: [{"ip": "127.0.0.1", "name": "PS5", "standby": False, "formatter": True}]
+ps5_discovery.discover = lambda port, progress=None: [{"ip": "127.0.0.1", "name": "PS5", "standby": False, "formatter": True}]
 uf.messagebox.showinfo = lambda title, msg, **k: msgs.append(("info", msg))
 uf.messagebox.showerror = lambda title, msg, **k: msgs.append(("error", msg))
 pick = {"save": "", "open": ""}

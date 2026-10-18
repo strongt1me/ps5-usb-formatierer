@@ -44,6 +44,8 @@ typedef struct {
 extern FILE *out;
 extern volatile int cancel_requested;
 void        on_progress(const char *step, int pct);
+/* Fortschritt von "list" auf stderr (stdout trägt das JSON): pct und die Datenträger, die noch gelesen werden */
+void        list_progress(int pct, const char *const *pending, int np);
 void        finish(int ok, const char *msg, const char *json);
 void        json_str(FILE *f, const char *s);
 const char *size_text(uint64_t b, char *buf, size_t n);

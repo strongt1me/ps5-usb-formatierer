@@ -1,4 +1,4 @@
-"""„Am PC Standard“: USB-Datenträger am PC frei formatieren – exFAT, FAT32, NTFS, FAT (FAT16), ext2/3/4 (Linux) oder
+"""„Am PC – frei“: USB-Datenträger am PC frei formatieren – exFAT, FAT32, NTFS, FAT (FAT16), ext2/3/4 (Linux) oder
 HFS+ (Mac), jede Zuordnungseinheit, MBR oder GPT, Schnell- oder vollständige Formatierung; im Expertenmodus mehrere
 Partitionen mit Typ und Startkennung. Ohne PS5-Optionen.
 Dritter Modus des PS5-USB-Formatierers und einziger Inhalt des eigenständigen USB-Formatierers."""
@@ -17,7 +17,7 @@ from i18n import _, quote
 from partition_editor import PartitionEditor
 from pc_common import (IMAGE_EXT, IS_WIN, PcJob, admin_wait_text, ask_string, confirm, data_kept_admin_text,
                        disk_name, fmt_size, hwnd_of, image_file_name, image_info, irreversible_admin_text, on_device,
-                       pc_dev_text, pc_list, pc_used, pc_volumes_text, serial_args)
+                       pc_dev_text, pc_list, pc_used, pc_volumes_text, serial_args, show_scan)
 
 __all__ = ["StandardPanel", "SCHEMES", "FILESYSTEMS", "KB", "MB"]
 
@@ -352,9 +352,9 @@ class StandardPanel(ttk.Frame):
             return
 
         def work():
-            self.q.put(("status", _("Suche USB-Datenträger am PC …")))
+            self.q.put(("scan", 0, _("Suche USB-Datenträger am PC …")))
             try:
-                self.q.put(("devices", pc_list()))
+                self.q.put(("devices", pc_list(lambda pct, text: self.q.put(("scan", pct, text)))))
             except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as e:
                 self.q.put(("error", _("USB-Datenträger konnten nicht gelesen werden: {e}", e=e)))
 
@@ -730,9 +730,13 @@ class StandardPanel(ttk.Frame):
         kind = msg[0]
         if kind == "status":
             self.status_var.set(msg[1])
+        elif kind == "scan":
+            show_scan(self.pbar, self.status_var, msg[1], msg[2])
         elif kind == "devices":
             self._set_busy(False)
             self._fill_devices(msg[1])
+            self.pbar["value"] = 100   # kurz voll, dann leer: fertig eingelesen
+            self.after(800, lambda: self.busy or self.pbar.configure(value=0))
         elif kind == "started":
             self._update()   # Abbrechen-Knopf zeigen
         elif kind == "progress":

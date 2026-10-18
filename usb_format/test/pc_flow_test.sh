@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PS5-USB-Formatierer (windows/usb_formatierer.py), Modus "USB an der PS5": Image-Sicherung gegen den Testserver.
+# PS5-USB-Formatierer (windows/usb_formatierer.py), Modus "An der PS5": Image-Sicherung gegen den Testserver.
 # Baut den Formatierer als Host-Programm, legt drei Abbilder als Sticks an (da0 exFAT mit Daten und da1 eingebunden,
 # da2 frei), startet ihn auf 127.0.0.1:8090 und lässt windows/tests/ps5_image_flow_test.py das Programm bedienen.
 # Ohne Bildschirm über xvfb-run. Braucht python3 mit tkinter.

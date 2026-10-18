@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Baut beide Programme für Linux (x86_64) als einzelne ausführbare Dateien (PyInstaller) und packt sie als .tar.gz:
-#   PS5-USB-Formatierer   PS5 im Netz, USB am PC für die PS5 und "Am PC Standard" (braucht usb_format.elf)
-#   USB-Formatierer       nur "Am PC Standard": frei formatieren, ohne PS5-Funktionen
+#   PS5-USB-Formatierer   PS5 im Netz, "Am PC – für PS5" und "Am PC – frei" (braucht usb_format.elf)
+#   USB-Formatierer       nur "Am PC – frei": frei formatieren, ohne PS5-Funktionen
 # Benötigt: python3 mit tkinter, pip install pyinstaller pillow; gcc (statische glibc empfohlen).
 #   windows/build_linux.sh [pfad/zu/usb_format.elf]
 set -euo pipefail

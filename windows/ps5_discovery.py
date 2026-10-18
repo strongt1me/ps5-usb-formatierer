@@ -16,6 +16,7 @@ import select
 import socket
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -186,12 +187,43 @@ def is_formatter(ip, port, timeout=0.4):
         conn.close()
 
 
-def scan_formatters(local_ips, port, hosts=None, workers=128, timeout=0.4):
+def scan_formatters(local_ips, port, hosts=None, workers=128, timeout=0.4, tick=None):
+    """tick() nach jeder abgefragten Adresse (für den Fortschritt)"""
     if hosts is None:
         hosts = scan_hosts([ipaddress.IPv4Interface(f"{ip}/24") for ip in local_ips])
+
+    def probe(h):
+        ok = is_formatter(h, port, timeout)
+        if tick:
+            tick()
+        return h, ok
+
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        results = pool.map(lambda h: (h, is_formatter(h, port, timeout)), hosts)
-        return [h for h, ok in results if ok]
+        return [h for h, ok in pool.map(probe, hosts) if ok]
+
+
+def _with_progress(report, stage, timeout, total, run):
+    """run(tick) ausführen und dabei alle 0,15 s report(prozent, stage) melden: zur Hälfte die verstrichene Zeit der
+    Rundfrage (DDP), zur Hälfte die abgefragten Adressen - beides zusammen ergibt 0 bis 95 %"""
+    done, lock, stop, t0 = [0], threading.Lock(), threading.Event(), time.time()
+
+    def tick():
+        with lock:
+            done[0] += 1
+
+    def ticker():
+        while not stop.wait(0.15):
+            frac = (min(1.0, (time.time() - t0) / timeout) + min(1.0, done[0] / max(1, total))) / 2
+            report(int(95 * frac), stage)
+
+    report(0, stage)
+    th = threading.Thread(target=ticker, daemon=True)
+    th.start()
+    try:
+        return run(tick)
+    finally:
+        stop.set()
+        th.join()
 
 
 def home_hosts(nets):
@@ -206,22 +238,36 @@ def home_hosts(nets):
     return hosts
 
 
-def discover(api_port, timeout=2.0):
-    """Liste von {ip, name, standby, formatter}, PS5 mit laufendem Formatierer zuerst."""
+def discover(api_port, timeout=2.0, progress=None):
+    """Liste von {ip, name, standby, formatter}, PS5 mit laufendem Formatierer zuerst.
+    progress(prozent, stufe) aus einem Hintergrundthread; stufe "net" = eigenes Netz, "home" = weitere Heimnetze."""
+    report = progress or (lambda pct, stage: None)
     nets = local_networks()
     ips = [str(n.ip) for n in nets]
     own = scan_hosts(nets)
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        ddp = pool.submit(ddp_discover, ips, timeout, nets=nets, hosts=own)
-        fmt = pool.submit(scan_formatters, ips, api_port, own)
-        consoles, formatters = ddp.result(), set(fmt.result())
+
+    def search_own(tick):
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            ddp = pool.submit(ddp_discover, ips, timeout, nets=nets, hosts=own)
+            fmt = pool.submit(scan_formatters, ips, api_port, own, tick=tick)
+            return ddp.result(), set(fmt.result())
+
+    consoles, formatters = _with_progress(report, "net", timeout, len(own), search_own)
+    stage = "net"
     if not consoles and not formatters:   # Stufe 3: hinter einem NAT? Heimnetze direkt fragen
         hosts = home_hosts(nets)
         if hosts:
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                ddp = pool.submit(ddp_discover, ips, timeout, targets=hosts)
-                fmt = pool.submit(scan_formatters, ips, api_port, hosts, 256, 0.3)   # ~3800 Adressen in ~5 s
-                consoles, formatters = ddp.result(), set(fmt.result())
+            stage = "home"
+
+            def search_home(tick):
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    ddp = pool.submit(ddp_discover, ips, timeout, targets=hosts)
+                    # ~3800 Adressen in ~5 s
+                    fmt = pool.submit(scan_formatters, ips, api_port, hosts, 256, 0.3, tick=tick)
+                    return ddp.result(), set(fmt.result())
+
+            consoles, formatters = _with_progress(report, stage, timeout, len(hosts), search_home)
+    report(97, stage)
     # Die DDP-Antwort sagt nichts über den Formatierer, und die Abfrage von Port 8090 deckt nicht jede Adresse ab (der
     # allgemeine Broadcast erreicht auch fremde Netze): jede gefundene PS5 direkt fragen - sonst würde der Payload
     # womöglich ein zweites Mal geschickt
@@ -233,4 +279,5 @@ def discover(api_port, timeout=2.0):
         result[ip] = {"ip": ip, "name": info["name"], "standby": info["standby"], "formatter": ip in formatters}
     for ip in formatters:
         result.setdefault(ip, {"ip": ip, "name": "PS5", "standby": False, "formatter": True})
+    report(100, stage)
     return sorted(result.values(), key=lambda c: (not c["formatter"], c["standby"], c["ip"]))

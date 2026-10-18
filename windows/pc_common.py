@@ -11,6 +11,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -149,17 +150,54 @@ def lock_helper(exe):
     return h
 
 
-def pc_list():
-    """USB-Datenträger am PC (ohne Administratorrechte). Die Systemplatte meldet der Helfer nie."""
+def pc_scan_text(pending, elapsed):
+    """Statuszeile beim Einlesen: welche Datenträger noch gelesen werden - nach ein paar Sekunden mit dem Grund"""
+    if not pending:
+        return _("Suche USB-Datenträger am PC …")
+    text = _("Lese Datenträger: {names} …", names=", ".join(pending))
+    if elapsed >= 3:
+        text += " " + _("Schlafende Festplatten laufen dabei erst an – das kann einige Sekunden dauern.")
+    return text
+
+
+def pc_list(progress=None):
+    """USB-Datenträger am PC (ohne Administratorrechte). Die Systemplatte meldet der Helfer nie.
+    progress(prozent, text) läuft im Lesethread: Der Helfer meldet auf stderr, welche Datenträger er noch liest -
+    schlafende Festplatten laufen dabei erst an (Sekunden je Platte)."""
     exe = find_helper()
     if not exe:
         raise RuntimeError(_("Der Helfer {name} fehlt neben dem Programm.", name=HELPER_NAME))
-    r = subprocess.run([exe, "list"], capture_output=True, timeout=30,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    if r.returncode != 0:
-        raise RuntimeError(_("Helfer meldet Fehler {code}: {text}", code=r.returncode,
-                             text=r.stderr.decode("utf-8", "replace").strip() or _("keine Angabe")))
-    devices = json.loads(r.stdout.decode("utf-8", "replace") or "[]")
+    proc = subprocess.Popen([exe, "list"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    got, errors, started = {}, [], time.time()
+
+    def read_out():
+        got["out"] = proc.stdout.read()
+
+    def read_err():
+        for raw in proc.stderr:
+            parts = raw.decode("utf-8", "replace").rstrip("\r\n").split("\t")
+            if parts[0] == "P" and len(parts) > 1 and parts[1].isdigit():
+                if progress:
+                    progress(min(int(parts[1]), 100), pc_scan_text([p for p in parts[2:] if p], time.time() - started))
+            elif any(parts):
+                errors.append("\t".join(parts))
+
+    readers = [threading.Thread(target=f, daemon=True) for f in (read_out, read_err)]
+    for t in readers:
+        t.start()
+    try:
+        proc.wait(timeout=90)   # mehrere schlafende Platten laufen gleichzeitig an - selten länger als 30 s
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        raise
+    for t in readers:
+        t.join(5)
+    if proc.returncode != 0:
+        raise RuntimeError(_("Helfer meldet Fehler {code}: {text}", code=proc.returncode,
+                             text="\n".join(errors).strip() or _("keine Angabe")))
+    devices = json.loads(got.get("out", b"").decode("utf-8", "replace") or "[]")
     for d in devices:   # fehlende Felder (andere Helfer-Version) nicht zum Absturz werden lassen
         d.setdefault("model", "")
         d.setdefault("serial", "")
@@ -414,6 +452,15 @@ if IS_WIN:
 else:
     import pc_linux   # noqa: E402  (pkexec statt UAC)
     PcJob = pc_linux.LinuxJob
+
+
+def show_scan(pbar, status_var, pct, text):
+    """Fortschritt beim Suchen und Einlesen (Datenträger, PS5, Spiele): Balken mit Prozent statt Stillstand"""
+    if str(pbar["mode"]) != "determinate":
+        pbar.stop()
+        pbar.configure(mode="determinate")
+    pbar["value"] = pct
+    status_var.set(f"{text} {pct} %")
 
 
 def admin_wait_text():

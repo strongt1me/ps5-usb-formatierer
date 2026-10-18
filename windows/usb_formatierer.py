@@ -2,7 +2,7 @@
 
 Findet die PS5 im Netz (ps5_discovery) und spricht mit dem usb_format-Payload (HTTP-API,
 Port 8090). Laeuft der Payload noch nicht, wird er an den ELF-Loader der PS5 (Port 9021) geschickt.
-Am PC formatiert der Windows-Helfer (pc_common) - für die PS5 oder frei ("Am PC Standard", standard_panel).
+Am PC formatiert der Windows-Helfer (pc_common) - für die PS5 oder frei ("Am PC – frei", standard_panel).
 Sprachen: Deutsch, English, Italiano, Español, Français (i18n).
 """
 import hashlib
@@ -28,7 +28,7 @@ import ps5_discovery
 from i18n import _, quote
 from pc_common import (IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, confirm, disk_name,
                        enable_dpi_awareness, fmt_size, footer, hwnd_of, image_file_name, image_info,
-                       irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used,
+                       irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used, show_scan,
                        pc_volumes_text, resource_path, serial_args, setup_window, show_centered, top_bar)
 from standard_panel import StandardPanel
 
@@ -37,7 +37,7 @@ API_PORT = 8090
 LOADER_PORT = 9021
 LABEL_RE = re.compile(r"^[A-Za-z0-9 _-]{0,11}\Z")   # \Z: kein Zeilenumbruch am Ende
 IP_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
-MODES = (("ps5", "USB an der PS5"), ("pc", "USB am PC (für PS5)"), ("std", "Am PC Standard"))
+MODES = (("ps5", "An der PS5"), ("pc", "Am PC – für PS5"), ("std", "Am PC – frei"))
 
 
 def find_payload():
@@ -263,10 +263,11 @@ class App(tk.Tk):
         self.games = {}            # PS5-Gerätename (da1 ...) -> Spiele darauf (aus /api/library)
         self.lib_loading = False
         self.lib_known = False     # Spieleliste mindestens einmal geladen (sonst Inhalt unbekannt)
+        self.lib_bar = False       # Fortschritt der Spielesuche steht gerade im Balken
         self.ps5_step = ""         # aktueller Schritt eines PS5-Auftrags (für "Abbrechen")
         self.ps5_flags = {}        # dazu: replug/cancellable, falls der Payload sie meldet
 
-        self.std_busy = False      # Auftrag im Bereich "Am PC Standard"
+        self.std_busy = False      # Auftrag im Bereich "Am PC – frei"
         mode = self.settings.get("mode")
         self.mode_var = tk.StringVar(value=mode if mode in dict(MODES) else "ps5")
         self.verify_var = tk.BooleanVar(value=self.settings.get("verify", False))
@@ -310,12 +311,12 @@ class App(tk.Tk):
                    ipady=3)
             self.mode_btns.append(b)
 
-        # "Am PC Standard": eigener Bereich ohne PS5-Optionen (derselbe wie im eigenständigen USB-Formatierer)
+        # "Am PC – frei": eigener Bereich ohne PS5-Optionen (derselbe wie im eigenständigen USB-Formatierer)
         self.std_panel = StandardPanel(outer, self.settings.setdefault("standard", {}),
                                        lambda: save_settings(self.settings), on_busy=self._std_busy_changed)
         self.std_panel.grid(row=2, column=0, sticky="nsew")
 
-        # PS5 und "USB am PC (für PS5)"
+        # PS5 und "Am PC – für PS5"
         frm = self.ps5_body = ttk.Frame(outer)
         frm.grid(row=2, column=0, sticky="nsew")
         footer(outer).grid(row=3, column=0, sticky="ew")
@@ -478,7 +479,7 @@ class App(tk.Tk):
         keep_on_screen(self)   # die Bereiche sind verschieden hoch: wieder mittig
 
     def _std_busy_changed(self, busy):
-        """Auftrag in "Am PC Standard": solange nicht umschalten"""
+        """Auftrag in "Am PC – frei": solange nicht umschalten"""
         self.std_busy = busy
         self._update()
 
@@ -714,8 +715,11 @@ class App(tk.Tk):
             return
 
         def work():
-            self.q.put(("status", _("Suche PS5 im Netzwerk …")))
-            self.q.put(("found", ps5_discovery.discover(API_PORT)))
+            texts = {"net": _("Suche PS5 im Netzwerk …"),
+                     "home": _("Keine PS5 im eigenen Netz – suche in weiteren Heimnetzen …")}
+            self.q.put(("scan", 0, texts["net"]))
+            self.q.put(("found", ps5_discovery.discover(
+                API_PORT, progress=lambda pct, stage: self.q.put(("scan", pct, texts.get(stage, texts["net"]))))))
 
         self._run(work)
 
@@ -809,7 +813,8 @@ class App(tk.Tk):
             except OSError as e:
                 self.q.put(("error", loader_error(host, e)))
                 return
-            for _attempt in range(20):
+            for attempt in range(20):
+                self.q.put(("scan", attempt * 5, _("Warte, bis der Formatierer auf der PS5 antwortet …")))
                 time.sleep(0.5)
                 try:
                     self.q.put(("connected", api, api.devices(timeout=2)))
@@ -1392,9 +1397,9 @@ class App(tk.Tk):
             return
 
         def work():
-            self.q.put(("status", _("Suche USB-Datenträger am PC …")))
+            self.q.put(("scan", 0, _("Suche USB-Datenträger am PC …")))
             try:
-                self.q.put(("pcdevices", pc_list()))
+                self.q.put(("pcdevices", pc_list(lambda pct, text: self.q.put(("scan", pct, text)))))
             except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as e:
                 self.q.put(("error", _("USB-Datenträger konnten nicht gelesen werden: {e}", e=e)))
 
@@ -1551,8 +1556,11 @@ class App(tk.Tk):
         kind = msg[0]
         if kind == "status":
             self.status_var.set(msg[1])
+        elif kind == "scan":
+            show_scan(self.pbar, self.status_var, msg[1], msg[2])
         elif kind == "found":
             self.busy = False
+            self._scan_finished()
             self._on_found(msg[1])
         elif kind == "elf_ask":
             self.busy = False
@@ -1562,6 +1570,7 @@ class App(tk.Tk):
         elif kind == "connected":
             self.api = msg[1]
             self.busy = False
+            self._scan_finished()
             self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
             self._fill_devices(msg[2].get("devices") or [])
             self._load_library()
@@ -1632,7 +1641,13 @@ class App(tk.Tk):
                 self.lib_known = True
                 if data.get("scanning"):
                     self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
-                    self.after(2000, self._relibrary)
+                    self._library_progress(data.get("progress"))
+                    self.after(1000 if data.get("progress") else 2000, self._relibrary)
+                elif self.lib_bar:
+                    self.lib_bar = False
+                    if not self.busy and self.mode_var.get() == "ps5":
+                        self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
+                        self._scan_finished()
             if self.mode_var.get() == "ps5" and self.ps5_devices:
                 i = self.dev_combo.current()
                 self.dev_combo.configure(values=[self._ps5_dev_text(d) for d in self.ps5_devices])
@@ -1641,6 +1656,7 @@ class App(tk.Tk):
             self._show_games()
         elif kind == "pcdevices":
             self.busy = False
+            self._scan_finished()
             if self.mode_var.get() == "pc":
                 self._fill_pc_devices(msg[1])
         elif kind == "pcdone":
@@ -1666,6 +1682,26 @@ class App(tk.Tk):
         elif kind == "bgerror":   # Hintergrund (Spieleliste, Wächter): laufende Aufträge nicht berühren
             self.status_var.set(msg[1])
 
+    def _scan_finished(self):
+        """Suche/Einlesen fertig: Balken kurz voll, dann leer - solange kein Auftrag läuft"""
+        self.pbar.stop()
+        self.pbar.configure(mode="determinate")
+        self.pbar["value"] = 100
+        self.after(800, lambda: self.busy or self.formatting or self.pbar.configure(value=0))
+
+    def _library_progress(self, prog):
+        """Spielesuche der PS5 (ab 2.5.6: durchsuchte Laufwerke von allen) im Balken - nur, wenn sonst nichts läuft"""
+        if not isinstance(prog, dict) or self.busy or self.formatting or self.mode_var.get() != "ps5":
+            return
+        total, done = int(prog.get("total") or 0), int(prog.get("done") or 0)
+        if total <= 0:
+            return
+        root = str(prog.get("root") or "")
+        text = _("Spiele auf der PS5 werden gesucht: {where} …", where=root) if root else \
+            _("Spiele auf der PS5 werden gesucht …")
+        self.lib_bar = True
+        show_scan(self.pbar, self.status_var, min(99, 100 * done // total), text)
+
     def _on_close(self):
         if self.elf_sending and not messagebox.askyesno(
                 self.title(), _("Die ELF wird gerade an die PS5 gesendet. Wird das Fenster jetzt geschlossen, läuft dort "
@@ -1678,7 +1714,7 @@ class App(tk.Tk):
                 _("Fenster trotzdem schließen?"),
                 icon="warning", parent=self):
             return
-        if not self.std_panel.may_close():   # Auftrag in "Am PC Standard" (fragt selbst nach)
+        if not self.std_panel.may_close():   # Auftrag in "Am PC – frei" (fragt selbst nach)
             return
         if self.pc_job and getattr(self.pc_job, "cancellable", False):
             self.pc_job.cancel()   # Prüfung/Tempo am PC nicht ohne Fenster weiterlaufen lassen
