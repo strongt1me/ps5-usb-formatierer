@@ -53,3 +53,4 @@ try {
 }
 if ($script:fails) { Write-Host "$($script:fails) fehlgeschlagen"; exit 1 }
 Write-Host "Windows-Helfer: alle Prüfungen bestanden"
+exit 0   # ausdrücklich: sonst gälte der Exit-Code des letzten Helfers (absichtlich abgelehnt = 1)
