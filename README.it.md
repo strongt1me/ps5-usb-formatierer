@@ -14,7 +14,7 @@ Con test di autenticità e velocità, backup immagine, gestione dei giochi, tutt
 
 [Funzioni](#-funzioni) · [Download](#-download) · [Avvio rapido](#-avvio-rapido) · [Schermate](#-schermate) · [Compilazione](#-compilazione) · [Licenze](#-licenze)
 
-[Deutsch](README.md) · [English](README.en.md) · **Italiano** · [Español](README.es.md) · [Français](README.fr.md)
+[Deutsch](README.de.md) · [English](README.md) · **Italiano** · [Español](README.es.md) · [Français](README.fr.md)
 
 <img src="docs/images/it/web.webp" width="900" alt="Interfaccia web del Formattatore USB">
 

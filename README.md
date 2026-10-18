@@ -1,113 +1,113 @@
 <div align="center">
 
-<img src="docs/images/logo.png" width="140" alt="USB-Formatierer">
+<img src="docs/images/logo.png" width="140" alt="USB Formatter">
 
-# USB-Formatierer
+# USB Formatter
 
-**USB-Sticks und -Festplatten formatieren – direkt an der PS5 oder am PC.**<br>
-Mit Echtheits- und Tempotest, Image-Sicherung, Spieleverwaltung, allen gängigen Dateisystemen und eigenen Partitionen.
+**Format USB sticks and drives – directly on the PS5 or on your PC.**<br>
+With authenticity and speed tests, image backup, game management, all common file systems and custom partitions.
 
 [![Version](https://img.shields.io/badge/Version-2.5.5-185fa5?style=for-the-badge)](../../releases/latest)
-[![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
-[![Plattform](https://img.shields.io/badge/Plattform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
-[![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funktionen)
+[![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
+[![Languages](https://img.shields.io/badge/Languages-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-features)
 
-[Funktionen](#-funktionen) · [Download](#-download) · [Schnellstart](#-schnellstart) · [Ansichten](#-ansichten) · [Selbst bauen](#-selbst-bauen) · [Lizenzen](#-lizenzen)
+[Features](#-features) · [Download](#-download) · [Quick start](#-quick-start) · [Screenshots](#-screenshots) · [Building](#-building) · [Licences](#-licences)
 
-**Deutsch** · [English](README.en.md) · [Italiano](README.it.md) · [Español](README.es.md) · [Français](README.fr.md)
+[Deutsch](README.de.md) · **English** · [Italiano](README.it.md) · [Español](README.es.md) · [Français](README.fr.md)
 
-<img src="docs/images/de/web.webp" width="900" alt="Weboberfläche des USB-Formatierers">
+<img src="docs/images/en/web.webp" width="900" alt="Web interface of the USB Formatter">
 
 </div>
 
-## ✨ Funktionen
+## ✨ Features
 
 <table>
 <tr>
 <td width="33%" valign="top">
 
-### 🎮 Für die PS5 gemacht
-exFAT mit 64 KB – ideal für ShadowMountPlus. Ordner `homebrew`, `etaHEN/games` und `pkg` gleich mit anlegen. Start über eine eigene App-Kachel.
+### 🎮 Made for the PS5
+exFAT with 64 KB – ideal for ShadowMountPlus. Creates the folders `homebrew`, `etaHEN/games` and `pkg` right away. Starts from its own app tile.
 
 </td>
 <td width="33%" valign="top">
 
-### 🔌 Ohne Abziehen
-Eingebundene Laufwerke meldet der Formatierer per Software ab und übernimmt sie, bevor die PS5 sie wieder einbindet.
+### 🔌 No unplugging
+The formatter detaches mounted drives by software and takes them over before the PS5 mounts them again.
 
 </td>
 <td width="33%" valign="top">
 
-### 🕹️ Spiele im Blick
-Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien und Belegung. Doppelte Spiele erkennen, Spiele über „Spiele löschen …“ samt Kachel entfernen.
+### 🕹️ Games at a glance
+Games (folders and images with title ID), PKG files and usage. Detects duplicate games, removes games including their tile via “Delete games …”.
 
 </td>
 </tr>
 <tr>
 <td valign="top">
 
-### 🛡️ Echtheitstest
-Erkennt Sticks mit gefälschter Größe und formatiert auf Wunsch nur den echten Bereich. Lese- und Schreibtempo messen.
+### 🛡️ Authenticity test
+Detects sticks with a fake capacity and, if you like, formats only the real area. Measures read and write speed.
 
 </td>
 <td valign="top">
 
-### 🧩 Alle Dateisysteme
-exFAT, FAT32 (auch über 32 GB), NTFS, FAT16, ext4/ext3/ext2 und HFS+ – Zuordnungseinheit frei wählbar.
+### 🧩 All file systems
+exFAT, FAT32 (even above 32 GB), NTFS, FAT16, ext4/ext3/ext2 and HFS+ – with any allocation unit.
 
 </td>
 <td valign="top">
 
-### 🗂️ Expertenmodus
-Mehrere Partitionen mit MBR (bis 4) oder GPT (bis 16): Dateisystem, Größe, Typ, Bezeichnung, startfähig.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-### 🩺 Prüfen & reparieren
-exFAT prüfen und reparieren, Laufwerke umbenennen ohne Datenverlust, vollständig formatieren mit Prüfung jeder Stelle.
-
-</td>
-<td valign="top">
-
-### 🌍 Fünf Sprachen
-Deutsch, English, Italiano, Español und Français – mit ausführlicher Anleitung hinter dem Knopf „Hilfe“.
-
-</td>
-<td valign="top">
-
-### 📱 Überall bedienbar
-PS5-Browser, Handy oder PC (QR-Code) und zwei PC-Programme für Windows und Linux. Hell oder dunkel, Größe einstellbar.
+### 🗂️ Expert mode
+Several partitions with MBR (up to 4) or GPT (up to 16): file system, size, type, label, bootable.
 
 </td>
 </tr>
 <tr>
 <td valign="top">
 
-### 📤 ELF senden
-Das PC-Programm schickt den eingebauten Formatierer auf Knopfdruck an die PS5 (Port 9021) – und ersetzt eine dort laufende ältere Fassung.
+### 🩺 Check & repair
+Check and repair exFAT, rename drives without losing data, full format that writes and verifies every sector.
 
 </td>
 <td valign="top">
 
-### 📡 Findet die PS5
-Die PC-Programme finden die PS5 im Heimnetz von selbst – auch aus WSL oder einer virtuellen Maschine heraus.
+### 🌍 Five languages
+Deutsch, English, Italiano, Español and Français – with a detailed guide behind the “Help” button.
 
 </td>
 <td valign="top">
 
-### 🔒 Schutz vor Verwechslung
-Seriennummer-Abgleich: Steckt inzwischen ein baugleicher anderer Stick, wird nichts formatiert. Nach dem Befund „gefälscht“ oder „defekt“ wird das halb überschriebene alte Dateisystem entfernt.
+### 📱 Use it anywhere
+PS5 browser, phone or PC (QR code) and two PC programs for Windows and Linux. Light or dark theme, adjustable size.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 📤 Send ELF
+The PC program sends the built-in formatter to the PS5 at the push of a button (port 9021) – and replaces an older version running there.
+
+</td>
+<td valign="top">
+
+### 📡 Finds the PS5
+The PC programs find the PS5 on your home network by themselves – even from WSL or a virtual machine.
+
+</td>
+<td valign="top">
+
+### 🔒 No mix-ups
+Serial number check: if a different stick of the same model is plugged in meanwhile, nothing is formatted. After a “fake” or “defective” result, the half-overwritten old file system is removed.
 
 </td>
 </tr>
 <tr>
 <td colspan="3" valign="top">
 
-### 💾 Image sichern & wiederherstellen
-Ganzes Laufwerk als <code>.img.zst</code> sichern – nur belegte Bereiche, gepackt mit zstd, mit <code>.sha256</code>. An der PS5 nach intern, auf ein anderes USB-Laufwerk oder als Download; am PC in jeden Ordner. Zurückschreiben mit Prüfung danach – auch per Hochladen vom Handy oder PC. Die Datei lässt sich mit <code>zstd -d</code> zu einem gewöhnlichen Image entpacken.
+### 💾 Back up & restore images
+Back up a whole drive as <code>.img.zst</code> – only used areas, compressed with zstd, with a <code>.sha256</code>. On the PS5 to internal storage, another USB drive or as a download; on the PC to any folder. Write it back with a check afterwards – also by uploading from a phone or PC. <code>zstd -d</code> turns the file into an ordinary image.
 
 </td>
 </tr>
@@ -115,73 +115,73 @@ Ganzes Laufwerk als <code>.img.zst</code> sichern – nur belegte Bereiche, gepa
 
 ## 📦 Download
 
-Alle Dateien gibt es beim [neuesten Release](../../releases/latest).
+All files are in the [latest release](../../releases/latest).
 
-| Datei | Wofür |
+| File | Purpose |
 |---|---|
-| `PPSA86920.zip` | **App-Kachel für die PS5:** entpacken und den Ordner `PPSA86920` nach `/data/homebrew/` kopieren (z. B. per FTP). ShadowMountPlus meldet die App an. |
-| `usb_format.elf` | **Der Formatierer (Payload).** Die App startet ihn selbst, das PC-Programm schickt ihn per „ELF senden“; sonst von Hand an den ELF-Loader (Port 9021). |
-| `PS5-USB-Formatierer.exe` | **Windows-Programm mit PS5-Funktionen:** USB an der PS5 (übers Netz), USB am PC für die PS5, Am PC Standard – mit eingebauter ELF. |
-| `USB-Formatierer.exe` | **Windows-Programm ohne PS5-Funktionen:** alle Dateisysteme, Partitionen und Expertenmodus. |
-| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Dieselben beiden Programme für Linux** (x86_64): entpacken und starten. |
+| `PPSA86920.zip` | **App tile for the PS5:** unzip and copy the folder `PPSA86920` to `/data/homebrew/` (e.g. via FTP). ShadowMountPlus registers the app. |
+| `usb_format.elf` | **The formatter (payload).** The app starts it by itself, the PC program sends it via “Send ELF”; otherwise send it to the ELF loader manually (port 9021). |
+| `PS5-USB-Formatierer.exe` | **Windows program with PS5 features:** USB on the PS5 (over the network), USB on PC for the PS5, PC standard – with the ELF built in. |
+| `USB-Formatierer.exe` | **Windows program without PS5 features:** all file systems, partitions and expert mode. |
+| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **The same two programs for Linux** (x86_64): unpack and start. |
 
-**Voraussetzungen:** PS5 mit laufendem Jailbreak und ELF-Loader (getestet mit Firmware 12.00), für die App-Kachel und das Löschen von Spielen ShadowMountPlus. Windows 10 oder 11 (64 Bit); zum Formatieren am PC fragt Windows einmal nach Administratorrechten. Linux (x86_64): zum Formatieren fragt das System nach dem Administrator-Passwort (pkexec/polkit); NTFS, FAT16 und ext schreiben die Systemwerkzeuge aus `ntfs-3g`, `dosfstools` und `e2fsprogs`.
+**Requirements:** a PS5 with a running jailbreak and ELF loader (tested with firmware 12.00); ShadowMountPlus for the app tile and for deleting games. Windows 10 or 11 (64-bit); for formatting on the PC, Windows asks once for administrator rights. Linux (x86_64): for formatting, the system asks for the administrator password (pkexec/polkit); NTFS, FAT16 and ext are written by the system tools from `ntfs-3g`, `dosfstools` and `e2fsprogs`.
 
-## 🚀 Schnellstart
+## 🚀 Quick start
 
-1. **Installieren:** Ordner `PPSA86920` aus dem ZIP nach `/data/homebrew/` auf die PS5 kopieren.
-2. **Starten:** Jailbreak laden und die Kachel **USB-Formatierer** öffnen. Die Oberfläche erscheint im PS5-Browser – per QR-Code oder unter `http://<PS5-IP>:8090` auch am Handy oder PC. Ohne Kachel: im PC-Programm „PS5-USB-Formatierer“ auf **ELF senden** klicken.
-3. **Formatieren:** Laufwerk wählen, Dateisystem und Bezeichnung festlegen, **Formatieren** – fertig.
+1. **Install:** copy the folder `PPSA86920` from the ZIP to `/data/homebrew/` on the PS5.
+2. **Start:** load the jailbreak and open the **USB-Formatierer** tile. The interface appears in the PS5 browser – via QR code or at `http://<PS5-IP>:8090` also on your phone or PC. Without the tile: click **Send ELF** in the “PS5-USB-Formatierer” PC program.
+3. **Format:** choose a drive, set the file system and label, press **Format** – done.
 
 > [!WARNING]
-> Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu anschließen. Die PS5 bindet sie in laufende Spiele und Apps ein – danach starten diese oft erst nach einem Neustart der Konsole wieder. Abziehen nur, wenn der Formatierer ausdrücklich dazu auffordert.
+> Do not unplug or reconnect USB drives on the PS5 while it is in use. The PS5 attaches them to running games and apps – afterwards these often only start again after restarting the console. Only unplug when the formatter explicitly asks you to.
 
-Die ausführliche Anleitung in fünf Sprachen öffnet der Knopf **Hilfe** – in der Weboberfläche und in den PC-Programmen.
+The **Help** button opens the detailed guide in five languages – in the web interface and in the PC programs.
 
-## 🖼️ Ansichten
+## 🖼️ Screenshots
 
 <table>
 <tr>
-<td width="50%" align="center"><img src="docs/images/de/ps5.webp" alt="PS5-Browser"><br><sub><b>Im PS5-Browser am Fernseher</b></sub></td>
-<td width="50%" align="center"><img src="docs/images/de/dialog.webp" alt="Sicherheitsabfrage"><br><sub><b>Sicherheitsabfrage – liegen Spiele darauf, muss man es ausdrücklich bestätigen</b></sub></td>
+<td width="50%" align="center"><img src="docs/images/en/ps5.webp" alt="PS5 browser"><br><sub><b>In the PS5 browser on the TV</b></sub></td>
+<td width="50%" align="center"><img src="docs/images/en/dialog.webp" alt="Confirmation"><br><sub><b>Confirmation – games on the drive must be confirmed explicitly</b></sub></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/de/light.webp" alt="Helles Design"><br><sub><b>Helles Design – gefälschter Stick erkannt, nur der echte Bereich wird genutzt</b></sub></td>
-<td align="center"><img src="docs/images/de/help.webp" alt="Anleitung"><br><sub><b>Anleitung in fünf Sprachen hinter dem Knopf „Hilfe“</b></sub></td>
+<td align="center"><img src="docs/images/en/light.webp" alt="Light theme"><br><sub><b>Light theme – fake stick detected, only the real area is used</b></sub></td>
+<td align="center"><img src="docs/images/en/help.webp" alt="Guide"><br><sub><b>Guide in five languages behind the “Help” button</b></sub></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img src="docs/images/de/backup.webp" alt="Image sichern &amp; wiederherstellen" width="640"><br><sub><b>Image sichern und wiederherstellen – nach intern, auf ein anderes USB-Laufwerk oder als Download</b></sub></td>
+<td colspan="2" align="center"><img src="docs/images/en/backup.webp" alt="Back up &amp; restore images" width="640"><br><sub><b>Back up and restore images – to internal storage, another USB drive or as a download</b></sub></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/de/win_ps5.webp" alt="Windows: USB an der PS5" width="420"><br><sub><b>Windows: USB an der PS5 – findet die PS5 selbst, „ELF senden“ schickt den Formatierer hin</b></sub></td>
-<td align="center"><img src="docs/images/de/win_std.webp" alt="Windows: USB-Formatierer" width="420"><br><sub><b>Windows: USB-Formatierer – alle Dateisysteme</b></sub></td>
+<td align="center"><img src="docs/images/en/win_ps5.webp" alt="Windows: USB on the PS5" width="420"><br><sub><b>Windows: USB on the PS5 – finds the PS5 by itself, “Send ELF” sends the formatter over</b></sub></td>
+<td align="center"><img src="docs/images/en/win_std.webp" alt="Windows: USB Formatter" width="420"><br><sub><b>Windows: USB Formatter – all file systems</b></sub></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img src="docs/images/de/win_expert.webp" alt="Expertenmodus" width="520"><br><sub><b>Expertenmodus – eigene Partitionen mit exFAT, NTFS, HFS+ und ext4</b></sub></td>
+<td colspan="2" align="center"><img src="docs/images/en/win_expert.webp" alt="Expert mode" width="520"><br><sub><b>Expert mode – custom partitions with exFAT, NTFS, HFS+ and ext4</b></sub></td>
 </tr>
 </table>
 
-## 🛠️ Selbst bauen
+## 🛠️ Building
 
-| Teil | So geht's |
+| Part | How to |
 |---|---|
-| Payload und App-Starter | WSL/Linux mit [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk): `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` braucht `ps5-native-tool`, siehe `usb_format/app/build_title.sh`) |
-| App-Ordner | `usb_format/dump/build.ps1` (.NET 10) |
-| Windows-Programme | `windows/build_exe.bat` (Python mit PyInstaller, Pillow und ziglang) – baut auch den Helfer `usbfmt_win.exe` und `mke2fs.exe` |
-| Linux-Programme | `windows/build_linux.sh [usb_format.elf]` (Python 3 mit tkinter, PyInstaller und Pillow, gcc) – baut auch den Helfer `usbfmt_linux`. Die CI (`.github/workflows/linux.yml`) baut und testet alles unter Ubuntu, auch an Loop-Geräten. |
+| Payload and app starter | WSL/Linux with [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk): `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` needs `ps5-native-tool`, see `usb_format/app/build_title.sh`) |
+| App folder | `usb_format/dump/build.ps1` (.NET 10) |
+| Windows programs | `windows/build_exe.bat` (Python with PyInstaller, Pillow and ziglang) – also builds the helper `usbfmt_win.exe` and `mke2fs.exe` |
+| Linux programs | `windows/build_linux.sh [usb_format.elf]` (Python 3 with tkinter, PyInstaller and Pillow, gcc) – also builds the helper `usbfmt_linux`. The CI (`.github/workflows/linux.yml`) builds and tests everything on Ubuntu, including on loop devices. |
 | Tests | Linux/WSL: `usb_format/test/*.sh` |
-| Übersetzungen | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) und `windows/i18n_app.json` (`windows/i18n_check.py`) |
+| Translations | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) and `windows/i18n_app.json` (`windows/i18n_check.py`) |
 
-## 📄 Lizenzen
+## 📄 Licences
 
-Der USB-Formatierer steht unter der [GNU General Public License 3.0](LICENSE). Enthaltener Fremdcode behält seine eigene Lizenz:
+The USB Formatter is licensed under the [GNU General Public License 3.0](LICENSE). Included third-party code keeps its own licence:
 
-- `usb_format/third_party/exfatprogs` – exfatprogs 1.4.3, **GPL-2.0-or-later** (fsck.exfat ist in den Formatierer eingebunden, damit unterliegt auch `usb_format.elf` der GPL)
-- `usb_format/tools/bin` – mkntfs (ntfs-3g) und mke2fs (e2fsprogs), GPL, siehe `THIRD_PARTY_NOTICES.txt`
-- `windows/mke2fs` – mke2fs aus e2fsprogs 1.47.4 für ext2/3/4 am PC, GPL, siehe `NOTICE.txt`
-- `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, siehe `NOTICE.txt`
-- `usb_format/third_party/zstd` – zstd 1.5.7 (Meta Platforms) für die Image-Sicherung, **BSD-Lizenz** (wahlweise GPL-2.0), siehe `LICENSE` dort
+- `usb_format/third_party/exfatprogs` – exfatprogs 1.4.3, **GPL-2.0-or-later** (fsck.exfat is built into the formatter, so `usb_format.elf` is covered by the GPL as well)
+- `usb_format/tools/bin` – mkntfs (ntfs-3g) and mke2fs (e2fsprogs), GPL, see `THIRD_PARTY_NOTICES.txt`
+- `windows/mke2fs` – mke2fs from e2fsprogs 1.47.4 for ext2/3/4 on the PC, GPL, see `NOTICE.txt`
+- `usb_format/app/sce_module/libc.prx` – GPL-3.0-or-later, see `NOTICE.txt`
+- `usb_format/third_party/zstd` – zstd 1.5.7 (Meta Platforms) for the image backup, **BSD licence** (or GPL-2.0), see `LICENSE` there
 
-Benutzung auf eigene Gefahr – wichtige Daten vorher sichern.
+Use at your own risk – back up important data first.
 
-<div align="center"><sub>Entwickelt von <a href="https://github.com/strongt1me">strongt1me</a> · für die PS5-Community</sub></div>
+<div align="center"><sub>Developed by <a href="https://github.com/strongt1me">strongt1me</a> · for the PS5 community</sub></div>

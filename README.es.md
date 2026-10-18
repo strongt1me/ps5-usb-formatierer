@@ -14,7 +14,7 @@ Con prueba de autenticidad y velocidad, copia de imagen, gestión de juegos, tod
 
 [Funciones](#-funciones) · [Descarga](#-descarga) · [Primeros pasos](#-primeros-pasos) · [Capturas](#-capturas) · [Compilar](#-compilar) · [Licencias](#-licencias)
 
-[Deutsch](README.md) · [English](README.en.md) · [Italiano](README.it.md) · **Español** · [Français](README.fr.md)
+[Deutsch](README.de.md) · [English](README.md) · [Italiano](README.it.md) · **Español** · [Français](README.fr.md)
 
 <img src="docs/images/es/web.webp" width="900" alt="Interfaz web del Formateador USB">
 
