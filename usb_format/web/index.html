@@ -91,7 +91,9 @@ main.wide .col + .col { margin: 0 0 0 12px; }
 .pane[hidden], [hidden] { display: none !important; }
 h1 { font-size: 19px; font-weight: 600; margin: 0; }
 .sub { color: var(--muted); font-size: 13px; }
-.head { display: flex; justify-content: space-between; align-items: center; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; row-gap: 8px; }
+/* Überschrift nie umbrechen: wird es eng (schmales Fenster, große Ansicht), rutschen die Knöpfe in die nächste Zeile */
+.head h1 { white-space: nowrap; margin-right: 12px; }
 /* Abschnittsüberschrift: klein, gesperrt, ruhig */
 .sec { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; letter-spacing: .09em;
        text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
@@ -272,7 +274,7 @@ a.credit[href]:hover span, a.credit[href]:focus span { text-decoration: underlin
 .langbar svg { width: 17px; height: 17px; margin-right: 7px; fill: none; stroke: var(--accent); stroke-width: 1.8; }
 .langbar select { width: auto; padding: 3px 28px 3px 8px; font-size: 13px; background-position: right 9px center, 0 0; }
 html.tv .langbar select { font-size: 18px; }
-.hbtns { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+.hbtns { display: flex; flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; margin-left: auto; }
 .hbtns .tool { margin: 0 0 0 8px; }
 .hbtns .langbar { display: flex; align-items: center; margin: 0 4px 0 8px; }
 .zoombar { display: flex; align-items: center;
