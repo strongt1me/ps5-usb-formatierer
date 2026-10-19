@@ -26,7 +26,8 @@ import i18n
 import pc_common
 import ps5_discovery
 from i18n import _, quote
-from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, confirm, disk_name,
+from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, check_images, confirm,
+                       disk_name,
                        enable_dpi_awareness, fmt_size, footer, hwnd_of, image_file_name, image_info,
                        irreversible_admin_text, keep_on_screen, open_help, pc_dev_text, pc_list, pc_used, show_scan,
                        pc_volumes_text, resource_path, serial_args, setup_window, show_centered, top_bar,
@@ -301,7 +302,8 @@ class App(tk.Tk):
     def _build_ui(self):
         outer = self.outer = ttk.Frame(self, padding=(14, 8, 14, 12))
         outer.grid(sticky="nsew")
-        outer.columnconfigure(0, weight=1)
+        # in allen drei Modi gleich breit (so groß wie die anderen Programme) - das Fenster springt beim Umschalten nicht
+        outer.columnconfigure(0, weight=1, minsize=round(760 * self.winfo_fpixels("1i") / 96))
 
         top, self.lang_box = top_bar(outer, i18n.lang(), self._set_lang, lambda: open_help(i18n.lang(), self))
         top.grid(row=0, column=0, sticky="ew", pady=(0, 6))
@@ -339,7 +341,7 @@ class App(tk.Tk):
 
         # wie in der Weboberfläche ganz oben und nur eine Zeile (die Erklärung steht in der Anleitung)
         self.ps5_warn = ttk.Label(
-            frm, foreground="#9a5b00", wraplength=600, justify="left",
+            frm, foreground="#9a5b00", wraplength=round(740 * self.winfo_fpixels("1i") / 96), justify="left",
             text="⚠ " + _("Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu anschließen"))
         self.ps5_warn.grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 0))
         row += 1
@@ -372,21 +374,28 @@ class App(tk.Tk):
         self.games_box.columnconfigure(0, weight=1)
         self.games_caption = ttk.Label(self.games_box, text=_("Spiele auf diesem Datenträger:"))
         self.games_caption.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 2))
-        cols = ("name", "id", "kind", "size")
-        self.games_tree = ttk.Treeview(self.games_box, columns=cols, show="headings", height=5, selectmode="extended")
-        self.games_tree.bind("<<TreeviewSelect>>", lambda e: self._update())
-        for c, text, w, anchor in (("name", _("Titel"), 250, "w"), ("id", _("Titel-ID"), 90, "w"),
-                                   ("kind", _("Format"), 70, "w"), ("size", _("Größe"), 80, "e")):
-            self.games_tree.heading(c, text=text, anchor=anchor)
-            self.games_tree.column(c, width=w, minwidth=40, anchor=anchor, stretch=(c == "name"))
+        # wie in der Weboberfläche: Kästchen und Titel, rechts Titel-ID · Format · Größe. Ein Klick auf die Zeile
+        # (oder die Leertaste) hakt an bzw. ab - kein Markieren mit Strg/Umschalt nötig
+        scale = self.winfo_fpixels("1i") / 96
+        style = ttk.Style(self)
+        style.configure("Games.Treeview", rowheight=round(28 * scale))
+        self.check_imgs = check_images(self)
+        self.games_tree = ttk.Treeview(self.games_box, columns=("meta",), show="tree", height=8, selectmode="none",
+                                       style="Games.Treeview")
+        self.games_tree.column("#0", width=round(330 * scale), minwidth=120, stretch=True)
+        self.games_tree.column("meta", width=round(250 * scale), minwidth=120, anchor="e", stretch=False)
+        self.games_tree.tag_configure("odd", background="#f4f6f9")
+        self.games_tree.bind("<Button-1>", self._game_click)
+        self.games_tree.bind("<space>", lambda e: self._game_toggle(self.games_tree.focus()))
+        self.games_checked = set()
         self.games_tree.grid(row=1, column=0, sticky="ew")
         sb = ttk.Scrollbar(self.games_box, orient="vertical", command=self.games_tree.yview)
         sb.grid(row=1, column=1, sticky="ns")
         self.games_tree.configure(yscrollcommand=sb.set)
-        # Löschen: Spiele oben markieren (Strg/Umschalt für mehrere)
+        # Löschen: Spiele oben anhaken
         gbar = ttk.Frame(self.games_box)
         gbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-        self.del_btn = ttk.Button(gbar, text=_("Markierte Spiele löschen …"), command=self._delete_games)
+        self.del_btn = ttk.Button(gbar, text=_("Angehakte Spiele löschen …"), command=self._delete_games)
         self.del_btn.pack(side="right")
         self.uninstall_chk = ttk.Checkbutton(gbar, variable=self.uninstall_var,
                                              text=_("Kachel auch von der Startseite entfernen"))
@@ -427,7 +436,8 @@ class App(tk.Tk):
         self.pbar = ttk.Progressbar(frm, maximum=100)
         self.pbar.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(14, 4))
         row += 1
-        ttk.Label(frm, textvariable=self.status_var, wraplength=560, justify="left").grid(
+        ttk.Label(frm, textvariable=self.status_var, wraplength=round(740 * self.winfo_fpixels("1i") / 96),
+                  justify="left").grid(
             row=row, column=0, columnspan=2, sticky="w")
         row += 1
 
@@ -527,7 +537,7 @@ class App(tk.Tk):
         enable(self.fs_combo, idle, "readonly")
         enable(self.start_btn, idle and dev and (pc or formattable(dev)))
         enable(self.speed_btn, idle and dev)
-        enable(self.del_btn, idle and not pc and self.api and self.games_tree.selection())
+        enable(self.del_btn, idle and not pc and self.api and self.games_checked)
         for w in (self.backup_btn, self.restore_btn):
             enable(w, idle and not pc and self.api and dev and not dev.get("locked"))
         enable(self.uninstall_chk, idle)
@@ -610,23 +620,24 @@ class App(tk.Tk):
         dev = self._selected_device()
         if self.mode_var.get() != "ps5" or not dev:
             self.games_tree.delete(*self.games_tree.get_children())
+            self.games_checked.clear()
             self._games_shown = None
             self.games_caption.configure(text=_("Spiele auf diesem Datenträger:"))
             return
         games = self.games.get(dev["name"], [])
         rows = []
         for g in sorted(games, key=lambda g: g["name"].lower()):
-            kind = _("Ordner") if g["kind"] == "Ordner" else g["kind"]   # Art kommt deutsch vom Formatierer
-            rows.append((g.get("key") or None, (g["name"] or g["id"], g["id"], kind,
-                                                fmt_size(g["size"]) if g["size"] else "–")))
+            kind = _("Ordner") if g["kind"] == "Ordner" else _("Abbild {kind}", kind=g["kind"])   # Art kommt deutsch
+            meta = " · ".join(x for x in (g["id"], kind, fmt_size(g["size"]) if g["size"] else "") if x)
+            rows.append((g.get("key") or None, g["name"] or g["id"], meta))
         if rows != getattr(self, "_games_shown", None):
-            picked, top = set(self.games_tree.selection()), self.games_tree.yview()[0]
+            top = self.games_tree.yview()[0]
             self.games_tree.delete(*self.games_tree.get_children())
-            for iid, values in rows:
-                self.games_tree.insert("", "end", iid=iid, values=values)
-            keep = [i for i in picked if self.games_tree.exists(i)]
-            if keep:
-                self.games_tree.selection_set(keep)
+            keys = {iid for iid, _n, _m in rows if iid}
+            self.games_checked &= keys   # nicht mehr vorhandene Spiele sind nicht mehr angehakt
+            for i, (iid, name, meta) in enumerate(rows):
+                self.games_tree.insert("", "end", iid=iid, text="  " + name, values=(meta,),
+                                       image=self.check_imgs[iid in self.games_checked], tags=("odd",) if i % 2 else ())
             self.games_tree.yview_moveto(top)
             self._games_shown = rows
         if games:
@@ -636,6 +647,23 @@ class App(tk.Tk):
         else:
             text = _("Spiele auf diesem Datenträger: keine gefunden")
         self.games_caption.configure(text=text)
+
+    def _game_click(self, e):
+        if self.games_tree.identify_region(e.x, e.y) in ("tree", "cell"):
+            self._game_toggle(self.games_tree.identify_row(e.y))
+        return "break"
+
+    def _game_toggle(self, iid):
+        """Spiel an- bzw. abhaken (nur Spiele mit Schlüssel lassen sich löschen)"""
+        if not iid or not self.games_tree.exists(iid) or self.busy:
+            return
+        self.games_tree.focus(iid)
+        if iid in self.games_checked:
+            self.games_checked.discard(iid)
+        else:
+            self.games_checked.add(iid)
+        self.games_tree.item(iid, image=self.check_imgs[iid in self.games_checked])
+        self._update()
 
     def _relibrary(self, api=None):
         if api is not None and api is not self.api:
@@ -1061,7 +1089,7 @@ class App(tk.Tk):
 
     def _delete_games(self):
         dev = self._selected_device()
-        keys = list(self.games_tree.selection())
+        keys = [k for k in self.games_tree.get_children() if k in self.games_checked]
         if self.busy or not dev or not keys or not self.api:
             return
         games = {g.get("key"): g for g in self.games.get(dev["name"], [])}

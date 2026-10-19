@@ -161,35 +161,11 @@
   "es": "Juegos en esta unidad:",
   "fr": "Jeux sur ce support :"
  },
- "Titel": {
-  "en": "Title",
-  "it": "Titolo",
-  "es": "Título",
-  "fr": "Titre"
- },
- "Titel-ID": {
-  "en": "Title ID",
-  "it": "ID titolo",
-  "es": "ID del título",
-  "fr": "ID du titre"
- },
- "Format": {
-  "en": "Format",
-  "it": "Formato",
-  "es": "Formato",
-  "fr": "Format"
- },
  "Größe": {
   "en": "Size",
   "it": "Dimensione",
   "es": "Tamaño",
   "fr": "Taille"
- },
- "Markierte Spiele löschen …": {
-  "en": "Delete selected games …",
-  "it": "Elimina i giochi selezionati …",
-  "es": "Borrar los juegos seleccionados …",
-  "fr": "Supprimer les jeux sélectionnés …"
  },
  "Kachel auch von der Startseite entfernen": {
   "en": "Also remove the tile from the home screen",
@@ -2038,5 +2014,17 @@
   "it": "Il trasferimento tra questo PC e la PS5 è ancora in corso e si interrompe se chiudi la finestra. Durante il ripristino l'unità resterebbe scritta solo in parte. Chiudere comunque la finestra?",
   "es": "La transferencia entre este PC y la PS5 sigue en curso y se interrumpe si se cierra la ventana. Al restaurar, la unidad quedaría escrita solo en parte. ¿Cerrar la ventana de todos modos?",
   "fr": "Le transfert entre ce PC et la PS5 est toujours en cours et s'interrompt si la fenêtre est fermée. Lors d'une restauration, le support reste alors partiellement écrit. Fermer la fenêtre quand même ?"
+ },
+ "Angehakte Spiele löschen …": {
+  "en": "Delete checked games …",
+  "it": "Elimina i giochi selezionati …",
+  "es": "Eliminar los juegos marcados …",
+  "fr": "Supprimer les jeux cochés …"
+ },
+ "Abbild {kind}": {
+  "en": "image {kind}",
+  "it": "immagine {kind}",
+  "es": "imagen {kind}",
+  "fr": "image {kind}"
  }
 }

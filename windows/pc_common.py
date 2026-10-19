@@ -472,6 +472,33 @@ else:
     PcJob = pc_linux.LinuxJob
 
 
+def check_images(widget):
+    """Kästchen (leer, angehakt) für Listen - als Bild, damit es auf jedem System gleich aussieht; mit der
+    Bildschirmskalierung mitwachsend. Die Bilder müssen am Leben gehalten werden (Rückgabe aufbewahren)."""
+    s = max(14, round(16 * widget.winfo_fpixels("1i") / 96))
+    off, on = tk.PhotoImage(width=s, height=s), tk.PhotoImage(width=s, height=s)
+    border, fill, accent = "#8a8f98", "#ffffff", "#0b6bcb"
+    rows_off, rows_on = [], []
+    for y in range(s):
+        edge = y in (0, s - 1)
+        rows_off.append("{" + " ".join(border if edge or x in (0, s - 1) else fill for x in range(s)) + "}")
+        rows_on.append("{" + " ".join(accent for x in range(s)) + "}")
+    off.put(" ".join(rows_off))
+    on.put(" ".join(rows_on))
+    # Haken: zwei Striche, je zwei Pixel dick
+    w = max(2, s // 8)
+    a = (round(s * 0.22), round(s * 0.52))
+    b = (round(s * 0.42), round(s * 0.72))
+    c = (round(s * 0.80), round(s * 0.28))
+    for (x0, y0), (x1, y1) in ((a, b), (b, c)):
+        steps = max(abs(x1 - x0), abs(y1 - y0))
+        for i in range(steps + 1):
+            x = x0 + (x1 - x0) * i // steps
+            y = y0 + (y1 - y0) * i // steps
+            on.put("#ffffff", to=(x, y, min(s, x + w), min(s, y + w)))
+    return off, on
+
+
 def grab(win):
     """Dialog modal machen. Erst sichtbar werden lassen: unter Linux scheitert grab_set sonst ("window not viewable"),
     wenn der Dialog per Doppelklick aufgeht, solange die Maustaste noch gedrückt ist"""
