@@ -1375,7 +1375,17 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     h.lang = c;
     document.title = cur.getAttribute("data-title");
     back.lastChild.textContent = cur.getAttribute("data-back");
-    if (keep) { try { localStorage.setItem("usbfmt-lang", c); } catch (e) {} }
+    if (keep) {
+      try { localStorage.setItem("usbfmt-lang", c); } catch (e) {}
+      if (/^https?:$/.test(location.protocol)) {   /* vom Formatierer: dort speichern, wie in der Oberfläche */
+        try {
+          var x = new XMLHttpRequest();
+          x.open("POST", "/api/settings");
+          x.setRequestHeader("Content-Type", "application/json");
+          x.send(JSON.stringify({ lang: c }));
+        } catch (e) {}
+      }
+    }
   }
   for (var k = 0; k < btns.length; k++)
     btns[k].addEventListener("click", function () { show(this.getAttribute("data-l"), true); });

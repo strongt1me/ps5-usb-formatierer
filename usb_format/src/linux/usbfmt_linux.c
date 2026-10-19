@@ -240,6 +240,22 @@ static int sysdev_on_disk(const char *sys, const char *disk, int depth) {
     return hit;
 }
 
+int plat_path_on_disk(const char *path, const char *disk) {
+    struct stat st;
+    char dir[PATH_MAX], sys[64];
+    if (image_path || !valid_name(disk)) return 0;
+    if (stat(path, &st)) {   /* gibt es noch nicht (Sichern): ihr Ordner */
+        snprintf(dir, sizeof(dir), "%s", path);
+        char *slash = strrchr(dir, '/');
+        if (slash == dir) slash[1] = 0;
+        else if (slash) *slash = 0;
+        else snprintf(dir, sizeof(dir), ".");
+        if (stat(dir, &st)) return 0;
+    }
+    snprintf(sys, sizeof(sys), "/sys/dev/block/%u:%u", major(st.st_dev), minor(st.st_dev));
+    return sysdev_on_disk(sys, disk, 0);
+}
+
 /* Datenträger mit dem laufenden System: /, /boot, /usr, /var, /home oder Auslagerung - wird nie angeboten */
 static int system_disk(const char *disk) {
     static const char *const sys_mounts[] = {"/", "/boot", "/boot/efi", "/efi", "/usr", "/var", "/home", NULL};

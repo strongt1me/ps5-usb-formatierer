@@ -2020,5 +2020,23 @@
   "it": "Sulla PS5 è in esecuzione un formattatore più recente ({ps5}) di quello di questo programma ({app}). Aggiorna il programma.",
   "es": "En la PS5 se ejecuta un formateador más reciente ({ps5}) que el de este programa ({app}). Actualiza el programa.",
   "fr": "La PS5 exécute un formateur plus récent ({ps5}) que celui de ce programme ({app}). Veuillez mettre à jour ce programme."
+ },
+ "Frage die PS5 nach Sicherungen …": {
+  "en": "Asking the PS5 for backups …",
+  "it": "Richiesta dei backup alla PS5 …",
+  "es": "Consultando las copias de la PS5 …",
+  "fr": "Demande des sauvegardes à la PS5 …"
+ },
+ "Der Download ist nicht fertig geworden – bitte erneut sichern.": {
+  "en": "The download did not finish – please back up again.",
+  "it": "Il download non è stato completato – esegui di nuovo il backup.",
+  "es": "La descarga no ha terminado; vuelve a hacer la copia.",
+  "fr": "Le téléchargement ne s'est pas terminé – veuillez sauvegarder à nouveau."
+ },
+ "Die Übertragung zwischen diesem PC und der PS5 läuft noch und bricht ab, wenn das Fenster geschlossen wird. Beim Wiederherstellen bleibt der Datenträger dann unvollständig beschrieben. Fenster trotzdem schließen?": {
+  "en": "The transfer between this PC and the PS5 is still running and stops if the window is closed. When restoring, the drive is then left only partly written. Close the window anyway?",
+  "it": "Il trasferimento tra questo PC e la PS5 è ancora in corso e si interrompe se chiudi la finestra. Durante il ripristino l'unità resterebbe scritta solo in parte. Chiudere comunque la finestra?",
+  "es": "La transferencia entre este PC y la PS5 sigue en curso y se interrumpe si se cierra la ventana. Al restaurar, la unidad quedaría escrita solo en parte. ¿Cerrar la ventana de todos modos?",
+  "fr": "Le transfert entre ce PC et la PS5 est toujours en cours et s'interrompt si la fenêtre est fermée. Lors d'une restauration, le support reste alors partiellement écrit. Fermer la fenêtre quand même ?"
  }
 }

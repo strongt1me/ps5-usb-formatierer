@@ -91,7 +91,8 @@ main.wide .col + .col { margin: 0 0 0 12px; }
 .pane[hidden], [hidden] { display: none !important; }
 h1 { font-size: 19px; font-weight: 600; margin: 0; }
 .sub { color: var(--muted); font-size: 13px; }
-.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; row-gap: 8px; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-top: -8px; }
+.head > * { margin-top: 8px; }   /* bricht der Kopf um: Abstand zwischen den Zeilen (statt row-gap) */
 /* Überschrift nie umbrechen: wird es eng (schmales Fenster, große Ansicht), rutschen die Knöpfe in die nächste Zeile */
 .head h1 { white-space: nowrap; margin-right: 12px; }
 /* Abschnittsüberschrift: klein, gesperrt, ruhig */
@@ -273,9 +274,10 @@ a.credit[href]:hover span, a.credit[href]:focus span { text-decoration: underlin
 .langbar svg { width: 17px; height: 17px; margin-right: 7px; fill: none; stroke: var(--accent); stroke-width: 1.8; }
 .langbar select { width: auto; padding: 3px 28px 3px 8px; font-size: 13px; background-position: right 9px center, 0 0; }
 html.tv .langbar select { font-size: 18px; }
-.hbtns { display: flex; flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; margin-left: auto; }
-.hbtns .tool { margin: 0 0 0 8px; }
-.hbtns .langbar { display: flex; align-items: center; margin: 0 4px 0 8px; }
+.hbtns { display: flex; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.head > .hbtns { margin-top: 2px; }   /* + 6 px der Knöpfe = 8 px wie der Titel */
+.hbtns .tool { margin: 6px 0 0 8px; }
+.hbtns .langbar { display: flex; align-items: center; margin: 6px 4px 0 8px; }
 .zoombar { display: flex; align-items: center;
            padding: 6px 10px; border-radius: 10px; font-size: 13px; color: var(--muted);
            background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow); }
@@ -693,7 +695,10 @@ async function api(path, body) {
     throw new Error(tr("Keine Verbindung zum Formatierer. Läuft er noch auf der PS5? Dann „Aktualisieren“ wählen."));
   }
   let data = {};
-  try { data = await r.json(); } catch (e) {}
+  try { data = await r.json(); }
+  catch (e) {   /* der Formatierer antwortet immer mit JSON: abgeschnitten (WLAN) ist kein Erfolg */
+    if (r.ok) throw new Error(tr("Keine Verbindung zum Formatierer. Läuft er noch auf der PS5? Dann „Aktualisieren“ wählen."));
+  }
   if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
   return data;
 }
@@ -743,7 +748,11 @@ async function loadLibrary(refresh) {
   try {
     lib = await api("/api/library" + (refresh ? "?refresh=1" : ""));
     libFailed = false;
-  } catch (e) { libFailed = true; return; }
+  } catch (e) {
+    libFailed = true;
+    if (lib.scanning) libTimer = setTimeout(() => loadLibrary(false), 3000);   /* kurzer Aussetzer: weiter nachfragen */
+    return;
+  }
   renderDevices();
   renderTabs();
   if (lib.scanning) libTimer = setTimeout(() => loadLibrary(false), lib.progress ? 800 : 1500);
@@ -1067,6 +1076,8 @@ function update() {
   $("fs").disabled = $("label").disabled = $("other").disabled = busy;
   $("reload").disabled = busy;
   $("quit").disabled = busy;
+  const tileBtn = document.querySelector("#tile .tool");
+  if (tileBtn) tileBtn.disabled = busy;
   renderTabs();
 }
 
@@ -1188,7 +1199,7 @@ function startPolling(foreign) {
       }
       /* fremder Auftrag: nur das Ergebnis zeigen - Rückfragen (z. B. "nur echten Bereich formatieren") gehören
          dem Browser, der ihn gestartet hat */
-      if (foreignJob) { showMsg(st.message, st.ok); renderTabs(); }
+      if (foreignJob) { showMsg(st.message, st.ok); renderTabs(); if (st.kind === "tile") loadTile(); }
       else finished(st, d);
       loadLibrary(true);
     }
@@ -1197,7 +1208,7 @@ function startPolling(foreign) {
 
 /* Aufträge aus anderen Browsern erkennen: alle 3 Sekunden nachsehen, solange hier keiner läuft */
 setInterval(async () => {
-  if (busy || quit) return;
+  if (busy || quit || starting) return;   /* starting: eigener Auftrag (Download/Hochladen) beginnt gerade */
   try {
     const st = await api("/api/status");
     if (st.busy && !busy) { showMsg("", true); setProgress(st); startPolling(true); }
@@ -1252,8 +1263,9 @@ function jobRefused(text) {
 
 let starting = false;   /* Auftrag ist abgeschickt, Antwort steht noch aus: ein zweiter Klick startet nichts */
 
+/* true: angenommen und läuft */
 async function runJob(path, body) {
-  if (starting || busy) return;
+  if (starting || busy) return false;
   starting = true;
   showMsg("", true);
   try {
@@ -1261,8 +1273,10 @@ async function runJob(path, body) {
     setProgress({ percent: 0, step: tr("Startet") });
     startPolling();
     revealProgress();
+    return true;
   } catch (e) {
     jobRefused(e.message);
+    return false;
   } finally {
     starting = false;
   }
@@ -1300,6 +1314,7 @@ function renderTile() {
   if (stale) {
     const b = el("button", "tool", tr("Kachel neu anmelden"));
     b.type = "button";
+    b.disabled = busy;
     b.addEventListener("click", reregisterTile);
     n.appendChild(el("br", ""));
     n.appendChild(b);
@@ -1539,9 +1554,11 @@ async function deleteGames(d, games) {
     yes: tr("Löschen"), yesCls: "danger solid"
   });
   if (ok !== "yes") return;
-  pickMode = false;
-  picked.clear();
-  runJob("/api/delete", { keys: games.map(t => t.key).join(","), uninstall: cb.checked });
+  if (await runJob("/api/delete", { keys: games.map(t => t.key).join(","), uninstall: cb.checked })) {
+    pickMode = false;
+    picked.clear();
+  }
+  renderContent();
 }
 
 $("brename").addEventListener("click", () => {
@@ -1645,12 +1662,12 @@ $("imgsrc").addEventListener("change", () => { imgPicked.src = true; renderImage
 /* Download und Hochladen starten den Auftrag erst mit ihrer Verbindung: warten, bis der Formatierer ihn angenommen
    hat (laufende Nummer größer als vorher), dann wie gewohnt den Fortschritt zeigen */
 async function jobSeq() {
-  try { return (await api("/api/status")).job || 0; } catch (e) { return 0; }
+  return (await api("/api/status")).job || 0;   /* Fehler weiterreichen: mit 0 hielte waitJob einen alten Auftrag für neu */
 }
 async function waitJob(seq, failed) {
   setProgress({ percent: 0, step: tr("Startet") });
   revealProgress();
-  for (let i = 0; i < 180; i++) {   /* bis 90 s: der Browser fragt womöglich erst nach dem Speicherort */
+  for (let i = 0; i < 600; i++) {   /* bis 5 min: der Browser fragt womöglich erst nach dem Speicherort */
     if (failed()) break;
     const st = await api("/api/status").catch(() => null);
     if (st && (st.job || 0) > seq) { startPolling(); return true; }
@@ -1781,6 +1798,8 @@ async function restoreAsk(d, i, file) {
       })
       .catch(() => { failed = failed || tr("Die Verbindung ist beim Hochladen abgebrochen."); });
     if (!(await waitJob(seq, () => failed))) { await up; jobRefused(failed || tr("Das Hochladen hat nicht begonnen.")); }
+  } catch (e) {
+    jobRefused(e.message);
   } finally {
     starting = false;
   }
@@ -1925,6 +1944,7 @@ function setLang(l, save) {
   renderFs();
   update();
   renderDevices();
+  renderTile();
   if (save) {
     langChangedAt = Date.now();
     api("/api/settings", { lang: l }).catch(e => showMsg(e.message, false));
@@ -1992,7 +2012,7 @@ $("reload").addEventListener("click", async () => {   /* sichtbar reagieren, sol
   $("reload").disabled = true;
   text.textContent = tr("Suche …");
   showMsg("", true);
-  try { await Promise.all([loadDevices(), loadLibrary(true)]); }
+  try { await Promise.all([loadDevices(), loadLibrary(true), loadTile()]); }
   finally {
     delete $("reload").dataset.loading;
     $("reload").disabled = busy;

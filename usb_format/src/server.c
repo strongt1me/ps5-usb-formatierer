@@ -711,6 +711,8 @@ static void lib_refresh(void) {
         return;
     }
     lib_busy = 1;
+    lib_done = lib_total = 0;   /* bis die Suche ihre Ordner kennt: nicht der Stand der vorigen */
+    lib_cur[0] = 0;
     pthread_mutex_unlock(&lib_lock);
     pthread_t t;
     pthread_attr_t attr;
@@ -1693,7 +1695,7 @@ static void *backup_worker(void *arg) {
     }
     if (rc || r.cancelled) {
         unlink(part);
-        if (!hok) unlink(side);
+        if (h) unlink(side);   /* auch, wenn erst das Umbenennen scheiterte: keine .sha256 ohne Sicherung */
         if (rc) sb_tr(&msg, "Sichern fehlgeschlagen: %s", err);
         else sb_tr(&msg, "Abgebrochen.");
         job_done(j, 0, &msg, &res, 1);
@@ -1857,11 +1859,26 @@ static void api_backup(int c, const char *body) {
 }
 
 /* Image zurückschreiben (j->rd ist geöffnet, der Kopf geprüft) - für Datei und Hochladen */
-static void restore_run(job_t *j) {
+/* Ergebnis eines Wiederherstellens melden; out (falls gesetzt) bekommt die Meldung schon vorher - das Hochladen
+ * antwortet mit ihr, ohne den Zustand zu lesen, den inzwischen ein anderer Auftrag überschrieben haben kann */
+static int restore_done(job_t *j, int ok, sbuf_t *msg, sbuf_t *res, int refresh, char *out, size_t on) {
+    if (out && on) snprintf(out, on, "%s", msg->p ? msg->p : "");
+    job_done(j, ok, msg, res, refresh);
+    return ok;
+}
+
+static int restore_run(job_t *j, char *out, size_t on) {
     char err[256] = "", title[160], s1[24];
     sbuf_t msg = {0}, res = {0};
     int fd = job_acquire(j, err, sizeof(err));
-    if (fd < 0) { sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return; }
+    if (fd < 0) {   /* Image und Leser gehören dem Auftrag: schließen, sonst bleiben Datei und Puffer offen */
+        ib_close(j->rd);
+        j->rd = NULL;
+        if (j->img) fclose(j->img);
+        j->img = NULL;
+        sb_add(&msg, "%s", err);
+        return restore_done(j, 0, &msg, &res, 0, out, on);
+    }
     set_flags(1, 0);
     ib_result_t r;
     int rc = ib_restore(j->rd, fd, fd, j->dev.ss, j->dev.size, on_progress, &cancel_requested, &r, err, sizeof(err));
@@ -1874,22 +1891,25 @@ static void restore_run(job_t *j) {
     if (!rc && r.cancelled) {
         if (r.used) sb_tr(&msg, "Abgebrochen – der Datenträger ist nur teilweise beschrieben.");
         else sb_tr(&msg, "Abgebrochen – der Datenträger wurde nicht verändert.");
-        job_done(j, 0, &msg, &res, 1);
-        return;
+        return restore_done(j, 0, &msg, &res, 1, out, on);
     }
-    if (rc) { sb_tr(&msg, "Wiederherstellen fehlgeschlagen: %s", err); job_done(j, 0, &msg, &res, 1); return; }
+    if (rc) {
+        sb_tr(&msg, "Wiederherstellen fehlgeschlagen: %s", err);
+        if (r.used) sb_add(&msg, " %s", T("Der Datenträger ist bereits teilweise überschrieben."));
+        return restore_done(j, 0, &msg, &res, 1, out, on);
+    }
     sb_tr(&msg, "Image auf %s wiederhergestellt und geprüft (%s geschrieben).", dev_title(&j->dev, title, sizeof(title)),
           size_text(r.used, s1, sizeof(s1)));
     sb_add(&msg, " %s", T("Die PS5 bindet ihn gleich selbst ein."));
     sb_add(&res, "{\"size\":%llu,\"written\":%llu,\"sha256_data\":\"%s\"}", (unsigned long long)r.size,
            (unsigned long long)r.used, r.sha_img);
-    job_done(j, 1, &msg, &res, 1);
+    return restore_done(j, 1, &msg, &res, 1, out, on);
 }
 
 static void *restore_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
-    restore_run(j);
+    restore_run(j, NULL, 0);
     return NULL;
 }
 
@@ -2013,13 +2033,8 @@ static void api_upload(int c, const char *query, const char *pre, size_t have, u
     j->replug = replug;
     j->rd = rd;
     if (claim_job(c, j)) return;
-    restore_run(j);
-    pthread_mutex_lock(&lock);
-    int ok = st.ok;
     char m[512];
-    snprintf(m, sizeof(m), "%s", st.message);
-    pthread_mutex_unlock(&lock);
-    if (ok) respond_ok(c, 200);
+    if (restore_run(j, m, sizeof(m))) respond_ok(c, 200);
     else respond_error(c, 500, m);
 }
 
@@ -2424,18 +2439,25 @@ static void formatter_content_version(char *out, size_t n) {
     else snprintf(out, n, "%s", "");
 }
 
-/* bis die Kachel ab- (want = 0) bzw. angemeldet ist (want = 1, bei gesetztem version mit genau dieser Version) */
+/* bis die Kachel ab- (want = 0) bzw. angemeldet ist (want = 1, bei gesetztem version mit genau dieser Version).
+ * Höchstens secs Sekunden nach der Uhr - eine Anfrage an ein hängendes ShadowMountPlus kann selbst bis zu 10 s dauern.
+ * 0 = erreicht, -1 = Zeit um, 1 = abgebrochen */
 static int tile_wait(int want, const char *version, const char *step, int from, int to, int secs) {
-    for (int i = 0; i <= secs * 2; i++) {
+    struct timespec t0, now;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    for (;;) {
         tile_t t;
         tile_state(&t);
         if (t.smp && (want ? t.found && t.installed && (!version[0] || !strcmp(t.registered, version))
                            : !(t.found && t.installed)))
             return 0;
-        on_progress(step, from + (to - from) * i / (secs * 2));
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) return 1;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        const long ms = (long)(now.tv_sec - t0.tv_sec) * 1000 + (now.tv_nsec - t0.tv_nsec) / 1000000;
+        if (ms >= secs * 1000L) return -1;
+        on_progress(step, from + (int)((to - from) * ms / (secs * 1000L)));
         usleep(500 * 1000);
     }
-    return -1;
 }
 
 static void *tile_worker(void *arg) {
@@ -2477,7 +2499,14 @@ static void *tile_worker(void *arg) {
     char *r = plat_smp_post("/api/v1/scan", "{\"reset_attempts\":true}", &http, &len);
     int scanned = r && http == 200;
     free(r);
-    if (!scanned || tile_wait(1, t.folder, "Kachel anmelden", 50, 98, 90)) {
+    set_flags(1, 0);   /* Warten auf die Neuanmeldung darf abgebrochen werden - sie kommt dann von selbst */
+    const int waited = scanned ? tile_wait(1, t.folder, "Kachel anmelden", 50, 98, 90) : -1;
+    set_flags(0, 0);
+    if (waited == 1) {
+        sb_add(&msg, "%s", T("Abgebrochen – ShadowMountPlus meldet die Kachel beim nächsten Suchlauf selbst wieder an."));
+        goto out;
+    }
+    if (waited) {
         sb_add(&msg, "%s", T("Die Kachel ist abgemeldet, aber noch nicht wieder angemeldet. ShadowMountPlus meldet sie beim "
                             "nächsten Suchlauf an – sonst in seiner Weboberfläche „Scan“ drücken."));
         goto out;

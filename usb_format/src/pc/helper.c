@@ -187,6 +187,21 @@ static int plan_check(const session_t *s, uint64_t size, const fmtreq_t *q, char
                      size_text(0xFFFFFFFFull * pd.ss, lim, sizeof(lim)));
             return -1;
         }
+        /* exFAT und HFS+ brauchen mindestens 8 MB (unter Windows auch NTFS/FAT: vorläufiges exFAT), FAT32 mindestens
+         * 65.536 Cluster - wie die Auswahl im Programm */
+        if ((w->fs == FS_EXFAT || w->fs == FS_HFSPLUS
+#ifdef _WIN32
+             || by_os(w->fs)
+#endif
+            ) && bytes < 8 * MIB) {
+            snprintf(err, n, T("Partition %d: Für %s zu klein (mindestens 8 MB)."), i + 1, fs_title(w->fs));
+            return -1;
+        }
+        if (w->fs == FS_FAT32 && bytes / (w->cluster ? w->cluster : pd.ss) < 66000) {
+            snprintf(err, n, T("Partition %d: Für FAT32 zu klein bzw. Zuordnungseinheit zu groß (mindestens 65.536 "
+                               "Einheiten)."), i + 1);
+            return -1;
+        }
         /* NTFS: mkntfs scheitert unter etwa 16 Clustern bzw. 2 MB (bei 1 Cluster läuft es endlos) */
         if (w->fs == FS_NTFS && (bytes < 2 * MIB || (w->cluster && bytes / w->cluster < 16))) {
             snprintf(err, n, T("Partition %d: Für NTFS zu klein bzw. Zuordnungseinheit zu groß (mindestens 16 "
@@ -349,6 +364,7 @@ static int cmd_format(const char *disk, uint64_t size, fmtreq_t *q) {
                 mk_fail("Partition %d: %s", i + 1, e2);
             }
         }
+        if (!rc) rc = mk_sync(&d);   /* Schreibfehler beim Zurückschreiben (gefälschter, defekter Stick) melden */
         mkfs_progress_reset();
         prog_name = NULL;
     }
@@ -506,6 +522,10 @@ static int cmd_backup(const char *disk, uint64_t size, const char *path) {
     size_t pl = strlen(path);
     /* nur Namen auf .img.zst: der Helfer schreibt mit Administratorrechten - nie eine Datei anderer Art */
     if (pl + 8 > sizeof(tmp) || pl < 9 || strcmp(path + pl - 8, ".img.zst")) { finish(0, "Ungültiger Dateiname.", NULL); return 2; }
+    if (plat_path_on_disk(path, disk)) {   /* der Datenträger wird beim Sichern gesperrt - die Datei muss woanders hin */
+        finish(0, "Die Image-Datei liegt auf dem Datenträger selbst – bitte einen anderen Speicherort wählen.", NULL);
+        return 1;
+    }
     snprintf(tmp, sizeof(tmp), "%s.part", path);
     snprintf(side, sizeof(side), "%s.sha256", path);
     on_progress("Belegte Bereiche ermitteln", 0);
@@ -562,6 +582,12 @@ static int cmd_backup(const char *disk, uint64_t size, const char *path) {
 static int cmd_restore(const char *disk, uint64_t size, const char *path) {
     char err[512] = "", msg[768], json[256], t1[32];
     on_progress("Image prüfen", 0);
+    const size_t pl = strlen(path);
+    if (pl < 4 || strcmp(path + pl - 4, ".zst")) { finish(0, "Keine gültige Image-Datei (.img.zst).", NULL); return 1; }
+    if (plat_path_on_disk(path, disk)) {   /* sonst würde das Image beim Schreiben selbst überschrieben */
+        finish(0, "Die Image-Datei liegt auf dem Datenträger selbst – bitte einen anderen Speicherort wählen.", NULL);
+        return 1;
+    }
     FILE *f = plat_fopen(path, 0, err, sizeof(err));
     if (!f) { finish(0, err, NULL); return 1; }
     setvbuf(f, NULL, _IOFBF, 1 << 20);
@@ -585,7 +611,15 @@ static int cmd_restore(const char *disk, uint64_t size, const char *path) {
     fclose(f);
     plat_session_close(&s, 1);   /* neue Partitionstabelle einlesen lassen */
     if (!rc && r.cancelled) { finish(0, "Abgebrochen – der Datenträger ist nur teilweise beschrieben.", NULL); return 1; }
-    if (rc) { snprintf(msg, sizeof(msg), T("Wiederherstellen fehlgeschlagen: %s"), err); finish(0, msg, NULL); return 1; }
+    if (rc) {
+        snprintf(msg, sizeof(msg), T("Wiederherstellen fehlgeschlagen: %s"), err);
+        if (r.used) {
+            size_t ml = strlen(msg);
+            snprintf(msg + ml, sizeof(msg) - ml, " %s", T("Der Datenträger ist bereits teilweise überschrieben."));
+        }
+        finish(0, msg, NULL);
+        return 1;
+    }
     snprintf(msg, sizeof(msg), T("Image auf %s wiederhergestellt und geprüft (%s geschrieben)."), title(&s),
              size_text(r.used, t1, sizeof(t1)));
     snprintf(json, sizeof(json), "{\"size\":%llu,\"written\":%llu,\"sha256_data\":\"%s\"}", (unsigned long long)r.size,

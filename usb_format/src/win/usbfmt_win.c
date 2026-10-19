@@ -83,12 +83,8 @@ static void trim_copy(char *dst, size_t n, const char *src) {
     while (l && dst[l - 1] == ' ') dst[--l] = 0;
 }
 
-static int disk_info(int n, diskinfo_t *di) {
-    memset(di, 0, sizeof(*di));
-    di->num = n;
-    snprintf(di->id, sizeof(di->id), "%d", n);
-    HANDLE h = open_disk(n, 0);
-    if (h == INVALID_HANDLE_VALUE) return -1;
+/* Größe, Sektorgröße, Bus, Modell und Seriennummer über einen offenen Handle */
+static int handle_info(HANDLE h, diskinfo_t *di) {
     BYTE buf[1024];
     DWORD r;
     int ok = 0;
@@ -114,8 +110,31 @@ static int disk_info(int n, diskinfo_t *di) {
         serial_clean(di->serial);
         di->serial_known = 1;
     }
-    CloseHandle(h);
     return ok ? 0 : -1;
+}
+
+static int disk_info(int n, diskinfo_t *di) {
+    memset(di, 0, sizeof(*di));
+    di->num = n;
+    snprintf(di->id, sizeof(di->id), "%d", n);
+    HANDLE h = open_disk(n, 0);
+    if (h == INVALID_HANDLE_VALUE) return -1;
+    int rc = handle_info(h, di);
+    CloseHandle(h);
+    return rc;
+}
+
+/* Ist der offene Handle noch genau der Datenträger, den disk_info vorher beschrieben hat? Wurde er während des
+ * Sperrens abgezogen und bekam ein anderer dieselbe Nummer, stimmt hier etwas nicht mehr. */
+static int same_disk(HANDLE h, const diskinfo_t *was) {
+    diskinfo_t now;
+    memset(&now, 0, sizeof(now));
+    STORAGE_DEVICE_NUMBER sdn;
+    DWORD r;
+    return !handle_info(h, &now) && now.size == was->size && now.bus == was->bus && !strcmp(now.model, was->model)
+           && !strcmp(now.serial, was->serial)
+           && DeviceIoControl(h, IOCTL_STORAGE_GET_DEVICE_NUMBER, NULL, 0, &sdn, sizeof(sdn), &r, NULL)
+           && (int)sdn.DeviceNumber == was->num;
 }
 
 int plat_disk_serial(const char *disk, char *buf, size_t n) {
@@ -129,16 +148,32 @@ int plat_disk_serial(const char *disk, char *buf, size_t n) {
 }
 
 /* Datenträgernummern eines Volumes (Pfad ohne abschließenden \) */
+/* Datenträger, auf denen das Volume liegt (höchstens max). -1: nicht vollständig feststellbar (zu viele Abschnitte) */
 static int volume_disks(const WCHAR *vol, int *disks, int max) {
     HANDLE h = CreateFileW(vol, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     if (h == INVALID_HANDLE_VALUE) return 0;
-    BYTE buf[sizeof(VOLUME_DISK_EXTENTS) + 8 * sizeof(DISK_EXTENT)];
-    DWORD r;
+    BYTE small[sizeof(VOLUME_DISK_EXTENTS) + 8 * sizeof(DISK_EXTENT)], *buf = small;
+    DWORD r, size = sizeof(small);
     int n = 0;
-    if (DeviceIoControl(h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0, buf, sizeof(buf), &r, NULL)) {
-        const VOLUME_DISK_EXTENTS *e = (const VOLUME_DISK_EXTENTS *)buf;
-        for (DWORD i = 0; i < e->NumberOfDiskExtents && n < max; i++) disks[n++] = (int)e->Extents[i].DiskNumber;
+    BOOL ok = DeviceIoControl(h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0, buf, size, &r, NULL);
+    if (!ok && GetLastError() == ERROR_MORE_DATA) {   /* sehr zerstückeltes oder übergreifendes Volume */
+        const DWORD count = ((const VOLUME_DISK_EXTENTS *)small)->NumberOfDiskExtents;
+        size = (DWORD)(sizeof(VOLUME_DISK_EXTENTS) + count * sizeof(DISK_EXTENT));
+        buf = count < 4096 ? malloc(size) : NULL;
+        ok = buf && DeviceIoControl(h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0, buf, size, &r, NULL);
+        if (!ok) n = -1;
     }
+    if (ok) {
+        const VOLUME_DISK_EXTENTS *e = (const VOLUME_DISK_EXTENTS *)buf;
+        for (DWORD i = 0; i < e->NumberOfDiskExtents; i++) {
+            int d = (int)e->Extents[i].DiskNumber, dup = 0;
+            for (int k = 0; k < n; k++) dup |= disks[k] == d;
+            if (dup) continue;
+            if (n >= max) { n = -1; break; }
+            disks[n++] = d;
+        }
+    }
+    if (buf != small) free(buf);
     CloseHandle(h);
     return n;
 }
@@ -160,11 +195,13 @@ static int disk_volumes(int n, volinfo_t *v, int max) {
         WCHAR bare[64];
         int disks[8];
         strip_slash(name, bare, 64);
-        int nd = volume_disks(bare, disks, 8), on = 0;
+        int nd = volume_disks(bare, disks, 8), on = nd < 0;   /* unbekannt: vorsichtshalber als "auch hier" */
         for (int i = 0; i < nd; i++) on |= disks[i] == n;
-        if (!on || cnt >= max) continue;
+        if (!on) continue;
+        if (cnt >= max) { cnt = -1; break; }   /* mehr Volumes als Platz: lieber gar nicht als nur zum Teil sperren */
         volinfo_t *x = &v[cnt++];
         memset(x, 0, sizeof(*x));
+        x->spans = nd < 0;
         for (int i = 0; i < nd; i++) x->spans |= disks[i] != n;
         wcscpy(x->guid, name);
         WCHAR paths[256], lbl[64], fsn[16];
@@ -194,6 +231,7 @@ static int system_disk(int n) {
     if (!GetWindowsDirectoryW(win, MAX_PATH)) return 0;
     swprintf(vol, 8, L"\\\\.\\%c:", win[0]);
     int disks[8], nd = volume_disks(vol, disks, 8);
+    if (nd < 0) return 1;   /* nicht feststellbar: nie anbieten */
     for (int i = 0; i < nd; i++) if (disks[i] == n) return 1;
     return 0;
 }
@@ -286,6 +324,10 @@ struct plat_session {
 static int lock_volumes(session_t *s, char *err, size_t n) {
     volinfo_t v[MAX_VOLS];
     int nv = disk_volumes(s->info.num, v, MAX_VOLS);
+    if (nv < 0) {
+        snprintf(err, n, "%s", T("Zu viele Laufwerke auf dem Datenträger – abgelehnt."));
+        return -1;
+    }
     for (int i = 0; i < nv; i++)   /* Formatieren zerstörte auch den Teil auf dem anderen Datenträger */
         if (v[i].spans) {
             snprintf(err, n, T("Laufwerk %s liegt auch auf einem anderen Datenträger (übergreifendes Volume) – "
@@ -388,6 +430,11 @@ int plat_session_open(session_t *s, const char *diskid, uint64_t size, int write
     if (s->p->disk == INVALID_HANDLE_VALUE) {
         if (GetLastError() == ERROR_ACCESS_DENIED) snprintf(err, n, "%s", T("Zugriff verweigert – Administratorrechte nötig."));
         else win_error(err, n, "Datenträger öffnen");
+        plat_session_close(s, 0);
+        return -1;
+    }
+    if (!same_disk(s->p->disk, &s->info)) {
+        snprintf(err, n, T("Datenträger %d hat sich geändert – bitte die Liste aktualisieren."), disk);
         plat_session_close(s, 0);
         return -1;
     }
@@ -768,15 +815,63 @@ int plat_os_format(const diskinfo_t *di, int fs, int index, uint64_t start, uint
     return windows_format(di, fs, label, cluster, (DWORD)serial, lo, hi, summary, sn, err, n);
 }
 
+static uint64_t le_n(const uint8_t *p, int n) {
+    uint64_t v = 0;
+    while (n--) v = v << 8 | p[n];
+    return v;
+}
+
+/* Sektor lba (ss Bytes) von einem offenen Datenträger lesen */
+static int read_sector(HANDLE h, uint32_t ss, uint64_t lba, uint8_t *buf) {
+    LARGE_INTEGER off;
+    DWORD got;
+    off.QuadPart = (LONGLONG)(lba * ss);
+    return SetFilePointerEx(h, off, NULL, FILE_BEGIN) && ReadFile(h, buf, ss, &got, NULL) && got == ss ? 0 : -1;
+}
+
+/* Steht an Stelle index der Partitionstabelle (MBR oder GPT) noch genau diese Partition? */
+static int part_matches(int disk, uint32_t ss, int index, uint64_t start, uint64_t count) {
+    HANDLE h = open_disk(disk, GENERIC_READ);
+    if (h == INVALID_HANDLE_VALUE) return 0;
+    uint8_t *b = malloc(ss);
+    int ok = 0;
+    if (b && !read_sector(h, ss, 0, b) && b[510] == 0x55 && b[511] == 0xAA) {
+        if (b[0x1BE + 4] != 0xEE) {   /* MBR: höchstens 4 Einträge */
+            const uint8_t *e = b + 0x1BE + 16 * index;
+            ok = index < 4 && le_n(e + 8, 4) == start && le_n(e + 12, 4) == count;
+        } else if (!read_sector(h, ss, 1, b) && !memcmp(b, "EFI PART", 8)) {   /* GPT */
+            const uint64_t entries = le_n(b + 72, 8), esize = le_n(b + 84, 4);
+            const uint64_t pos = entries * ss + (uint64_t)index * esize;
+            if (esize >= 128 && esize <= ss && pos % ss + esize <= ss && !read_sector(h, ss, pos / ss, b)) {
+                const uint8_t *e = b + pos % ss;
+                ok = le_n(e + 32, 8) == start && le_n(e + 40, 8) == start + count - 1;
+            }
+        }
+    }
+    free(b);
+    CloseHandle(h);
+    return ok;
+}
+
 int plat_mke2fs(const diskinfo_t *di, int index, uint64_t start, uint64_t count, const char *type, uint32_t block,
                 const char *label, int lo, int hi, char *summary, size_t sn, char *err, size_t n) {
-    (void)index;
     WCHAR dev[MAX_PATH];
 #ifdef USBFMT_TEST
     if (image_path) { wcsncpy(dev, image_path, MAX_PATH - 1); dev[MAX_PATH - 1] = 0; }
     else
 #endif
+    {
+        /* mke2fs schreibt nach dem Freigeben an eine feste Stelle von \\.\PhysicalDriveN: vorher sicherstellen, dass dort
+         * noch derselbe Datenträger mit der eben angelegten Partition steckt */
+        diskinfo_t now;
+        if (disk_info(di->num, &now) || !usb_bus(now.bus) || system_disk(di->num) || now.size != di->size
+            || strcmp(now.model, di->model) || strcmp(now.serial, di->serial)
+            || !part_matches(di->num, di->ss, index, start, count)) {
+            snprintf(err, n, T("Datenträger %d hat sich geändert – bitte die Liste aktualisieren."), di->num);
+            return -1;
+        }
         swprintf(dev, MAX_PATH, L"\\\\.\\PhysicalDrive%d", di->num);
+    }
     return run_mke2fs(dev, start * di->ss, count * di->ss, type, block, label, lo, hi, summary, sn, err, n);
 }
 
@@ -827,9 +922,29 @@ int plat_os_label(const char *diskid, uint64_t size, const char *label, diskinfo
 
 static int wide(const char *path, WCHAR *w, int n) { return MultiByteToWideChar(CP_UTF8, 0, path, -1, w, n) > 0; }
 
+/* \\.\..., \\?\GLOBALROOT\... usw. sind Geräte, keine Dateien - als Image-Datei nie öffnen */
+static int device_path(const WCHAR *w) {
+    return !wcsncmp(w, L"\\\\.\\", 4) || !_wcsnicmp(w, L"\\\\?\\GLOBALROOT", 14) || !_wcsnicmp(w, L"\\\\?\\Volume", 10);
+}
+
+int plat_path_on_disk(const char *path, const char *diskid) {
+    WCHAR w[1024], full[1024], vol[1024], guid[64], bare[64];
+    const int disk = disk_number(diskid);
+#ifdef USBFMT_TEST
+    if (image_path) return 0;
+#endif
+    if (disk < 0 || !wide(path, w, 1024) || !GetFullPathNameW(w, 1024, full, NULL)) return 0;
+    if (!GetVolumePathNameW(full, vol, 1024) || !GetVolumeNameForVolumeMountPointW(vol, guid, 64)) return 0;
+    strip_slash(guid, bare, 64);
+    int disks[8], nd = volume_disks(bare, disks, 8);
+    if (nd < 0) return 1;
+    for (int i = 0; i < nd; i++) if (disks[i] == disk) return 1;
+    return 0;
+}
+
 FILE *plat_fopen(const char *path, int write, char *err, size_t n) {
     WCHAR w[1024];
-    if (!wide(path, w, 1024)) { snprintf(err, n, "%s", T("Ungültiger Dateiname.")); return NULL; }
+    if (!wide(path, w, 1024) || device_path(w)) { snprintf(err, n, "%s", T("Ungültiger Dateiname.")); return NULL; }
     HANDLE h = CreateFileW(w, write ? GENERIC_WRITE : GENERIC_READ, FILE_SHARE_READ, NULL,
                            write ? CREATE_ALWAYS : OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     if (h == INVALID_HANDLE_VALUE) { win_error(err, n, write ? N_("Datei anlegen") : N_("Datei öffnen")); return NULL; }

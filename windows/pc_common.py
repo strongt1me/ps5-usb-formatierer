@@ -75,14 +75,32 @@ def load_settings(app_name):
 def save_settings(app_name, data):
     """Atomar (erst neue Datei, dann ersetzen): Ein Absturz mitten im Schreiben hinterlässt keine halbe Datei"""
     path = settings_file(app_name)
+    tmp = None
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
+        # eigener Name je Speichern: zwei Programmfenster schreiben nicht in dieselbe Zwischendatei
+        fd, tmp = tempfile.mkstemp(prefix="settings-", suffix=".tmp", dir=os.path.dirname(path))
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f)
-        os.replace(tmp, path)
+            f.flush()
+            os.fsync(f.fileno())   # erst auf der Platte, dann ersetzen - auch bei Stromausfall keine leere Datei
+        for attempt in range(5):   # kurz gesperrt (Virenscanner, OneDrive): nochmal versuchen
+            try:
+                os.replace(tmp, path)
+                tmp = None
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.1)
     except OSError:
         pass
+    finally:
+        if tmp:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def fmt_size(b):
@@ -454,6 +472,16 @@ else:
     PcJob = pc_linux.LinuxJob
 
 
+def grab(win):
+    """Dialog modal machen. Erst sichtbar werden lassen: unter Linux scheitert grab_set sonst ("window not viewable"),
+    wenn der Dialog per Doppelklick aufgeht, solange die Maustaste noch gedrückt ist"""
+    try:
+        win.wait_visibility()
+        win.grab_set()
+    except tk.TclError:   # Fenster schon wieder zu oder Grab verweigert: dann eben nicht modal
+        pass
+
+
 def show_scan(pbar, status_var, pct, text):
     """Fortschritt beim Suchen und Einlesen (Datenträger, PS5, Spiele): Balken mit Prozent statt Stillstand"""
     if str(pbar["mode"]) != "determinate":
@@ -551,7 +579,7 @@ def confirm(root, title, text, ok_text, ack=None):
     win.geometry(_inside(win, top, x, y))
     win.deiconify()
     cancel_btn.focus_set()
-    win.grab_set()
+    grab(win)
     root.wait_window(win)
     return result["ok"]
 
@@ -590,7 +618,7 @@ def ask_string(root, title, prompt, initial=""):
     win.deiconify()
     entry.focus_set()
     entry.select_range(0, "end")
-    win.grab_set()
+    grab(win)
     root.wait_window(win)
     return result["text"]
 
@@ -628,7 +656,7 @@ def ask_choice(root, title, prompt, options, ok_text):
     win.geometry(_inside(win, top, x, y))
     win.deiconify()
     ok_btn.focus_set()
-    win.grab_set()
+    grab(win)
     root.wait_window(win)
     return result["i"]
 

@@ -29,6 +29,7 @@ typedef struct {
     uint64_t used;          /* davon belegt */
     char     model[128], label[48], fs[16], ident[64], created[24];
     int      has_map;       /* mit Belegungskarte (eigenes Image) - sonst wird alles geschrieben */
+    uint32_t ss;            /* Sektorgröße der Quelle (ab 2.5.9 im Kopf; 0 = unbekannt) */
 } ib_info_t;
 
 typedef struct {

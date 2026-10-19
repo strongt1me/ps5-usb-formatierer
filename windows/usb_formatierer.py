@@ -260,6 +260,8 @@ class App(tk.Tk):
         self.busy = False          # Netzwerkaktion oder Formatierung laeuft
         self.formatting = False
         self.elf_sending = False   # "ELF senden" läuft (Formatierer beendet bzw. ELF unterwegs)
+        self.transfer = None       # Thread des Hoch-/Herunterladens einer Image-Sicherung (PC <-> PS5)
+        self._bar_reset = None     # Zeitgeber: Balken nach dem Einlesen leeren
         self.watching = False      # Abfrage nach fremden Aufträgen unterwegs
         self.consoles = {}         # Anzeigetext -> Fund aus ps5_discovery
         self.ps5_devices = []      # zuletzt gelesene Liste der PS5 (bleibt beim Umschalten erhalten)
@@ -603,17 +605,30 @@ class App(tk.Tk):
         return " · ".join(parts)
 
     def _show_games(self):
-        """Spiele des gewählten PS5-Datenträgers in der Liste darunter"""
-        self.games_tree.delete(*self.games_tree.get_children())
+        """Spiele des gewählten PS5-Datenträgers in der Liste darunter. Während die PS5 sucht, kommt die Liste jede
+        Sekunde neu: nur bei Änderungen neu aufbauen, Auswahl und Scrollstand bleiben"""
         dev = self._selected_device()
         if self.mode_var.get() != "ps5" or not dev:
+            self.games_tree.delete(*self.games_tree.get_children())
+            self._games_shown = None
             self.games_caption.configure(text=_("Spiele auf diesem Datenträger:"))
             return
         games = self.games.get(dev["name"], [])
+        rows = []
         for g in sorted(games, key=lambda g: g["name"].lower()):
             kind = _("Ordner") if g["kind"] == "Ordner" else g["kind"]   # Art kommt deutsch vom Formatierer
-            self.games_tree.insert("", "end", iid=g.get("key") or None, values=(g["name"] or g["id"], g["id"], kind,
-                                                      fmt_size(g["size"]) if g["size"] else "–"))
+            rows.append((g.get("key") or None, (g["name"] or g["id"], g["id"], kind,
+                                                fmt_size(g["size"]) if g["size"] else "–")))
+        if rows != getattr(self, "_games_shown", None):
+            picked, top = set(self.games_tree.selection()), self.games_tree.yview()[0]
+            self.games_tree.delete(*self.games_tree.get_children())
+            for iid, values in rows:
+                self.games_tree.insert("", "end", iid=iid, values=values)
+            keep = [i for i in picked if self.games_tree.exists(i)]
+            if keep:
+                self.games_tree.selection_set(keep)
+            self.games_tree.yview_moveto(top)
+            self._games_shown = rows
         if games:
             text = _("Spiele auf diesem Datenträger: {n}", n=len(games))
         elif self.lib_loading:
@@ -622,7 +637,9 @@ class App(tk.Tk):
             text = _("Spiele auf diesem Datenträger: keine gefunden")
         self.games_caption.configure(text=text)
 
-    def _relibrary(self):
+    def _relibrary(self, api=None):
+        if api is not None and api is not self.api:
+            return   # Zeitgeber einer vorher verbundenen PS5: deren Kette endet hier
         self.lib_loading = False
         self._load_library()
 
@@ -813,11 +830,14 @@ class App(tk.Tk):
                 self.q.put(("error", _("Die eingebaute usb_format.elf fehlt – bitte das Programm neu herunterladen.")))
                 return
             self.q.put(("status", _("Formatierer läuft noch nicht – sende Payload an die PS5 …")))
+            self.elf_sending = True   # Schließen fragt nach: sonst bliebe eine halbe ELF beim Loader
             try:
                 send_payload(host, payload)
             except OSError as e:
                 self.q.put(("error", loader_error(host, e)))
                 return
+            finally:
+                self.elf_sending = False
             for attempt in range(20):
                 self.q.put(("scan", attempt * 5, _("Warte, bis der Formatierer auf der PS5 antwortet …")))
                 time.sleep(0.5)
@@ -1108,21 +1128,30 @@ class App(tk.Tk):
             time.sleep(0.4)
         return False
 
-    def _images(self):
-        try:
-            return self.api.images()
-        except (ConnectionError, ApiError) as e:
-            messagebox.showerror(_("Image-Sicherung"), _("Die PS5 antwortet nicht: {e}", e=e), parent=self)
-            return None
+    def _with_images(self, then):
+        """Sicherungen und Ziele der PS5 im Hintergrund holen (bis zu 15 s, z. B. wenn dort eine Platte anläuft) - das
+        Fenster bleibt bedienbar; danach then(antwort) im UI-Thread"""
+        api = self.api
+
+        def work():
+            self.q.put(("status", _("Frage die PS5 nach Sicherungen …")))
+            try:
+                self.q.put(("images", api, api.images(), "", then))
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("images", api, None, str(e), then))
+
+        self._run(work)
 
     def _ps5_backup(self):
         dev = self._selected_device()
         if self.busy or not dev or not self.api:
             return
-        title = _("Image sichern")
-        imgs = self._images()
-        if imgs is None:
+        self._with_images(lambda imgs: self._ps5_backup_to(dev, imgs))
+
+    def _ps5_backup_to(self, dev, imgs):
+        if self.busy or not self.api:
             return
+        title = _("Image sichern")
         locs = [loc for loc in imgs.get("locations", []) if loc.get("device") != dev["name"]]
         choice = ask_choice(self, title, _("{name} ({dev}, {size}) sichern nach:", name=dev_title(dev), dev=dev["name"],
                                            size=fmt_size(dev["size"])),
@@ -1175,11 +1204,21 @@ class App(tk.Tk):
                 state["bytes"], state["sha"] = api.download(token, part)
             except (ConnectionError, ApiError, OSError) as e:
                 state["error"] = str(e) or type(e).__name__
+            if state.get("abandon"):   # inzwischen aufgegeben: die halbe Datei nicht liegen lassen
+                try:
+                    os.remove(part)
+                except OSError:
+                    pass
 
-        def done(ok, msg, result):
+        def done(ok, msg, result, deadline=None):
             t = state.get("thread")
-            if t:
-                t.join(60)   # die letzten Bytes kommen gleich nach dem Ende des Auftrags
+            if t and t.is_alive():   # die letzten Bytes kommen gleich nach dem Ende des Auftrags - im Hintergrund
+                deadline = deadline or time.time() + 60   # warten, das Fenster bleibt bedienbar
+                if time.time() < deadline:
+                    self.after(200, lambda: done(ok, msg, result, deadline))
+                    return
+                state["abandon"] = True
+                state.setdefault("error", _("Der Download ist nicht fertig geworden – bitte erneut sichern."))
             good = ok and not state.get("error") and state.get("sha") and state.get("sha") == result.get("sha256")
             if good:
                 try:
@@ -1208,9 +1247,10 @@ class App(tk.Tk):
                 self.q.put(("error", _("Sichern konnte nicht gestartet werden: {e}", e=e)))
                 return
             t = threading.Thread(target=download, args=(token,), daemon=True)
-            state["thread"] = t
+            state["thread"] = self.transfer = t
             t.start()
             if not self._wait_claim(api, seq, lambda: "error" in state):
+                state["abandon"] = True   # hängt der Download noch, räumt er beim Ende selbst auf
                 t.join(5)
                 try:
                     os.remove(part)
@@ -1227,10 +1267,12 @@ class App(tk.Tk):
         dev = self._selected_device()
         if self.busy or not dev or not self.api:
             return
-        title = _("Image wiederherstellen")
-        imgs = self._images()
-        if imgs is None:
+        self._with_images(lambda imgs: self._ps5_restore_from(dev, imgs))
+
+    def _ps5_restore_from(self, dev, imgs):
+        if self.busy or not self.api:
             return
+        title = _("Image wiederherstellen")
         images = [i for i in imgs.get("images", []) if i.get("device") != dev["name"]]
 
         def img_text(i):
@@ -1326,6 +1368,7 @@ class App(tk.Tk):
                 self.q.put(("error", _("Wiederherstellen konnte nicht gestartet werden: {e}", e=e)))
                 return
             t = threading.Thread(target=upload, daemon=True)
+            self.transfer = t
             t.start()
             if not self._wait_claim(api, seq, lambda: "error" in state):
                 t.join(5)
@@ -1354,7 +1397,8 @@ class App(tk.Tk):
                 if offline >= 180:
                     self.q.put(("finished", False, _("Keine Verbindung zur PS5 seit 3 Minuten. Der Auftrag läuft dort "
                                                      "vermutlich weiter – den Stick NICHT abziehen. Später „Suchen“ "
-                                                     "klicken, um das Ergebnis zu sehen."), foreign, done_title))
+                                                     "klicken, um das Ergebnis zu sehen."), foreign, done_title, {},
+                                after))
                     return
                 if offline >= 5:
                     self.q.put(("status", _("Verbindung zur PS5 unterbrochen – der Auftrag läuft dort weiter, frage "
@@ -1365,7 +1409,7 @@ class App(tk.Tk):
                 # Formatierer wurde zwischendurch neu gestartet: Ergebnis unbekannt
                 self.q.put(("finished", False, _("Der Formatierer auf der PS5 wurde zwischendurch neu gestartet – das "
                                                  "Ergebnis ist unbekannt. Bitte den Datenträger prüfen bzw. erneut "
-                                                 "formatieren."), foreign, done_title))
+                                                 "formatieren."), foreign, done_title, {}, after))
                 return
             flags = {k: st[k] for k in ("replug", "cancellable") if k in st}
             self.q.put(("progress", int(st.get("percent") or 0), st.get("step") or "", flags))
@@ -1426,6 +1470,7 @@ class App(tk.Tk):
             self.pc_job = job
             self.q.put(("formatting", False))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step, {})))
+            self.q.put(("jobended",))   # der Helfer ist fertig - "Abbrechen" weg, auch während des Neueinlesens
             try:
                 # danach neu einlesen - mit Fortschritt, schlafende Platten laufen dabei womöglich erst an
                 devices = pc_list(lambda pct, text: self.q.put(("scan", pct, text)))
@@ -1570,6 +1615,20 @@ class App(tk.Tk):
             self.busy = False
             self._scan_finished()
             self._on_found(msg[1])
+        elif kind == "jobended":
+            self.pc_job = None
+            self.formatting = False
+        elif kind == "images":
+            _k, api, data, err, then = msg
+            self.busy = False
+            if self.api:
+                self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
+            if api is not self.api or self.mode_var.get() != "ps5":
+                return   # inzwischen andere PS5 oder anderer Modus
+            if data is None:
+                messagebox.showerror(_("Image-Sicherung"), _("Die PS5 antwortet nicht: {e}", e=err), parent=self)
+                return
+            then(data)
         elif kind == "elf_ask":
             self.busy = False
             self._elf_ask(*msg[1:])
@@ -1654,7 +1713,7 @@ class App(tk.Tk):
                 if data.get("scanning"):
                     self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
                     self._library_progress(data.get("progress"))
-                    self.after(1000 if data.get("progress") else 2000, self._relibrary)
+                    self.after(1000 if data.get("progress") else 2000, lambda a=self.api: self._relibrary(a))
                 elif self.lib_bar:
                     self.lib_bar = False
                     if not self.busy and self.mode_var.get() == "ps5":
@@ -1730,7 +1789,14 @@ class App(tk.Tk):
         self.pbar.stop()
         self.pbar.configure(mode="determinate")
         self.pbar["value"] = 100
-        self.after(800, lambda: self.busy or self.formatting or self.pbar.configure(value=0))
+        if self._bar_reset:
+            self.after_cancel(self._bar_reset)
+        self._bar_reset = self.after(800, self._clear_bar)
+
+    def _clear_bar(self):
+        self._bar_reset = None
+        if not self.busy and not self.formatting:
+            self.pbar.configure(value=0)
 
     def _library_progress(self, prog):
         """Spielesuche der PS5 (ab 2.5.6: durchsuchte Laufwerke von allen) im Balken - nur, wenn sonst nichts läuft"""
@@ -1751,7 +1817,14 @@ class App(tk.Tk):
                                 "danach womöglich kein Formatierer. Fenster trotzdem schließen?"),
                 icon="warning", parent=self):
             return
-        if self.formatting and not messagebox.askyesno(
+        transfer = self.transfer is not None and self.transfer.is_alive()
+        if transfer and not messagebox.askyesno(
+                self.title(), _("Die Übertragung zwischen diesem PC und der PS5 läuft noch und bricht ab, wenn das "
+                                "Fenster geschlossen wird. Beim Wiederherstellen bleibt der Datenträger dann "
+                                "unvollständig beschrieben. Fenster trotzdem schließen?"),
+                icon="warning", parent=self):
+            return
+        if self.formatting and not transfer and not messagebox.askyesno(
                 self.title(), (_("Der Auftrag läuft am PC im Hintergrund weiter.") if self.pc_job else
                                _("Die Formatierung läuft auf der PS5 weiter.")) + " " +
                 _("Fenster trotzdem schließen?"),
@@ -1763,6 +1836,8 @@ class App(tk.Tk):
             self.pc_job.cancel()   # Prüfung/Tempo am PC nicht ohne Fenster weiterlaufen lassen
         self.after_cancel(self._poll_id)
         self.after_cancel(self._watch_id)
+        if self._bar_reset:
+            self.after_cancel(self._bar_reset)
         self.destroy()
 
     def _on_exception(self, exc, val, tb):

@@ -33,6 +33,7 @@ class StandardPanel(ttk.Frame):
         self.devices = []
         self.busy = False
         self.job = None                 # laufender Auftrag des PC-Helfers
+        self._bar_reset = None          # Zeitgeber: Balken nach dem Einlesen leeren
         self.cluster_values = []        # Bytes zu den Einträgen der Auswahlliste
 
         fs = settings.get("fs") if settings.get("fs") in FILESYSTEMS else "exFAT"
@@ -681,6 +682,7 @@ class StandardPanel(ttk.Frame):
             self.job = job
             self.q.put(("started",))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step)))
+            self.q.put(("jobended",))   # der Helfer ist fertig - "Abbrechen" weg, auch während des Neueinlesens
             try:
                 # danach neu einlesen - mit Fortschritt, schlafende Platten laufen dabei womöglich erst an
                 devices = pc_list(lambda pct, text: self.q.put(("scan", pct, text)))
@@ -737,7 +739,12 @@ class StandardPanel(ttk.Frame):
             self._set_busy(False)
             self._fill_devices(msg[1])
             self.pbar["value"] = 100   # kurz voll, dann leer: fertig eingelesen
-            self.after(800, lambda: self.busy or self.pbar.configure(value=0))
+            if self._bar_reset:
+                self.after_cancel(self._bar_reset)
+            self._bar_reset = self.after(800, self._clear_bar)
+        elif kind == "jobended":
+            self.job = None
+            self._update()
         elif kind == "started":
             self._update()   # Abbrechen-Knopf zeigen
         elif kind == "progress":
@@ -784,4 +791,12 @@ class StandardPanel(ttk.Frame):
         if self.job and self.job.cancellable:
             self.job.cancel()   # Prüfung/Tempo nicht ohne Fenster weiterlaufen lassen
         self.after_cancel(self._poll_id)
+        if self._bar_reset:   # Zeitgeber nicht nach dem Schließen feuern lassen
+            self.after_cancel(self._bar_reset)
+            self._bar_reset = None
         return True
+
+    def _clear_bar(self):
+        self._bar_reset = None
+        if not self.busy:
+            self.pbar.configure(value=0)

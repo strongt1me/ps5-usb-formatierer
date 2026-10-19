@@ -309,7 +309,12 @@ static int json_get(const char *j, const char *key, char *out, size_t n) {
         for (p++; *p && *p != '"' && k + 1 < n; p++) {
             if (*p == '\\' && p[1]) {
                 p++;
-                if (*p == 'u') { p += 4; out[k++] = '?'; continue; }
+                if (*p == 'u') {   /* Unicode-Escape: nur mit vier Zeichen dahinter - sonst nicht über das Ende hinaus lesen */
+                    if (!p[1] || !p[2] || !p[3] || !p[4]) break;
+                    p += 4;
+                    out[k++] = '?';
+                    continue;
+                }
             }
             out[k++] = *p;
         }
@@ -436,8 +441,8 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
     /* Kopf: Kennung, Angaben, Karte */
     const size_t mapb = (size_t)((m.n + 7) / 8);
     char js[1024];
-    size_t at = (size_t)snprintf(js, sizeof(js), "{\"size\":%llu,\"used\":%llu,\"block\":%u,",
-                                 (unsigned long long)size, (unsigned long long)info->used, IB_BLOCK);
+    size_t at = (size_t)snprintf(js, sizeof(js), "{\"size\":%llu,\"used\":%llu,\"block\":%u,\"ss\":%u,",
+                                 (unsigned long long)size, (unsigned long long)info->used, IB_BLOCK, ss);
     json_put(js, sizeof(js), &at, "model", info->model, 0);
     json_put(js, sizeof(js), &at, "label", info->label, 0);
     json_put(js, sizeof(js), &at, "fs", info->fs, 0);
@@ -608,6 +613,7 @@ ib_reader_t *ib_open(ib_in_fn in, void *ctx, ib_info_t *info, char *err, size_t 
         if (json_get(js, "size", v, sizeof(v)) || !(r->info.size = strtoull(v, NULL, 10))) goto bad;
         if (!json_get(js, "used", v, sizeof(v))) r->info.used = strtoull(v, NULL, 10);
         if (json_get(js, "block", v, sizeof(v)) || strtoul(v, NULL, 10) != IB_BLOCK) goto bad;
+        if (!json_get(js, "ss", v, sizeof(v))) r->info.ss = (uint32_t)strtoul(v, NULL, 10);
         json_get(js, "model", r->info.model, sizeof(r->info.model));
         json_get(js, "label", r->info.label, sizeof(r->info.label));
         json_get(js, "fs", r->info.fs, sizeof(r->info.fs));
@@ -720,6 +726,11 @@ int ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, 
         return -1;
     }
     if (size % ss) { snprintf(err, errlen, "%s", T("Ungültige Größe")); return -1; }
+    if (rd->info.ss && rd->info.ss != ss) {   /* Partitionstabelle und Bootsektoren zählen in Sektoren der Quelle */
+        snprintf(err, errlen, T("Das Image stammt von einem Datenträger mit %u-Byte-Sektoren, dieser hat %u – er wäre "
+                                "danach nicht lesbar."), rd->info.ss, ss);
+        return -1;
+    }
     ZSTD_DCtx *dc = ZSTD_createDCtx();
     uint8_t *page = aligned(PAGE);
     int rc = -1;

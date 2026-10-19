@@ -37,7 +37,12 @@ ssize_t usbfmt_pwrite(int fd, const void *buf, size_t len, uint64_t off) { retur
 
 int usbfmt_fsync(int fd) {
     HANDLE h = handle_of(fd);
-    if (h == INVALID_HANDLE_VALUE || !FlushFileBuffers(h)) { errno = EINVAL; return -1; }
+    if (h == INVALID_HANDLE_VALUE) { errno = EINVAL; return -1; }
+    if (!FlushFileBuffers(h)) {   /* "geht hier nicht" ist kein Fehler - ein gescheitertes Zurückschreiben schon */
+        DWORD e = GetLastError();
+        errno = e == ERROR_INVALID_FUNCTION || e == ERROR_NOT_SUPPORTED ? EINVAL : EIO;
+        return -1;
+    }
     return 0;
 }
 

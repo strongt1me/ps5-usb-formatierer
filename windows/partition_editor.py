@@ -6,6 +6,7 @@ from tkinter import messagebox, ttk
 import fsinfo
 from fsinfo import FS_EXPERT, GB, MB, NO_FS, PTYPES, fs_display, size_text, unit_text
 from i18n import _, number, quote, unit
+from pc_common import grab
 
 COLORS = {"exFAT": "#2f6fb5", "FAT32": "#2a8c8c", "NTFS": "#5b5fc7", "FAT (FAT16)": "#6b7f99",
           "ext4 (Linux)": "#3c8d40", "ext3 (Linux)": "#5a9a3c", "ext2 (Linux)": "#7aa53a",
@@ -120,7 +121,7 @@ class PartitionDialog(tk.Toplevel):
         y = top.winfo_rooty() + (top.winfo_height() - self.winfo_reqheight()) // 3
         self.geometry(f"+{max(0, x)}+{max(0, y)}")
         self.deiconify()
-        self.grab_set()
+        grab(self)
         self.size_entry.focus_set()
 
     @staticmethod

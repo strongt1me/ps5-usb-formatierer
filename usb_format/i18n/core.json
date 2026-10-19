@@ -2152,5 +2152,47 @@
   "it": "Riquadro registrato di nuovo – versione %s. Ora potrebbe trovarsi in un'altra posizione nella schermata iniziale.",
   "es": "Icono registrado de nuevo – versión %s. Puede que ahora esté en otro lugar de la pantalla de inicio.",
   "fr": "Vignette réinscrite – version %s. Elle se trouve peut-être maintenant à un autre endroit de l'écran d'accueil."
+ },
+ "Partition %d: Für %s zu klein (mindestens 8 MB).": {
+  "en": "Partition %d: too small for %s (at least 8 MB).",
+  "it": "Partizione %d: troppo piccola per %s (almeno 8 MB).",
+  "es": "Partición %d: demasiado pequeña para %s (al menos 8 MB).",
+  "fr": "Partition %d : trop petite pour %s (au moins 8 Mo)."
+ },
+ "Partition %d: Für FAT32 zu klein bzw. Zuordnungseinheit zu groß (mindestens 65.536 Einheiten).": {
+  "en": "Partition %d: too small for FAT32 or allocation unit too large (at least 65,536 units).",
+  "it": "Partizione %d: troppo piccola per FAT32 o unità di allocazione troppo grande (almeno 65.536 unità).",
+  "es": "Partición %d: demasiado pequeña para FAT32 o unidad de asignación demasiado grande (al menos 65.536 unidades).",
+  "fr": "Partition %d : trop petite pour FAT32 ou unité d'allocation trop grande (au moins 65 536 unités)."
+ },
+ "Die Image-Datei liegt auf dem Datenträger selbst – bitte einen anderen Speicherort wählen.": {
+  "en": "The image file is on the drive itself – please choose another location.",
+  "it": "Il file immagine si trova sull'unità stessa – scegli un'altra posizione.",
+  "es": "El archivo de imagen está en la propia unidad; elige otra ubicación.",
+  "fr": "Le fichier image se trouve sur le support lui-même – veuillez choisir un autre emplacement."
+ },
+ "Der Datenträger ist bereits teilweise überschrieben.": {
+  "en": "The drive has already been partly overwritten.",
+  "it": "L'unità è già stata in parte sovrascritta.",
+  "es": "La unidad ya se ha sobrescrito en parte.",
+  "fr": "Le support a déjà été partiellement écrasé."
+ },
+ "Abgebrochen – ShadowMountPlus meldet die Kachel beim nächsten Suchlauf selbst wieder an.": {
+  "en": "Cancelled – ShadowMountPlus registers the tile again by itself on its next scan.",
+  "it": "Annullato – ShadowMountPlus registra di nuovo il riquadro da solo alla prossima ricerca.",
+  "es": "Cancelado: ShadowMountPlus vuelve a registrar el icono por sí solo en la próxima búsqueda.",
+  "fr": "Annulé – ShadowMountPlus réinscrit la vignette lui-même lors de sa prochaine recherche."
+ },
+ "Zu viele Laufwerke auf dem Datenträger – abgelehnt.": {
+  "en": "Too many volumes on the drive – refused.",
+  "it": "Troppe unità logiche sul supporto – rifiutato.",
+  "es": "Demasiados volúmenes en la unidad: rechazado.",
+  "fr": "Trop de volumes sur le support – refusé."
+ },
+ "Das Image stammt von einem Datenträger mit %u-Byte-Sektoren, dieser hat %u – er wäre danach nicht lesbar.": {
+  "en": "The image comes from a drive with %u-byte sectors, this one has %u – it would not be readable afterwards.",
+  "it": "L'immagine proviene da un'unità con settori da %u byte, questa ne ha %u – dopo non sarebbe leggibile.",
+  "es": "La imagen procede de una unidad con sectores de %u bytes, esta tiene %u: después no sería legible.",
+  "fr": "L'image provient d'un support à secteurs de %u octets, celui-ci en a %u – il ne serait plus lisible ensuite."
  }
 }

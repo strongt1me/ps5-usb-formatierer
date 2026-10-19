@@ -101,6 +101,13 @@ IB_THREADS=0 roundtrip "exFAT MBR 512, ohne Hilfsthreads" disk exfat $((256 * 10
 roundtrip "exFAT GPT 512" disk exfat $((256 * 1048576)) 512 --gpt
 roundtrip "exFAT ohne Tabelle" part exfat $((256 * 1048576)) 512
 roundtrip "exFAT 4K-Sektoren" disk exfat $((256 * 1048576)) 4096 --gpt
+# Sektorgröße steht im Kopf: ein Image von 4K-Sektoren auf einen 512-Byte-Datenträger wird abgelehnt (unlesbar danach)
+truncate -s 0 "$W/t.img"; truncate -s $((256 * 1048576)) "$W/t.img"
+out=$("$IB" restore "$W/b.img.zst" "$W/t.img" 512 2>&1)
+rc=$?
+written=$(head -c 1048576 "$W/t.img" | tr -d '\000' | wc -c)
+[ $rc -ne 0 ] && echo "$out" | grep -q "Sektoren" && [ "$written" = 0 ] \
+    && ok "andere Sektorgröße: abgelehnt, nichts geschrieben" || bad "andere Sektorgröße" "$out"
 # gefälschter Stick (nur die ersten 96 MB echt): dahinter wird nichts gelesen, außer der GPT-Kopie am Ende
 roundtrip "exFAT GPT Fälschung" disk exfat $((256 * 1048576)) 512 --gpt --limit=$((96 * 1048576))
 roundtrip "exFAT MBR Fälschung" disk exfat $((256 * 1048576)) 512 --mbr --limit=$((96 * 1048576))

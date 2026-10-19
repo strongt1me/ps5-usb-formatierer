@@ -231,7 +231,7 @@ except Exception as e:
     check("Arbeitsbereich mit xrandr-Monitoren", False, repr(e))
 finally:
     pc_common._x11_monitors = real_monitors
-app.destroy()
+app._on_close()   # wie das Schließen-Kreuz: Zeitgeber und Abfragen beenden
 
 app = uf.App()
 pump(app, lambda: app.std_panel.devices and not app.std_panel.busy)

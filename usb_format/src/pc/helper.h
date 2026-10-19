@@ -54,6 +54,8 @@ int         helper_command(int argc, char **argv);
 
 /* ------------------------------------------------------------------ je Plattform */
 int  plat_image_mode(void);   /* nur Test-Build: Abbild-Datei statt Datenträger */
+/* Liegt die Datei (bzw. ihr Ordner, falls es sie noch nicht gibt) auf diesem Datenträger? 1 = ja */
+int  plat_path_on_disk(const char *path, const char *disk);
 int  plat_list(void);         /* USB-Datenträger als JSON nach out */
 /* Datenträger öffnen (write: vorher alle seine Laufwerke aushängen/sperren). Nur USB/SD, nie die Systemplatte,
  * Größe muss zu "list" passen. */
