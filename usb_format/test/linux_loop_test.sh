@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # Linux-Helfer an einem echten Blockgerät (Loop-Gerät, gilt in der Testfassung mit USBFMT_TEST_LOOP=1 als USB):
 # Aushängen, exklusives Öffnen, Partitionen neu einlesen, NTFS/FAT16/ext über die Systemwerkzeuge, Umbenennen von NTFS,
-# Echtheitsprüfung am Zwischenspeicher vorbei, Weigerung bei belegtem Laufwerk. Braucht Root (läuft in der CI).
+# Echtheitsprüfung am Zwischenspeicher vorbei, Weigerung bei belegtem Laufwerk, Sichern mit Schreibschutzschalter.
+# Braucht Root (läuft in der CI).
 set -u
 cd "$(dirname "$0")/.."
 [ "$(id -u)" = 0 ] || { echo "Nur als root (sudo) - ändert Loop-Geräte"; exit 1; }
 W=$(mktemp -d)
 LOOP=
+LOOP2=
 cleanup() {
     umount "$W/mnt" 2>/dev/null
     [ -n "$LOOP" ] && losetup -d "$LOOP" 2>/dev/null
+    [ -n "$LOOP2" ] && losetup -d "$LOOP2" 2>/dev/null
     rm -rf "$W"
 }
 trap cleanup EXIT
@@ -118,6 +121,38 @@ expect verify 1 "Echtheitsprüfung am Blockgerät"
 grep -q "echt" "$W/verify.txt" && ok "Prüfung: echt" || bad "Prüfung: $(grep -P '^R' "$W/verify.txt")"
 h speed speed "$D" $SIZE plain
 expect speed 1 "Tempo messen"
+
+# Schreibschutzschalter (Loop-Gerät nur lesend, der Kernel meldet es wie einen Stick mit Schalter): Sichern geht -
+# auch eingehängt (der Helfer hängt aus) -, Formatieren und Wiederherstellen werden abgelehnt, nichts verändert
+losetup -d "$LOOP"
+LOOP=$(losetup -r -fP --show "$W/disk.img")
+D=${LOOP#/dev/}
+[ "$(blockdev --getro "$LOOP")" = 1 ] && ok "Loop-Gerät schreibgeschützt" || bad "Loop-Gerät nicht schreibgeschützt"
+before=$(sha256sum "$W/disk.img" | cut -c1-16)
+mount -o ro "$(p 1)" "$W/mnt" 2>/dev/null || echo "        (Kernel ohne exFAT - Sichern ohne Einhängen)"
+h robak backup "$D" $SIZE "$W/ro.img.zst"
+expect robak 1 "schreibgeschützt: Sichern"
+[ -s "$W/ro.img.zst" ] && [ -s "$W/ro.img.zst.sha256" ] && ok "Image und Prüfsumme angelegt" || bad "Image fehlt"
+mountpoint -q "$W/mnt" && { bad "beim Sichern nicht ausgehängt"; umount "$W/mnt"; } || ok "beim Sichern ausgehängt"
+(cd "$W" && sha256sum -c --quiet ro.img.zst.sha256) && ok "Prüfsumme der Image-Datei stimmt" || bad "Prüfsumme falsch"
+h rofmt format "$D" $SIZE exfat X plain
+expect rofmt 0 "schreibgeschützt: Formatieren abgelehnt"
+grep -q "schreibgeschützt" "$W/rofmt.txt" && ok "Meldung: schreibgeschützt" || bad "Meldung: $(grep -P '^R' "$W/rofmt.txt")"
+h rores restore "$D" $SIZE "$W/ro.img.zst"
+expect rores 0 "schreibgeschützt: Wiederherstellen abgelehnt"
+[ "$(sha256sum "$W/disk.img" | cut -c1-16)" = "$before" ] && ok "schreibgeschützt: unverändert" || bad "verändert"
+# das Image taugt: auf ein zweites, leeres Gerät zurückschreiben (der Helfer liest dabei nach), dann dort prüfen
+truncate -s $SIZE "$W/copy.img"
+LOOP2=$(losetup -fP --show "$W/copy.img")
+h rocopy restore "${LOOP2#/dev/}" $SIZE "$W/ro.img.zst"
+expect rocopy 1 "Image des schreibgeschützten Geräts zurückgeschrieben und nachgelesen"
+fsck.exfat -n "${LOOP2}p1" >/dev/null 2>&1 && [ "$(blkid -p -o value -s LABEL "${LOOP2}p1")" = TEST ] \
+    && ok "Kopie: exFAT TEST, fsck.exfat" || bad "Kopie: $(blkid -p "${LOOP2}p1")"
+losetup -d "$LOOP2"
+LOOP2=
+losetup -d "$LOOP"
+LOOP=$(losetup -fP --show "$W/disk.img")
+D=${LOOP#/dev/}
 
 # Größe passt nicht (anderer Stick): nichts angefasst
 before=$(sha256sum "$W/disk.img" | cut -c1-16)

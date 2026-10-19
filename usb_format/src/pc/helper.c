@@ -260,7 +260,7 @@ static int cmd_format(const char *disk, uint64_t size, fmtreq_t *q) {
 
     session_t s;
     on_progress("Datenträger vorbereiten", 0);
-    if (plat_session_open(&s, disk, size, 1, err, sizeof(err))) { finish(0, err, NULL); return 1; }
+    if (plat_session_open(&s, disk, size, SESSION_WRITE, err, sizeof(err))) { finish(0, err, NULL); return 1; }
     const uint64_t use = q->limit ? q->limit : size;
     if (!classic && plan_check(&s, size, q, err, sizeof(err))) {   /* vor Prüfung und Aufteilen: noch nichts geändert */
         plat_session_close(&s, 0);
@@ -457,7 +457,7 @@ static int cmd_speed(const char *disk, uint64_t size, int plain) {
     char err[512] = "", msg[512], json[128];
     session_t s;
     on_progress("Lesetempo messen", 0);
-    if (plat_session_open(&s, disk, size, 0, err, sizeof(err))) { finish(0, err, NULL); return 1; }
+    if (plat_session_open(&s, disk, size, SESSION_READ, err, sizeof(err))) { finish(0, err, NULL); return 1; }
     devtest_t t;
     int rc = dt_read_speed(s.tfd, s.info.ss, size, on_progress, &cancel_requested, &t, err, sizeof(err));
     plat_session_close(&s, 0);
@@ -478,7 +478,7 @@ static int cmd_label(const char *disk, uint64_t size, const char *label) {
     on_progress("Bezeichnung schreiben", 30);
     int handled = 0, rc = plat_image_mode() ? 0 : plat_os_label(disk, size, label, &s.info, &handled, err, sizeof(err));
     if (!handled && !rc) {
-        if (plat_session_open(&s, disk, size, 1, err, sizeof(err))) { finish(0, err, NULL); return 1; }
+        if (plat_session_open(&s, disk, size, SESSION_WRITE, err, sizeof(err))) { finish(0, err, NULL); return 1; }
         rc = vol_set_label(s.fd, s.info.ss, s.info.size, label, err, sizeof(err));
         plat_session_close(&s, 1);
     }
@@ -529,8 +529,9 @@ static int cmd_backup(const char *disk, uint64_t size, const char *path) {
     snprintf(tmp, sizeof(tmp), "%s.part", path);
     snprintf(side, sizeof(side), "%s.sha256", path);
     on_progress("Belegte Bereiche ermitteln", 0);
-    /* gesperrt wie beim Formatieren: Was das System gerade schreibt, käme sonst halb ins Image */
-    if (plat_session_open(&s, disk, size, 1, err, sizeof(err))) { finish(0, err, NULL); return 1; }
+    /* gesperrt wie beim Formatieren (was das System gerade schreibt, käme sonst halb ins Image), aber nur lesend:
+     * so lassen sich auch Sticks und SD-Karten mit Schreibschutzschalter sichern */
+    if (plat_session_open(&s, disk, size, SESSION_EXCL, err, sizeof(err))) { finish(0, err, NULL); return 1; }
     ib_info_t info;
     memset(&info, 0, sizeof(info));
     snprintf(info.model, sizeof(info.model), "%s", s.info.model);
@@ -604,7 +605,12 @@ static int cmd_restore(const char *disk, uint64_t size, const char *path) {
         return 1;
     }
     session_t s;
-    if (plat_session_open(&s, disk, size, 1, err, sizeof(err))) { ib_close(rd); fclose(f); finish(0, err, NULL); return 1; }
+    if (plat_session_open(&s, disk, size, SESSION_WRITE, err, sizeof(err))) {
+        ib_close(rd);
+        fclose(f);
+        finish(0, err, NULL);
+        return 1;
+    }
     ib_result_t r;
     int rc = ib_restore(rd, s.fd, s.tfd, s.info.ss, size, on_progress, &cancel_requested, &r, err, sizeof(err));
     ib_close(rd);

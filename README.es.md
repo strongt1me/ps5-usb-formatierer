@@ -7,7 +7,7 @@
 **Formatea pendrives y discos USB – directamente en la PS5 o en el PC.**<br>
 Con prueba de autenticidad y velocidad, copia de imagen, gestión de juegos, todos los sistemas de archivos habituales y particiones propias.
 
-[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.5.10-185fa5?style=for-the-badge)](../../releases/latest)
+[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.5.11-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licencia](https://img.shields.io/badge/Licencia-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plataforma](https://img.shields.io/badge/Plataforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-descarga)
 [![Idiomas](https://img.shields.io/badge/Idiomas-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funciones)
@@ -107,7 +107,7 @@ Comprobación del número de serie: si mientras tanto hay otro pendrive del mism
 <td colspan="3" valign="top">
 
 ### 💾 Guardar y restaurar imágenes
-Guarda una unidad entera como <code>.img.zst</code> – solo las áreas ocupadas, comprimidas con zstd, con <code>.sha256</code>. En la PS5 en el almacenamiento interno, en otra unidad USB o como descarga; en el PC en cualquier carpeta. Vuelve a escribirla con comprobación posterior – también subiéndola desde el móvil o el PC. Con <code>zstd -d</code> el archivo se convierte en una imagen normal.
+Guarda una unidad entera como <code>.img.zst</code> – solo las áreas ocupadas, comprimidas con zstd, con <code>.sha256</code>. En la PS5 en el almacenamiento interno, en otra unidad USB o como descarga; en el PC en cualquier carpeta, también desde memorias y tarjetas SD con el interruptor de protección activado. Vuelve a escribirla con comprobación posterior – también subiéndola desde el móvil o el PC. Con <code>zstd -d</code> el archivo se convierte en una imagen normal.
 
 </td>
 </tr>

@@ -320,8 +320,10 @@ struct plat_session {
 };
 
 /* Volumes sperren und abmelden, damit Windows nicht dazwischen schreibt. Hält ein Programm Dateien offen, wird das
- * Volume trotzdem abgemeldet (wie "format" nach Rückfrage) - die Rückfrage stellt das PC-Programm vorher. */
-static int lock_volumes(session_t *s, char *err, size_t n) {
+ * Volume trotzdem abgemeldet (wie "format" nach Rückfrage) - die Rückfrage stellt das PC-Programm vorher.
+ * write = 0 (Sichern): Ist der Datenträger schreibgeschützt, lässt sich das Volume nur zum Lesen öffnen - Sperren und
+ * Abmelden gehen auch damit. */
+static int lock_volumes(session_t *s, int write, char *err, size_t n) {
     volinfo_t v[MAX_VOLS];
     int nv = disk_volumes(s->info.num, v, MAX_VOLS);
     if (nv < 0) {
@@ -339,6 +341,8 @@ static int lock_volumes(session_t *s, char *err, size_t n) {
         strip_slash(v[i].guid, bare, 64);
         HANDLE h = CreateFileW(bare, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                OPEN_EXISTING, 0, NULL);
+        if (h == INVALID_HANDLE_VALUE && !write)
+            h = CreateFileW(bare, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
         if (h == INVALID_HANDLE_VALUE) {
             win_error(err, n, v[i].letters[0] ? v[i].letters : N_("Volume öffnen"));
             return -1;
@@ -393,8 +397,9 @@ static int disk_number(const char *disk) {
     return *disk && !*e && v >= 0 && v < MAX_DISKS ? (int)v : -1;
 }
 
-int plat_session_open(session_t *s, const char *diskid, uint64_t size, int write, char *err, size_t n) {
+int plat_session_open(session_t *s, const char *diskid, uint64_t size, int mode, char *err, size_t n) {
     static plat_session_t ps;
+    const int write = mode == SESSION_WRITE;
     memset(s, 0, sizeof(*s));
     memset(&ps, 0, sizeof(ps));
     s->p = &ps;
@@ -425,7 +430,7 @@ int plat_session_open(session_t *s, const char *diskid, uint64_t size, int write
         snprintf(err, n, T("Datenträger %d hat sich geändert (andere Größe) – bitte die Liste aktualisieren."), disk);
         return -1;
     }
-    if (write && lock_volumes(s, err, n)) { plat_session_close(s, 0); return -1; }
+    if (mode != SESSION_READ && lock_volumes(s, write, err, n)) { plat_session_close(s, 0); return -1; }
     s->p->disk = open_disk(disk, write ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ);
     if (s->p->disk == INVALID_HANDLE_VALUE) {
         if (GetLastError() == ERROR_ACCESS_DENIED) snprintf(err, n, "%s", T("Zugriff verweigert – Administratorrechte nötig."));

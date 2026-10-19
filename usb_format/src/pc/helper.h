@@ -57,9 +57,14 @@ int  plat_image_mode(void);   /* nur Test-Build: Abbild-Datei statt Datenträger
 /* Liegt die Datei (bzw. ihr Ordner, falls es sie noch nicht gibt) auf diesem Datenträger? 1 = ja */
 int  plat_path_on_disk(const char *path, const char *disk);
 int  plat_list(void);         /* USB-Datenträger als JSON nach out */
-/* Datenträger öffnen (write: vorher alle seine Laufwerke aushängen/sperren). Nur USB/SD, nie die Systemplatte,
- * Größe muss zu "list" passen. */
-int  plat_session_open(session_t *s, const char *disk, uint64_t size, int write, char *err, size_t n);
+/* Zugriff beim Öffnen */
+enum {
+    SESSION_READ  = 0,   /* nur lesen, Laufwerke bleiben eingehängt (Tempo messen) */
+    SESSION_WRITE = 1,   /* schreiben: vorher alle Laufwerke aushängen/sperren; schreibgeschützt -> abgelehnt */
+    SESSION_EXCL  = 2    /* nur lesen, aber gesperrt wie SESSION_WRITE (Sichern) - geht auch mit Schreibschutzschalter */
+};
+/* Datenträger öffnen (mode: SESSION_*). Nur USB/SD, nie die Systemplatte, Größe muss zu "list" passen. */
+int  plat_session_open(session_t *s, const char *disk, uint64_t size, int mode, char *err, size_t n);
 /* freigeben; changed: das System soll die (neue) Partitionstabelle einlesen */
 void plat_session_close(session_t *s, int changed);
 /* NTFS oder FAT16 in Partition index (0-basiert, Lage start/count in Sektoren) - mit den Mitteln des Systems.

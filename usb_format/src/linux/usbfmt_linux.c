@@ -488,8 +488,9 @@ static int unmount_all(const char *disk, char *err, size_t n) {
     return 0;
 }
 
-int plat_session_open(session_t *s, const char *disk, uint64_t size, int write, char *err, size_t n) {
+int plat_session_open(session_t *s, const char *disk, uint64_t size, int mode, char *err, size_t n) {
     static plat_session_t ps;
+    const int write = mode == SESSION_WRITE;
     memset(s, 0, sizeof(*s));
     memset(&ps, 0, sizeof(ps));
     s->p = &ps;
@@ -518,11 +519,13 @@ int plat_session_open(session_t *s, const char *disk, uint64_t size, int write, 
         return -1;
     }
     snprintf(ps.name, sizeof(ps.name), "%s", disk);
-    if (write && unmount_all(disk, err, n)) return -1;
+    if (mode != SESSION_READ && unmount_all(disk, err, n)) return -1;
     char dev[48];
     snprintf(dev, sizeof(dev), "/dev/%s", disk);
-    /* exklusiv: solange er offen ist, kann niemand (auch nicht die Desktop-Automatik) etwas davon einhängen */
-    s->fd = open(dev, (write ? O_RDWR | O_EXCL : O_RDONLY) | O_CLOEXEC);
+    /* exklusiv: solange er offen ist, kann niemand (auch nicht die Desktop-Automatik) etwas davon einhängen. Beim
+     * Sichern nur lesend - das geht auch, wenn der Schreibschutzschalter steht (der Kernel meldet das Gerät dann
+     * schreibgeschützt und verweigert O_RDWR) */
+    s->fd = open(dev, (write ? O_RDWR : O_RDONLY) | (mode != SESSION_READ ? O_EXCL : 0) | O_CLOEXEC);
     if (s->fd < 0) {
         int e = errno;
         if (e == EACCES || e == EPERM) snprintf(err, n, "%s", T("Zugriff verweigert – Administratorrechte nötig."));

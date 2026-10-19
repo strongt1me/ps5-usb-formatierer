@@ -1,5 +1,5 @@
 # Windows-Helfer an Abbild-Dateien (usbfmt_win_test.exe --image, nie ein echter Datenträger): exFAT, FAT32, ext4 (über
-# mke2fs.exe), Image-Sicherung hin und zurück. Für die CI und zum Nachprüfen am PC.
+# mke2fs.exe), Image-Sicherung hin und zurück, Sichern schreibgeschützter Datenträger. Für die CI und zum Nachprüfen am PC.
 #   pwsh -File windows\tests\win_helper_test.ps1      (vorher build_helper.ps1 -Test)
 $ErrorActionPreference = "Stop"
 $here = Split-Path $PSScriptRoot
@@ -48,6 +48,24 @@ try {
     # falsche Größe: abgelehnt, nichts geschrieben
     $r = Helper $dst @("restore", "9", "$($size - 1MB)", $zst)
     Check "falsche Größe abgelehnt" ($r -like "R`t0`t*") $r
+
+    # schreibgeschützt (wie ein Stick mit Schreibschutzschalter): Sichern geht nur lesend, Schreiben ist unmöglich
+    $ro = Join-Path $w "schreibschutz.img"
+    Copy-Item $src $ro
+    Set-ItemProperty $ro -Name IsReadOnly -Value $true
+    $roZst = Join-Path $w "schreibschutz.img.zst"
+    $r = Helper $ro @("backup", "9", "$size", $roZst)
+    Check "schreibgeschützt: Sichern" ($r -like "R`t1`t*" -and (Test-Path $roZst) -and (Test-Path "$roZst.sha256")) $r
+    $r = Helper $ro @("format", "9", "$size", "exfat", "X")
+    Check "schreibgeschützt: Formatieren abgelehnt" ($r -like "R`t0`t*") $r
+    $r = Helper $ro @("restore", "9", "$size", $roZst)
+    Check "schreibgeschützt: Wiederherstellen abgelehnt" ($r -like "R`t0`t*") $r
+    Check "schreibgeschützt: unverändert" ((Get-FileHash $ro -Algorithm SHA256).Hash -eq $a)
+    Set-ItemProperty $ro -Name IsReadOnly -Value $false
+    $dst2 = Join-Path $w "ziel2.img"
+    NewImage $dst2
+    $r = Helper $dst2 @("restore", "9", "$size", $roZst)
+    Check "Image vom schreibgeschützten zurückgeschrieben" ($r -like "R`t1`t*" -and (Get-FileHash $dst2 -Algorithm SHA256).Hash -eq $a) $r
 } finally {
     Remove-Item -Recurse -Force $w -ErrorAction SilentlyContinue
 }
