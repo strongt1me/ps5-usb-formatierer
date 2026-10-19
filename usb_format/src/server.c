@@ -23,6 +23,9 @@
  *   POST /api/cancel     {} laufenden Auftrag abbrechen (Warten auf Abziehen, Prüfen, Beschreiben)
  *   GET  /api/status     Fortschritt des laufenden/letzten Auftrags: "kind", "job" (laufende Nummer) und "result"
  *   GET  /api/info       LAN-Adresse der PS5 (fuer den Hinweis im PS5-Browser) und "version" des Formatierers
+ *   GET  /api/tile       App-Kachel PPSA86920 laut ShadowMountPlus: {smp, found, installed, registered (angemeldete
+ *                         contentVersion), folder (contentVersion im App-Ordner), formatter}
+ *   POST /api/tile       {} Kachel über ShadowMountPlus neu anmelden (Uninstall + Scan) - Auftrag "tile"
  *   POST /api/open       {} Web-UI im PS5-Browser öffnen (für die App, app/title/starter.c)
  *   GET  /api/settings   {"theme":"auto|light|dark","scale_tv":160,"scale_pc":100,"lang":"de|en|it|es|fr|"};
  *                         POST ändert (einzeln oder zusammen) und speichert es
@@ -228,8 +231,9 @@ static void set_flags(int cancellable, int replug) {
     pthread_mutex_unlock(&lock);
 }
 
-enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE };
-static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore"};
+enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE };
+static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
+                                       "tile"};
 
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
@@ -2376,6 +2380,149 @@ static void *delete_worker(void *arg) {
 /* {"keys":"1a2b3c4d,5e6f7a8b","uninstall":true} - Schlüssel aus /api/library; nur Spiele auf USB-Laufwerken */
 #define MAX_DELETE 256   /* Spiele je Auftrag (9 Zeichen je Schlüssel passen in BODY_MAX) */
 
+/* ------------------------------------------------------------ App-Kachel (PPSA86920) über ShadowMountPlus */
+
+/* Die PS5 liest die param.json einer Kachel nur beim Anmelden: Nach einem Update des App-Ordners zeigt sie unter
+ * "Informationen" weiter die alte Version, bis ShadowMountPlus die App einmal ab- und wieder anmeldet. Das macht es
+ * selbst nicht (es meldet nur Fehlendes an) - daher hier "Uninstall" (die Quelle bleibt, nur die Anmeldung geht) und
+ * danach "Scan". Die Kachel steht danach womöglich an anderer Stelle auf dem Startbildschirm. */
+#define APP_TITLE "PPSA86920"
+
+typedef struct {
+    int  smp;                /* ShadowMountPlus antwortet mit einer gültigen Liste */
+    int  found, installed;   /* App in seiner Liste, angemeldet */
+    char registered[24];     /* contentVersion laut Anmeldung */
+    char folder[24];         /* contentVersion in sce_sys/param.json des App-Ordners */
+    char path[512];          /* Ordner der App */
+} tile_t;
+
+static void tile_state(tile_t *t) {
+    memset(t, 0, sizeof(*t));
+    int http;
+    size_t len;
+    char *g = plat_smp_post("/api/v1/games", "{}", &http, &len);
+    int rc = g && http == 200 ? lib_smp_title(g, len, APP_TITLE, t->registered, sizeof(t->registered), t->path,
+                                              sizeof(t->path), &t->installed) : -1;
+    free(g);
+    t->smp = rc >= 0;
+    t->found = rc == 1;
+    char pj[600];
+    FILE *f = t->path[0] && snprintf(pj, sizeof(pj), "%s/sce_sys/param.json", t->path) < (int)sizeof(pj)
+              ? fopen(pj, "rb") : NULL;
+    if (f) {
+        char buf[16384];
+        size_t n = fread(buf, 1, sizeof(buf), f);
+        fclose(f);
+        lib_json_str(buf, n, "contentVersion", t->folder, sizeof(t->folder));
+    }
+}
+
+/* contentVersion dieses Formatierers: 2.5.7 -> 02.005.007 (wie dump/Program.cs) */
+static void formatter_content_version(char *out, size_t n) {
+    unsigned a = 0, b = 0, v = 0;
+    if (sscanf(USBFMT_VERSION, "%u.%u.%u", &a, &b, &v) == 3) snprintf(out, n, "%02u.%03u.%03u", a, b, v);
+    else snprintf(out, n, "%s", "");
+}
+
+/* bis die Kachel ab- (want = 0) bzw. angemeldet ist (want = 1, bei gesetztem version mit genau dieser Version) */
+static int tile_wait(int want, const char *version, const char *step, int from, int to, int secs) {
+    for (int i = 0; i <= secs * 2; i++) {
+        tile_t t;
+        tile_state(&t);
+        if (t.smp && (want ? t.found && t.installed && (!version[0] || !strcmp(t.registered, version))
+                           : !(t.found && t.installed)))
+            return 0;
+        on_progress(step, from + (to - from) * i / (secs * 2));
+        usleep(500 * 1000);
+    }
+    return -1;
+}
+
+static void *tile_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0};
+    char err[200];
+    int ok = 0, http;
+    size_t len;
+    tile_t t;
+    on_progress("Kachel abmelden", 5);
+    tile_state(&t);
+    if (!t.smp) { sb_add(&msg, "%s", T("ShadowMountPlus nicht erreichbar")); goto out; }
+    if (!t.found) {
+        sb_tr(&msg, "ShadowMountPlus führt die App „USB-Formatierer“ (%s) nicht – liegt ihr Ordner in /data/homebrew?",
+              APP_TITLE);
+        goto out;
+    }
+    if (t.installed) {
+        char *r = plat_smp_post("/api/v1/games/uninstall", "{\"title_id\":\"" APP_TITLE "\"}", &http, &len);
+        if (!r || (http != 200 && http != 404)) {
+            if (r && http == 409)
+                sb_add(&msg, "%s", T("Die App „USB-Formatierer“ ist noch geöffnet oder ShadowMountPlus ist beschäftigt – die "
+                                    "App schließen (der Formatierer läuft weiter) und erneut versuchen."));
+            else {
+                smp_error(r, len, http, err, sizeof(err));
+                sb_add(&msg, "%s", r ? err : T("ShadowMountPlus nicht erreichbar"));
+            }
+            free(r);
+            goto out;
+        }
+        free(r);
+        if (tile_wait(0, "", "Kachel abmelden", 10, 40, 30)) {
+            sb_add(&msg, "%s", T("ShadowMountPlus hat die Kachel nicht abgemeldet."));
+            goto out;
+        }
+    }
+    on_progress("Kachel anmelden", 45);
+    char *r = plat_smp_post("/api/v1/scan", "{\"reset_attempts\":true}", &http, &len);
+    int scanned = r && http == 200;
+    free(r);
+    if (!scanned || tile_wait(1, t.folder, "Kachel anmelden", 50, 98, 90)) {
+        sb_add(&msg, "%s", T("Die Kachel ist abgemeldet, aber noch nicht wieder angemeldet. ShadowMountPlus meldet sie beim "
+                            "nächsten Suchlauf an – sonst in seiner Weboberfläche „Scan“ drücken."));
+        goto out;
+    }
+    tile_state(&t);
+    ok = 1;
+    sb_tr(&msg, "Kachel neu angemeldet – Version %s. Sie steht jetzt womöglich an anderer Stelle auf dem Startbildschirm.",
+          t.registered[0] ? t.registered : "?");
+    sb_add(&res, "{\"registered\":");
+    sb_str(&res, t.registered);
+    sb_add(&res, "}");
+out:
+    job_done(j, ok, &msg, &res, 0);
+    return NULL;
+}
+
+static void api_tile(int c, int is_post) {
+    if (is_post) {
+        char gid[16], err[320];
+        if (game_running(gid, sizeof(gid))) {
+            game_error(gid, err, sizeof(err));
+            respond_error(c, 409, err);
+            return;
+        }
+        job_t *j = new_job(c, JOB_TILE);
+        if (j) start_job(c, j, tile_worker);
+        return;
+    }
+    tile_t t;
+    char mine[24];
+    tile_state(&t);
+    formatter_content_version(mine, sizeof(mine));
+    sbuf_t b = {0};
+    sb_add(&b, "{\"smp\":%s,\"found\":%s,\"installed\":%s,\"registered\":", t.smp ? "true" : "false",
+           t.found ? "true" : "false", t.installed ? "true" : "false");
+    sb_str(&b, t.registered);
+    sb_add(&b, ",\"folder\":");
+    sb_str(&b, t.folder);
+    sb_add(&b, ",\"formatter\":");
+    sb_str(&b, mine);
+    sb_add(&b, "}");
+    respond_json(c, 200, &b);
+    free(b.p);
+}
+
 static void api_delete(int c, const char *body) {
     char keys[MAX_DELETE * 9 + 16];   /* ~2,3 KiB auf dem Stapel (Verbindungs-Threads haben 512 KiB) */
     keys[0] = 0;
@@ -2542,6 +2689,8 @@ static void handle(int c) {
         api_check(c, body);
     else if (strcmp(path, "/api/label") == 0 && is_post)
         api_label(c, body);
+    else if (strcmp(path, "/api/tile") == 0 && (is_get || is_post))
+        api_tile(c, is_post);
     else if (strcmp(path, "/api/delete") == 0 && is_post)
         api_delete(c, body);
     else if (strcmp(path, "/api/images") == 0 && is_get)

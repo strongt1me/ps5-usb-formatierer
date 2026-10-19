@@ -2110,5 +2110,47 @@
   "it": "È in esecuzione un gioco o un'app (%s) – chiudilo prima. La PS5 condivide con esso le unità montate; scollegarle ora può mandare in confusione il gioco e la PS5.",
   "es": "Hay un juego o una app en ejecución (%s) – ciérralo primero. La PS5 comparte con él las unidades montadas; desconectarlas ahora puede confundir al juego y a la PS5.",
   "fr": "Un jeu ou une app est en cours d'exécution (%s) – fermez-le d'abord. La PS5 partage avec lui les lecteurs montés ; les déconnecter maintenant peut perturber le jeu et la PS5."
+ },
+ "Kachel abmelden": {
+  "en": "Unregistering tile",
+  "it": "Rimozione registrazione riquadro",
+  "es": "Dando de baja el icono",
+  "fr": "Désinscription de la vignette"
+ },
+ "Kachel anmelden": {
+  "en": "Registering tile",
+  "it": "Registrazione riquadro",
+  "es": "Registrando el icono",
+  "fr": "Inscription de la vignette"
+ },
+ "ShadowMountPlus führt die App „USB-Formatierer“ (%s) nicht – liegt ihr Ordner in /data/homebrew?": {
+  "en": "ShadowMountPlus does not list the “USB Formatter” app (%s) – is its folder in /data/homebrew?",
+  "it": "ShadowMountPlus non elenca l'app «Formattatore USB» (%s) – la sua cartella è in /data/homebrew?",
+  "es": "ShadowMountPlus no muestra la app «Formateador USB» (%s) – ¿está su carpeta en /data/homebrew?",
+  "fr": "ShadowMountPlus ne liste pas l'app « Formateur USB » (%s) – son dossier est-il dans /data/homebrew ?"
+ },
+ "Die App „USB-Formatierer“ ist noch geöffnet oder ShadowMountPlus ist beschäftigt – die App schließen (der Formatierer läuft weiter) und erneut versuchen.": {
+  "en": "The “USB Formatter” app is still open or ShadowMountPlus is busy – close the app (the formatter keeps running) and try again.",
+  "it": "L'app «Formattatore USB» è ancora aperta o ShadowMountPlus è occupato – chiudi l'app (il formattatore resta attivo) e riprova.",
+  "es": "La app «Formateador USB» sigue abierta o ShadowMountPlus está ocupado – cierra la app (el formateador sigue funcionando) y vuelve a intentarlo.",
+  "fr": "L'app « Formateur USB » est encore ouverte ou ShadowMountPlus est occupé – fermez l'app (le formateur continue de fonctionner) et réessayez."
+ },
+ "ShadowMountPlus hat die Kachel nicht abgemeldet.": {
+  "en": "ShadowMountPlus did not unregister the tile.",
+  "it": "ShadowMountPlus non ha rimosso la registrazione del riquadro.",
+  "es": "ShadowMountPlus no ha dado de baja el icono.",
+  "fr": "ShadowMountPlus n'a pas désinscrit la vignette."
+ },
+ "Die Kachel ist abgemeldet, aber noch nicht wieder angemeldet. ShadowMountPlus meldet sie beim nächsten Suchlauf an – sonst in seiner Weboberfläche „Scan“ drücken.": {
+  "en": "The tile is unregistered but not registered again yet. ShadowMountPlus registers it on its next scan – otherwise press “Scan” in its web interface.",
+  "it": "Il riquadro è stato rimosso ma non ancora registrato di nuovo. ShadowMountPlus lo registra alla prossima ricerca – altrimenti premi «Scan» nella sua interfaccia web.",
+  "es": "El icono se ha dado de baja pero aún no se ha registrado de nuevo. ShadowMountPlus lo registra en la próxima búsqueda; si no, pulsa «Scan» en su interfaz web.",
+  "fr": "La vignette est désinscrite mais pas encore réinscrite. ShadowMountPlus l'inscrit lors de sa prochaine recherche – sinon appuyez sur « Scan » dans son interface web."
+ },
+ "Kachel neu angemeldet – Version %s. Sie steht jetzt womöglich an anderer Stelle auf dem Startbildschirm.": {
+  "en": "Tile registered again – version %s. It may now be in a different place on the home screen.",
+  "it": "Riquadro registrato di nuovo – versione %s. Ora potrebbe trovarsi in un'altra posizione nella schermata iniziale.",
+  "es": "Icono registrado de nuevo – versión %s. Puede que ahora esté en otro lugar de la pantalla de inicio.",
+  "fr": "Vignette réinscrite – version %s. Elle se trouve peut-être maintenant à un autre endroit de l'écran d'accueil."
  }
 }

@@ -36,6 +36,10 @@ typedef struct {
 void lib_set_hints(const lib_hint_t *h, int n);
 /* Antwort von POST /api/v1/games (ShadowMountPlus) bzw. sein debug.log auswerten; hängt an *h an (realloc) */
 int  lib_parse_smp_games(const char *json, size_t len, lib_hint_t **h, int *n);
+/* Eintrag einer Titel-ID in der Spieleliste von ShadowMountPlus (/api/v1/games): angemeldete Version, Pfad der
+ * Quelle, ob angemeldet. 1 = gefunden, 0 = nicht in der Liste, -1 = keine gültige Liste */
+int  lib_smp_title(const char *json, size_t len, const char *id, char *version, size_t vn, char *path, size_t pn,
+                   int *installed);
 int  lib_parse_smp_log(const char *log, size_t len, lib_hint_t **h, int *n);
 
 /* usb_root: Wurzel eines Laufwerks (sucht auch homebrew/, etaHEN/games/, pkg/); sonst nur der Ordner selbst */

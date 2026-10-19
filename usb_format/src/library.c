@@ -249,6 +249,29 @@ int lib_parse_smp_games(const char *json, size_t len, lib_hint_t **h, int *n) {
     return 0;
 }
 
+int lib_smp_title(const char *json, size_t len, const char *id, char *version, size_t vn, char *path, size_t pn,
+                  int *installed) {
+    const char *e = json + len, *p = jget(json, e, "games");
+    if (!p || *p != '[') return -1;
+    for (p = jws(p + 1, e); p < e && *p == '{'; ) {
+        const char *next = jskip(p, e);
+        if (!next) return -1;
+        char tid[16] = "";
+        jget_str(p, next, "title_id", tid, sizeof(tid));
+        if (!strcmp(tid, id)) {
+            version[0] = path[0] = 0;
+            jget_str(p, next, "version", version, vn);
+            jget_str(p, next, "path", path, pn);
+            const char *v = jget(p, next, "installed");
+            *installed = v && next - v >= 4 && !strncmp(v, "true", 4);
+            return 1;
+        }
+        p = jws(next, e);
+        if (p < e && *p == ',') p = jws(p + 1, e);
+    }
+    return p < e && *p == ']' ? 0 : -1;
+}
+
 /* Zeilen wie "[LINK] mount_img.lnk created: /user/app/PPSA03117/mount_img.lnk -> /mnt/usb1/x.ffpkg layers=1" */
 int lib_parse_smp_log(const char *log, size_t len, lib_hint_t **h, int *n) {
     static const char key[] = "mount_img.lnk created: /user/app/";

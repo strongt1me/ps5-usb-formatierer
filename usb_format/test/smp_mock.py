@@ -1,6 +1,8 @@
 """Attrappe der ShadowMountPlus-API (1.7) für die Host-Tests: smp_mock.py <port> <games.json> <protokoll>
 
 games.json: [{"title_id": "...", "path": "...", "busy": false}, ...] - "busy" lässt delete/uninstall mit 409 scheitern.
+"version" ist die angemeldete contentVersion, "rescan_version" die nach einem neuen Anmelden (scan nach uninstall);
+"noreg": true - scan meldet diesen Titel nicht wieder an.
 delete löscht den Pfad wirklich (wie ShadowMountPlus) und meldet über storage/status erst "deleting", dann
 "completed". Jeder Aufruf landet als Zeile "<route> <title_id>" im Protokoll."""
 import http.server
@@ -38,7 +40,16 @@ class H(http.server.BaseHTTPRequestHandler):
         g = next((x for x in games if x["title_id"] == tid), None)
         if self.path == "/api/v1/games":
             return self.reply(200, {"status": 0, "count": len(games), "games": [
-                {"title_id": x["title_id"], "path": x["path"], "title_name": x["title_id"]} for x in games]})
+                {"title_id": x["title_id"], "path": x["path"], "title_name": x["title_id"],
+                 "version": x.get("version", "") if x["title_id"] in installed else "",
+                 "installed": x["title_id"] in installed} for x in games]})
+        if self.path == "/api/v1/scan":   # wie ShadowMountPlus: Fehlendes anmelden, Angemeldetes in Ruhe lassen
+            log(f"scan reset_attempts={str(req.get('reset_attempts', False)).lower()}")
+            for x in games:
+                if x["title_id"] not in installed and not x.get("noreg"):
+                    installed.add(x["title_id"])
+                    x["version"] = x.get("rescan_version", x.get("version", ""))
+            return self.reply(200, {"status": 0, "queued": True, "scan_queued": True})
         if self.path in ("/api/v1/games/delete", "/api/v1/games/uninstall"):
             log(f"{self.path.rsplit('/', 1)[1]} {tid}")
             if g and g.get("busy"):

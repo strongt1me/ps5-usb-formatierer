@@ -1462,5 +1462,59 @@
   "it": "Ricerca nell'unità … {pct} %",
   "es": "Buscando en la unidad … {pct} %",
   "fr": "Analyse du lecteur … {pct} %"
+ },
+ "Kachel neu angemeldet": {
+  "en": "Tile registered again",
+  "it": "Riquadro registrato di nuovo",
+  "es": "Icono registrado de nuevo",
+  "fr": "Vignette réinscrite"
+ },
+ "Kachel nicht neu angemeldet": {
+  "en": "Tile not registered again",
+  "it": "Riquadro non registrato di nuovo",
+  "es": "Icono no registrado de nuevo",
+  "fr": "Vignette non réinscrite"
+ },
+ "Kachel neu anmelden": {
+  "en": "Re-register tile",
+  "it": "Registra di nuovo il riquadro",
+  "es": "Volver a registrar el icono",
+  "fr": "Réinscrire la vignette"
+ },
+ "Kachel neu anmelden?": {
+  "en": "Re-register tile?",
+  "it": "Registrare di nuovo il riquadro?",
+  "es": "¿Volver a registrar el icono?",
+  "fr": "Réinscrire la vignette ?"
+ },
+ "Neu anmelden": {
+  "en": "Re-register",
+  "it": "Registra di nuovo",
+  "es": "Volver a registrar",
+  "fr": "Réinscrire"
+ },
+ "Die App-Kachel ist noch als Version {old} angemeldet, der App-Ordner ist {folder}. Die PS5 zeigt die neue Version erst nach einer neuen Anmeldung.": {
+  "en": "The app tile is still registered as version {old}; the app folder is {folder}. The PS5 only shows the new version after registering it again.",
+  "it": "Il riquadro dell'app è ancora registrato come versione {old}, la cartella dell'app è la {folder}. La PS5 mostra la nuova versione solo dopo una nuova registrazione.",
+  "es": "El icono de la app sigue registrado como versión {old}; la carpeta de la app es la {folder}. La PS5 solo muestra la nueva versión tras registrarla de nuevo.",
+  "fr": "La vignette de l'app est encore inscrite en version {old}, le dossier de l'app est en {folder}. La PS5 n'affiche la nouvelle version qu'après une nouvelle inscription."
+ },
+ "Der App-Ordner (Version {folder}) ist älter als dieser Formatierer ({mine}) – den Ordner PPSA86920 aus dem Release neu nach /data/homebrew kopieren.": {
+  "en": "The app folder (version {folder}) is older than this formatter ({mine}) – copy the PPSA86920 folder from the release to /data/homebrew again.",
+  "it": "La cartella dell'app (versione {folder}) è più vecchia di questo formattatore ({mine}) – copia di nuovo la cartella PPSA86920 della release in /data/homebrew.",
+  "es": "La carpeta de la app (versión {folder}) es más antigua que este formateador ({mine}) – vuelve a copiar la carpeta PPSA86920 de la versión publicada en /data/homebrew.",
+  "fr": "Le dossier de l'app (version {folder}) est plus ancien que ce formateur ({mine}) – recopiez le dossier PPSA86920 de la version publiée dans /data/homebrew."
+ },
+ "ShadowMountPlus meldet die App „USB-Formatierer“ kurz ab und gleich wieder an. Der App-Ordner und dieser Formatierer bleiben dabei unverändert.": {
+  "en": "ShadowMountPlus briefly unregisters the “USB Formatter” app and registers it again right away. The app folder and this formatter stay unchanged.",
+  "it": "ShadowMountPlus rimuove per un attimo la registrazione dell'app «Formattatore USB» e la registra subito di nuovo. La cartella dell'app e questo formattatore restano invariati.",
+  "es": "ShadowMountPlus da de baja un momento la app «Formateador USB» y la vuelve a registrar enseguida. La carpeta de la app y este formateador no cambian.",
+  "fr": "ShadowMountPlus désinscrit brièvement l'app « Formateur USB » et la réinscrit aussitôt. Le dossier de l'app et ce formateur restent inchangés."
+ },
+ "Die Kachel steht danach womöglich an anderer Stelle auf dem Startbildschirm.": {
+  "en": "Afterwards the tile may be in a different place on the home screen.",
+  "it": "Dopo, il riquadro potrebbe trovarsi in un'altra posizione nella schermata iniziale.",
+  "es": "Después, el icono puede estar en otro lugar de la pantalla de inicio.",
+  "fr": "Ensuite, la vignette peut se trouver à un autre endroit de l'écran d'accueil."
  }
 }
