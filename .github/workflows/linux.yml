@@ -1,7 +1,8 @@
 # Linux-Fassung: Helfer bauen und testen (auch als root an echten Loop-Geräten), Oberfläche unter Xvfb prüfen,
 # beide Programme mit PyInstaller bauen. Gebaut wird auf Ubuntu 22.04 (glibc 2.35), damit die Programme auch auf
 # älteren Verteilungen laufen; der Helfer ist statisch. Daneben die Host-Tests des PS5-Codes (eigener Job).
-# Beim Veröffentlichen eines Releases: mit dessen usb_format.elf bauen und die Archive an das Release hängen.
+# Beim Veröffentlichen eines Releases: mit dessen usb_format.elf bauen und die Archive an das Release hängen. Von Hand
+# (workflow_dispatch mit tag) dasselbe für ein schon veröffentlichtes Release, etwa nach einem behobenen Testfehler.
 name: Linux
 
 on:
@@ -11,6 +12,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release, an das die Archive gehängt werden (z. B. v2.5.11); leer = nur bauen und prüfen"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -68,7 +74,7 @@ jobs:
       - name: Payload aus diesem (bzw. dem letzten) Release (für die PS5-Fassung)
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: gh release download $TAG --repo "$GITHUB_REPOSITORY" --pattern usb_format.elf --dir /tmp/elf
 
       - name: Programme bauen
@@ -99,7 +105,7 @@ jobs:
 
   # nur beim Veröffentlichen: die geprüften Archive an das Release hängen
   release:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || inputs.tag != ''
     needs: linux
     runs-on: ubuntu-latest
     permissions:
@@ -113,7 +119,7 @@ jobs:
       - name: An das Release hängen
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: gh release upload "$TAG" dist/*.tar.gz --clobber --repo "$GITHUB_REPOSITORY"
 
   # Der PS5-Code (Payload) als Host-Programm - FreeBSD hat arc4random, glibc erst ab 2.36: daher Ubuntu 24.04

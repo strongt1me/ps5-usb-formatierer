@@ -9,11 +9,13 @@ cd "$(dirname "$0")/.."
 W=$(mktemp -d)
 LOOP=
 LOOP2=
+IMG=
 cleanup() {
     umount "$W/mnt" 2>/dev/null
     [ -n "$LOOP" ] && losetup -d "$LOOP" 2>/dev/null
     [ -n "$LOOP2" ] && losetup -d "$LOOP2" 2>/dev/null
     rm -rf "$W"
+    [ -n "$IMG" ] && rm -rf "$IMG"
 }
 trap cleanup EXIT
 bash src/linux/build.sh "$W/h" -DUSBFMT_TEST >/dev/null || { echo "FEHLER  Bau"; exit 1; }
@@ -130,21 +132,25 @@ D=${LOOP#/dev/}
 [ "$(blockdev --getro "$LOOP")" = 1 ] && ok "Loop-Gerät schreibgeschützt" || bad "Loop-Gerät nicht schreibgeschützt"
 before=$(sha256sum "$W/disk.img" | cut -c1-16)
 mount -o ro "$(p 1)" "$W/mnt" 2>/dev/null || echo "        (Kernel ohne exFAT - Sichern ohne Einhängen)"
-h robak backup "$D" $SIZE "$W/ro.img.zst"
+# Image-Dateien legt der Helfer als der aufrufende Benutzer an (sudo/pkexec) - also in einen eigenen Ordner, der ihm
+# gehört ($W gehört root und bleibt verschlossen, sonst nähme der Helfer dort keine --out-Datei an)
+IMG=$(mktemp -d)
+chown "${SUDO_UID:-0}:${SUDO_GID:-0}" "$IMG"
+h robak backup "$D" $SIZE "$IMG/ro.img.zst"
 expect robak 1 "schreibgeschützt: Sichern"
-[ -s "$W/ro.img.zst" ] && [ -s "$W/ro.img.zst.sha256" ] && ok "Image und Prüfsumme angelegt" || bad "Image fehlt"
+[ -s "$IMG/ro.img.zst" ] && [ -s "$IMG/ro.img.zst.sha256" ] && ok "Image und Prüfsumme angelegt" || bad "Image fehlt"
 mountpoint -q "$W/mnt" && { bad "beim Sichern nicht ausgehängt"; umount "$W/mnt"; } || ok "beim Sichern ausgehängt"
-(cd "$W" && sha256sum -c --quiet ro.img.zst.sha256) && ok "Prüfsumme der Image-Datei stimmt" || bad "Prüfsumme falsch"
+(cd "$IMG" && sha256sum -c --quiet ro.img.zst.sha256) && ok "Prüfsumme der Image-Datei stimmt" || bad "Prüfsumme falsch"
 h rofmt format "$D" $SIZE exfat X plain
 expect rofmt 0 "schreibgeschützt: Formatieren abgelehnt"
 grep -q "schreibgeschützt" "$W/rofmt.txt" && ok "Meldung: schreibgeschützt" || bad "Meldung: $(grep -P '^R' "$W/rofmt.txt")"
-h rores restore "$D" $SIZE "$W/ro.img.zst"
+h rores restore "$D" $SIZE "$IMG/ro.img.zst"
 expect rores 0 "schreibgeschützt: Wiederherstellen abgelehnt"
 [ "$(sha256sum "$W/disk.img" | cut -c1-16)" = "$before" ] && ok "schreibgeschützt: unverändert" || bad "verändert"
 # das Image taugt: auf ein zweites, leeres Gerät zurückschreiben (der Helfer liest dabei nach), dann dort prüfen
 truncate -s $SIZE "$W/copy.img"
 LOOP2=$(losetup -fP --show "$W/copy.img")
-h rocopy restore "${LOOP2#/dev/}" $SIZE "$W/ro.img.zst"
+h rocopy restore "${LOOP2#/dev/}" $SIZE "$IMG/ro.img.zst"
 expect rocopy 1 "Image des schreibgeschützten Geräts zurückgeschrieben und nachgelesen"
 fsck.exfat -n "${LOOP2}p1" >/dev/null 2>&1 && [ "$(blkid -p -o value -s LABEL "${LOOP2}p1")" = TEST ] \
     && ok "Kopie: exFAT TEST, fsck.exfat" || bad "Kopie: $(blkid -p "${LOOP2}p1")"
