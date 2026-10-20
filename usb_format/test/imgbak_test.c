@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
         printf("%llu %llu %s %s\n", (unsigned long long)info.used, (unsigned long long)r.file_bytes, r.sha_img, r.sha_file);
         return close(ofd);
     }
-    if (!strcmp(cmd, "info") || !strcmp(cmd, "restore")) {
+    if (!strcmp(cmd, "info") || !strcmp(cmd, "restore") || !strcmp(cmd, "verify")) {
         int ifd = open(argv[2], O_RDONLY);
         if (ifd < 0) { perror(argv[2]); return 2; }
         ib_info_t info;
@@ -67,6 +67,15 @@ int main(int argc, char **argv) {
                    (unsigned long long)info.size, (unsigned long long)info.used, info.has_map, info.model, info.label,
                    info.fs, info.ident, info.created);
             ib_close(rd);
+            return 0;
+        }
+        if (cmd[0] == 'v') {   /* verify <img.zst>: geprüfte Bytes, Prüfsumme verglichen, SHA der Daten und der Datei */
+            ib_result_t r;
+            int rc = ib_verify(rd, prog, &cancel, &r, err, sizeof(err));
+            ib_close(rd);
+            if (rc) { fprintf(stderr, "Fehler: %s\n", err); return 1; }
+            printf("%llu %d %s %s %llu\n", (unsigned long long)r.used, r.checked, r.sha_img, r.sha_file,
+                   (unsigned long long)r.file_bytes);
             return 0;
         }
         if (argc < 4) return 2;

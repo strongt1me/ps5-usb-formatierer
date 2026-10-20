@@ -2,7 +2,7 @@
  * sperrt und öffnet sie, schreibt NTFS und FAT (FAT16) mit der Formatierfunktion von Windows (FormatEx) und ext2/3/4
  * mit der mitgelieferten mke2fs.exe.
  *
- *   usbfmt_win [--out F] [--cancel F] [--lang de|en|it|es|fr] list|format|layout|speed|label ...
+ *   usbfmt_win [--out F] [--cancel F] [--lang de|en|it|es|fr] list|format|layout|speed|label|backup|restore|verify ...
  *
  * Existiert die Datei --cancel, werden Prüfung und Tempomessung abgebrochen. Nur USB- und SD-Datenträger, nie die
  * Systemplatte. */

@@ -1516,5 +1516,59 @@
   "it": "Dopo, il riquadro potrebbe trovarsi in un'altra posizione nella schermata iniziale.",
   "es": "Después, el icono puede estar en otro lugar de la pantalla de inicio.",
   "fr": "Ensuite, la vignette peut se trouver à un autre endroit de l'écran d'accueil."
+ },
+ "Image prüfen": {
+  "en": "Check image",
+  "it": "Verifica immagine",
+  "es": "Comprobar imagen",
+  "fr": "Vérifier l'image"
+ },
+ "Image löschen …": {
+  "en": "Delete image …",
+  "it": "Elimina immagine …",
+  "es": "Eliminar imagen …",
+  "fr": "Supprimer l'image …"
+ },
+ "Image löschen": {
+  "en": "Delete image",
+  "it": "Elimina immagine",
+  "es": "Eliminar imagen",
+  "fr": "Supprimer l'image"
+ },
+ "Diese Sicherung wird samt ihrer .sha256-Datei gelöscht:": {
+  "en": "This backup will be deleted together with its .sha256 file:",
+  "it": "Questo backup verrà eliminato insieme al suo file .sha256:",
+  "es": "Esta copia se eliminará junto con su archivo .sha256:",
+  "fr": "Cette sauvegarde sera supprimée avec son fichier .sha256 :"
+ },
+ "{name} gelöscht.": {
+  "en": "{name} deleted.",
+  "it": "{name} eliminato.",
+  "es": "{name} eliminado.",
+  "fr": "{name} supprimé."
+ },
+ "Nicht gelöscht": {
+  "en": "Not deleted",
+  "it": "Non eliminato",
+  "es": "No eliminado",
+  "fr": "Non supprimé"
+ },
+ "Prüfen abgebrochen": {
+  "en": "Check cancelled",
+  "it": "Verifica annullata",
+  "es": "Comprobación cancelada",
+  "fr": "Vérification annulée"
+ },
+ "Image fehlerhaft": {
+  "en": "Image faulty",
+  "it": "Immagine difettosa",
+  "es": "Imagen defectuosa",
+  "fr": "Image défectueuse"
+ },
+ "Image geprüft": {
+  "en": "Image checked",
+  "it": "Immagine verificata",
+  "es": "Imagen comprobada",
+  "fr": "Image vérifiée"
  }
 }

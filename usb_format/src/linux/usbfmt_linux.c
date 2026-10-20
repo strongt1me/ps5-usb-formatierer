@@ -3,7 +3,7 @@
  * FAT16 und ext2/3/4 mit den Werkzeugen des Systems (mkntfs, mkfs.fat, mke2fs) und benennt NTFS/FAT16 mit ntfslabel
  * bzw. fatlabel um. Das Programm startet ihn zum Formatieren über pkexec (siehe windows/pc_linux.py).
  *
- *   usbfmt_linux [--out F] [--cancel F] [--lang de|en|it|es|fr] list|format|layout|speed|label ...
+ *   usbfmt_linux [--out F] [--cancel F] [--lang de|en|it|es|fr] list|format|layout|speed|label|backup|restore|verify ...
  *
  * Datenträger heißen wie unter /dev ("sdb", "mmcblk0"). Nur USB- und SD-Datenträger, nie einer mit dem laufenden
  * System (/, /boot, /usr, /home, Auslagerung - auch über LVM/RAID). */

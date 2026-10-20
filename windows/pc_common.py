@@ -14,8 +14,11 @@ import tempfile
 import threading
 import time
 import tkinter as tk
-from tkinter import messagebox, ttk
+import urllib.request
+from tkinter import ttk
 
+import ui_msgbox as messagebox
+import ui_theme
 from i18n import _, lang, number, quote, unit
 
 try:   # von build_helper.ps1 erzeugt: Prüfsumme des ausgelieferten Helfers
@@ -43,7 +46,7 @@ def settings_file(app_name):
 
 # bekannte Einstellungen und ihr Typ - von Hand verbogene Werte (Liste statt Text, Zahl statt Ja/Nein) fallen beim
 # Laden weg, statt das Programm am Start scheitern zu lassen
-_SETTING_TYPES = {"lang": str, "mode": str, "host": str, "label": str, "fs": str, "scheme": str,
+_SETTING_TYPES = {"lang": str, "theme": str, "mode": str, "host": str, "label": str, "fs": str, "scheme": str,
                   "verify": bool, "folders": bool, "quick": bool, "expert": bool, "standard": dict}
 _LABEL_OK = re.compile(r"^[A-Za-z0-9 _-]{0,32}\Z")
 
@@ -343,6 +346,27 @@ class _ShellExecuteInfo(ctypes.Structure):
                 ("dwHotKey", ctypes.c_ulong), ("hIconOrMonitor", ctypes.c_void_p), ("hProcess", ctypes.c_void_p)]
 
 
+def _helper_lines(data, on_progress):
+    """Fertige Zeilen der Helfer-Ausgabe auswerten: P = Fortschritt (an on_progress), R = Ergebnis.
+    Liefert (ok, meldung, json) oder None, solange kein Ergebnis dabei ist."""
+    result = None
+    # nur an \n trennen - splitlines() trennte auch an U+2028 & Co. mitten in einer Meldung
+    for line in data.decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n").split("\n"):
+        parts = line.split("\t")
+        if parts[0] == "P" and len(parts) >= 3:
+            try:
+                on_progress(int(parts[1]), parts[2])
+            except ValueError:
+                pass
+        elif parts[0] == "R" and len(parts) >= 4:
+            try:
+                info = json.loads(parts[3])
+            except ValueError:
+                info = {}
+            result = (parts[1] == "1", parts[2], info if isinstance(info, dict) else {})
+    return result
+
+
 class _WinJob:
     """Startet den Helfer mit Administratorrechten (UAC-Abfrage von Windows) und liest seine Ausgabedatei mit"""
     STALL_S = 30 * 60   # so lange ohne neue Ausgabe: Helfer gilt als hängend
@@ -432,20 +456,7 @@ class _WinJob:
                 pos += end
                 if end:
                     last_change = time.time()
-                # nur an \n trennen - splitlines() trennte auch an U+2028 & Co. mitten in einer Meldung
-                for line in data[:end].decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n").split("\n"):
-                    parts = line.split("\t")
-                    if parts[0] == "P" and len(parts) >= 3:
-                        try:
-                            on_progress(int(parts[1]), parts[2])
-                        except ValueError:
-                            pass
-                    elif parts[0] == "R" and len(parts) >= 4:
-                        try:
-                            info = json.loads(parts[3])
-                        except ValueError:
-                            info = {}
-                        result = (parts[1] == "1", parts[2], info if isinstance(info, dict) else {})
+                    result = _helper_lines(data[:end], on_progress)
                 if result is None and not alive:
                     code = ctypes.c_ulong(0)
                     ctypes.windll.kernel32.GetExitCodeProcess(ctypes.c_void_p(self.proc), ctypes.byref(code))
@@ -472,31 +483,84 @@ else:
     PcJob = pc_linux.LinuxJob
 
 
+class PlainJob:
+    """Helfer OHNE Administratorrechte - für Aufträge ohne Datenträger (Image-Datei prüfen): keine UAC- bzw.
+    pkexec-Abfrage. Gleiche Schnittstelle wie PcJob (cancel, follow, cancellable)."""
+    STALL_S = 30 * 60
+
+    def __init__(self, args, hwnd=None):
+        exe = find_helper()
+        if not exe:
+            raise RuntimeError(_("Der Helfer {name} fehlt neben dem Programm.", name=HELPER_NAME))
+        # läuft mit den eigenen Rechten: ein privater Ordner genügt (unter Linux verlangt der Helfer genau das)
+        self.tmpdir = tempfile.mkdtemp(prefix=TEMP_PREFIX + "-")
+        self.out = os.path.join(self.tmpdir, "auftrag.txt")
+        self.cancel_file = os.path.join(self.tmpdir, "abbruch")
+        self.cancellable = False
+        try:
+            self.proc = subprocess.Popen(
+                [exe, "--out", self.out, "--cancel", self.cancel_file, "--lang", lang()] + list(args),
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                creationflags=0x08000000 if IS_WIN else 0)   # CREATE_NO_WINDOW: kein Konsolenfenster
+        except OSError:
+            self._cleanup()
+            raise
+
+    def _cleanup(self):
+        for p in (self.out, self.cancel_file):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+        try:
+            os.rmdir(self.tmpdir)
+        except OSError:
+            pass
+
+    def cancel(self):
+        try:
+            open(self.cancel_file, "w").close()
+        except OSError:
+            pass
+
+    def follow(self, on_progress):
+        """Bis zum Ende mitlesen; liefert (ok, meldung, json)"""
+        pos, result, last_change = 0, None, time.time()
+        try:
+            while result is None:
+                alive = self.proc.poll() is None
+                try:
+                    with open(self.out, "rb") as f:
+                        f.seek(pos)
+                        data = f.read()
+                except OSError:
+                    data = b""
+                end = data.rfind(b"\n") + 1
+                pos += end
+                if end:
+                    last_change = time.time()
+                    result = _helper_lines(data[:end], on_progress)
+                if result is None and not alive:
+                    result = (False, _("Der Helfer wurde unerwartet beendet (Code {code}).", code=self.proc.returncode), {})
+                elif result is None and time.time() - last_change > self.STALL_S:
+                    self.cancel()
+                    self.proc.kill()
+                    result = (False, _("Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen."), {})
+                elif result is None:
+                    time.sleep(0.3)
+        finally:
+            try:
+                self.proc.wait(5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+            self._cleanup()
+        return result
+
+
 def check_images(widget):
-    """Kästchen (leer, angehakt) für Listen - als Bild, damit es auf jedem System gleich aussieht; mit der
-    Bildschirmskalierung mitwachsend. Die Bilder müssen am Leben gehalten werden (Rückgabe aufbewahren)."""
-    s = max(14, round(16 * widget.winfo_fpixels("1i") / 96))
-    off, on = tk.PhotoImage(width=s, height=s), tk.PhotoImage(width=s, height=s)
-    border, fill, accent = "#8a8f98", "#ffffff", "#0b6bcb"
-    rows_off, rows_on = [], []
-    for y in range(s):
-        edge = y in (0, s - 1)
-        rows_off.append("{" + " ".join(border if edge or x in (0, s - 1) else fill for x in range(s)) + "}")
-        rows_on.append("{" + " ".join(accent for x in range(s)) + "}")
-    off.put(" ".join(rows_off))
-    on.put(" ".join(rows_on))
-    # Haken: zwei Striche, je zwei Pixel dick
-    w = max(2, s // 8)
-    a = (round(s * 0.22), round(s * 0.52))
-    b = (round(s * 0.42), round(s * 0.72))
-    c = (round(s * 0.80), round(s * 0.28))
-    for (x0, y0), (x1, y1) in ((a, b), (b, c)):
-        steps = max(abs(x1 - x0), abs(y1 - y0))
-        for i in range(steps + 1):
-            x = x0 + (x1 - x0) * i // steps
-            y = y0 + (y1 - y0) * i // steps
-            on.put("#ffffff", to=(x, y, min(s, x + w), min(s, y + w)))
-    return off, on
+    """Kästchen (leer, angehakt) für Listen - als Bild im Theme (hell/dunkel), mit der Bildschirmskalierung
+    mitwachsend. Die Bilder bleiben im Theme gespeichert."""
+    return ui_theme.list_checks(widget)
 
 
 def grab(win):
@@ -536,8 +600,8 @@ def data_kept_admin_text():
 
 # ---------------------------------------------------------------------- Oberfläche
 
-def setup_window(root):
-    """Programmsymbol (auch für Dialoge) und Stil: Windows wie das System, Linux "clam" (ordentlicher als "default")"""
+def setup_window(root, theme="auto"):
+    """Programmsymbol (auch für Dialoge) und das eigene Theme (hell/dunkel, "auto" = wie das System)"""
     if IS_WIN:
         icon = resource_path("app.ico")
         if os.path.isfile(icon):
@@ -551,12 +615,8 @@ def setup_window(root):
                 root._app_icon = img   # Verweis halten, sonst verschwindet das Bild
             except tk.TclError:
                 pass
-    style = ttk.Style(root)
-    for theme in ("vista", "clam"):
-        if theme in style.theme_names():
-            style.theme_use(theme)
-            break
-    return style
+    ui_theme.apply_theme(root, theme)
+    return ttk.Style(root)
 
 
 def _inside(win, top, x, y):
@@ -586,7 +646,9 @@ def confirm(root, title, text, ok_text, ack=None):
         win.destroy()
 
     btns = ttk.Frame(frm)
-    ok_btn = ttk.Button(btns, text=ok_text, command=lambda: done(True))
+    danger = bool(ack) or title == _("Alle Daten werden gelöscht")
+    ok_btn = ttk.Button(btns, text=ok_text, style="Danger.TButton" if danger else "Accent.TButton",
+                        command=lambda: done(True))
     cancel_btn = ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(False))
     if ack:
         var = tk.BooleanVar(value=False)
@@ -605,6 +667,7 @@ def confirm(root, title, text, ok_text, ack=None):
     y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
     win.geometry(_inside(win, top, x, y))
     win.deiconify()
+    ui_theme.dark_titlebar(win)
     cancel_btn.focus_set()
     grab(win)
     root.wait_window(win)
@@ -632,7 +695,7 @@ def ask_string(root, title, prompt, initial=""):
 
     btns = ttk.Frame(frm)
     btns.pack(anchor="e", pady=(14, 0))
-    ttk.Button(btns, text=_("OK"), command=lambda: done(True)).pack(side="left")
+    ttk.Button(btns, text=_("OK"), style="Accent.TButton", command=lambda: done(True)).pack(side="left")
     ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(False)).pack(side="left", padx=(6, 0))
     win.bind("<Return>", lambda e: done(True))
     win.bind("<Escape>", lambda e: done(False))
@@ -643,6 +706,7 @@ def ask_string(root, title, prompt, initial=""):
     y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
     win.geometry(_inside(win, top, x, y))
     win.deiconify()
+    ui_theme.dark_titlebar(win)
     entry.focus_set()
     entry.select_range(0, "end")
     grab(win)
@@ -671,7 +735,7 @@ def ask_choice(root, title, prompt, options, ok_text):
 
     btns = ttk.Frame(frm)
     btns.pack(anchor="e", pady=(16, 0))
-    ok_btn = ttk.Button(btns, text=ok_text, command=lambda: done(True))
+    ok_btn = ttk.Button(btns, text=ok_text, style="Accent.TButton", command=lambda: done(True))
     ok_btn.pack(side="left")
     ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(False)).pack(side="left", padx=(6, 0))
     win.bind("<Escape>", lambda e: done(False))
@@ -682,6 +746,7 @@ def ask_choice(root, title, prompt, options, ok_text):
     y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
     win.geometry(_inside(win, top, x, y))
     win.deiconify()
+    ui_theme.dark_titlebar(win)
     ok_btn.focus_set()
     grab(win)
     root.wait_window(win)
@@ -792,7 +857,7 @@ def lang_selector(parent, current, on_change):
     """Auswahl der Sprache (oben rechts); on_change(code) nach einer Änderung"""
     from i18n import LANGS
     codes = [c for c, _n in LANGS]
-    box = ttk.Combobox(parent, values=[n for _c, n in LANGS], state="readonly", width=10)
+    box = ttk.Combobox(parent, values=[n for _c, n in LANGS], state="readonly", width=9)
     box.set(dict(LANGS).get(current, "English"))
     box.bind("<<ComboboxSelected>>", lambda e: on_change(codes[box.current()]))
     return box
@@ -858,23 +923,104 @@ def version_tuple(v):
     return tuple(int(x) for x in m.groups()) if m else None
 
 
+# Neue Version? Einmal je Programmstart bei GitHub nachsehen (nur lesen, nichts wird geladen oder installiert).
+# USBFMT_NO_UPDATE_CHECK=1 schaltet es ab (Tests), USBFMT_UPDATE_URL setzt eine andere Quelle (Tests).
+REPO_URL = "https://github.com/strongt1me/ps5-usb-formatierer"
+UPDATE_API = "https://api.github.com/repos/strongt1me/ps5-usb-formatierer/releases/latest"
+_update = {"state": None, "found": None}   # state: None = nicht gefragt, "busy", "done"
+_update_lock = threading.Lock()
+
+
+def newer_release(data, current=None):
+    """Antwort von GitHub (releases/latest) auswerten: (version, link), wenn neuer als die laufende, sonst None"""
+    if not isinstance(data, dict) or data.get("draft") or data.get("prerelease"):
+        return None
+    tag = str(data.get("tag_name", "")).strip().lstrip("vV")
+    new, cur = version_tuple(tag), version_tuple(APP_VERSION if current is None else current)
+    if not new or not cur or new <= cur:
+        return None
+    url = str(data.get("html_url", ""))
+    if not url.startswith(REPO_URL + "/releases/"):   # nur Links in dieses Projekt öffnen
+        url = REPO_URL + "/releases/latest"
+    return ".".join(map(str, new)), url
+
+
+def _fetch_update():
+    found = None
+    try:
+        req = urllib.request.Request(os.environ.get("USBFMT_UPDATE_URL") or UPDATE_API, headers={
+            "Accept": "application/vnd.github+json", "User-Agent": f"USB-Formatierer/{APP_VERSION or '0'}"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            if r.getcode() in (None, 200):   # None: file:-Adresse (Tests)
+                found = newer_release(json.loads(r.read(2 << 20).decode("utf-8")))
+    except (OSError, ValueError):   # offline, gesperrt, Ratenbegrenzung: still bleiben
+        pass
+    with _update_lock:
+        _update.update(state="done", found=found)
+
+
+def start_update_check():
+    if os.environ.get("USBFMT_NO_UPDATE_CHECK") or not APP_VERSION:
+        return
+    with _update_lock:
+        if _update["state"]:
+            return
+        _update["state"] = "busy"
+    threading.Thread(target=_fetch_update, daemon=True).start()
+
+
+def update_note(parent):
+    """Link "Neue Version … verfügbar" - erscheint, sobald die Prüfung eine neuere Version gefunden hat"""
+    note = ttk.Label(parent, text="", style="PageLink.TLabel", cursor="hand2")
+    after = [None]
+
+    def show(found):
+        version, url = found
+        note.configure(text="·  " + _("Neue Version {version} verfügbar", version=version))
+        note.pack(side="left", padx=(8, 0))
+
+        def visit(_e=None):
+            import webbrowser
+            webbrowser.open(url)
+        note.bind("<Button-1>", visit)
+
+    def poll(n=0):
+        after[0] = None
+        with _update_lock:
+            state, found = _update["state"], _update["found"]
+        if state == "done":
+            if found:
+                show(found)
+        elif state and n < 60:   # höchstens 30 s warten
+            after[0] = note.after(500, poll, n + 1)
+
+    def stop(_e=None):
+        if after[0]:
+            note.after_cancel(after[0])
+            after[0] = None
+    note.bind("<Destroy>", stop)
+    start_update_check()
+    poll()
+    return note
+
+
 def credit(parent, ps5=True):
     """Profilbild und Name des Entwicklers, als Link zum GitHub-Profil; der Community-Spruch nur bei den PS5-Programmen"""
-    frm = ttk.Frame(parent)
+    frm = ttk.Frame(parent, style="Page.TFrame")
     scale = parent.winfo_fpixels("1i") / 96
     path = resource_path(f"avatar-{44 if scale >= 1.5 else 22}.png")
     if not os.path.isfile(path):   # Entwicklung: neben dem Programm
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.path.basename(path))
     try:
         img = tk.PhotoImage(file=path)
-        pic = ttk.Label(frm, image=img, cursor="hand2")
+        pic = ttk.Label(frm, image=img, cursor="hand2", style="Page.TLabel")
         pic.image = img   # Verweis halten, sonst verschwindet das Bild
         pic.pack(side="left", padx=(0, 6))
     except tk.TclError:
         pic = None
     msg = (_("Entwickelt von {name} · für die PS5-Community", name=AUTHOR) if ps5
            else _("Entwickelt von {name}", name=AUTHOR))
-    text = ttk.Label(frm, text=msg, foreground="#6b7280", cursor="hand2")
+    text = ttk.Label(frm, text=msg, style="Page.TLabel", cursor="hand2")
     text.pack(side="left")
 
     def visit(_e=None):
@@ -888,13 +1034,13 @@ def credit(parent, ps5=True):
 
 def footer(parent, ps5=True):
     """Fußzeile unten: Trennlinie und mittig der Entwickler, daneben die Version"""
-    frm = ttk.Frame(parent)
-    ttk.Separator(frm).pack(fill="x", pady=(12, 8))
-    row = ttk.Frame(frm)
-    row.pack()
+    frm = ttk.Frame(parent, style="Page.TFrame")
+    row = ttk.Frame(frm, style="Page.TFrame")
+    row.pack(pady=(ui_theme.px(10), 0))
     credit(row, ps5).pack(side="left")
     if APP_VERSION:
-        ttk.Label(row, text=f"·  v{APP_VERSION}", foreground="#6b7280").pack(side="left", padx=(8, 0))
+        ttk.Label(row, text=f"·  v{APP_VERSION}", style="Page.TLabel").pack(side="left", padx=(8, 0))
+        update_note(row)
     return frm
 
 

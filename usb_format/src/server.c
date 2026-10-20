@@ -34,6 +34,7 @@
  *   POST /api/diag       Darstellungsbericht der Seite ablegen; GET liefert {"tv":"...","pc":"..."}
  *   POST /api/quit       Server beenden
  */
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -231,9 +232,9 @@ static void set_flags(int cancellable, int replug) {
     pthread_mutex_unlock(&lock);
 }
 
-enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE };
+enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile"};
+                                       "tile", "verify"};
 
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
@@ -2038,6 +2039,112 @@ static void api_upload(int c, const char *query, const char *pre, size_t have, u
     else respond_error(c, 500, m);
 }
 
+/* passt die Datei zu ihrer "<path>.sha256" daneben? 1 = ja, 0 = keine da, -1 = andere Prüfsumme */
+static int img_side_check(const char *path, const char *sha) {
+    char side[600], line[160];
+    if (snprintf(side, sizeof(side), "%s.sha256", path) >= (int)sizeof(side)) return 0;
+    FILE *h = fopen(side, "r");
+    if (!h) return 0;
+    int r = -1;
+    if (fgets(line, sizeof(line), h) && strlen(line) >= 64) {   /* "<hex>  <name>"; Windows-Werkzeuge schreiben groß */
+        r = 1;
+        for (int i = 0; i < 64; i++)
+            if (tolower((unsigned char)line[i]) != sha[i]) r = -1;
+    }
+    fclose(h);
+    return r;
+}
+
+/* Sicherung nur prüfen (kein Datenträger beteiligt): ganz entpacken, Prüfsumme im Image und die .sha256 daneben */
+static void *verify_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    char err[256] = "", s1[24], s2[24];
+    sbuf_t msg = {0}, res = {0};
+    set_flags(1, 0);
+    ib_result_t r;
+    int rc = ib_verify(j->rd, on_progress, &cancel_requested, &r, err, sizeof(err));
+    set_flags(0, 0);
+    ib_close(j->rd);
+    j->rd = NULL;
+    fclose(j->img);
+    j->img = NULL;
+    const char *name = strrchr(j->path, '/') ? strrchr(j->path, '/') + 1 : j->path;
+    if (!rc && r.cancelled) { sb_tr(&msg, "Abgebrochen."); job_done(j, 0, &msg, &res, 0); return NULL; }
+    if (rc) { sb_tr(&msg, "Das Image ist fehlerhaft: %s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
+    const int side = img_side_check(j->path, r.sha_file);
+    sb_add(&res, "{\"name\":");
+    sb_str(&res, name);
+    sb_add(&res, ",\"size\":%llu,\"used\":%llu,\"bytes\":%llu,\"sha256\":\"%s\",\"sha256_data\":\"%s\",\"checked\":%s,"
+           "\"side\":\"%s\"}", (unsigned long long)r.size, (unsigned long long)r.used, (unsigned long long)r.file_bytes,
+           r.sha_file, r.sha_img, r.checked ? "true" : "false", side > 0 ? "ok" : side < 0 ? "bad" : "none");
+    if (side < 0) {
+        sb_tr(&msg, "Die Datei passt nicht zu ihrer .sha256-Datei – sie wurde verändert oder beschädigt.");
+        job_done(j, 0, &msg, &res, 0);
+        return NULL;
+    }
+    if (r.checked)
+        sb_tr(&msg, "Image in Ordnung: %s belegt von %s geprüft, die Prüfsumme im Image stimmt.",
+              size_text(r.used, s1, sizeof(s1)), size_text(r.size, s2, sizeof(s2)));
+    else
+        sb_tr(&msg, "Das Image lässt sich vollständig entpacken (%s). Es stammt nicht von diesem Programm und hat keine "
+                    "eigene Prüfsumme.", size_text(r.size, s1, sizeof(s1)));
+    if (side > 0) sb_add(&msg, " %s", T("Die .sha256-Datei passt dazu."));
+    job_done(j, 1, &msg, &res, 0);
+    return NULL;
+}
+
+/* Pfad aus der Anfrage: eine Sicherung direkt in einem der Ordner usbfmt-backup? 0 = ja (Antwort sonst gesendet) */
+static int request_image(int c, const char *body, char *path, size_t n) {
+    kv_t kv[KV_MAX];
+    int k = json_parse(body, kv, KV_MAX);
+    const char *p = k < 0 ? NULL : kv_get(kv, k, "path");
+    if (!p) { respond_error(c, 400, "path ist erforderlich"); return -1; }
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    int nl = loc ? img_locations(loc, MAX_LOCS) : 0;
+    const imgloc_t *at = img_path_loc(p, loc, nl);
+    free(loc);
+    if (!at || strlen(p) >= n) { respond_error(c, 400, "Image-Datei nicht gefunden – Liste neu laden."); return -1; }
+    snprintf(path, n, "%s", p);
+    return 0;
+}
+
+static void api_images_verify(int c, const char *body) {
+    char path[512], err[256] = "";
+    if (request_image(c, body, path, sizeof(path))) return;
+    FILE *f = fopen(path, "rb");
+    if (!f) { snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht öffnen: %s"), path, strerror(errno)); respond_error(c, 400, err); return; }
+    setvbuf(f, NULL, _IOFBF, 1 << 20);
+    ib_info_t info;
+    ib_reader_t *rd = ib_open(file_in, f, &info, err, sizeof(err));
+    if (!rd) { fclose(f); respond_error(c, 400, err); return; }
+    job_t *j = new_job(c, JOB_VERIFY);
+    if (!j) { ib_close(rd); fclose(f); return; }
+    j->img = f;
+    j->rd = rd;
+    snprintf(j->path, sizeof(j->path), "%s", path);
+    start_job(c, j, verify_worker);
+}
+
+/* Sicherung samt .sha256 löschen - nicht während eines Auftrags (der könnte gerade diese Datei lesen oder schreiben) */
+static void api_images_delete(int c, const char *body) {
+    char path[512], side[600];
+    if (request_image(c, body, path, sizeof(path))) return;
+    pthread_mutex_lock(&lock);
+    int busy = st.busy;
+    pthread_mutex_unlock(&lock);
+    if (busy) { respond_error(c, 409, "Erst den laufenden Auftrag abwarten."); return; }
+    if (unlink(path) != 0) {
+        char err[700];
+        snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht löschen: %s"), path, strerror(errno));
+        respond_error(c, 500, err);
+        return;
+    }
+    snprintf(side, sizeof(side), "%s.sha256", path);
+    unlink(side);   /* fehlt sie, ist das kein Fehler */
+    respond_ok(c, 200);
+}
+
 /* Orte und vorhandene Sicherungen */
 static void api_images(int c) {
     imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
@@ -2724,6 +2831,10 @@ static void handle(int c) {
         api_delete(c, body);
     else if (strcmp(path, "/api/images") == 0 && is_get)
         api_images(c);
+    else if (strcmp(path, "/api/images/verify") == 0 && is_post)
+        api_images_verify(c, body);
+    else if (strcmp(path, "/api/images/delete") == 0 && is_post)
+        api_images_delete(c, body);
     else if (strcmp(path, "/api/backup") == 0 && is_post)
         api_backup(c, body);
     else if (strcmp(path, "/api/backup/download") == 0 && is_get)

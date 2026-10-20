@@ -49,7 +49,8 @@ jobs:
           python windows/i18n_check.py
           v=$(cat VERSION); for f in README*.md; do grep -q "badge/[^-]*-$v-" "$f" || { echo "$f: Version $v fehlt"; exit 1; }; done
           cd windows && python -m pyflakes usb_formatierer.py usb_standard.py standard_panel.py partition_editor.py \
-            pc_common.py pc_linux.py fsinfo.py i18n.py ps5_discovery.py tests/linux_ui_test.py tests/ps5_image_flow_test.py
+            pc_common.py pc_linux.py fsinfo.py i18n.py ps5_discovery.py ui_theme.py ui_widgets.py ui_msgbox.py \
+            tests/linux_ui_test.py tests/ps5_image_flow_test.py tests/pc_tools_test.py
 
       - name: Helfer bauen
         working-directory: usb_format
@@ -65,6 +66,9 @@ jobs:
       - name: Helfer an Loop-Geräten (root)
         working-directory: usb_format
         run: sudo -E env "PATH=$PATH" bash test/linux_loop_test.sh
+
+      - name: Update-Hinweis und Image prüfen (ohne Root)
+        run: python windows/tests/pc_tools_test.py /tmp/usbfmt_linux_test
 
       - name: Oberfläche (Xvfb)
         run: |

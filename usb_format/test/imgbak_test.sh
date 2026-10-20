@@ -146,6 +146,28 @@ printf '0000' | dd of="$W/x.img.zst" bs=1 seek=$((FB - 20)) conv=notrunc status=
 head -c 100000 /dev/urandom >"$W/x.img.zst"
 "$IB" info "$W/x.img.zst" 2>&1 | grep -q "Keine gültige Image-Datei" && ok "keine Image-Datei abgelehnt" || bad "Zufallsdaten"
 
+# nur prüfen (ohne Datenträger): heil, Prüfsumme verglichen, SHA-256 und Größe der ganzen Datei wie sha256sum/stat
+read -r vused vchk vsha vfile vbytes < <("$IB" verify "$W/b.img.zst")
+read -r rused rsha < <("$IB" restore "$W/b.img.zst" "$W/t.img")
+[ "$vchk" = 1 ] && [ "$vused" = "$rused" ] && [ "$vsha" = "$rsha" ] && [ "$vfile" = "$(sha256sum <"$W/b.img.zst" | cut -c1-64)" ] \
+    && [ "$vbytes" = "$FB" ] && ok "Prüfen: heil, Prüfsumme verglichen, SHA-256 der Datei stimmt" || bad "Prüfen heil: $vused $vchk $vbytes"
+cp "$W/b.img.zst" "$W/x.img.zst"
+printf '\xff\x00\xff' | dd of="$W/x.img.zst" bs=1 seek=$((FB - 200)) conv=notrunc status=none
+"$IB" verify "$W/x.img.zst" 2>&1 | grep -q "beschädigt" && ok "Prüfen: beschädigte Datei erkannt" || bad "Prüfen: beschädigt"
+head -c $((FB / 2)) "$W/b.img.zst" >"$W/x.img.zst"
+"$IB" verify "$W/x.img.zst" 2>&1 | grep -q "unvollständig" && ok "Prüfen: abgeschnittene Datei erkannt" || bad "Prüfen: abgeschnitten"
+cp "$W/b.img.zst" "$W/x.img.zst"
+printf '0000' | dd of="$W/x.img.zst" bs=1 seek=$((FB - 20)) conv=notrunc status=none
+"$IB" verify "$W/x.img.zst" 2>&1 | grep -q "Prüfsumme des Images" && ok "Prüfen: falsche Prüfsumme hinten erkannt" || bad "Prüfen: Prüfsumme"
+# genau die Prüfsumme hinten fehlt: Wiederherstellen ginge, Prüfen meldet die Datei als unvollständig
+python3 - "$W/b.img.zst" "$W/x.img.zst" <<'EOF'
+import sys
+b = open(sys.argv[1], 'rb').read()
+open(sys.argv[2], 'wb').write(b[:b.rindex(bytes.fromhex('5b2a4d18'))])
+EOF
+"$IB" verify "$W/x.img.zst" 2>&1 | grep -q "unvollständig" && ok "Prüfen: fehlende Prüfsumme hinten = unvollständig" \
+    || bad "Prüfen ohne Prüfsumme hinten"
+
 # Nachlesen liefert andere Daten (gefälschter Stick)
 truncate -s $((300 * 1048576)) "$W/fake.img"
 "$IB" restore "$W/b.img.zst" "$W/t.img" 512 "$W/fake.img" 2>&1 | grep -q "Prüfung nach dem Schreiben" \
@@ -158,6 +180,7 @@ truncate -s $((64 * 1048576)) "$W/v1.img"
     && [ "$(sha256sum <"$W/v1.img" | cut -c1-64)" = "$(cat test/fixtures/fassung1_exfat_64m.sha256)" ] \
     && "$W/fsread_test" "$W/v1.img" 1048576 cat /alt/zahlen.txt | cmp -s - <(seq 1 20000) \
     && ok "Sicherung der Fassung 1 (2.5.0) wiederhergestellt" || bad "Fassung 1"
+"$IB" verify "$FX" | grep -q " 1 " && ok "Fassung 1 lässt sich prüfen" || bad "Fassung 1 prüfen"
 
 # große, fast leere Platte: lange freie Strecken als Null-Rahmen - nicht gepackt, beim Wiederherstellen übersprungen
 G=$((16 * 1024 * 1048576))
@@ -177,6 +200,11 @@ read -r gw gs < <("$IB" restore "$W/g.img.zst" "$W/gt.img")
 t1=$(ms)
 [ "$gw" = "$gused" ] && [ "$gs" = "$gsha" ] && [ $((t1 - t0)) -lt 20000 ] \
     && ok "16 GiB wiederhergestellt: $((gw / 1024)) KB geschrieben, $((t1 - t0)) ms" || bad "16 GiB wiederherstellen: $gw $gs"
+t0=$(ms)
+read -r vw vchk vs _ < <("$IB" verify "$W/g.img.zst")
+t1=$(ms)
+[ "$vw" = "$gused" ] && [ "$vchk" = 1 ] && [ "$vs" = "$gsha" ] && [ $((t1 - t0)) -lt 20000 ] \
+    && ok "16 GiB geprüft (Null-Rahmen übersprungen): $((t1 - t0)) ms" || bad "16 GiB prüfen: $vw $vchk"
 "$W/fsread_test" "$W/gt.img" "$(python3 -c "
 import struct, sys
 d = open(sys.argv[1], 'rb').read(1536)
@@ -211,6 +239,8 @@ if command -v zstd >/dev/null; then
     # ohne Karte wird alles geschrieben - die SHA-256 gilt dann dem ganzen Image
     "$IB" restore "$W/fremd.img.zst" "$W/t.img" | grep -q "^$((300 * 1048576)) $(sha256sum <"$W/plain.img" | cut -c1-64)" \
         && cmp -s "$W/t.img" "$W/s.img" && ok "fremdes zstd-Image: alles geschrieben" || bad "fremdes zstd-Image"
+    "$IB" verify "$W/fremd.img.zst" | grep -q "^$((300 * 1048576)) 0 $(sha256sum <"$W/plain.img" | cut -c1-64) " \
+        && ok "fremdes zstd-Image prüfen: entpackt, ohne eigene Prüfsumme" || bad "fremdes zstd-Image prüfen"
     cat "$W/fremd.img.zst" "$W/fremd.img.zst" >"$W/zwei.img.zst"   # mehrere Rahmen hintereinander (wie pzstd)
     "$IB" restore "$W/zwei.img.zst" "$W/t.img" 2>&1 | grep -q "mehreren zstd-Rahmen" \
         && ok "mehrere zstd-Rahmen: nicht als fertig gemeldet" || bad "mehrere zstd-Rahmen"

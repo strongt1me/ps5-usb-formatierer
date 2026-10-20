@@ -554,7 +554,18 @@ struct ib_reader {
     size_t    cap, pos, len;
     ib_info_t info;
     map_t     map;
+    sha256_t  fsha;    /* über alle gelesenen Bytes der Datei */
+    uint64_t  fbytes;
 };
+
+static long rd_in(ib_reader_t *r, void *p, size_t n) {
+    long g = r->in(r->ctx, p, n);
+    if (g > 0) {
+        sha256_update(&r->fsha, p, (size_t)g);
+        r->fbytes += (uint64_t)g;
+    }
+    return g;
+}
 
 /* mindestens n Bytes im Puffer (soweit der Strom sie hat); Rückgabe: verfügbare Bytes, < 0 Fehler */
 static long rd_peek(ib_reader_t *r, size_t n) {
@@ -563,7 +574,7 @@ static long rd_peek(ib_reader_t *r, size_t n) {
     r->len -= r->pos;
     r->pos = 0;
     while (r->len < n) {
-        long g = r->in(r->ctx, r->buf + r->len, r->cap - r->len);
+        long g = rd_in(r, r->buf + r->len, r->cap - r->len);
         if (g < 0) return -1;
         if (g == 0) break;
         r->len += (size_t)g;
@@ -597,6 +608,7 @@ ib_reader_t *ib_open(ib_in_fn in, void *ctx, ib_info_t *info, char *err, size_t 
     }
     r->in = in;
     r->ctx = ctx;
+    sha256_init(&r->fsha);
     uint8_t *head = NULL;
     if (rd_peek(r, 8) < 8) goto bad;
     if (le32(r->buf + r->pos) == MAGIC_HEAD) {
@@ -669,7 +681,7 @@ static int write_page(ib_reader_t *rd, int fd, const uint8_t *page, uint64_t pos
         while (o + run < len && (!rd->info.has_map || map_used(&rd->map, (pos + o + run) / IB_BLOCK)) == used)
             run += (size_t)block_len((pos + o + run) / IB_BLOCK, rd->info.size);
         if (used) {
-            if (wr_all(fd, page + o, run, pos + o)) {
+            if (fd >= 0 && wr_all(fd, page + o, run, pos + o)) {
                 snprintf(err, errlen, T("Schreibfehler bei %llu MB: %s"), (unsigned long long)((pos + o) >> 20),
                          strerror(errno));
                 return -1;
@@ -685,7 +697,7 @@ static int write_page(ib_reader_t *rd, int fd, const uint8_t *page, uint64_t pos
 /* Hinweis auf eine freie Strecke und den Null-Rahmen dahinter lesen, prüfen und überspringen (die Blöcke sind laut
  * Karte frei und werden ohnehin nicht geschrieben). 0 = weiter, 1 = abgebrochen, -1 = Fehler. */
 static int skip_zero(ib_reader_t *rd, uint64_t *pos, uint64_t size, volatile int *cancel, ib_progress_fn progress,
-                     char *err, size_t errlen) {
+                     const char *step, char *err, size_t errlen) {
     uint8_t note[36], h[14], blk[4];
     if (rd_exact(rd, note, sizeof(note))) goto eof;
     if (le32(note + 4) != 28 || memcmp(note + 8, ZERO_TAG, 12)) goto bad;
@@ -698,7 +710,7 @@ static int skip_zero(ib_reader_t *rd, uint64_t *pos, uint64_t size, volatile int
     for (uint64_t left = len, n = 0; left; n++) {
         if (!(n & 0xFFFF)) {
             if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) return 1;
-            progress(T("Wiederherstellen"), (int)((*pos + len - left) * 100 / size));
+            progress(step, (int)((*pos + len - left) * 100 / size));
         }
         if (rd_exact(rd, blk, 4)) goto eof;
         const uint32_t hv = (uint32_t)blk[0] | (uint32_t)blk[1] << 8 | (uint32_t)blk[2] << 16;
@@ -707,7 +719,7 @@ static int skip_zero(ib_reader_t *rd, uint64_t *pos, uint64_t size, volatile int
         if ((hv >> 1 & 3) != 1 || blk[3] || b != want || (hv & 1) != !left) goto bad;
     }
     *pos += len;
-    progress(T("Wiederherstellen"), (int)(*pos * 100 / size));
+    progress(step, (int)(*pos * 100 / size));
     return 0;
 eof:   /* Ende der Datei bzw. Lesefehler (Hochladen abgebrochen) */
     snprintf(err, errlen, "%s", T("Die Image-Datei ist unvollständig."));
@@ -717,16 +729,19 @@ bad:
     return -1;
 }
 
-int ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, ib_progress_fn progress,
-               volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
+/* Entpacken und (fd >= 0) schreiben samt Nachlesen über vfd; fd < 0: nur prüfen (ib_verify) */
+static int run_image(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, ib_progress_fn progress,
+                     volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
     const uint64_t size = rd->info.size;
-    if (size > devsize) {
+    const int verify = fd < 0;
+    const char *step = verify ? T("Image prüfen") : T("Wiederherstellen");
+    if (!verify && size > devsize) {
         snprintf(err, errlen, "%s", T("Das Image ist größer als der Datenträger."));
         return -1;
     }
-    if (size % ss) { snprintf(err, errlen, "%s", T("Ungültige Größe")); return -1; }
-    if (rd->info.ss && rd->info.ss != ss) {   /* Partitionstabelle und Bootsektoren zählen in Sektoren der Quelle */
+    if (!verify && size % ss) { snprintf(err, errlen, "%s", T("Ungültige Größe")); return -1; }
+    if (!verify && rd->info.ss && rd->info.ss != ss) {   /* Partitionstabelle und Bootsektoren zählen in Sektoren der Quelle */
         snprintf(err, errlen, T("Das Image stammt von einem Datenträger mit %u-Byte-Sektoren, dieser hat %u – er wäre "
                                 "danach nicht lesbar."), rd->info.ss, ss);
         return -1;
@@ -746,7 +761,7 @@ int ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, 
         long av = rd_peek(rd, 8);
         if (av < 0) { snprintf(err, errlen, "%s", T("Lesen der Sicherung fehlgeschlagen")); goto out; }
         if (rd->info.has_map && av >= 8 && le32(rd->buf + rd->pos) == MAGIC_ZERO) {
-            int zr = skip_zero(rd, &pos, size, cancel, progress, err, errlen);
+            int zr = skip_zero(rd, &pos, size, cancel, progress, step, err, errlen);
             if (zr < 0) goto out;
             if (zr > 0) { r->cancelled = 1; rc = 0; goto out; }
             continue;
@@ -774,7 +789,7 @@ int ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, 
                 if (write_page(rd, fd, page, pos, fill, &sw, &r->used, err, errlen)) goto out;
                 pos += fill;
                 fill = 0;
-                progress(T("Wiederherstellen"), (int)(pos * 100 / size));
+                progress(step, (int)(pos * 100 / size));
             }
         }
     }
@@ -795,11 +810,30 @@ int ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, 
         rd->pos += 8;
         if (tl < sizeof(tail) && !rd_exact(rd, tail, tl)) {
             tail[tl] = 0;
-            if (!strncmp(tail, TAIL_TAG, strlen(TAIL_TAG)) && strncmp(tail + strlen(TAIL_TAG), r->sha_img, 64)) {
-                snprintf(err, errlen, "%s", T("Die Prüfsumme des Images stimmt nicht – die Datei ist beschädigt."));
-                goto out;
+            if (!strncmp(tail, TAIL_TAG, strlen(TAIL_TAG))) {
+                if (strncmp(tail + strlen(TAIL_TAG), r->sha_img, 64)) {
+                    snprintf(err, errlen, "%s", T("Die Prüfsumme des Images stimmt nicht – die Datei ist beschädigt."));
+                    goto out;
+                }
+                r->checked = 1;
             }
         }
+    }
+    if (verify) {
+        /* eigene Images enden mit der Prüfsumme - fehlt sie, ist die Datei abgeschnitten */
+        if (rd->info.has_map && !r->checked) { snprintf(err, errlen, "%s", T("Die Image-Datei ist unvollständig.")); goto out; }
+        rd->pos = rd->len;   /* der Rest der Datei (falls etwas folgt) zählt für ihre SHA-256 mit */
+        uint8_t *tmp = page;
+        long g;
+        while ((g = rd_in(rd, tmp, PAGE)) > 0) {}
+        if (g < 0) { snprintf(err, errlen, "%s", T("Lesen der Sicherung fehlgeschlagen")); goto out; }
+        uint8_t fs[32];
+        sha256_final(&rd->fsha, fs);
+        sha256_hex(fs, r->sha_file);
+        r->file_bytes = rd->fbytes;
+        r->size = size;
+        rc = 0;
+        goto out;
     }
     (void)fsync(fd);
 
@@ -836,6 +870,16 @@ out:
     ZSTD_freeDCtx(dc);
     free(page);
     return rc;
+}
+
+int ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, ib_progress_fn progress,
+               volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
+    if (fd < 0) { memset(r, 0, sizeof(*r)); snprintf(err, errlen, "%s", T("Ungültige Anfrage")); return -1; }
+    return run_image(rd, fd, vfd, ss, devsize, progress, cancel, r, err, errlen);
+}
+
+int ib_verify(ib_reader_t *rd, ib_progress_fn progress, volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
+    return run_image(rd, -1, -1, 0, 0, progress, cancel, r, err, errlen);
 }
 
 void ib_file_name(const ib_info_t *info, char *out, size_t n) {

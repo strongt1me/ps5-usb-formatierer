@@ -10,7 +10,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCES = ["usb_formatierer.py", "usb_standard.py", "standard_panel.py", "partition_editor.py", "pc_common.py",
-           "pc_linux.py", "fsinfo.py"]
+           "pc_linux.py", "fsinfo.py", "ui_msgbox.py", "ui_widgets.py", "ui_theme.py"]
 LANGS = ["en", "it", "es", "fr"]
 
 
@@ -25,10 +25,11 @@ def code_texts():
     sys.path.insert(0, HERE)
     import fsinfo
     import partition_editor
+    import standard_panel
     import usb_formatierer
     for text in [h for _f, _m, h in fsinfo.FILESYSTEMS.values()] + [t for _k, t in fsinfo.SCHEMES] + \
             [t for _k, t in fsinfo.PTYPES] + list(partition_editor.PTYPE_SHORT.values()) + \
-            [t for _k, t in usb_formatierer.MODES] + [fsinfo.NO_FS]:
+            [t for _k, t in usb_formatierer.MODES] + [t for _k, t in standard_panel.PURPOSES] +             [g for g, _i in usb_formatierer.NAV] + [t for _g, items in usb_formatierer.NAV for _k, t in items] + [fsinfo.NO_FS]:
         found.setdefault(text, "Tabelle")
     return found
 

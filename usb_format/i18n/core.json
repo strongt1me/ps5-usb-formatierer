@@ -2194,5 +2194,47 @@
   "it": "L'immagine proviene da un'unità con settori da %u byte, questa ne ha %u – dopo non sarebbe leggibile.",
   "es": "La imagen procede de una unidad con sectores de %u bytes, esta tiene %u: después no sería legible.",
   "fr": "L'image provient d'un support à secteurs de %u octets, celui-ci en a %u – il ne serait plus lisible ensuite."
+ },
+ "Das Image ist fehlerhaft: %s": {
+  "en": "The image is faulty: %s",
+  "it": "L'immagine è difettosa: %s",
+  "es": "La imagen es defectuosa: %s",
+  "fr": "L'image est défectueuse : %s"
+ },
+ "Die Datei passt nicht zu ihrer .sha256-Datei – sie wurde verändert oder beschädigt.": {
+  "en": "The file does not match its .sha256 file – it has been changed or damaged.",
+  "it": "Il file non corrisponde al suo file .sha256 – è stato modificato o danneggiato.",
+  "es": "El archivo no coincide con su archivo .sha256 – se ha modificado o está dañado.",
+  "fr": "Le fichier ne correspond pas à son fichier .sha256 – il a été modifié ou endommagé."
+ },
+ "Image in Ordnung: %s belegt von %s geprüft, die Prüfsumme im Image stimmt.": {
+  "en": "Image OK: %s used of %s checked, the checksum in the image matches.",
+  "it": "Immagine a posto: verificati %s occupati su %s, il checksum nell'immagine corrisponde.",
+  "es": "Imagen correcta: comprobados %s ocupados de %s, la suma de comprobación de la imagen coincide.",
+  "fr": "Image correcte : %s occupés sur %s vérifiés, la somme de contrôle de l'image correspond."
+ },
+ "Das Image lässt sich vollständig entpacken (%s). Es stammt nicht von diesem Programm und hat keine eigene Prüfsumme.": {
+  "en": "The image can be fully unpacked (%s). It was not made by this program and has no checksum of its own.",
+  "it": "L'immagine si decomprime completamente (%s). Non è stata creata da questo programma e non ha un checksum proprio.",
+  "es": "La imagen se descomprime por completo (%s). No la creó este programa y no tiene suma de comprobación propia.",
+  "fr": "L'image se décompresse entièrement (%s). Elle n'a pas été créée par ce programme et n'a pas de somme de contrôle propre."
+ },
+ "Die .sha256-Datei passt dazu.": {
+  "en": "The .sha256 file matches.",
+  "it": "Il file .sha256 corrisponde.",
+  "es": "El archivo .sha256 coincide.",
+  "fr": "Le fichier .sha256 correspond."
+ },
+ "Erst den laufenden Auftrag abwarten.": {
+  "en": "Please wait for the running task to finish first.",
+  "it": "Attendere prima la fine dell'operazione in corso.",
+  "es": "Espera primero a que termine la tarea en curso.",
+  "fr": "Attendez d'abord la fin de la tâche en cours."
+ },
+ "Die Datei %s lässt sich nicht löschen: %s": {
+  "en": "The file %s cannot be deleted: %s",
+  "it": "Il file %s non può essere eliminato: %s",
+  "es": "No se puede eliminar el archivo %s: %s",
+  "fr": "Le fichier %s ne peut pas être supprimé : %s"
  }
 }

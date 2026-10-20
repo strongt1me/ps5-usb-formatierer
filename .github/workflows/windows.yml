@@ -40,6 +40,9 @@ jobs:
       - name: Helfer an Abbild-Dateien
         run: ./windows/tests/win_helper_test.ps1
 
+      - name: Update-Hinweis und Image prüfen (ohne Administratorrechte)
+        run: python windows/tests/pc_tools_test.py windows/usbfmt_win_test.exe
+
       - name: Programme bauen
         working-directory: windows
         shell: cmd

@@ -18,6 +18,7 @@ sys.path.insert(0, HERE)
 SANDBOX = sys.argv[1]
 W = tempfile.mkdtemp(prefix="ps5flow-")
 os.environ["XDG_CONFIG_HOME"] = os.environ["APPDATA"] = W   # nie die echten Einstellungen
+os.environ["USBFMT_NO_UPDATE_CHECK"] = "1"   # kein Abruf bei GitHub
 
 import ps5_discovery  # noqa: E402
 import usb_formatierer as uf  # noqa: E402

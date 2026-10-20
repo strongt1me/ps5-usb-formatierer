@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Image-Sicherung über die API: Orte und Liste, Sichern nach intern und auf ein anderes USB-Laufwerk, Download mit
 # Einmal-Zeichen, Wiederherstellen aus Datei und per Hochladen, Abbrechen und die Schutzregeln (Ziel = Quelle, Pfade
-# außerhalb, zu kleines Ziel, gefälschter Stick, fremder Ursprung, falscher Inhalt).
+# außerhalb, zu kleines Ziel, gefälschter Stick, fremder Ursprung, falscher Inhalt), Sicherungen prüfen und löschen.
 set -u
 cd "$(dirname "$0")/.."
 T=${FSTOOLS:-$HOME/fstools/root}
@@ -137,6 +137,40 @@ code=$(post "{\"device\":\"da1\",\"size\":$SB,\"ident\":\"b.img\",\"replug\":tru
 [ "$code" = 400 ] && grep -q "echten Speicher" "$W/body" && ok "gefälschter Stick: Image passt nicht in den echten Teil" || bad "Fälschung ($code)" "$(cat "$W/body")"
 rm -f "$W/data/usb_format/fakes.txt"
 
+# ---------------------------------------------------------------- Prüfen und Löschen
+vpost() { code=$(post "{\"path\":\"$1\"}" "images/$2"); }
+vpost "$IMG" verify
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["kind"] + str(d["ok"]) + str(d["result"]["checked"]) + d["result"]["side"]' <"$W/st")" = verifyTrueTrueok ] \
+    && [ "$(q 'd["result"]["sha256"]' <"$W/st")" = "$(sha256sum <"$IMG" | cut -c1-64)" ] \
+    && ok "Prüfen: $(q 'd["message"]' <"$W/st")" || bad "Prüfen ($code)" "$(cat "$W/body" "$W/st")"
+D="$W/data/usbfmt-backup"
+cp "$IMG" "$D/defekt.img.zst"
+FB=$(stat -c %s "$IMG")
+printf '\xff\x00\xff\x00' | dd of="$D/defekt.img.zst" bs=1 seek=$((FB / 2)) conv=notrunc status=none
+vpost "$D/defekt.img.zst" verify
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q "fehlerhaft" "$W/st" \
+    && ok "Prüfen: beschädigte Sicherung erkannt" || bad "Prüfen beschädigt ($code)" "$(cat "$W/st")"
+cp "$IMG" "$D/anders.img.zst"
+echo "0000000000000000000000000000000000000000000000000000000000000000  anders.img.zst" >"$D/anders.img.zst.sha256"
+vpost "$D/anders.img.zst" verify
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q ".sha256-Datei" "$W/st" \
+    && ok "Prüfen: passt nicht zur .sha256 erkannt" || bad "Prüfen .sha256 ($code)" "$(cat "$W/st")"
+for p in "/etc/passwd" "$W/fremd.img.zst" "$D/../../fremd.img.zst" "$D/link.img.zst"; do
+    vpost "$p" verify
+    [ "$code" = 400 ] && ok "Prüfen: Pfad außerhalb abgelehnt: ${p#$W/}" || bad "Prüfen außerhalb ($code): $p"
+    vpost "$p" delete
+    [ "$code" = 400 ] && ok "Löschen: Pfad außerhalb abgelehnt: ${p#$W/}" || bad "Löschen außerhalb ($code): $p"
+done
+[ -f /etc/passwd ] && [ -f "$W/fremd.img.zst" ] && [ -L "$D/link.img.zst" ] && ok "abgelehnt: nichts gelöscht" || bad "doch gelöscht"
+vpost "$D/anders.img.zst" delete
+[ "$code" = 200 ] && [ ! -e "$D/anders.img.zst" ] && [ ! -e "$D/anders.img.zst.sha256" ] \
+    && ok "Löschen: Sicherung samt .sha256 gelöscht" || bad "Löschen ($code)" "$(cat "$W/body"; ls "$D")"
+vpost "$D/defekt.img.zst" delete
+[ "$code" = 200 ] && [ ! -e "$D/defekt.img.zst" ] && ok "Löschen: Sicherung ohne .sha256 gelöscht" || bad "Löschen ohne .sha256 ($code)"
+vpost "$D/defekt.img.zst" delete
+[ "$code" = 400 ] && ok "Löschen: schon gelöscht - abgelehnt" || bad "doppelt löschen ($code)"
+[ -s "$IMG" ] && [ -s "$IMG.sha256" ] && ok "andere Sicherungen unberührt" || bad "andere Sicherung weg"
+
 # ---------------------------------------------------------------- Hochladen
 head -c $((1024 * MIB)) /dev/urandom >"$W/b.img"
 UP="$U/api/restore/upload?device=da1&size=$SB&ident=b.img&replug=1"
@@ -159,6 +193,10 @@ start "$W/a.img:$W/b.img:$W/c.img" "1,1,0" USBFMT_SLOW=1
 rm -f "$W/data/usbfmt-backup"/*.img.zst*
 post "{\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"dest\":\"$W/data/usbfmt-backup\"}" backup >/dev/null
 for _ in $(seq 1 50); do curl -s "$U/api/status" | grep -q '"cancellable":true' && break; sleep 0.1; done
+head -c 1000 /dev/urandom >"$W/data/usbfmt-backup/kaputt_rest.img.zst"
+code=$(post "{\"path\":\"$W/data/usbfmt-backup/kaputt_rest.img.zst\"}" images/delete)
+[ "$code" = 409 ] && [ -e "$W/data/usbfmt-backup/kaputt_rest.img.zst" ] && ok "Löschen während eines Auftrags abgelehnt" \
+    || bad "Löschen während Auftrag ($code)" "$(cat "$W/body")"
 curl -s -H "$J" -d '{}' "$U/api/cancel" >/dev/null
 wait_job
 [ "$(q 'str(d["ok"]) + str(d["cancelled"])' <"$W/st")" = FalseTrue ] && ok "Sichern abgebrochen" || bad "Abbrechen" "$(cat "$W/st")"

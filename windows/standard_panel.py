@@ -8,18 +8,26 @@ import subprocess
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, ttk
 
 import fsinfo
 from fsinfo import (FILESYSTEMS, KB, LABEL_CHARS, MB, SCHEMES, available_filesystems, cluster_choices, mbr_limit,
                     partition_bytes, unit_text, uses_gpt)
+import ui_msgbox as messagebox
+import ui_theme
 from i18n import _, quote
 from partition_editor import PartitionEditor
-from pc_common import (IMAGE_EXT, IS_WIN, PcJob, admin_wait_text, ask_string, confirm, data_kept_admin_text,
+from pc_common import (IMAGE_EXT, IS_WIN, PcJob, PlainJob, admin_wait_text, ask_string, confirm, data_kept_admin_text,
                        disk_name, fmt_size, hwnd_of, image_file_name, image_info, irreversible_admin_text, on_device,
                        pc_dev_text, pc_list, pc_used, pc_volumes_text, serial_args, show_scan)
 
+from ui_widgets import ChoiceChips, DriveList
+
 __all__ = ["StandardPanel", "SCHEMES", "FILESYSTEMS", "KB", "MB"]
+
+# "Wofür soll der Datenträger dienen?" - Kachel -> Dateisystem (bzw. eigene Aufteilung im Expertenmodus)
+PURPOSES = [("exFAT", "Dateien tauschen"), ("FAT32", "Ältere Geräte"), ("NTFS", "Windows"),
+            ("ext4 (Linux)", "Linux"), ("HFS+ (Mac OS Extended)", "Mac"), ("expert", "Eigene Aufteilung")]
 
 
 class StandardPanel(ttk.Frame):
@@ -37,7 +45,6 @@ class StandardPanel(ttk.Frame):
         self.cluster_values = []        # Bytes zu den Einträgen der Auswahlliste
 
         fs = settings.get("fs") if settings.get("fs") in FILESYSTEMS else "exFAT"
-        self.dev_var = tk.StringVar()
         self.fs_var = tk.StringVar(value=fs)
         self.cluster_var = tk.StringVar()
         self.scheme_var = tk.StringVar()
@@ -58,140 +65,150 @@ class StandardPanel(ttk.Frame):
     # ------------------------------------------------------------------ Oberfläche
 
     def _build(self):
-        self.columnconfigure(0, weight=1)
-        row = 0
+        """Links Laufwerke und Werkzeuge, rechts "Formatieren", darunter der Fortschritt - alles auf Karten"""
+        self.configure(style="Page.TFrame")
+        gap, px = ui_theme.px(12), ui_theme.px
+        self.columnconfigure(0, weight=5, uniform="col")
+        self.columnconfigure(1, weight=6, uniform="col")
+        self.rowconfigure(0, weight=1)
+        left = ttk.Frame(self, style="Page.TFrame")
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, gap))
+        left.columnconfigure(0, weight=1)
+        left.rowconfigure(0, weight=1)
 
-        def caption(text, top=8):
-            nonlocal row
-            lbl = ttk.Label(self, text=text)
-            lbl.grid(row=row, column=0, columnspan=2, sticky="w", pady=(top, 2))
-            row += 1
-            return lbl
-
-        def hint():   # leer: ausgeblendet (sonst bliebe eine Lücke)
-            nonlocal row
-            lbl = ttk.Label(self, foreground="#666666", wraplength=560, justify="left")
-            lbl.grid(row=row, column=0, columnspan=2, sticky="w")
-            lbl.grid_remove()
-            row += 1
-            return lbl
-
-        caption(_("Laufwerk:"))
-        self.dev_combo = ttk.Combobox(self, textvariable=self.dev_var, state="readonly", style="Std.TCombobox",
-                                      width=62, postcommand=self._widen_dev_list)
-        self.dev_combo.grid(row=row, column=0, sticky="ew")
+        # ---- Laufwerke
+        drives = ui_theme.card(left)
+        drives.grid(row=0, column=0, sticky="nsew")
+        head = ttk.Frame(drives)
+        head.pack(fill="x", pady=(0, px(8)))
+        ttk.Label(head, text=_("Laufwerke").upper(), style="Section.TLabel").pack(side="left")
+        ico = ui_theme.icon(self, "refresh", "muted", 15)
+        self.reload_btn = ttk.Button(head, text=" " + _("Aktualisieren"), image=ico, compound="left",
+                                     style="Ghost.TButton", command=self.reload)
+        self.reload_btn.image = ico
+        self.reload_btn.pack(side="right")
+        self.dev_combo = DriveList(drives, empty_text=_("Kein USB-Datenträger am PC gefunden. Stick einstecken und "
+                                                        "„Aktualisieren“ klicken."))
+        self.dev_combo.pack(fill="both", expand=True)
         self.dev_combo.bind("<<ComboboxSelected>>", lambda e: self._device_changed())
-        self.reload_btn = ttk.Button(self, text=_("Aktualisieren"), command=self.reload)
-        self.reload_btn.grid(row=row, column=1, padx=(6, 0))
+
+        # ---- Werkzeuge
+        tools = ui_theme.card(left)
+        tools.grid(row=1, column=0, sticky="ew", pady=(gap, 0))
+        tools.columnconfigure((0, 1, 2), weight=1, uniform="tool")
+        ttk.Label(tools, text=_("Werkzeuge").upper(), style="Section.TLabel").grid(row=0, column=0, columnspan=3,
+                                                                                   sticky="w", pady=(0, px(8)))
+        self.speed_btn = ttk.Button(tools, text=_("Tempo messen"), command=self._speed)
+        self.speed_btn.grid(row=1, column=0, sticky="ew")
+        self.rename_btn = ttk.Button(tools, text=_("Umbenennen"), command=self._rename)
+        self.rename_btn.grid(row=1, column=1, sticky="ew", padx=(px(6), 0))
+        ttk.Label(tools, text=_("Image-Sicherung").upper(), style="Section.TLabel").grid(
+            row=2, column=0, columnspan=3, sticky="w", pady=(px(12), px(8)))
+        self.backup_btn = ttk.Button(tools, text=_("Sichern …"), command=self._backup)
+        self.backup_btn.grid(row=3, column=0, sticky="ew")
+        self.restore_btn = ttk.Button(tools, text=_("Wiederherstellen …"), command=self._restore)
+        self.restore_btn.grid(row=3, column=1, sticky="ew", padx=(px(6), 0))
+        self.verify_btn = ttk.Button(tools, text=_("Prüfen …"), command=self._verify)
+        self.verify_btn.grid(row=3, column=2, sticky="ew", padx=(px(6), 0))
+
+        # ---- Formatieren
+        right = self.form = ui_theme.card(self)
+        right.grid(row=0, column=1, sticky="nsew")
+        right.columnconfigure(1, weight=1)
+        row = 0
+        wrap = px(400)
+
+        def hint(parent, r, col=0, span=2):
+            lbl = ttk.Label(parent, style="Hint.TLabel", wraplength=wrap, justify="left")
+            lbl.grid(row=r, column=col, columnspan=span, sticky="w", pady=(px(3), 0))
+            lbl.grid_remove()
+            return lbl
+
+        ttk.Label(right, text=_("Formatieren"), style="H2.TLabel").grid(row=row, column=0, columnspan=2, sticky="w")
+        row += 1
+        ttk.Label(right, text=_("Wofür soll der Datenträger dienen?"), style="Muted.TLabel").grid(
+            row=row, column=0, columnspan=2, sticky="w", pady=(px(10), px(6)))
+        row += 1
+        self.purpose = ChoiceChips(right, [(k, _(t)) for k, t in PURPOSES], self._purpose_picked)
+        self.purpose.grid(row=row, column=0, columnspan=2, sticky="ew")
+        row += 1
+        ttk.Separator(right).grid(row=row, column=0, columnspan=2, sticky="ew", pady=px(12))
         row += 1
 
-        self.expert_chk = ttk.Checkbutton(self, variable=self.expert_var, command=self._expert_changed,
-                                          text=_("Expertenmodus – Partitionen selbst festlegen (Größen, Typen, "
-                                                 "startfähig)"))
-        self.expert_chk.grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 0))
-        row += 1
+        # Beschriftungen links gleich breit - auch über die getrennten Bereiche (einfach/Experte, Schema) hinweg
+        labels = (_("Dateisystem"), _("Zuordnungseinheit"), _("Bezeichnung"), _("Partitionsschema"))
+        label_w = max(tkfont.nametofont("TkDefaultFont").measure(x) for x in labels) + px(14)
+
+        def field(parent, r, text):
+            ttk.Label(parent, text=text, style="Muted.TLabel").grid(row=r, column=0, sticky="w",
+                                                                     padx=(0, px(12)), pady=(px(4), 0))
 
         # einfacher Modus: eine Partition über den ganzen Datenträger
-        sb = self.simple_box = ttk.Frame(self)
+        sb = self.simple_box = ttk.Frame(right)
         sb.grid(row=row, column=0, columnspan=2, sticky="ew")
-        sb.columnconfigure(0, weight=1)
+        sb.columnconfigure(1, weight=1)
+        sb.columnconfigure(0, minsize=label_w)
         row += 1
-        r = 0
-
-        def cap(text):
-            nonlocal r
-            ttk.Label(sb, text=text).grid(row=r, column=0, sticky="w", pady=(8, 2))
-            r += 1
-
-        def sub_hint():
-            nonlocal r
-            lbl = ttk.Label(sb, foreground="#666666", wraplength=560, justify="left")
-            lbl.grid(row=r, column=0, sticky="w")
-            lbl.grid_remove()
-            r += 1
-            return lbl
-
-        cap(_("Dateisystem:"))
+        field(sb, 0, _("Dateisystem"))
         self.fs_combo = ttk.Combobox(sb, textvariable=self.fs_var, state="readonly")
-        self.fs_combo.grid(row=r, column=0, sticky="ew")
-        self.fs_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_options())
-        r += 1
-        self.fs_hint = sub_hint()
-
-        cap(_("Größe der Zuordnungseinheiten:"))
+        self.fs_combo.grid(row=0, column=1, sticky="ew", pady=(px(4), 0))
+        self.fs_combo.bind("<<ComboboxSelected>>", lambda e: self._fs_picked())
+        self.fs_hint = hint(sb, 1, col=1, span=1)
+        field(sb, 2, _("Zuordnungseinheit"))
         self.cluster_combo = ttk.Combobox(sb, textvariable=self.cluster_var, state="readonly")
-        self.cluster_combo.grid(row=r, column=0, sticky="ew")
+        self.cluster_combo.grid(row=2, column=1, sticky="ew", pady=(px(8), 0))
         self.cluster_combo.bind("<<ComboboxSelected>>", lambda e: self._cluster_changed())
-        r += 1
-
-        cap(_("Volumebezeichnung:"))
+        field(sb, 3, _("Bezeichnung"))
         vcmd = (self.register(lambda p: len(p) <= self._label_max() and bool(LABEL_CHARS.match(p))), "%P")
         self.label_entry = ttk.Entry(sb, textvariable=self.label_var, validate="key", validatecommand=vcmd)
-        self.label_entry.grid(row=r, column=0, sticky="ew")
-        r += 1
-        self.label_hint = sub_hint()
+        self.label_entry.grid(row=3, column=1, sticky="ew", pady=(px(8), 0))
+        self.label_hint = hint(sb, 4, col=1, span=1)
 
         # Expertenmodus: Partitionstabelle
-        self.editor = PartitionEditor(self, on_change=lambda: self._update() if hasattr(self, "start_btn") else None)
-        self.editor.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        self.editor = PartitionEditor(right, on_change=lambda: self._update() if hasattr(self, "start_btn") else None)
+        self.editor.grid(row=row, column=0, columnspan=2, sticky="ew")
         self.editor.grid_remove()
         row += 1
 
-        caption(_("Partitionsschema:"))
-        self.scheme_combo = ttk.Combobox(self, textvariable=self.scheme_var, state="readonly",
-                                         values=[_(t) for _k, t in SCHEMES])
-        self.scheme_combo.grid(row=row, column=0, columnspan=2, sticky="ew")
-        self.scheme_combo.bind("<<ComboboxSelected>>", lambda e: self._scheme_changed())
+        sc = ttk.Frame(right)
+        sc.grid(row=row, column=0, columnspan=2, sticky="ew")
+        sc.columnconfigure(1, weight=1)
+        sc.columnconfigure(0, minsize=label_w)
         row += 1
-        self.scheme_hint = hint()
+        field(sc, 0, _("Partitionsschema"))
+        self.scheme_combo = ttk.Combobox(sc, textvariable=self.scheme_var, state="readonly",
+                                         values=[_(t) for _k, t in SCHEMES])
+        self.scheme_combo.grid(row=0, column=1, sticky="ew", pady=(px(8), 0))
+        self.scheme_combo.bind("<<ComboboxSelected>>", lambda e: self._scheme_changed())
+        self.scheme_hint = hint(sc, 1, col=1, span=1)
 
-        caption(_("Formatierungsoptionen:"), top=10)
-        opts = ttk.Frame(self)
-        opts.grid(row=row, column=0, columnspan=2, sticky="w")
+        opts = ttk.Frame(right)
+        opts.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(px(12), 0))
         row += 1
         self.quick_chk = ttk.Checkbutton(opts, variable=self.quick_var, text=_("Schnellformatierung"),
-                                         command=self._update)
+                                         style="Switch.TCheckbutton", command=self._update)
         self.quick_chk.pack(anchor="w")
-        self.verify_chk = ttk.Checkbutton(opts, variable=self.verify_var,
+        self.verify_chk = ttk.Checkbutton(opts, variable=self.verify_var, style="Switch.TCheckbutton",
                                           text=_("Vorher Echtheit und Tempo prüfen (ca. 2–10 Minuten)"))
-        self.verify_chk.pack(anchor="w", pady=(2, 0))
-        self.opt_hint = hint()
+        self.verify_chk.pack(anchor="w")
+        self.opt_hint = ttk.Label(opts, style="Hint.TLabel", wraplength=wrap, justify="left")
 
-        self.pbar = ttk.Progressbar(self, maximum=100)
-        self.pbar.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(14, 4))
+        right.rowconfigure(row, weight=1)
         row += 1
-        ttk.Label(self, textvariable=self.status_var, wraplength=560, justify="left").grid(
-            row=row, column=0, columnspan=2, sticky="w")
-        row += 1
+        self.start_btn = ttk.Button(right, text=_("Formatieren …"), style="Danger.TButton", command=self._start)
+        self.start_btn.grid(row=row, column=0, columnspan=2, sticky="e", pady=(px(14), 0), ipadx=px(12))
 
-        img = ttk.Frame(self)
-        img.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
-        row += 1
-        ttk.Label(img, text=_("Image-Sicherung:")).pack(side="left")
-        self.backup_btn = ttk.Button(img, text=_("Sichern …"), command=self._backup)
-        self.backup_btn.pack(side="left", padx=(6, 0))
-        self.restore_btn = ttk.Button(img, text=_("Wiederherstellen …"), command=self._restore)
-        self.restore_btn.pack(side="left", padx=(6, 0))
-
-        btns = ttk.Frame(self)
-        btns.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        self.speed_btn = ttk.Button(btns, text=_("Tempo messen"), command=self._speed)
-        self.speed_btn.pack(side="left")
-        self.rename_btn = ttk.Button(btns, text=_("Umbenennen"), command=self._rename)
-        self.rename_btn.pack(side="left", padx=(6, 0))
-        self.close_btn = ttk.Button(btns, text=_("Schließen"), command=lambda: self.winfo_toplevel().event_generate(
-            "<<StdClose>>"))
-        self.close_btn.pack(side="right", padx=(6, 0))
-        self.start_btn = ttk.Button(btns, text=_("Formatieren …"), command=self._start)
-        self.start_btn.pack(side="right")
-        self.cancel_btn = ttk.Button(btns, text=_("Abbrechen"), command=self._cancel)
-
-    def _widen_dev_list(self):
-        """Aufgeklappte Liste so breit wie der längste Eintrag (ttk nimmt sonst die Breite des Feldes)"""
-        font = tkfont.nametofont("TkTextFont")
-        need = max((font.measure(v) for v in self.dev_combo.cget("values")), default=0) + 40
-        extra = max(0, need - self.dev_combo.winfo_width())
-        ttk.Style(self).configure("Std.TCombobox", postoffset=(0, 0, extra, 0))
+        # ---- Fortschritt
+        st = ui_theme.card(self, padding=(16, 10))
+        st.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(gap, 0))
+        st.columnconfigure(0, weight=1)
+        self.pbar = ttk.Progressbar(st, maximum=100)
+        self.pbar.grid(row=0, column=0, sticky="ew")
+        self.cancel_box = ttk.Frame(st)
+        self.cancel_box.grid(row=0, column=1, rowspan=2, sticky="e", padx=(px(12), 0))
+        self.cancel_btn = ttk.Button(self.cancel_box, text=_("Abbrechen"), command=self._cancel)
+        ttk.Label(st, textvariable=self.status_var, style="Muted.TLabel", wraplength=px(820), justify="left").grid(
+            row=1, column=0, sticky="w", pady=(px(6), 0))
 
     def _selected(self):
         i = self.dev_combo.current()
@@ -209,8 +226,33 @@ class StandardPanel(ttk.Frame):
 
     @staticmethod
     def _hint(lbl, text, warn=False):
-        lbl.configure(text=text, foreground="#9a5b00" if warn else "#666666")
+        lbl.configure(text=text, style="Warn.TLabel" if warn else "Hint.TLabel")
         lbl.grid() if text else lbl.grid_remove()
+
+    def _purpose_picked(self, key):
+        """Kachel "Wofür?": Dateisystem setzen bzw. den Expertenmodus (eigene Aufteilung)"""
+        if key == "expert":
+            if not self.expert_var.get():
+                self.expert_var.set(True)
+                self._expert_changed()
+            return
+        if self.expert_var.get():
+            self.expert_var.set(False)
+            self._expert_changed()
+        self.fs_var.set(key)
+        self._refresh_options()
+
+    def _fs_picked(self):
+        self._refresh_options()
+
+    def _sync_purpose(self, names):
+        """Kacheln passend zu Auswahl und Laufwerk: gewählt, was gerade gilt; gesperrt, was nicht passt"""
+        if self.expert_var.get():
+            self.purpose.select("expert")
+        else:
+            self.purpose.select(self.fs_var.get() if self.fs_var.get() in dict(PURPOSES) else None)
+        for key, _t in PURPOSES:
+            self.purpose.enable(key, not self.busy and (key == "expert" or key in names))
 
     def _device_changed(self):
         self.cluster_pick = {}   # Größen hängen vom Laufwerk ab
@@ -299,6 +341,7 @@ class StandardPanel(ttk.Frame):
             self.label_var.set(label[:label_max])
             text += " – " + _("auf {n} Zeichen gekürzt", n=label_max)
         self._hint(self.label_hint, text)
+        self._sync_purpose(names)
         self._update()
 
     def _update(self):
@@ -309,7 +352,8 @@ class StandardPanel(ttk.Frame):
             w.state(list(extra) + (["!disabled"] if on else ["disabled"]))
 
         expert = bool(self.expert_var.get())
-        enable(self.expert_chk, idle)
+        for key, _t in PURPOSES:
+            self.purpose.enable(key, idle and (key == "expert" or key in self.fs_combo.cget("values")))
         self.editor.set_enabled(idle)
         enable(self.dev_combo, idle and self.devices, "readonly")
         enable(self.reload_btn, idle)
@@ -323,18 +367,23 @@ class StandardPanel(ttk.Frame):
         enable(self.speed_btn, idle and dev)
         enable(self.backup_btn, idle and dev)
         enable(self.restore_btn, idle and dev)
+        enable(self.verify_btn, idle)   # braucht keinen Datenträger
         # nur bei genau einem Laufwerk auf dem Datenträger: der Helfer nimmt nicht unbedingt das angezeigte
         vols = dev.get("volumes", []) if dev else []
         enable(self.rename_btn, idle and dev and len(vols) == 1 and vols[0]["fs"] in ("exFAT", "FAT32", "NTFS", "FAT"))
-        self._hint(self.opt_hint, "" if self.quick_var.get() else
+        self._opt_hint("" if self.quick_var.get() else
                    _("Vollständig: Jede Stelle wird beschrieben und geprüft – findet defekte Bereiche und gefälschte "
                      "Größen, dauert aber je nach Größe bis zu mehreren Stunden."))
         if self.job and self.job.cancellable:
             if not self.cancel_btn.winfo_ismapped():
                 self.cancel_btn.state(["!disabled"])   # nach einem früheren Abbruch noch gesperrt
-                self.cancel_btn.pack(side="right", padx=(0, 6))   # links neben "Formatieren …"
+                self.cancel_btn.pack()
         elif self.cancel_btn.winfo_ismapped():
             self.cancel_btn.pack_forget()
+
+    def _opt_hint(self, text):
+        self.opt_hint.configure(text=text)
+        self.opt_hint.pack(anchor="w", pady=(ui_theme.px(2), 0)) if text else self.opt_hint.pack_forget()
 
     def _set_busy(self, busy):
         self.busy = busy
@@ -364,7 +413,7 @@ class StandardPanel(ttk.Frame):
     def _fill_devices(self, devices, announce=True):
         prev = self._selected()
         self.devices = devices
-        self.dev_combo.configure(values=[pc_dev_text(d) for d in devices])
+        self.dev_combo.set_items([self._drive_item(d) for d in devices])
         # nie vorauswählen: am PC hängen oft Platten mit Daten (Sicherungen) - nur die eigene Auswahl bleibt
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
                     and d["size"] == prev.get("size") and d.get("model") == prev.get("model")
@@ -372,7 +421,7 @@ class StandardPanel(ttk.Frame):
         if idx >= 0:
             self.dev_combo.current(idx)
         else:
-            self.dev_var.set("")
+            self.dev_combo.current(-1)
             self.cluster_pick = {}
         if announce:
             if not devices:
@@ -381,6 +430,24 @@ class StandardPanel(ttk.Frame):
             else:
                 self.status_var.set(_("{n} USB-Datenträger gefunden – bitte oben auswählen.", n=len(devices)))
         self._refresh_options()
+
+    @staticmethod
+    def _drive_item(d):
+        """Karte eines Laufwerks: Modell, Größe, Nummer und Laufwerke, Belegung"""
+        vols = d.get("volumes", [])
+        sub = [_("Datenträger {n}", n=disk_name(d))]
+        pills = []
+        for v in vols[:3]:
+            name = " ".join(x for x in (v.get("letters", ""), quote(v["label"]) if v.get("label") else "") if x)
+            if name:
+                sub.append(name)
+            if v.get("fs"):
+                pills.append((v["fs"], "Accent"))
+        if not vols:
+            pills.append((_("ohne Laufwerk"), ""))
+        used = pc_used(d)
+        return {"text": pc_dev_text(d), "title": d.get("model") or _("USB-Datenträger"), "size": fmt_size(d["size"]),
+                "sub": " · ".join(sub), "pills": pills, "used": min(1.0, used / d["size"]) if used and d["size"] else None}
 
     # ------------------------------------------------------------------ Aufträge
 
@@ -666,15 +733,43 @@ class StandardPanel(ttk.Frame):
         self._job(["restore", str(dev["disk"]), str(dev["size"]), path, *serial_args(dev)], cancellable=True,
                   after=after)
 
-    def _job(self, args, cancellable=False, after=None):
-        """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread"""
+    def _verify(self):
+        """Image-Datei nur prüfen: ganz entpacken, Prüfsumme im Image und die .sha256 daneben - ohne Datenträger und
+        ohne Administratorrechte"""
+        if self.busy:
+            return
+        title = _("Image prüfen")
+        path = filedialog.askopenfilename(
+            parent=self, title=title, initialdir=self._image_dir(),
+            filetypes=[(_("Image-Sicherung"), "*" + IMAGE_EXT + " *.zst"), (_("Alle Dateien"), "*")])
+        if not path:
+            return
+        try:
+            info = image_info(path)
+        except OSError as e:
+            messagebox.showerror(title, _("Die Datei lässt sich nicht lesen: {e}", e=e), parent=self)
+            return
+        if info is None:
+            messagebox.showerror(title, _("Das ist keine Image-Sicherung (.img.zst)."), parent=self)
+            return
+        self.settings["image_dir"] = os.path.dirname(path)
+        self.save()
+
+        def after(ok, msg, info):
+            (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
+
+        self._job(["verify", path], cancellable=True, after=after, plain=True)
+
+    def _job(self, args, cancellable=False, after=None, plain=False):
+        """Auftrag mit Administratorrechten ausführen (plain: ohne - kein Datenträger beteiligt, danach auch nicht neu
+        einlesen); after(ok, meldung, info) läuft danach im UI-Thread"""
         if self.busy:
             return
         hwnd = hwnd_of(self)
 
         def work():
             try:
-                job = PcJob(args, hwnd)
+                job = (PlainJob if plain else PcJob)(args, hwnd)
             except (OSError, RuntimeError) as e:
                 self.q.put(("error", str(e)))
                 return
@@ -683,6 +778,9 @@ class StandardPanel(ttk.Frame):
             self.q.put(("started",))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step)))
             self.q.put(("jobended",))   # der Helfer ist fertig - "Abbrechen" weg, auch während des Neueinlesens
+            if plain:
+                self.q.put(("done", ok, msg, info, None, after))
+                return
             try:
                 # danach neu einlesen - mit Fortschritt, schlafende Platten laufen dabei womöglich erst an
                 devices = pc_list(lambda pct, text: self.q.put(("scan", pct, text)))
@@ -693,7 +791,7 @@ class StandardPanel(ttk.Frame):
         self.pbar.stop()
         self.pbar.configure(mode="determinate")
         self.pbar["value"] = 0
-        self.status_var.set(admin_wait_text())
+        self.status_var.set(_("Startet …") if plain else admin_wait_text())
         self._run(work)
 
     def _cancel(self):

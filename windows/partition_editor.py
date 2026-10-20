@@ -1,7 +1,11 @@
 """Expertenmodus: Partitionen selbst festlegen - Tabelle, Balken mit der Aufteilung und Bearbeiten-Dialog.
 Jede Partition: Größe (oder der Rest), Dateisystem, Zuordnungseinheit, Bezeichnung, Partitionstyp, startfähig."""
 import tkinter as tk
-from tkinter import messagebox, ttk
+import tkinter.font as tkfont
+from tkinter import ttk
+
+import ui_msgbox as messagebox
+import ui_theme
 
 import fsinfo
 from fsinfo import FS_EXPERT, GB, MB, NO_FS, PTYPES, fs_display, size_text, unit_text
@@ -68,7 +72,7 @@ class PartitionDialog(tk.Toplevel):
         self.fs_combo.grid(row=r, column=1, sticky="ew")
         self.fs_combo.bind("<<ComboboxSelected>>", lambda e: self._changed())
         r += 1
-        self.fs_hint = ttk.Label(frm, foreground="#666666", wraplength=420, justify="left")
+        self.fs_hint = ttk.Label(frm, style="Hint.TLabel", wraplength=ui_theme.px(420), justify="left")
         self.fs_hint.grid(row=r, column=1, sticky="w")
         r += 1
 
@@ -89,7 +93,7 @@ class PartitionDialog(tk.Toplevel):
         self.label_entry = ttk.Entry(frm, textvariable=self.label_var, validate="key", validatecommand=vcmd)
         self.label_entry.grid(row=r, column=1, sticky="ew")
         r += 1
-        self.label_hint = ttk.Label(frm, foreground="#666666")
+        self.label_hint = ttk.Label(frm, style="Hint.TLabel")
         self.label_hint.grid(row=r, column=1, sticky="w")
         r += 1
 
@@ -108,7 +112,7 @@ class PartitionDialog(tk.Toplevel):
 
         btns = ttk.Frame(frm)
         btns.grid(row=r, column=0, columnspan=2, sticky="e", pady=(14, 0))
-        ttk.Button(btns, text=_("Übernehmen"), command=self._ok).pack(side="left")
+        ttk.Button(btns, text=_("Übernehmen"), style="Accent.TButton", command=self._ok).pack(side="left")
         ttk.Button(btns, text=_("Abbrechen"), command=self.destroy).pack(side="left", padx=(6, 0))
         self.size_var.trace_add("write", lambda *a: self._changed())
         self.bind("<Escape>", lambda e: self.destroy())
@@ -121,6 +125,7 @@ class PartitionDialog(tk.Toplevel):
         y = top.winfo_rooty() + (top.winfo_height() - self.winfo_reqheight()) // 3
         self.geometry(f"+{max(0, x)}+{max(0, y)}")
         self.deiconify()
+        ui_theme.dark_titlebar(self)
         grab(self)
         self.size_entry.focus_set()
 
@@ -209,7 +214,9 @@ class PartitionEditor(ttk.Frame):
         self.sizes, self.free, self.error = [], 0, None
         self.columnconfigure(0, weight=1)
 
-        self.bar = tk.Canvas(self, height=38, highlightthickness=1, highlightbackground="#b9b9b9", bg="#f4f4f4")
+        col = ui_theme.colors()
+        self.bar = tk.Canvas(self, height=ui_theme.px(34), highlightthickness=1, highlightbackground=col["border"],
+                             bg=col["card2"])
         self.bar.grid(row=0, column=0, columnspan=2, sticky="ew")
         self.bar.bind("<Configure>", lambda e: self._draw())
         self.bar.bind("<Button-1>", self._bar_click)
@@ -217,11 +224,15 @@ class PartitionEditor(ttk.Frame):
 
         cols = ("nr", "size", "fs", "label", "cluster", "type")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=5, selectmode="browse")
-        for c, text, w, anchor in (("nr", _("Nr."), 36, "center"), ("size", _("Größe"), 120, "e"),
-                                   ("fs", _("Dateisystem"), 160, "w"), ("label", _("Bezeichnung"), 110, "w"),
-                                   ("cluster", _("Einheit"), 90, "e"), ("type", _("Typ"), 110, "w")):
+        head_font = tkfont.nametofont("UfSection") if "UfSection" in tkfont.names(self) else tkfont.nametofont(
+            "TkHeadingFont")
+        for c, text, w, anchor in (("nr", _("Nr."), 36, "center"), ("size", _("Größe"), 110, "e"),
+                                   ("fs", _("Dateisystem"), 150, "w"), ("label", _("Bezeichnung"), 110, "w"),
+                                   ("cluster", _("Einheit"), 80, "e"), ("type", _("Typ"), 100, "w")):
             self.tree.heading(c, text=text, anchor=anchor)
-            self.tree.column(c, width=w, minwidth=30, anchor=anchor, stretch=c == "fs")
+            # mit der Skalierung mitwachsen, mindestens so breit wie die Überschrift
+            width = max(ui_theme.px(w), head_font.measure(text) + ui_theme.px(20))
+            self.tree.column(c, width=width, minwidth=width if c == "nr" else 30, anchor=anchor, stretch=c == "fs")
         self.tree.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.tree.bind("<Double-1>", lambda e: self.edit())
         self.tree.bind("<<TreeviewSelect>>", lambda e: (self._buttons(), self._draw()))
@@ -234,7 +245,7 @@ class PartitionEditor(ttk.Frame):
         self.down_btn = ttk.Button(side, text="▼ " + _("nach hinten"), command=lambda: self.move(1))
         for b in (self.add_btn, self.edit_btn, self.del_btn, self.up_btn, self.down_btn):
             b.pack(fill="x", pady=(0, 3))
-        self.info = ttk.Label(self, foreground="#666666", wraplength=560, justify="left")
+        self.info = ttk.Label(self, style="Hint.TLabel", wraplength=ui_theme.px(560), justify="left")
         self.info.grid(row=2, column=0, columnspan=2, sticky="w", pady=(4, 0))
         self.enabled = True
         self.refresh()
@@ -303,7 +314,7 @@ class PartitionEditor(ttk.Frame):
         else:
             text = _("{n} Partition(en), Datenträger voll aufgeteilt. Doppelklick auf eine Partition zum Bearbeiten.",
                      n=len(self.parts))
-        self.info.configure(text=text, foreground="#b3261e" if self.error else "#666666")
+        self.info.configure(text=text, style="Danger.TLabel" if self.error else "Hint.TLabel")
         self._buttons()
         self._draw()
         self.on_change()
@@ -406,7 +417,8 @@ class PartitionEditor(ttk.Frame):
         c.delete("all")
         w, h = c.winfo_width(), c.winfo_height()
         if w < 10 or not self.dev:
-            c.create_text(w // 2, h // 2, text=_("Aufteilung erscheint nach Wahl des Laufwerks"), fill="#777777")
+            c.create_text(w // 2, h // 2, text=_("Aufteilung erscheint nach Wahl des Laufwerks"),
+                          fill=ui_theme.colors()["hint"])
             return
         total = max(1, self.dev["size"])
         x, sel = 2.0, self._selected()
@@ -415,7 +427,7 @@ class PartitionEditor(ttk.Frame):
             pw = max(4.0, (w - 4) * n / total)
             p = self.parts[i]
             color = COLORS.get(p["fs"], "#777777")
-            c.create_rectangle(x, 3, x + pw - 1, h - 3, fill=color, outline="#202020" if i == sel else color,
+            c.create_rectangle(x, 3, x + pw - 1, h - 3, fill=color, outline=ui_theme.colors()["text"] if i == sel else color,
                                width=2 if i == sel else 1, tags=(f"p{i}",))
             text = f"{i + 1}: {fs_display(p['fs']).split(' ')[0]} {size_text(n)}"
             if pw > 60:
@@ -423,9 +435,11 @@ class PartitionEditor(ttk.Frame):
                               tags=(f"p{i}",))
             x += pw
         if self.free >= MB:
-            c.create_rectangle(x, 3, w - 2, h - 3, fill="#e3e3e3", outline="#c8c8c8", dash=(3, 2))
+            c.create_rectangle(x, 3, w - 2, h - 3, fill=ui_theme.colors()["bar"], outline=ui_theme.colors()["border2"],
+                               dash=(3, 2))
             if w - x > 70:
-                c.create_text((x + w) / 2, h / 2, text=_("frei {size}", size=size_text(self.free)), fill="#555555")
+                c.create_text((x + w) / 2, h / 2, text=_("frei {size}", size=size_text(self.free)),
+                                   fill=ui_theme.colors()["muted"])
 
     def _bar_click(self, event):
         hit = self.bar.find_overlapping(event.x, event.y, event.x, event.y)

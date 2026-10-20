@@ -10,10 +10,12 @@
  *   label  <disk> <size> <label>
  *   backup <disk> <size> <datei.img.zst>    Image sichern (dazu <datei>.sha256)
  *   restore <disk> <size> <datei.img.zst>   Image zurückschreiben und nachlesen
+ *   verify <datei.img.zst>                  Image nur prüfen (ohne Datenträger und Administratorrechte)
  *
  * <size> ist die Größe aus "list": Passt sie nicht mehr (Stick getauscht), wird nichts angefasst. fs: exfat, fat32,
  * ntfs, fat, hfsplus, ext2, ext3, ext4 (layout auch none). cluster: Zuordnungseinheit in Bytes (fehlt/0 =
  * Standard). plain: Meldungen ohne PS5-Bezug. */
+#include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -579,6 +581,65 @@ static int cmd_backup(const char *disk, uint64_t size, const char *path) {
     return 0;
 }
 
+/* passt die Datei zu ihrer "<path>.sha256" daneben? 1 = ja, 0 = keine da, -1 = andere Prüfsumme */
+static int side_check(const char *path, const char *sha) {
+    char side[1100], line[160], e[128];
+    if (snprintf(side, sizeof(side), "%s.sha256", path) >= (int)sizeof(side)) return 0;
+    FILE *h = plat_fopen(side, 0, e, sizeof(e));
+    if (!h) return 0;
+    int r = -1;
+    if (fgets(line, sizeof(line), h) && strlen(line) >= 64) {   /* "<hex>  <name>"; Windows-Werkzeuge schreiben groß */
+        r = 1;
+        for (int i = 0; i < 64; i++)
+            if (tolower((unsigned char)line[i]) != sha[i]) r = -1;
+    }
+    fclose(h);
+    return r;
+}
+
+/* Image-Datei nur prüfen: ganz entpacken, Prüfsumme im Image und die .sha256 daneben vergleichen. Kein Datenträger -
+ * das PC-Programm startet den Helfer dafür ohne Administratorrechte. */
+static int cmd_verify(const char *path) {
+    char err[512] = "", msg[900], json[512], t1[32], t2[32];
+    const size_t pl = strlen(path);
+    if (pl < 4 || strcmp(path + pl - 4, ".zst")) { finish(0, "Keine gültige Image-Datei (.img.zst).", NULL); return 1; }
+    on_progress("Image prüfen", 0);
+    FILE *f = plat_fopen(path, 0, err, sizeof(err));
+    if (!f) { finish(0, err, NULL); return 1; }
+    setvbuf(f, NULL, _IOFBF, 1 << 20);
+    ib_info_t info;
+    ib_reader_t *rd = ib_open(in_file, f, &info, err, sizeof(err));
+    if (!rd) { fclose(f); finish(0, err, NULL); return 1; }
+    ib_result_t r;
+    int rc = ib_verify(rd, on_progress, &cancel_requested, &r, err, sizeof(err));
+    ib_close(rd);
+    fclose(f);
+    if (!rc && r.cancelled) { finish(0, "Abgebrochen.", NULL); return 1; }
+    if (rc) {
+        snprintf(msg, sizeof(msg), T("Das Image ist fehlerhaft: %s"), err);
+        finish(0, msg, NULL);
+        return 1;
+    }
+    const int side = side_check(path, r.sha_file);
+    snprintf(json, sizeof(json), "{\"size\":%llu,\"used\":%llu,\"bytes\":%llu,\"sha256\":\"%s\",\"sha256_data\":\"%s\","
+             "\"checked\":%s,\"side\":\"%s\"}", (unsigned long long)r.size, (unsigned long long)r.used,
+             (unsigned long long)r.file_bytes, r.sha_file, r.sha_img, r.checked ? "true" : "false",
+             side > 0 ? "ok" : side < 0 ? "bad" : "none");
+    if (side < 0) {
+        finish(0, "Die Datei passt nicht zu ihrer .sha256-Datei – sie wurde verändert oder beschädigt.", json);
+        return 1;
+    }
+    if (r.checked)
+        snprintf(msg, sizeof(msg), T("Image in Ordnung: %s belegt von %s geprüft, die Prüfsumme im Image stimmt."),
+                 size_text(r.used, t1, sizeof(t1)), size_text(r.size, t2, sizeof(t2)));
+    else
+        snprintf(msg, sizeof(msg), T("Das Image lässt sich vollständig entpacken (%s). Es stammt nicht von diesem "
+                                     "Programm und hat keine eigene Prüfsumme."), size_text(r.size, t1, sizeof(t1)));
+    if (side > 0) snprintf(msg + strlen(msg), sizeof(msg) - strlen(msg), " %s", T("Die .sha256-Datei passt dazu."));
+    finish(1, msg, json);
+    return 0;
+}
+
 /* Image aus path auf den Datenträger schreiben; vorher passt es? danach Nachlesen */
 static int cmd_restore(const char *disk, uint64_t size, const char *path) {
     char err[512] = "", msg[768], json[256], t1[32];
@@ -694,6 +755,10 @@ int helper_command(int argc, char **argv) {
     int rest = argc - 1;
     char **a = argv + 1;
     if (!strcmp(cmd, "list")) return plat_list();
+    if (!strcmp(cmd, "verify")) {
+        if (rest != 1) { finish(0, "Aufruf unvollständig.", NULL); return 2; }
+        return cmd_verify(a[0]);
+    }
     /* serial=...: Seriennummer laut Liste - unter den Optionen erlaubt, hier herausgenommen. Erst hinter den festen
        Angaben suchen: eine Bezeichnung "serial=..." bliebe sonst nicht die Bezeichnung */
     static char want_serial[64];

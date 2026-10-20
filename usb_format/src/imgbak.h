@@ -36,8 +36,9 @@ typedef struct {
     uint64_t size, used;    /* Image-Bytes, davon gelesen bzw. geschrieben */
     uint64_t file_bytes;    /* Größe der .img.zst */
     char     sha_img[65];   /* SHA-256 der belegten Blöcke (fremde Images ohne Karte: des ganzen Images) */
-    char     sha_file[65];  /* SHA-256 der .img.zst (für die .sha256 daneben) */
+    char     sha_file[65];  /* SHA-256 der .img.zst (für die .sha256 daneben; Wiederherstellen/Prüfen: der gelesenen) */
     int      cancelled;
+    int      checked;       /* Prüfsumme am Ende des Images verglichen (eigene Images) */
 } ib_result_t;
 
 /* Belegte Bytes ermitteln (nur lesen) - für die Anzeige vorab und die Platzprüfung am Ziel */
@@ -55,6 +56,10 @@ ib_reader_t *ib_open(ib_in_fn in, void *ctx, ib_info_t *info, char *err, size_t 
 int  ib_restore(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t devsize, ib_progress_fn progress,
                 volatile int *cancel, ib_result_t *r, char *err, size_t errlen);   /* vfd: zum Nachlesen */
 void ib_close(ib_reader_t *rd);
+/* Image nur prüfen, ohne Datenträger: alles entpacken, Aufbau und die Prüfsumme am Ende vergleichen (eigene Images
+ * müssen eine haben, sonst gilt die Datei als unvollständig), die Datei bis zum Ende lesen. r->used = geprüfte
+ * belegte Bytes, r->sha_file/file_bytes = SHA-256 und Größe der ganzen Datei (zum Vergleich mit der .sha256). */
+int  ib_verify(ib_reader_t *rd, ib_progress_fn progress, volatile int *cancel, ib_result_t *r, char *err, size_t errlen);
 
 /* Dateiname "<Modell>_<Bezeichnung>_<Zeit>.img.zst" aus Angaben (nur A-Z a-z 0-9 - _) */
 void ib_file_name(const ib_info_t *info, char *out, size_t n);

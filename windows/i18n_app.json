@@ -5,35 +5,11 @@
   "es": "Unidad USB",
   "fr": "Lecteur USB"
  },
- "PS5:": {
-  "en": "PS5:",
-  "it": "PS5:",
-  "es": "PS5:",
-  "fr": "PS5 :"
- },
- "Laufwerk:": {
-  "en": "Drive:",
-  "it": "Unità:",
-  "es": "Unidad:",
-  "fr": "Lecteur :"
- },
  "Dateisystem:": {
   "en": "File system:",
   "it": "File system:",
   "es": "Sistema de archivos:",
   "fr": "Système de fichiers :"
- },
- "Größe der Zuordnungseinheiten:": {
-  "en": "Allocation unit size:",
-  "it": "Dimensione unità di allocazione:",
-  "es": "Tamaño de unidad de asignación:",
-  "fr": "Taille d'unité d'allocation :"
- },
- "Volumebezeichnung:": {
-  "en": "Volume label:",
-  "it": "Etichetta volume:",
-  "es": "Etiqueta del volumen:",
-  "fr": "Nom de volume :"
  },
  "PS5-USB formatieren": {
   "en": "Format PS5 USB",
@@ -497,12 +473,6 @@
   "es": "Error HTTP {code}",
   "fr": "Erreur HTTP {code}"
  },
- "Schließen": {
-  "en": "Close",
-  "it": "Chiudi",
-  "es": "Cerrar",
-  "fr": "Fermer"
- },
  "Ruhemodus": {
   "en": "rest mode",
   "it": "modalità riposo",
@@ -671,18 +641,6 @@
   "es": "Listo",
   "fr": "Terminé"
  },
- "Partitionsschema:": {
-  "en": "Partition scheme:",
-  "it": "Schema di partizione:",
-  "es": "Esquema de particiones:",
-  "fr": "Schéma de partition :"
- },
- "Formatierungsoptionen:": {
-  "en": "Format options:",
-  "it": "Opzioni di formattazione:",
-  "es": "Opciones de formato:",
-  "fr": "Options de formatage :"
- },
  "Schnellformatierung": {
   "en": "Quick format",
   "it": "Formattazione rapida",
@@ -712,12 +670,6 @@
   "it": "Nuova etichetta per {drive} ({fs}) – fino a {n} caratteri: A–Z, 0–9, spazio, - e _; vuota = rimuove l'etichetta:",
   "es": "Nueva etiqueta para {drive} ({fs}) – hasta {n} caracteres: A–Z, 0–9, espacio, - y _; vacía = quitar la etiqueta:",
   "fr": "Nouveau nom pour {drive} ({fs}) – jusqu'à {n} caractères : A–Z, 0–9, espace, - et _ ; vide = supprimer le nom :"
- },
- "Expertenmodus – Partitionen selbst festlegen (Größen, Typen, startfähig)": {
-  "en": "Expert mode – define partitions yourself (sizes, types, bootable)",
-  "it": "Modalità esperto – definisci tu le partizioni (dimensioni, tipi, avviabile)",
-  "es": "Modo experto – definir tú mismo las particiones (tamaños, tipos, arrancable)",
-  "fr": "Mode expert – définir soi-même les partitions (tailles, types, amorçable)"
  },
  "Standard (nach Wahl des Laufwerks)": {
   "en": "Default (after choosing the drive)",
@@ -1637,12 +1589,6 @@
   "es": "En Linux, la etiqueta no puede empezar por «-».",
   "fr": "Sous Linux, le nom ne doit pas commencer par « - »."
  },
- "Image-Sicherung:": {
-  "en": "Image backup:",
-  "it": "Backup immagine:",
-  "es": "Copia de imagen:",
-  "fr": "Sauvegarde image :"
- },
  "Sichern …": {
   "en": "Back up …",
   "it": "Salva …",
@@ -2026,5 +1972,209 @@
   "it": "immagine {kind}",
   "es": "imagen {kind}",
   "fr": "image {kind}"
+ },
+ "Neue Version {version} verfügbar": {
+  "en": "New version {version} available",
+  "it": "Nuova versione {version} disponibile",
+  "es": "Nueva versión {version} disponible",
+  "fr": "Nouvelle version {version} disponible"
+ },
+ "Prüfen …": {
+  "en": "Check …",
+  "it": "Verifica …",
+  "es": "Comprobar …",
+  "fr": "Vérifier …"
+ },
+ "Image prüfen": {
+  "en": "Check image",
+  "it": "Verifica immagine",
+  "es": "Comprobar imagen",
+  "fr": "Vérifier l'image"
+ },
+ "Startet …": {
+  "en": "Starting …",
+  "it": "Avvio …",
+  "es": "Iniciando …",
+  "fr": "Démarrage …"
+ },
+ "Wofür soll der Datenträger dienen?": {
+  "en": "What will the drive be used for?",
+  "it": "A cosa servirà l'unità?",
+  "es": "¿Para qué se usará la unidad?",
+  "fr": "À quoi servira le lecteur ?"
+ },
+ "Zuordnungseinheit": {
+  "en": "Allocation unit",
+  "it": "Unità di allocazione",
+  "es": "Unidad de asignación",
+  "fr": "Unité d'allocation"
+ },
+ "Partitionsschema": {
+  "en": "Partition scheme",
+  "it": "Schema di partizione",
+  "es": "Esquema de particiones",
+  "fr": "Schéma de partition"
+ },
+ "Datenträger {n}": {
+  "en": "Disk {n}",
+  "it": "Disco {n}",
+  "es": "Disco {n}",
+  "fr": "Disque {n}"
+ },
+ "ohne Laufwerk": {
+  "en": "no volume",
+  "it": "nessun volume",
+  "es": "sin volumen",
+  "fr": "aucun volume"
+ },
+ "Laufwerke": {
+  "en": "Drives",
+  "it": "Unità",
+  "es": "Unidades",
+  "fr": "Lecteurs"
+ },
+ "Werkzeuge": {
+  "en": "Tools",
+  "it": "Strumenti",
+  "es": "Herramientas",
+  "fr": "Outils"
+ },
+ "USB-Formatierer": {
+  "en": "USB Formatter",
+  "it": "Formattatore USB",
+  "es": "Formateador USB",
+  "fr": "Formateur USB"
+ },
+ "Das Design lässt sich nach dem laufenden Auftrag wechseln.": {
+  "en": "The design can be changed after the running task.",
+  "it": "Il design si può cambiare dopo l'operazione in corso.",
+  "es": "El diseño se puede cambiar cuando termine la tarea en curso.",
+  "fr": "Le design pourra être changé après la tâche en cours."
+ },
+ "Dateien tauschen": {
+  "en": "Share files",
+  "it": "Scambiare file",
+  "es": "Compartir archivos",
+  "fr": "Échanger des fichiers"
+ },
+ "Ältere Geräte": {
+  "en": "Older devices",
+  "it": "Dispositivi datati",
+  "es": "Dispositivos antiguos",
+  "fr": "Anciens appareils"
+ },
+ "Windows": {
+  "en": "Windows",
+  "it": "Windows",
+  "es": "Windows",
+  "fr": "Windows"
+ },
+ "Mac": {
+  "en": "Mac",
+  "it": "Mac",
+  "es": "Mac",
+  "fr": "Mac"
+ },
+ "Eigene Aufteilung": {
+  "en": "Custom partitions",
+  "it": "Partizioni personalizzate",
+  "es": "Particiones propias",
+  "fr": "Partitions personnalisées"
+ },
+ "Hell": {
+  "en": "Light",
+  "it": "Chiaro",
+  "es": "Claro",
+  "fr": "Clair"
+ },
+ "Dunkel": {
+  "en": "Dark",
+  "it": "Scuro",
+  "es": "Oscuro",
+  "fr": "Sombre"
+ },
+ "Ja": {
+  "en": "Yes",
+  "it": "Sì",
+  "es": "Sí",
+  "fr": "Oui"
+ },
+ "Nein": {
+  "en": "No",
+  "it": "No",
+  "es": "No",
+  "fr": "Non"
+ },
+ "PS5-USB-Formatierer": {
+  "en": "PS5 USB Formatter",
+  "it": "Formattatore USB PS5",
+  "es": "Formateador USB de PS5",
+  "fr": "Formateur USB PS5"
+ },
+ "exFAT – für Spiele": {
+  "en": "exFAT – for games",
+  "it": "exFAT – per i giochi",
+  "es": "exFAT – para juegos",
+  "fr": "exFAT – pour les jeux"
+ },
+ "FAT32 – höchstens 4 GB je Datei": {
+  "en": "FAT32 – max. 4 GB per file",
+  "it": "FAT32 – max. 4 GB per file",
+  "es": "FAT32 – máx. 4 GB por archivo",
+  "fr": "FAT32 – 4 Go max. par fichier"
+ },
+ "Gewähltes Laufwerk als Image sichern oder ein Image zurückschreiben.": {
+  "en": "Back up the selected drive as an image or write an image back.",
+  "it": "Salva l'unità scelta come immagine o riscrivi un'immagine.",
+  "es": "Guarda la unidad elegida como imagen o vuelve a escribir una imagen.",
+  "fr": "Sauvegarder le lecteur choisi en image ou réécrire une image."
+ },
+ "Gesichert werden nur die belegten Bereiche, gepackt als .img.zst mit Prüfsumme – intern auf der PS5, auf einem anderen USB-Laufwerk oder auf diesem PC.": {
+  "en": "Only used areas are saved, compressed as .img.zst with a checksum – on the PS5's internal storage, another USB drive or this PC.",
+  "it": "Vengono salvate solo le aree occupate, compresse come .img.zst con checksum – nella memoria interna della PS5, su un'altra unità USB o su questo PC.",
+  "es": "Solo se guardan las áreas ocupadas, comprimidas como .img.zst con suma de comprobación – en la memoria interna de la PS5, en otra unidad USB o en este PC.",
+  "fr": "Seules les zones occupées sont sauvegardées, compressées en .img.zst avec somme de contrôle – sur le stockage interne de la PS5, un autre lecteur USB ou ce PC."
+ },
+ "Spiele": {
+  "en": "Games",
+  "it": "Giochi",
+  "es": "Juegos",
+  "fr": "Jeux"
+ },
+ "Erst oben mit der PS5 verbinden.": {
+  "en": "Connect to the PS5 above first.",
+  "it": "Prima collegati alla PS5 qui sopra.",
+  "es": "Primero conéctate a la PS5 arriba.",
+  "fr": "Connectez-vous d'abord à la PS5 ci-dessus."
+ },
+ "Verbunden · {host}": {
+  "en": "Connected · {host}",
+  "it": "Connesso · {host}",
+  "es": "Conectado · {host}",
+  "fr": "Connecté · {host}"
+ },
+ "gefälscht · echt {size}": {
+  "en": "fake · real {size}",
+  "it": "falsa · reale {size}",
+  "es": "falsa · real {size}",
+  "fr": "contrefaite · réelle {size}"
+ },
+ "Am PC": {
+  "en": "On PC",
+  "it": "Sul PC",
+  "es": "En el PC",
+  "fr": "Sur le PC"
+ },
+ "Für die PS5 formatieren": {
+  "en": "Format for PS5",
+  "it": "Formatta per PS5",
+  "es": "Formatear para PS5",
+  "fr": "Formater pour la PS5"
+ },
+ "Frei formatieren": {
+  "en": "Format freely",
+  "it": "Formattazione libera",
+  "es": "Formatear libremente",
+  "fr": "Formatage libre"
  }
 }
