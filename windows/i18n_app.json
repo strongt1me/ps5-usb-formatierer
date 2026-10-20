@@ -2176,5 +2176,263 @@
   "it": "Formattazione libera",
   "es": "Formatear libremente",
   "fr": "Formatage libre"
+ },
+ "Anleitung öffnen (F1)": {
+  "en": "Open the guide (F1)",
+  "it": "Apri la guida (F1)",
+  "es": "Abrir la guía (F1)",
+  "fr": "Ouvrir le guide (F1)"
+ },
+ "Automatisch": {
+  "en": "Automatic",
+  "it": "Automatico",
+  "es": "Automático",
+  "fr": "Automatique"
+ },
+ "Bezeichnung des Laufwerks ändern": {
+  "en": "Change the drive label",
+  "it": "Cambia l'etichetta dell'unità",
+  "es": "Cambiar la etiqueta de la unidad",
+  "fr": "Changer le nom du lecteur"
+ },
+ "Den Formatierer aus diesem Programm an den ELF-Loader der PS5 senden (Port 9021) – ersetzt eine laufende ältere Fassung": {
+  "en": "Send the formatter from this program to the PS5's ELF loader (port 9021) – replaces an older running version",
+  "it": "Invia il formattatore di questo programma all'ELF loader della PS5 (porta 9021) – sostituisce una versione più vecchia in esecuzione",
+  "es": "Enviar el formateador de este programa al cargador ELF de la PS5 (puerto 9021) – sustituye una versión anterior en ejecución",
+  "fr": "Envoyer le formateur de ce programme au chargeur ELF de la PS5 (port 9021) – remplace une version plus ancienne en cours"
+ },
+ "Design: {now} – Klick wechselt zu „{next}“. Automatisch folgt dem System.": {
+  "en": "Design: {now} – click switches to “{next}”. Automatic follows the system.",
+  "it": "Design: {now} – un clic passa a «{next}». Automatico segue il sistema.",
+  "es": "Diseño: {now} – un clic cambia a «{next}». Automático sigue al sistema.",
+  "fr": "Design : {now} – un clic passe à « {next} ». Automatique suit le système."
+ },
+ "Die angehakten Spiele vom Laufwerk löschen": {
+  "en": "Delete the checked games from the drive",
+  "it": "Elimina dall'unità i giochi spuntati",
+  "es": "Eliminar de la unidad los juegos marcados",
+  "fr": "Supprimer du lecteur les jeux cochés"
+ },
+ "Diese Sicherung wird samt ihrer .sha256-Datei gelöscht:": {
+  "en": "This backup will be deleted together with its .sha256 file:",
+  "it": "Questo backup verrà eliminato insieme al suo file .sha256:",
+  "es": "Esta copia se eliminará junto con su archivo .sha256:",
+  "fr": "Cette sauvegarde sera supprimée avec son fichier .sha256 :"
+ },
+ "Dieses Dateisystem passt nicht zur Größe des Laufwerks.": {
+  "en": "This file system does not fit the size of the drive.",
+  "it": "Questo file system non è adatto alla dimensione dell'unità.",
+  "es": "Este sistema de archivos no encaja con el tamaño de la unidad.",
+  "fr": "Ce système de fichiers ne convient pas à la taille du lecteur."
+ },
+ "Dieses Laufwerk ist vom System gesperrt.": {
+  "en": "This drive is locked by the system.",
+  "it": "Questa unità è bloccata dal sistema.",
+  "es": "El sistema ha bloqueado esta unidad.",
+  "fr": "Ce lecteur est verrouillé par le système."
+ },
+ "Ein Image auf das gewählte Laufwerk zurückschreiben": {
+  "en": "Write an image back to the selected drive",
+  "it": "Riscrivi un'immagine sull'unità scelta",
+  "es": "Volver a escribir una imagen en la unidad elegida",
+  "fr": "Réécrire une image sur le lecteur choisi"
+ },
+ "Eine Image-Datei ganz lesen und ihre Prüfsummen vergleichen – ohne Datenträger und ohne Administratorrechte": {
+  "en": "Read an image file completely and compare its checksums – no drive and no administrator rights needed",
+  "it": "Legge per intero un file immagine e confronta i checksum – senza unità e senza diritti di amministratore",
+  "es": "Leer un archivo de imagen entero y comparar sus sumas de comprobación – sin unidad y sin derechos de administrador",
+  "fr": "Lire entièrement un fichier image et comparer ses sommes de contrôle – sans lecteur ni droits d'administrateur"
+ },
+ "Erst Spiele anhaken.": {
+  "en": "Check some games first.",
+  "it": "Prima spunta dei giochi.",
+  "es": "Primero marca algunos juegos.",
+  "fr": "Cochez d'abord des jeux."
+ },
+ "Erst ein Laufwerk wählen.": {
+  "en": "Choose a drive first.",
+  "it": "Prima scegli un'unità.",
+  "es": "Primero elige una unidad.",
+  "fr": "Choisissez d'abord un lecteur."
+ },
+ "Erst eine Sicherung in der Liste wählen.": {
+  "en": "Choose a backup in the list first.",
+  "it": "Prima scegli un backup nell'elenco.",
+  "es": "Primero elige una copia de la lista.",
+  "fr": "Choisissez d'abord une sauvegarde dans la liste."
+ },
+ "Erst mit der PS5 verbinden.": {
+  "en": "Connect to the PS5 first.",
+  "it": "Prima collegati alla PS5.",
+  "es": "Primero conéctate a la PS5.",
+  "fr": "Connectez-vous d'abord à la PS5."
+ },
+ "Es läuft gerade ein Auftrag.": {
+  "en": "A task is running.",
+  "it": "È in corso un'operazione.",
+  "es": "Hay una tarea en curso.",
+  "fr": "Une tâche est en cours."
+ },
+ "Gewählte Sicherung ganz lesen und ihre Prüfsummen vergleichen (auf der PS5)": {
+  "en": "Read the selected backup completely and compare its checksums (on the PS5)",
+  "it": "Legge per intero il backup scelto e confronta i checksum (sulla PS5)",
+  "es": "Leer entera la copia elegida y comparar sus sumas de comprobación (en la PS5)",
+  "fr": "Lire entièrement la sauvegarde choisie et comparer ses sommes de contrôle (sur la PS5)"
+ },
+ "Gewählte Sicherung samt .sha256-Datei löschen": {
+  "en": "Delete the selected backup together with its .sha256 file",
+  "it": "Elimina il backup scelto insieme al file .sha256",
+  "es": "Eliminar la copia elegida junto con su archivo .sha256",
+  "fr": "Supprimer la sauvegarde choisie avec son fichier .sha256"
+ },
+ "Gewähltes Laufwerk als Image (.img.zst) sichern": {
+  "en": "Back up the selected drive as an image (.img.zst)",
+  "it": "Salva l'unità scelta come immagine (.img.zst)",
+  "es": "Guardar la unidad elegida como imagen (.img.zst)",
+  "fr": "Sauvegarder le lecteur choisi en image (.img.zst)"
+ },
+ "Gewähltes Laufwerk als Image sichern": {
+  "en": "Back up the selected drive as an image",
+  "it": "Salva l'unità scelta come immagine",
+  "es": "Guardar la unidad elegida como imagen",
+  "fr": "Sauvegarder le lecteur choisi en image"
+ },
+ "Image geprüft.": {
+  "en": "Image checked.",
+  "it": "Immagine verificata.",
+  "es": "Imagen comprobada.",
+  "fr": "Image vérifiée."
+ },
+ "Image löschen": {
+  "en": "Delete image",
+  "it": "Elimina immagine",
+  "es": "Eliminar imagen",
+  "fr": "Supprimer l'image"
+ },
+ "Laufwerke neu einlesen (F5)": {
+  "en": "Reload drives (F5)",
+  "it": "Rileggi le unità (F5)",
+  "es": "Volver a leer las unidades (F5)",
+  "fr": "Relire les lecteurs (F5)"
+ },
+ "Lese- und Schreibtempo messen (die Daten bleiben erhalten)": {
+  "en": "Measure read and write speed (data is kept)",
+  "it": "Misura la velocità di lettura e scrittura (i dati restano)",
+  "es": "Medir la velocidad de lectura y escritura (los datos se conservan)",
+  "fr": "Mesurer la vitesse de lecture et d'écriture (les données sont conservées)"
+ },
+ "Löschen …": {
+  "en": "Delete …",
+  "it": "Elimina …",
+  "es": "Eliminar …",
+  "fr": "Supprimer …"
+ },
+ "Name": {
+  "en": "Name",
+  "it": "Nome",
+  "es": "Nombre",
+  "fr": "Nom"
+ },
+ "Noch keine Sicherung auf der PS5.": {
+  "en": "No backup on the PS5 yet.",
+  "it": "Ancora nessun backup sulla PS5.",
+  "es": "Aún no hay ninguna copia en la PS5.",
+  "fr": "Pas encore de sauvegarde sur la PS5."
+ },
+ "PS5 im Heimnetz suchen": {
+  "en": "Search for the PS5 on the home network",
+  "it": "Cerca la PS5 nella rete domestica",
+  "es": "Buscar la PS5 en la red doméstica",
+  "fr": "Rechercher la PS5 sur le réseau domestique"
+ },
+ "Prüfen": {
+  "en": "Check",
+  "it": "Verifica",
+  "es": "Comprobar",
+  "fr": "Vérifier"
+ },
+ "Prüfen konnte nicht gestartet werden: {e}": {
+  "en": "Check could not be started: {e}",
+  "it": "Impossibile avviare la verifica: {e}",
+  "es": "No se pudo iniciar la comprobación: {e}",
+  "fr": "Impossible de lancer la vérification : {e}"
+ },
+ "Sicherungen auf der PS5": {
+  "en": "Backups on the PS5",
+  "it": "Backup sulla PS5",
+  "es": "Copias en la PS5",
+  "fr": "Sauvegardes sur la PS5"
+ },
+ "Sortieren nach": {
+  "en": "Sort by",
+  "it": "Ordina per",
+  "es": "Ordenar por",
+  "fr": "Trier par"
+ },
+ "Spiele auf diesem Datenträger: {shown} von {n}": {
+  "en": "Games on this drive: {shown} of {n}",
+  "it": "Giochi su questa unità: {shown} di {n}",
+  "es": "Juegos en esta unidad: {shown} de {n}",
+  "fr": "Jeux sur ce lecteur : {shown} sur {n}"
+ },
+ "Spiele filtern (Strg+F)": {
+  "en": "Filter games (Ctrl+F)",
+  "it": "Filtra i giochi (Ctrl+F)",
+  "es": "Filtrar juegos (Ctrl+F)",
+  "fr": "Filtrer les jeux (Ctrl+F)"
+ },
+ "Strg+{n}": {
+  "en": "Ctrl+{n}",
+  "it": "Ctrl+{n}",
+  "es": "Ctrl+{n}",
+  "fr": "Ctrl+{n}"
+ },
+ "Suchen: Name oder Titel-ID …": {
+  "en": "Search: name or title ID …",
+  "it": "Cerca: nome o ID titolo …",
+  "es": "Buscar: nombre o ID de título …",
+  "fr": "Rechercher : nom ou ID du titre …"
+ },
+ "Titel-ID": {
+  "en": "Title ID",
+  "it": "ID titolo",
+  "es": "ID de título",
+  "fr": "ID du titre"
+ },
+ "Umbenennen geht nur bei genau einem Laufwerk mit exFAT oder FAT32.": {
+  "en": "Renaming only works with exactly one volume using exFAT or FAT32.",
+  "it": "La rinomina funziona solo con un unico volume exFAT o FAT32.",
+  "es": "Solo se puede cambiar el nombre con un único volumen exFAT o FAT32.",
+  "fr": "Le renommage ne fonctionne qu'avec un seul volume exFAT ou FAT32."
+ },
+ "Umbenennen geht nur bei genau einem Laufwerk mit exFAT, FAT32, NTFS oder FAT.": {
+  "en": "Renaming only works with exactly one volume using exFAT, FAT32, NTFS or FAT.",
+  "it": "La rinomina funziona solo con un unico volume exFAT, FAT32, NTFS o FAT.",
+  "es": "Solo se puede cambiar el nombre con un único volumen exFAT, FAT32, NTFS o FAT.",
+  "fr": "Le renommage ne fonctionne qu'avec un seul volume exFAT, FAT32, NTFS ou FAT."
+ },
+ "intern": {
+  "en": "internal",
+  "it": "interno",
+  "es": "interno",
+  "fr": "interne"
+ },
+ "{name} gelöscht.": {
+  "en": "{name} deleted.",
+  "it": "{name} eliminato.",
+  "es": "{name} eliminado.",
+  "fr": "{name} supprimé."
+ },
+ "{n} Sicherungen – intern und auf eingebundenen USB-Laufwerken.": {
+  "en": "{n} backups – internal and on mounted USB drives.",
+  "it": "{n} backup – interni e su unità USB montate.",
+  "es": "{n} copias – internas y en unidades USB montadas.",
+  "fr": "{n} sauvegardes – internes et sur les lecteurs USB montés."
+ },
+ "{n} angehakt · {size}": {
+  "en": "{n} checked · {size}",
+  "it": "{n} spuntati · {size}",
+  "es": "{n} marcados · {size}",
+  "fr": "{n} cochés · {size}"
  }
 }

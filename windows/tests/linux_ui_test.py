@@ -260,14 +260,59 @@ app.dev_combo.current(0)
 app._nav("std")   # Wechsel mit gewähltem PC-Laufwerk: früher Fehler in formattable()
 pump(app, timeout=0.5)
 check("Wechsel in Am PC – frei mit gewähltem PC-Laufwerk", app.std_panel.winfo_ismapped())
-# Hell/Dunkel: umschalten, merken, Oberfläche neu aufgebaut
-before = str(app.tk.call("ttk::style", "theme", "use"))
+# Design: Automatisch -> Hell -> Dunkel -> Automatisch, gemerkt, Oberfläche jedes Mal neu aufgebaut
+seen = []
+for _i in range(3):
+    app._toggle_theme()
+    pump(app, timeout=0.3)
+    seen.append((app.settings.get("theme"), str(app.tk.call("ttk::style", "theme", "use"))))
+check("Design Automatisch → Hell → Dunkel → Automatisch", [s for s, _t in seen] == ["light", "dark", "auto"]
+      and seen[0][1] == "usbfmt-light" and seen[1][1] == "usbfmt-dark" and app.std_panel.winfo_ismapped(), seen)
 app._toggle_theme()
-pump(app, timeout=0.5)
-after = str(app.tk.call("ttk::style", "theme", "use"))
-check("Design umgeschaltet und gemerkt", before != after and app.settings.get("theme") in after
-      and app.std_panel.winfo_ismapped(), (before, after, app.settings.get("theme")))
+app._toggle_theme()
+pump(app, timeout=0.3)
 shot(app, "linux_ps5_dark.png")
+# Spieleliste: Suche, Sortierung, Summe der angehakten Spiele (gestellte Daten, ohne PS5)
+fake = {"name": "da7", "model": "Teststick", "size": 64 * 10 ** 9, "locked": False, "mounts": [], "format": "exFAT",
+        "label": "", "fake_real": 0, "ident": "x"}
+app.mode_var.set("ps5")
+app.page = "games"
+app._show_page()
+app.devices = app.ps5_devices = [fake]
+app.games = {"da7": [{"key": f"k{i}", "name": n, "id": f"PPSA0{i}000", "kind": "Ordner", "size": s}
+                     for i, (n, s) in enumerate((("Astro Bot", 54 * 10 ** 9), ("Returnal", 57 * 10 ** 9),
+                                                 ("Arkanoid", 3 * 10 ** 9)))]}
+app.dev_combo.set_items([app._ps5_drive_item(fake)])
+app.dev_combo.current(0)
+app._show_games()
+check("Spieleliste: nach Name sortiert", [app.games_tree.item(k, "text").strip() for k in app.games_tree.get_children()]
+      == ["Arkanoid", "Astro Bot", "Returnal"])
+app.sort_combo.current(1)
+app._show_games()
+check("Spieleliste: nach Größe sortiert", [app.games_tree.item(k, "text").strip() for k in app.games_tree.get_children()]
+      == ["Returnal", "Astro Bot", "Arkanoid"])
+app.game_search.event_generate("<FocusIn>")
+app.game_filter.set("astro")
+pump(app, timeout=0.2)
+check("Spieleliste: Suche filtert", app.games_tree.get_children() == ("k0",)
+      and "1 von 3" in app.games_caption.cget("text"), (app.games_tree.get_children(), app.games_caption.cget("text")))
+app._game_toggle("k0")
+check("Summe der angehakten Spiele", "1" in app.games_sum.cget("text") and "GB" in app.games_sum.cget("text"),
+      app.games_sum.cget("text"))
+app.game_filter.set("")
+app._game_toggle("k1")
+check("Angehakte bleiben beim Filtern erhalten", app.games_checked == {"k0", "k1"}, app.games_checked)
+# Laufwerksliste: bei vielen Laufwerken scrollbar statt endlos hoch
+many = [dict(fake, name=f"da{i}", ident=str(i)) for i in range(9)]
+app.dev_combo.set_items([app._ps5_drive_item(d) for d in many])
+pump(app, timeout=0.5)
+check("viele Laufwerke: Liste bleibt begrenzt und scrollt", app.dev_combo.canvas.winfo_height() <= app.dev_combo.max_h + 2
+      and app.dev_combo.sbar.winfo_ismapped(), (app.dev_combo.canvas.winfo_height(), app.dev_combo.max_h))
+app.dev_combo.current(8)
+pump(app, timeout=0.3)
+check("Auswahl unten wird sichtbar gescrollt", app.dev_combo.canvas.yview()[1] > 0.99, app.dev_combo.canvas.yview())
+app.mode_var.set("std")
+app._mode_changed()
 app._on_close()
 print(f"{ok_count} bestanden, {bad_count} fehlgeschlagen")
 sys.exit(1 if bad_count else 0)

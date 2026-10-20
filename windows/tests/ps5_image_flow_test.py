@@ -124,6 +124,28 @@ check("aus der PS5-Sicherung wiederherstellen", kind == "info" and "wiederherges
 check("Rückfrage nennt Herkunft der Sicherung", "SanDisk Ultra" in pick.get("confirm", ""), pick.get("confirm"))
 check("da2 trägt danach die Bezeichnung der Quelle", labels().get("da2") == "QUELLE", labels())
 
+# Seite "Image-Sicherung": Sicherungen auf der PS5 auflisten, prüfen und löschen
+app._nav("ps5:images")
+check("Sicherungsliste geladen", pump(lambda: len(app.ps5_images) >= 1, 30), len(app.ps5_images))
+first = app.ps5_images[0]["path"] if app.ps5_images else ""
+check("Knöpfe ohne Auswahl gesperrt", app.img_verify_btn.instate(["disabled"]) and app.img_del_btn.instate(["disabled"]))
+check("Kurzinfo nennt den Grund", "Sicherung" in app._why(app.img_verify_btn, need_dev=False),
+      app._why(app.img_verify_btn, need_dev=False))
+if first:
+    app.img_tree.selection_set(first)
+    app._update()
+    check("Prüfen/Löschen nach Auswahl bereit", not app.img_verify_btn.instate(["disabled"]))
+    kind, text = run(app._img_verify)
+    check("Sicherung auf der PS5 geprüft", kind == "info" and "Prüfsumme" in text, (kind, text))
+    n0 = len(app.ps5_images)
+    uf.messagebox.askokcancel = lambda *a, **k: True
+    app.img_tree.selection_set(first)
+    app._img_delete()
+    check("Sicherung gelöscht, Liste neu", pump(lambda: len(app.ps5_images) == n0 - 1 and not app.busy, 30),
+          [i["name"] for i in app.ps5_images])
+    check(".img.zst und .sha256 auf der PS5 entfernt", not os.path.exists(first) and not os.path.exists(first + ".sha256"))
+app._nav("ps5:format")
+
 # laufendes Spiel: nichts abmelden
 game = os.path.join(SANDBOX, "PPSA01325_000")
 os.makedirs(game, exist_ok=True)

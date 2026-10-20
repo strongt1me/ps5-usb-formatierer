@@ -341,6 +341,7 @@ def _build(root, style, c, s, m):
         ("Entry.textarea", {"sticky": "nsew"})]})]})])
     style.configure("TEntry", padding=(px(10), px(6)), foreground=c["text"], insertcolor=c["text"])
     style.map("TEntry", foreground=[("disabled", c["disabled"])])
+    style.configure("Placeholder.TEntry", foreground=c["hint"])
 
     aw = px(28)
     chev = _image(root, k + "chev", aw, px(18), [(c["muted"], lambda x, y: _cov(min(
@@ -491,6 +492,11 @@ def icon(root, name, color="muted", size=16):
             head = min(_sd_seg(x, y, tip[0], tip[1], tip[0] - n * .02, tip[1] - n * .22),
                        _sd_seg(x, y, tip[0], tip[1], tip[0] + n * .2, tip[1] - n * .06))
             return max(_cov(arc), _cov(head - w / 2))
+    elif name == "auto":   # Kreis, rechte Hälfte gefüllt: hell/dunkel wie das System
+        def f(x, y):
+            d = math.hypot(x - c, y - c)
+            ring = _cov(abs(d - n * .38) - w / 2)
+            return max(ring, _cov(d - n * .38) * _cov(c - x + .5))
     elif name == "check":
         f = lambda x, y: _cov(min(_sd_seg(x, y, n * .2, n * .52, n * .42, n * .72),  # noqa: E731
                                   _sd_seg(x, y, n * .42, n * .72, n * .8, n * .3)) - w / 2)

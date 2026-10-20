@@ -33,7 +33,7 @@ from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choic
                        pc_volumes_text, resource_path, serial_args, setup_window, show_centered, show_scan,
                        version_tuple)
 from standard_panel import StandardPanel
-from ui_widgets import ChoiceChips, DriveList, header_tools
+from ui_widgets import THEME_NEXT, ChoiceChips, DriveList, Tooltip, header_tools
 
 APP_NAME = "PS5USBFormatierer"
 API_PORT = 8090
@@ -168,6 +168,12 @@ class Api:
     def restore(self, dev, path):
         return self._call("/api/restore", dict(self._dev(dev), path=path))
 
+    def verify_image(self, path):
+        return self._call("/api/images/verify", {"path": path})
+
+    def delete_image(self, path):
+        return self._call("/api/images/delete", {"path": path})
+
     @staticmethod
     def _http_error(e):
         try:
@@ -275,6 +281,7 @@ class App(tk.Tk):
         self.lib_bar = False       # Fortschritt der Spielesuche steht gerade im Balken
         self.version_asked = set()   # (PS5, Version), zu denen der Versionsabgleich schon gefragt hat
         self.settle_ids = []       # Zeitgeber: Liste nach einem PS5-Auftrag noch einmal leise holen
+        self.ps5_images = []       # Sicherungen auf der PS5 (Seite "Image-Sicherung")
         self.ps5_step = ""         # aktueller Schritt eines PS5-Auftrags (für "Abbrechen")
         self.ps5_flags = {}        # dazu: replug/cancellable, falls der Payload sie meldet
 
@@ -300,6 +307,8 @@ class App(tk.Tk):
         self._poll_id = self.after(50, self._poll)
         self._mode_changed(initial=True)
         self._watch_id = self.after(3000, self._watch)
+        self._sys_id = self.after(5000, self._follow_system)
+        self._shortcuts()
 
     # ------------------------------------------------------------------ UI
 
@@ -330,6 +339,7 @@ class App(tk.Tk):
                 b = ttk.Button(side, text=_(text), style="Nav.TButton", command=lambda k=key: self._nav(k))
                 b.pack(fill="x", pady=(0, px(2)))
                 self.nav_btns[key] = b
+                Tooltip(b, _("Strg+{n}", n=len(self.nav_btns)))
         self.mode_btns = list(self.nav_btns.values())
         self.conn_pill = ttk.Label(side, style="PillWarn.TLabel", text=_("Nicht verbunden"))
         self.conn_pill.pack(side="bottom", anchor="w", pady=(px(12), 0))
@@ -343,7 +353,7 @@ class App(tk.Tk):
         head.grid(row=0, column=0, sticky="ew", pady=(0, gap))
         self.page_title = ttk.Label(head, style="H2.TLabel")
         self.page_title.pack(side="left")
-        self.lang_box = header_tools(head, ui_theme.mode(), self._toggle_theme,
+        self.lang_box = header_tools(head, self.settings.get("theme", "auto"), self._toggle_theme,
                                      lambda par: lang_selector(par, i18n.lang(), self._set_lang),
                                      lambda: open_help(i18n.lang(), self))
         content = ttk.Frame(main, style="Page.TFrame")
@@ -384,6 +394,9 @@ class App(tk.Tk):
         # den Formatierer aus diesem Programm an den ELF-Loader der PS5 schicken (auch: ältere Fassung ersetzen)
         self.elf_btn = ttk.Button(self.host_btns, text=_("ELF senden"), command=self._send_elf)
         self.elf_btn.grid(row=0, column=1, sticky="ew", padx=(px(6), 0))
+        Tooltip(self.search_btn, _("PS5 im Heimnetz suchen"))
+        Tooltip(self.elf_btn, _("Den Formatierer aus diesem Programm an den ELF-Loader der PS5 senden (Port 9021) – "
+                                "ersetzt eine laufende ältere Fassung"))
 
         drives = ui_theme.card(left)
         drives.grid(row=1, column=0, sticky="nsew")
@@ -395,6 +408,8 @@ class App(tk.Tk):
                                      style="Ghost.TButton", command=self._reload)
         self.reload_btn.image = ico
         self.reload_btn.pack(side="right")
+        Tooltip(self.reload_btn, lambda: _("Laufwerke neu einlesen (F5)") if not self.reload_btn.instate(["disabled"])
+                else self._why(None, need_dev=False))
         # wie in der Weboberfläche: Hinweis ganz unten, eine Zeile (die Erklärung steht in der Anleitung)
         self.ps5_warn = ttk.Label(drives, style="Warn.TLabel", wraplength=px(380), justify="left",
                                   text=_("Während der Nutzung keine USB-Datenträger an der PS5 abziehen oder neu "
@@ -413,6 +428,9 @@ class App(tk.Tk):
         self.speed_btn.grid(row=1, column=0, sticky="ew")
         self.rename_btn = ttk.Button(self.tools, text=_("Umbenennen"), command=self._pc_rename)
         self.rename_btn.grid(row=1, column=1, sticky="ew", padx=(px(6), 0))
+        Tooltip(self.speed_btn, lambda: self._why(self.speed_btn) or _("Lese- und Schreibtempo messen (die Daten bleiben "
+                                                                      "erhalten)"))
+        Tooltip(self.rename_btn, lambda: self._why(self.rename_btn) or _("Bezeichnung des Laufwerks ändern"))
 
         right = ttk.Frame(body, style="Page.TFrame")
         right.grid(row=0, column=1, sticky="nsew")
@@ -453,6 +471,7 @@ class App(tk.Tk):
         fc.rowconfigure(7, weight=1)
         self.start_btn = ttk.Button(fc, text=_("Formatieren …"), style="Danger.TButton", command=self._start)
         self.start_btn.grid(row=8, column=0, columnspan=2, sticky="e", pady=(px(14), 0), ipadx=px(12))
+        Tooltip(self.start_btn, lambda: self._why(self.start_btn))
 
         # -- Seite "Spiele": wie "Inhalt" in der Weboberfläche - Kästchen und Titel, rechts Titel-ID · Format ·
         # Größe. Ein Klick auf die Zeile (oder die Leertaste) hakt an bzw. ab - kein Markieren mit Strg/Umschalt nötig
@@ -460,8 +479,23 @@ class App(tk.Tk):
         gb.grid(row=0, column=0, sticky="nsew")
         gb.columnconfigure(0, weight=1)
         gb.rowconfigure(1, weight=1)
-        self.games_caption = ttk.Label(gb, text=_("Spiele auf diesem Datenträger:"), style="Bold.TLabel")
-        self.games_caption.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, px(8)))
+        ghead = ttk.Frame(gb)
+        ghead.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, px(8)))
+        ghead.columnconfigure(1, weight=1)
+        self.games_caption = ttk.Label(ghead, text=_("Spiele auf diesem Datenträger:"), style="Bold.TLabel")
+        self.games_caption.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, px(6)))
+        self.game_filter = tk.StringVar()   # je Aufbau neu: die Beobachtung gilt nur den Widgets dieses Aufbaus
+        self.game_search = ttk.Entry(ghead, textvariable=self.game_filter)
+        self.game_search.grid(row=1, column=0, columnspan=2, sticky="ew")
+        self._placeholder(self.game_search, self.game_filter, _("Suchen: Name oder Titel-ID …"))
+        self.game_filter.trace_add("write", lambda *a: self._show_games())
+        self.sort_keys = [("name", _("Name")), ("size", _("Größe")), ("id", _("Titel-ID"))]
+        self.sort_combo = ttk.Combobox(ghead, state="readonly", width=10, values=[t for _k, t in self.sort_keys])
+        self.sort_combo.current(0)
+        self.sort_combo.grid(row=1, column=2, sticky="e", padx=(px(6), 0))
+        self.sort_combo.bind("<<ComboboxSelected>>", lambda e: self._show_games())
+        Tooltip(self.game_search, _("Spiele filtern (Strg+F)"))
+        Tooltip(self.sort_combo, _("Sortieren nach"))
         style = ttk.Style(self)
         style.configure("Games.Treeview", rowheight=px(30))
         self.check_imgs = check_images(self)
@@ -477,14 +511,17 @@ class App(tk.Tk):
         sb = ttk.Scrollbar(gb, orient="vertical", command=self.games_tree.yview)
         sb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
         self.games_tree.configure(yscrollcommand=sb.set)
+        self.uninstall_chk = ttk.Checkbutton(gb, variable=self.uninstall_var, style="Switch.TCheckbutton",
+                                             text=_("Kachel auch von der Startseite entfernen"))
+        self.uninstall_chk.grid(row=2, column=0, columnspan=2, sticky="w", pady=(px(10), 0))
         gbar = ttk.Frame(gb)
-        gbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(px(10), 0))
+        gbar.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(px(8), 0))
         self.del_btn = ttk.Button(gbar, text=_("Angehakte Spiele löschen …"), style="Danger.TButton",
                                   command=self._delete_games)
         self.del_btn.pack(side="right")
-        self.uninstall_chk = ttk.Checkbutton(gbar, variable=self.uninstall_var, style="Switch.TCheckbutton",
-                                             text=_("Kachel auch von der Startseite entfernen"))
-        self.uninstall_chk.pack(side="left")
+        self.games_sum = ttk.Label(gbar, style="Muted.TLabel")
+        self.games_sum.pack(side="left")
+        Tooltip(self.del_btn, lambda: self._why(self.del_btn) or _("Die angehakten Spiele vom Laufwerk löschen"))
 
         # -- Seite "Image-Sicherung" des Datenträgers an der PS5 (wie "Sichern & wiederherstellen" im Browser)
         ic = self.img_row = ui_theme.card(right)
@@ -502,6 +539,45 @@ class App(tk.Tk):
         self.backup_btn.pack(side="left")
         self.restore_btn = ttk.Button(ib, text=_("Wiederherstellen …"), command=self._ps5_restore)
         self.restore_btn.pack(side="left", padx=(px(8), 0))
+        Tooltip(self.backup_btn, lambda: self._why(self.backup_btn) or _("Gewähltes Laufwerk als Image sichern"))
+        Tooltip(self.restore_btn, lambda: self._why(self.restore_btn) or _("Ein Image auf das gewählte Laufwerk "
+                                                                          "zurückschreiben"))
+        ttk.Separator(ic).grid(row=3, column=0, sticky="ew", pady=px(14))
+        ih = ttk.Frame(ic)
+        ih.grid(row=4, column=0, sticky="ew", pady=(0, px(6)))
+        ttk.Label(ih, text=_("Sicherungen auf der PS5").upper(), style="Section.TLabel").pack(side="left")
+        ico2 = ui_theme.icon(self, "refresh", "muted", 15)
+        self.img_reload_btn = ttk.Button(ih, text=" " + _("Aktualisieren"), image=ico2, compound="left",
+                                         style="Ghost.TButton", command=self._load_img_list)
+        self.img_reload_btn.image = ico2
+        self.img_reload_btn.pack(side="right")
+        ic.rowconfigure(5, weight=1)
+        lf = ttk.Frame(ic)
+        lf.grid(row=5, column=0, sticky="nsew")
+        lf.columnconfigure(0, weight=1)
+        lf.rowconfigure(0, weight=1)
+        self.img_tree = ttk.Treeview(lf, columns=("meta",), show="tree", height=5, selectmode="browse",
+                                     style="Games.Treeview")
+        self.img_tree.column("#0", width=px(200), minwidth=120, stretch=True)
+        self.img_tree.column("meta", width=px(270), minwidth=120, anchor="e", stretch=False)
+        self.img_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
+        self.img_tree.grid(row=0, column=0, sticky="nsew")
+        isb = ttk.Scrollbar(lf, orient="vertical", command=self.img_tree.yview)
+        isb.grid(row=0, column=1, sticky="ns", padx=(px(4), 0))
+        self.img_tree.configure(yscrollcommand=isb.set)
+        self.img_tree.bind("<<TreeviewSelect>>", lambda e: self._update())
+        self.img_hint = ttk.Label(ic, style="Hint.TLabel", wraplength=px(440), justify="left")
+        self.img_hint.grid(row=6, column=0, sticky="w", pady=(px(6), 0))
+        ia = ttk.Frame(ic)
+        ia.grid(row=7, column=0, sticky="e", pady=(px(8), 0))
+        self.img_verify_btn = ttk.Button(ia, text=_("Prüfen"), command=self._img_verify)
+        self.img_verify_btn.pack(side="left")
+        self.img_del_btn = ttk.Button(ia, text=_("Löschen …"), command=self._img_delete)
+        self.img_del_btn.pack(side="left", padx=(px(8), 0))
+        Tooltip(self.img_verify_btn, lambda: self._why(self.img_verify_btn, need_dev=False) or _(
+            "Gewählte Sicherung ganz lesen und ihre Prüfsummen vergleichen (auf der PS5)"))
+        Tooltip(self.img_del_btn, lambda: self._why(self.img_del_btn, need_dev=False) or _(
+            "Gewählte Sicherung samt .sha256-Datei löschen"))
 
         # ---- Fortschritt (der Bereich "frei" hat seinen eigenen)
         st = self.status_card = ui_theme.card(main, padding=(16, 10))
@@ -518,7 +594,6 @@ class App(tk.Tk):
         # alle Seiten gleich groß: das Fenster springt beim Umschalten nicht (der größte Bereich gibt das Maß vor)
         self.update_idletasks()
         content.columnconfigure(0, minsize=max(self.std_panel.winfo_reqwidth(), body.winfo_reqwidth()))
-        content.rowconfigure(0, minsize=max(self.std_panel.winfo_reqheight(), body.winfo_reqheight()))
 
     def _nav(self, key):
         """Seitenleiste: Bereich wechseln (An der PS5: Seite; Am PC: Modus)"""
@@ -559,10 +634,157 @@ class App(tk.Tk):
         page = self.page if ps5 else "format"
         for name, card in (("format", self.format_card), ("games", self.games_box), ("images", self.img_row)):
             card.grid() if name == page else card.grid_remove()
+        if page == "images" and self.api:
+            self._load_img_list()
         self.dev_combo.set_empty_text(
             _("Kein USB-Datenträger am PC gefunden. Stick einstecken und „Aktualisieren“ klicken.") if not ps5 else
             _("Kein USB-Stick an der PS5 gefunden. Stick einstecken und „Aktualisieren“ klicken.") if self.api else
             _("Erst oben mit der PS5 verbinden."))
+
+    def _shortcuts(self):
+        """Tastenkürzel: F1 Anleitung, F5 neu einlesen, Strg+1 … 5 Seiten, Strg+F Spiele suchen"""
+        self.bind_all("<F1>", lambda e: open_help(i18n.lang(), self))
+        self.bind_all("<F5>", lambda e: self._f5())
+        for i, key in enumerate(self.nav_btns):
+            self.bind_all(f"<Control-Key-{i + 1}>", lambda e, k=key: self._nav(k))
+        self.bind_all("<Control-f>", lambda e: self._find_game())
+        self.bind_all("<Control-F>", lambda e: self._find_game())
+
+    def _f5(self):
+        mode = self.mode_var.get()
+        if mode == "std":
+            self.std_panel.reload()
+        elif not self.reload_btn.instate(["disabled"]):
+            self._reload()
+
+    def _find_game(self):
+        if self.mode_var.get() != "ps5" or self.page != "games":
+            self._nav("ps5:games")
+        self.game_search.focus_set()
+        self.game_search.select_range(0, "end")
+        return "break"
+
+    @staticmethod
+    def _placeholder(entry, var, text):
+        """grauer Hinweistext im leeren Feld (ttk kennt keinen Platzhalter)"""
+        state = {"on": False}
+
+        def show(_e=None):
+            if not var.get():
+                state["on"] = True
+                entry.configure(style="Placeholder.TEntry")
+                var.set(text)
+
+        def hide(_e=None):
+            if state["on"]:
+                state["on"] = False
+                var.set("")
+                entry.configure(style="TEntry")
+        entry.bind("<FocusIn>", hide, add="+")
+        entry.bind("<FocusOut>", show, add="+")
+        entry.placeholder = (state, text)
+        show()
+
+    def _game_query(self):
+        st, text = self.game_search.placeholder
+        return "" if st["on"] else self.game_filter.get().strip().lower()
+
+    def _why(self, btn, need_dev=True):
+        """Kurzinfo eines gesperrten Knopfs: warum - leer, wenn er gerade geht"""
+        if btn is not None and not btn.instate(["disabled"]):
+            return ""
+        if self.busy or self.formatting:
+            return _("Es läuft gerade ein Auftrag.")
+        if self.mode_var.get() == "ps5" and not self.api:
+            return _("Erst mit der PS5 verbinden.")
+        dev = self._selected_device()
+        if need_dev and not dev:
+            return _("Erst ein Laufwerk wählen.")
+        if btn is self.del_btn:
+            return _("Erst Spiele anhaken.")
+        if btn in (self.img_verify_btn, self.img_del_btn):
+            return _("Erst eine Sicherung in der Liste wählen.")
+        if btn is self.rename_btn:
+            return _("Umbenennen geht nur bei genau einem Laufwerk mit exFAT oder FAT32.")
+        if dev and dev.get("locked"):
+            return _("Dieses Laufwerk ist vom System gesperrt.")
+        return ""
+
+    # ------------------------------------------------------------------ Sicherungen auf der PS5
+
+    def _load_img_list(self):
+        if not self.api:
+            return
+        api = self.api
+
+        def work():
+            try:
+                data = api.images()
+            except (ConnectionError, ApiError):
+                data = None
+            self.q.put(("imglist", api, data))
+
+        threading.Thread(target=self._guard(work, background=True), daemon=True).start()
+
+    def _fill_img_list(self, data):
+        imgs = sorted(data.get("images", []), key=lambda i: i.get("created", "") or i.get("name", ""), reverse=True)
+        self.ps5_images = imgs
+        keep = self.img_tree.selection()
+        self.img_tree.delete(*self.img_tree.get_children())
+        for n, i in enumerate(imgs):
+            src = " ".join(x for x in (i.get("model", ""), quote(i["label"]) if i.get("label") else "") if x)
+            where = _("intern") if not i.get("device") else i["device"]
+            meta = " · ".join(x for x in (i.get("created", ""), fmt_size(i.get("bytes", 0)), where) if x)
+            self.img_tree.insert("", "end", iid=i["path"], text="  " + (src or i["name"]), values=(meta,),
+                                 tags=("odd",) if n % 2 else ())
+        sel = [k for k in keep if self.img_tree.exists(k)]
+        if sel:
+            self.img_tree.selection_set(sel)
+        self.img_hint.configure(text=_("Noch keine Sicherung auf der PS5.") if not imgs else
+                                _("{n} Sicherungen – intern und auf eingebundenen USB-Laufwerken.", n=len(imgs)))
+        self._update()
+
+    def _img_selected(self):
+        sel = self.img_tree.selection()
+        return next((i for i in self.ps5_images if sel and i["path"] == sel[0]), None)
+
+    def _img_verify(self):
+        img = self._img_selected()
+        if self.busy or not img or not self.api:
+            return
+        api = self.api
+
+        def work():
+            try:
+                api.verify_image(img["path"])
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Prüfen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Image geprüft."))
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _img_delete(self):
+        img = self._img_selected()
+        if self.busy or not img or not self.api:
+            return
+        if not messagebox.askokcancel(
+                _("Image löschen"), _("Diese Sicherung wird samt ihrer .sha256-Datei gelöscht:") + "\n\n" + img["name"]
+                + "\n" + self.img_tree.item(img["path"], "values")[0] + "\n\n" + _("Das lässt sich nicht rückgängig "
+                                                                                    "machen."),
+                icon="warning", parent=self):
+            return
+        api = self.api
+
+        def work():
+            try:
+                api.delete_image(img["path"])
+                self.q.put(("imgdeleted", api, img["name"], ""))
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("imgdeleted", api, img["name"], str(e)))
+
+        self._run(work)
 
     def _fs_picked(self, key):
         self.fs_var.set(key)
@@ -574,10 +796,20 @@ class App(tk.Tk):
             messagebox.showinfo(self.title(), _("Das Design lässt sich nach dem laufenden Auftrag wechseln."),
                                 parent=self)
             return
-        self.settings["theme"] = "light" if ui_theme.mode() == "dark" else "dark"
+        self.settings["theme"] = THEME_NEXT.get(self.settings.get("theme", "auto"), "auto")
         save_settings(self.settings)
         ui_theme.apply_theme(self, self.settings["theme"])
         self._rebuild()
+
+    def _follow_system(self):
+        """Design "Automatisch": dem System folgen, auch wenn es im laufenden Betrieb umschaltet"""
+        self._sys_id = self.after(5000, self._follow_system)
+        if self.settings.get("theme", "auto") != "auto" or self.busy or self.formatting or self.std_busy:
+            return
+        want = "dark" if ui_theme.system_dark() else "light"
+        if want != ui_theme.mode():
+            ui_theme.apply_theme(self, "auto")
+            self._rebuild()
 
     def _rebuild(self, relang=False):
         """Oberfläche neu aufbauen (Sprache, Design) - Verbindung, Funde und Laufwerke bleiben"""
@@ -663,6 +895,10 @@ class App(tk.Tk):
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
         for w in (self.backup_btn, self.restore_btn):
             enable(w, idle and not pc and self.api and dev and not dev.get("locked"))
+        has_img = bool(self.img_tree.selection())
+        for w in (self.img_verify_btn, self.img_del_btn):
+            enable(w, idle and not pc and self.api and has_img)
+        enable(self.img_reload_btn, idle and self.api)
         enable(self.uninstall_chk, idle)
         # nur bei genau einem Laufwerk auf dem Datenträger: der Helfer nimmt nicht unbedingt das angezeigte
         vols = dev.get("volumes", []) if dev else []
@@ -759,8 +995,13 @@ class App(tk.Tk):
             self.games_caption.configure(text=_("Spiele auf diesem Datenträger:"))
             return
         games = self.games.get(dev["name"], [])
+        q = self._game_query()
+        sort = self.sort_keys[max(0, self.sort_combo.current())][0]
+        key = {"name": lambda g: (g["name"] or g["id"]).lower(), "size": lambda g: -(g.get("size") or 0),
+               "id": lambda g: g.get("id", "")}[sort]
+        shown = [g for g in games if not q or q in (g["name"] or "").lower() or q in g.get("id", "").lower()]
         rows = []
-        for g in sorted(games, key=lambda g: g["name"].lower()):
+        for g in sorted(shown, key=key):
             kind = _("Ordner") if g["kind"] == "Ordner" else _("Abbild {kind}", kind=g["kind"])   # Art kommt deutsch
             meta = " · ".join(x for x in (g["id"], kind, fmt_size(g["size"]) if g["size"] else "") if x)
             rows.append((g.get("key") or None, g["name"] or g["id"], meta))
@@ -774,7 +1015,10 @@ class App(tk.Tk):
                                        image=self.check_imgs[iid in self.games_checked], tags=("odd",) if i % 2 else ())
             self.games_tree.yview_moveto(top)
             self._games_shown = rows
-        if games:
+        self._games_sum()
+        if games and q:
+            text = _("Spiele auf diesem Datenträger: {shown} von {n}", shown=len(shown), n=len(games))
+        elif games:
             text = _("Spiele auf diesem Datenträger: {n}", n=len(games))
         elif self.lib_loading:
             text = _("Spiele auf diesem Datenträger: werden gesucht …")
@@ -797,7 +1041,16 @@ class App(tk.Tk):
         else:
             self.games_checked.add(iid)
         self.games_tree.item(iid, image=self.check_imgs[iid in self.games_checked])
+        self._games_sum()
         self._update()
+
+    def _games_sum(self):
+        """unter der Liste: wie viele Spiele angehakt sind und wie viel Platz das frei macht"""
+        dev = self._selected_device()
+        games = {g.get("key"): g for g in self.games.get(dev["name"], [])} if dev and "name" in dev else {}
+        picked = [games[k] for k in self.games_checked if k in games]
+        self.games_sum.configure(text=_("{n} angehakt · {size}", n=len(picked), size=fmt_size(
+            sum(g.get("size") or 0 for g in picked))) if picked else "")
 
     def _relibrary(self, api=None):
         if api is not None and api is not self.api:
@@ -1223,7 +1476,8 @@ class App(tk.Tk):
 
     def _delete_games(self):
         dev = self._selected_device()
-        keys = [k for k in self.games_tree.get_children() if k in self.games_checked]
+        all_keys = {g.get("key") for g in self.games.get(dev["name"], [])} if dev else set()
+        keys = [k for k in self.games_checked if k in all_keys]   # auch angehakte, die die Suche gerade ausblendet
         if self.busy or not dev or not keys or not self.api:
             return
         games = {g.get("key"): g for g in self.games.get(dev["name"], [])}
@@ -1831,6 +2085,18 @@ class App(tk.Tk):
             self.busy = self.formatting
             self._fill_devices(msg[1].get("devices") or [])
             self._load_library()
+        elif kind == "imglist":
+            if msg[1] is self.api and msg[2] is not None:
+                self._fill_img_list(msg[2])
+        elif kind == "imgdeleted":
+            self.busy = False
+            if msg[3]:
+                messagebox.showerror(_("Image löschen"), msg[3], parent=self)
+            else:
+                self.status_var.set(_("{name} gelöscht.", name=msg[2]))
+            if msg[1] is self.api:
+                self._load_img_list()
+            self._update()
         elif kind == "devices_quiet":
             # leise nachgeladen (nach einem Auftrag): nur übernehmen, wenn inzwischen nichts anderes läuft
             if msg[1] is self.api and not self.busy and not self.formatting and self.mode_var.get() == "ps5":
@@ -1876,6 +2142,8 @@ class App(tk.Tk):
             self.ps5_flags = {}
             if self.api and self.mode_var.get() == "ps5":
                 self._settle(self.api)
+                if self.page == "images":
+                    self._load_img_list()
             if after and not foreign:   # der Auftraggeber entscheidet selbst (z. B. Fälschung: nur echten Bereich)
                 self.pbar["value"] = 100 if msg[1] else 0
                 self._update()
@@ -2023,6 +2291,7 @@ class App(tk.Tk):
             self.pc_job.cancel()   # Prüfung/Tempo am PC nicht ohne Fenster weiterlaufen lassen
         self.after_cancel(self._poll_id)
         self.after_cancel(self._watch_id)
+        self.after_cancel(self._sys_id)
         for i in self.settle_ids:
             self.after_cancel(i)
         if self._bar_reset:

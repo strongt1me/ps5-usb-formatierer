@@ -826,7 +826,17 @@ def center_window(win):
         scale = win.winfo_fpixels("1i") / 96
         side, top = round(8 * scale), round(31 * scale)
     fw, fh = w + 2 * side, h + top + side
-    win.geometry(f"+{x0 + max(0, (aw - fw) // 2)}+{y0 + max(0, (ah - fh) // 2)}")
+    x = x0 + max(0, (aw - fw) // 2)
+    if fh > ah:
+        # höher als der Bildschirm (z. B. Full HD mit 150 % Skalierung): auf den Platz verkleinern - die
+        # Laufwerksliste lässt sich dann scrollen. Wird der Inhalt wieder kleiner, gilt die natürliche Größe.
+        win.geometry(f"{w}x{max(200, ah - top - side)}+{x}+{y0}")
+        win._uf_clamped = True
+        return
+    if getattr(win, "_uf_clamped", False):
+        win._uf_clamped = False
+        win.geometry("")   # wieder so groß wie der Inhalt
+    win.geometry(f"+{x}+{y0 + max(0, (ah - fh) // 2)}")
 
 
 def show_centered(win):

@@ -21,7 +21,7 @@ from pc_common import (IMAGE_EXT, IS_WIN, PcJob, PlainJob, admin_wait_text, ask_
                        disk_name, fmt_size, hwnd_of, image_file_name, image_info, irreversible_admin_text, on_device,
                        pc_dev_text, pc_list, pc_used, pc_volumes_text, serial_args, show_scan)
 
-from ui_widgets import ChoiceChips, DriveList
+from ui_widgets import ChoiceChips, DriveList, Tooltip
 
 __all__ = ["StandardPanel", "SCHEMES", "FILESYSTEMS", "KB", "MB"]
 
@@ -87,6 +87,7 @@ class StandardPanel(ttk.Frame):
                                      style="Ghost.TButton", command=self.reload)
         self.reload_btn.image = ico
         self.reload_btn.pack(side="right")
+        Tooltip(self.reload_btn, lambda: self._why(self.reload_btn, need_dev=False) or _("Laufwerke neu einlesen (F5)"))
         self.dev_combo = DriveList(drives, empty_text=_("Kein USB-Datenträger am PC gefunden. Stick einstecken und "
                                                         "„Aktualisieren“ klicken."))
         self.dev_combo.pack(fill="both", expand=True)
@@ -110,6 +111,13 @@ class StandardPanel(ttk.Frame):
         self.restore_btn.grid(row=3, column=1, sticky="ew", padx=(px(6), 0))
         self.verify_btn = ttk.Button(tools, text=_("Prüfen …"), command=self._verify)
         self.verify_btn.grid(row=3, column=2, sticky="ew", padx=(px(6), 0))
+        for btn, text in ((self.speed_btn, _("Lese- und Schreibtempo messen (die Daten bleiben erhalten)")),
+                          (self.rename_btn, _("Bezeichnung des Laufwerks ändern")),
+                          (self.backup_btn, _("Gewähltes Laufwerk als Image (.img.zst) sichern")),
+                          (self.restore_btn, _("Ein Image auf das gewählte Laufwerk zurückschreiben")),
+                          (self.verify_btn, _("Eine Image-Datei ganz lesen und ihre Prüfsummen vergleichen – ohne "
+                                              "Datenträger und ohne Administratorrechte"))):
+            Tooltip(btn, lambda b=btn, t=text: self._why(b) or t)
 
         # ---- Formatieren
         right = self.form = ui_theme.card(self)
@@ -197,6 +205,7 @@ class StandardPanel(ttk.Frame):
         row += 1
         self.start_btn = ttk.Button(right, text=_("Formatieren …"), style="Danger.TButton", command=self._start)
         self.start_btn.grid(row=row, column=0, columnspan=2, sticky="e", pady=(px(14), 0), ipadx=px(12))
+        Tooltip(self.start_btn, lambda: self._why(self.start_btn))
 
         # ---- Fortschritt
         st = ui_theme.card(self, padding=(16, 10))
@@ -228,6 +237,24 @@ class StandardPanel(ttk.Frame):
     def _hint(lbl, text, warn=False):
         lbl.configure(text=text, style="Warn.TLabel" if warn else "Hint.TLabel")
         lbl.grid() if text else lbl.grid_remove()
+
+    def _why(self, btn, need_dev=True):
+        """Kurzinfo eines gesperrten Knopfs: warum - leer, wenn er gerade geht"""
+        if not btn.instate(["disabled"]):
+            return ""
+        if self.busy:
+            return _("Es läuft gerade ein Auftrag.")
+        dev = self._selected()
+        if need_dev and not dev:
+            return _("Erst ein Laufwerk wählen.")
+        if btn is self.rename_btn:
+            return _("Umbenennen geht nur bei genau einem Laufwerk mit exFAT, FAT32, NTFS oder FAT.")
+        if btn is self.start_btn:
+            if self.expert_var.get():
+                return self.editor.error or _("Die Aufteilung ist noch nicht vollständig.")
+            if not self.cluster_values:
+                return _("Dieses Dateisystem passt nicht zur Größe des Laufwerks.")
+        return ""
 
     def _purpose_picked(self, key):
         """Kachel "Wofür?": Dateisystem setzen bzw. den Expertenmodus (eigene Aufteilung)"""

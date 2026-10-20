@@ -13,7 +13,7 @@ from i18n import _
 from pc_common import (APP_VERSION, enable_dpi_awareness, footer, keep_on_screen, lang_selector, load_settings,
                        open_help, save_settings, setup_window, show_centered)
 from standard_panel import StandardPanel
-from ui_widgets import app_header
+from ui_widgets import THEME_NEXT, app_header
 
 APP_NAME = "USBFormatierer"
 
@@ -34,6 +34,9 @@ class StandardApp(tk.Tk):
 
         show_centered(self)   # mittig im nutzbaren Bildschirmbereich, ganz sichtbar
         self.after(100, self.panel.activate)
+        self._sys_id = self.after(5000, self._follow_system)
+        self.bind_all("<F1>", lambda e: open_help(i18n.lang(), self))
+        self.bind_all("<F5>", lambda e: self.panel.reload())
 
     def _build(self):
         self.title(_("USB-Datenträger formatieren"))
@@ -43,7 +46,8 @@ class StandardApp(tk.Tk):
         self.frm.grid(sticky="nsew")
         self.frm.columnconfigure(0, weight=1)
         self.frm.rowconfigure(1, weight=1)
-        top, self.lang_box = app_header(self.frm, _("USB-Formatierer"), APP_VERSION, ui_theme.mode(), self._toggle_theme,
+        top, self.lang_box = app_header(self.frm, _("USB-Formatierer"), APP_VERSION, self.settings.get("theme", "auto"),
+                                        self._toggle_theme,
                                         lambda p: lang_selector(p, i18n.lang(), self._set_lang),
                                         lambda: open_help(i18n.lang(), self))
         top.grid(row=0, column=0, sticky="ew", pady=(0, ui_theme.px(12)))
@@ -58,10 +62,19 @@ class StandardApp(tk.Tk):
             messagebox.showinfo(_("USB-Datenträger formatieren"), _("Das Design lässt sich nach dem laufenden "
                                                                      "Auftrag wechseln."), parent=self)
             return
-        self.settings["theme"] = "light" if ui_theme.mode() == "dark" else "dark"
+        self.settings["theme"] = THEME_NEXT.get(self.settings.get("theme", "auto"), "auto")
         save_settings(APP_NAME, self.settings)
         ui_theme.apply_theme(self, self.settings["theme"])
         self._rebuild()
+
+    def _follow_system(self):
+        """Design "Automatisch": dem System folgen, auch wenn es im laufenden Betrieb umschaltet"""
+        self._sys_id = self.after(5000, self._follow_system)
+        if self.settings.get("theme", "auto") != "auto" or self.panel.busy:
+            return
+        if ("dark" if ui_theme.system_dark() else "light") != ui_theme.mode():
+            ui_theme.apply_theme(self, "auto")
+            self._rebuild()
 
     def _rebuild(self):
         self.panel.may_close()   # Abfrage-Schleife des alten Bereichs beenden
@@ -86,6 +99,7 @@ class StandardApp(tk.Tk):
 
     def _on_close(self):
         if self.panel.may_close():
+            self.after_cancel(self._sys_id)
             self.destroy()
 
     def _on_exception(self, exc, val, tb):
