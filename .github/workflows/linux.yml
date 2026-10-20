@@ -71,6 +71,7 @@ jobs:
         run: python windows/tests/pc_tools_test.py /tmp/usbfmt_linux_test
 
       - name: Oberfläche (Xvfb)
+        timeout-minutes: 20   # ein unerwarteter Dialog hielte den Test sonst bis zur 6-Stunden-Grenze an
         run: |
           mkdir -p shots
           xvfb-run -a -s "-screen 0 1600x1200x24" python windows/tests/linux_ui_test.py /tmp/usbfmt_linux_test shots

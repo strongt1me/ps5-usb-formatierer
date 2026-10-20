@@ -65,8 +65,16 @@ def read(path):
 
 
 def write(path, text):
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(text)
+    """schreiben - mit kurzen Wiederholungen: Virenscanner/Indexdienst sperren frisch geänderte Dateien manchmal kurz"""
+    for attempt in range(6):
+        try:
+            with open(path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(text)
+            return
+        except OSError:
+            if attempt == 5:
+                raise
+            time.sleep(0.5)
 
 
 def content_version(v):

@@ -134,8 +134,17 @@ except PermissionError as e:
 
 # ------------------------------------------------------------------ Oberfläche
 import standard_panel as sp  # noqa: E402
+import ui_msgbox  # noqa: E402
 import usb_formatierer as uf  # noqa: E402
 import usb_standard  # noqa: E402
+
+# Dialoge dürfen den Test nie anhalten (in der CI klickt niemand): unerwartete Meldungen werden notiert und am Ende
+# als Fehler gezählt; die Tests, die eine Meldung erwarten, ersetzen die Funktion selbst
+unexpected = []
+for _name in ("showinfo", "showwarning", "showerror"):
+    setattr(ui_msgbox, _name, lambda title, msg, *a, _n=_name, **k: unexpected.append((_n, title, msg)))
+ui_msgbox.askyesno = lambda title, msg, *a, **k: unexpected.append(("askyesno", title, msg)) or False
+ui_msgbox.askokcancel = lambda title, msg, *a, **k: unexpected.append(("askokcancel", title, msg)) or False
 
 
 class NoJob:
@@ -262,13 +271,17 @@ pump(app, timeout=0.5)
 check("Wechsel in Am PC – frei mit gewähltem PC-Laufwerk", app.std_panel.winfo_ismapped())
 # Design: Automatisch -> Hell -> Dunkel -> Automatisch, gemerkt, Oberfläche jedes Mal neu aufgebaut
 seen = []
+idle = lambda: not app.busy and not app.std_busy and not app.formatting  # noqa: E731
 for _i in range(3):
+    pump(app, idle, 60)   # während eines Auftrags lehnt das Programm den Wechsel (zu Recht) mit einer Meldung ab
     app._toggle_theme()
     pump(app, timeout=0.3)
     seen.append((app.settings.get("theme"), str(app.tk.call("ttk::style", "theme", "use"))))
 check("Design Automatisch → Hell → Dunkel → Automatisch", [s for s, _t in seen] == ["light", "dark", "auto"]
       and seen[0][1] == "usbfmt-light" and seen[1][1] == "usbfmt-dark" and app.std_panel.winfo_ismapped(), seen)
+pump(app, idle, 60)
 app._toggle_theme()
+pump(app, idle, 60)
 app._toggle_theme()
 pump(app, timeout=0.3)
 shot(app, "linux_ps5_dark.png")
@@ -314,5 +327,6 @@ check("Auswahl unten wird sichtbar gescrollt", app.dev_combo.canvas.yview()[1] >
 app.mode_var.set("std")
 app._mode_changed()
 app._on_close()
+check("keine unerwarteten Dialoge", not unexpected, unexpected)
 print(f"{ok_count} bestanden, {bad_count} fehlgeschlagen")
 sys.exit(1 if bad_count else 0)
