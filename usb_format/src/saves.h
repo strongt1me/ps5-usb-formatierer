@@ -46,7 +46,7 @@ int  saves_restore_file(const char *zip_path, char *err, size_t errsz);
  * in sce_sys/param.sfo des Containers ändern. 0 = ok, sonst Fehlertext in err */
 int  saves_resign(const save_info_t *s, const char *target_uid, char *err, size_t errsz);
 
-/* param.sfo: ACCOUNT_ID (8 Byte) und - falls vorhanden - USER_ID (4 Byte) ändern (Test: ohne PS5 prüfbar) */
+/* param.sfo: ACCOUNT_ID (8 Byte) und die Benutzer-ID in PARAMS (+4, 4 Byte) ändern (Test: ohne PS5 prüfbar) */
 int  saves_sfo_patch(const char *path, const uint8_t aid[8], uint32_t user_id, char *err, size_t errsz);
 
 /* Arbeitsordner für temporäre Container-Kopien (PS5: /data/usb_format/save_tmp) */

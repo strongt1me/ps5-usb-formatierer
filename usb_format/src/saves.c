@@ -774,8 +774,11 @@ int saves_sfo_patch(const char *path, const uint8_t aid[8], uint32_t user_id, ch
     int ok = sfo_find(fd, "ACCOUNT_ID", &ao, &al) == 0 && al >= 8;
     if (ok) {
         ok = pwrite(fd, aid, 8, ao) == 8 && fsync(fd) == 0 && pread_full(fd, chk, 8, ao) == 0 && !memcmp(chk, aid, 8);
-        if (ok && sfo_find(fd, "USER_ID", &uo, &ul) == 0 && ul >= 4)
+        /* die Benutzer-ID steht in PARAMS bei +4 (kein eigener Schlüssel; garlic-savemgr: SFO-Offset 0x660) */
+        if (ok && sfo_find(fd, "PARAMS", &uo, &ul) == 0 && ul >= 8) {
+            uo += 4;
             ok = pwrite(fd, uid4, 4, uo) == 4 && fsync(fd) == 0 && pread_full(fd, chk, 4, uo) == 0 && !memcmp(chk, uid4, 4);
+        }
     }
     close(fd);
     if (!ok) snprintf(err, errsz, "%s", T("param.sfo konnte nicht geändert werden (ACCOUNT_ID nicht gefunden)"));

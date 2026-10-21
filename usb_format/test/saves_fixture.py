@@ -33,7 +33,7 @@ def container(seed, size, ps4=False):
     out = bytearray(hashlib.sha256(seed.encode()).digest() * (size // 32))
     out[0] = 1 if ps4 else 2
     blob = sfo([("TITLE_ID", b"PPSA01234" + bytes(1)), ("ACCOUNT_ID", bytes.fromhex("1122334455667788")),
-                ("USER_ID", struct.pack("<I", 0x1c3f8a0e)), ("SAVEDATA_DIRECTORY", b"SAVEDATA00" + bytes(1))])
+                ("PARAMS", struct.pack("<II", 0, 0x1c3f8a0e) + bytes(1016)), ("SAVEDATA_DIRECTORY", b"SAVEDATA00" + bytes(1))])
     out[SFO_OFF:SFO_OFF + 0x1000] = blob.ljust(0x1000, bytes(1))
     return bytes(out)
 

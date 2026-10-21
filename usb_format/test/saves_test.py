@@ -295,10 +295,10 @@ try:
     for k in range(n):
         ko, fmt, ln, mx, do = struct.unpack("<HHIII", sfo[20 + 16 * k:36 + 16 * k])
         pos[sfo[kt + ko:sfo.index(b"\0", kt + ko)].decode()] = fx.SFO_OFF + dt + do
-    exp = set(range(pos["ACCOUNT_ID"], pos["ACCOUNT_ID"] + 8)) | set(range(pos["USER_ID"], pos["USER_ID"] + 4))
-    check("nur ACCOUNT_ID und USER_ID geändert", set(diff) <= exp and diff, "geänderte Stellen: %s" % diff[:20])
+    exp = set(range(pos["ACCOUNT_ID"], pos["ACCOUNT_ID"] + 8)) | set(range(pos["PARAMS"] + 4, pos["PARAMS"] + 8))
+    check("nur ACCOUNT_ID und Benutzer-ID (PARAMS+4) geändert", set(diff) <= exp and diff, "geänderte Stellen: %s" % diff[:20])
     check("ACCOUNT_ID little-endian des Zielkontos", after[pos["ACCOUNT_ID"]:pos["ACCOUNT_ID"] + 8] == bytes.fromhex("fedcba9876543210")[::-1])
-    check("USER_ID des Zielbenutzers", struct.unpack("<I", after[pos["USER_ID"]:pos["USER_ID"] + 4])[0] == 0x2d4e9b1f)
+    check("USER_ID des Zielbenutzers", struct.unpack("<I", after[pos["PARAMS"] + 4:pos["PARAMS"] + 8])[0] == 0x2d4e9b1f)
     check("Rechte bleiben", os.stat(path1).st_mode & 0o777 == 0o600)
     check("keine Zwischendateien übrig", not [p for p in tree() if p.endswith(".tmp") or "/save_tmp/resign_" in p],
           str([p for p in tree() if "save_tmp" in p or p.endswith(".tmp")]))
