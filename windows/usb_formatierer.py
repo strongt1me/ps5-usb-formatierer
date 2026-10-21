@@ -30,7 +30,7 @@ from i18n import _, quote
 from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, check_images, confirm,
                        disk_name, enable_dpi_awareness, enable_history, fmt_size, footer, history_clear, history_dialog,
                        history_load, hwnd_of, image_file_name, image_info, irreversible_admin_text, keep_on_screen,
-                       lang_selector, open_help, pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job,
+                       lang_selector, last_job, last_job_text, open_help, pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job,
                        resource_path, serial_args, setup_window, show_centered, show_scan, version_tuple)
 from standard_panel import StandardPanel
 from ui_widgets import THEME_NEXT, ChoiceChips, DriveList, Tooltip, header_tools
@@ -128,7 +128,12 @@ class Api:
         return result
 
     def devices(self, timeout=4):
-        return self._call("/api/devices", timeout=timeout)
+        r = self._call("/api/devices", timeout=timeout)
+        try:   # Verlauf für "Zuletzt: …" an den Laufwerken - ältere Formatierer haben keinen
+            r["history"] = self._call("/api/history", timeout=timeout).get("entries") or []
+        except (ApiError, ConnectionError):
+            r["history"] = []
+        return r
 
     def status(self):
         return self._call("/api/status")
@@ -272,6 +277,8 @@ class App(tk.Tk):
         self.q = queue.Queue()
         self.api = None
         self.devices = []
+        self.keep_sel = None   # beim Neuaufbau gewählter Datenträger (siehe _rebuild)
+        self.ps5_history = []   # Verlauf des Formatierers ("Zuletzt: …" an den Laufwerkskarten)
         self.busy = False          # Netzwerkaktion oder Formatierung laeuft
         self.formatting = False
         self.elf_sending = False   # "ELF senden" läuft (Formatierer beendet bzw. ELF unterwegs)
@@ -650,13 +657,20 @@ class App(tk.Tk):
     def _shortcuts(self):
         """Tastenkürzel: F1 Anleitung, F5 neu einlesen, Strg+1 … 5 Seiten, Strg+F Spiele suchen"""
         self.bind_all("<F1>", lambda e: open_help(i18n.lang(), self))
-        self.bind_all("<F5>", lambda e: self._f5())
+        self.bind_all("<F5>", lambda e: self._key_ok() and self._f5())
         for i, key in enumerate(self.nav_btns):
-            self.bind_all(f"<Control-Key-{i + 1}>", lambda e, k=key: self._nav(k))
-        self.bind_all("<Control-f>", lambda e: self._find_game())
-        self.bind_all("<Control-F>", lambda e: self._find_game())
-        self.bind_all("<Control-h>", lambda e: self._history())
-        self.bind_all("<Control-H>", lambda e: self._history())
+            self.bind_all(f"<Control-Key-{i + 1}>", lambda e, k=key: self._key_ok() and self._nav(k))
+        self.bind_all("<Control-f>", lambda e: self._key_ok() and self._find_game())
+        self.bind_all("<Control-F>", lambda e: self._key_ok() and self._find_game())
+        for seq in ("<Control-h>", "<Control-H>"):
+            self.bind_all(seq, lambda e: not isinstance(e.widget, (tk.Entry, ttk.Entry)) and not self.grab_current()
+                          and self._history())
+
+    def _key_ok(self):
+        """Tastenkürzel, die umschalten oder neu einlesen, nur wenn die Knöpfe dafür auch frei wären: kein Auftrag
+        (sonst ließe sich z. B. derselbe Datenträger in einem anderen Bereich ein zweites Mal formatieren) und kein
+        offener Dialog (der bestätigte Auftrag ginge sonst verloren)"""
+        return not (self.busy or self.formatting or self.std_busy or self.grab_current())
 
     def _history(self):
         """Fenster "Verlauf": Aufträge am PC und - wenn verbunden - die des Formatierers auf der PS5 (im Hintergrund
@@ -679,12 +693,14 @@ class App(tk.Tk):
 
         def clear():
             history_clear()
-            if api:
-                try:
-                    api.clear_history()
-                    return sources(api.history())
-                except (ApiError, ConnectionError):
-                    pass
+            if api:   # auf der PS5 im Hintergrund leeren - der PC-Teil ist sofort leer
+                def work():
+                    try:
+                        api.clear_history()
+                    except (ApiError, ConnectionError):
+                        pass
+                threading.Thread(target=work, daemon=True).start()
+                return sources([])
             return sources(None)
         history_dialog(self, sources(ps5), clear)
 
@@ -842,8 +858,9 @@ class App(tk.Tk):
     def _follow_system(self):
         """Design "Automatisch": dem System folgen, auch wenn es im laufenden Betrieb umschaltet"""
         self._sys_id = self.after(5000, self._follow_system)
-        if self.settings.get("theme", "auto") != "auto" or self.busy or self.formatting or self.std_busy:
-            return
+        if self.settings.get("theme", "auto") != "auto" or self.busy or self.formatting or self.std_busy \
+                or self.grab_current() or any(isinstance(w, tk.Toplevel) for w in self.winfo_children()):
+            return   # offener Dialog: sein Auftrag hinge sonst an der abgebauten Oberfläche
         want = "dark" if ui_theme.system_dark() else "light"
         if want != ui_theme.mode():
             ui_theme.apply_theme(self, "auto")
@@ -855,6 +872,7 @@ class App(tk.Tk):
         consoles = list(self.consoles.values())
         picked = self.consoles.get(self.host_var.get().strip())
         status = self.status_var.get()
+        sel, checked, search = self._selected_device(), set(self.games_checked), self.game_filter.get()
         self.outer.destroy()
         self._build_ui()
         self.consoles = {self._console_text(c): c for c in consoles}   # Anzeigetexte ggf. in der neuen Sprache
@@ -866,6 +884,12 @@ class App(tk.Tk):
                                 else _("Nicht verbunden"))
         else:
             self.status_var.set(status)
+        # Auswahl, angehakte Spiele und Suche überstehen den Neuaufbau: die Laufwerksliste kommt danach neu (auch im
+        # Hintergrund) - beim Füllen wird der gemerkte Datenträger wieder gewählt, wenn er noch derselbe ist
+        self.keep_sel = sel
+        self.games_checked = checked
+        if search:
+            self.game_filter.set(search)
         self._mode_changed(initial=True, relang=True)
 
     def _set_lang(self, code):
@@ -1019,8 +1043,9 @@ class App(tk.Tk):
         tot = sum(m.get("total", 0) for m in d["mounts"])
         if tot:
             used = max(0.0, min(1.0, 1 - sum(m.get("free", 0) for m in d["mounts"]) / tot))
+        last = last_job(self.ps5_history, d.get("model"), d.get("size"), d.get("ident", ""))
         return {"text": self._ps5_dev_text(d), "title": dev_title(d), "size": fmt_size(d["size"]), "sub": sub,
-                "pills": pills, "used": used}
+                "pills": pills, "used": used, "last": last_job_text(last) if last else ""}
 
     def _show_games(self):
         """Spiele des gewählten PS5-Datenträgers in der Liste darunter. Während die PS5 sucht, kommt die Liste jede
@@ -1115,7 +1140,7 @@ class App(tk.Tk):
         threading.Thread(target=self._guard(work, background=True), daemon=True).start()
 
     def _fill_pc_devices(self, devices):
-        prev = self._selected_device()
+        prev, self.keep_sel = self._selected_device() or self.keep_sel, None
         self.devices = devices
         self.dev_combo.set_items([StandardPanel._drive_item(d) for d in devices])
         # am PC wird nie vorausgewählt: dort hängen oft Platten mit Daten (Spiele-Sicherung, Backups)
@@ -1140,7 +1165,7 @@ class App(tk.Tk):
         self.ps5_devices = devices
         if self.mode_var.get() == "pc":
             return
-        prev = self._selected_device()
+        prev, self.keep_sel = self._selected_device() or self.keep_sel, None
         if prev and "disk" in prev:
             prev = None
         self.devices = devices
@@ -2127,6 +2152,8 @@ class App(tk.Tk):
                 self._version_notice(msg[2])
         elif kind == "devices":
             self.busy = self.formatting
+            hist = msg[1].get("history")
+            self.ps5_history = [e for e in hist if isinstance(e, dict)] if isinstance(hist, list) else []
             self._fill_devices(msg[1].get("devices") or [])
             self._load_library()
         elif kind == "imglist":

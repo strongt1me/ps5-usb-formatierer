@@ -11,12 +11,14 @@ Kernel-Log (klogsrv, 3232), das während update mitgeschnitten wird.
 
 update in dieser Reihenfolge:
   1. Vorprüfung: gebaute ELF und App-Ordner (usb_format/dump/out/PPSA86920) haben die Version aus VERSION, laufen auf der
-     PS5 ein Spiel/eine App (/mnt/sandbox) oder ein Auftrag des Formatierers: Abbruch (--force übergeht nur das Spiel).
+     PS5 ein Spiel/eine App (/mnt/sandbox) oder ein Auftrag des Formatierers: Abbruch (--ignore-running übergeht nur
+     das Spiel, nie einen Auftrag). Antwortet Port 8090, aber nicht die API: Abbruch (Zustand unklar).
   2. App-Ordner /data/homebrew/PPSA86920: jede Datei, die anders ist, erst von der PS5 sichern, dann hochladen und
-     zurücklesen. Sicherung und Kernel-Log unter ~/.usbfmt-ps5/<zeit>/ (oder --backup <ordner>).
+     zurücklesen. Scheitert FTP mittendrin: Abbruch mit Liste der schon ersetzten Dateien und dem Sicherungsordner. Sicherung und Kernel-Log unter ~/.usbfmt-ps5/<zeit>/ (oder --backup <ordner>).
   3. Formatierer: läuft er, per /api/quit beenden; die neue ELF an den ELF-Loader; warten, bis /api/info die neue
-     Version meldet. Läuft dieselbe Version schon, bleibt er (--force sendet trotzdem).
+     Version meldet. Läuft dieselbe Version schon, bleibt er (--resend-elf sendet trotzdem).
   4. Kachel: zeigt, ob sie neu angemeldet werden muss (dann "tile").
+Exit-Code: 0 = fertig, 1 = Fehler/Abbruch, 2 = fertig, aber das Kernel-Log zeigt Auffälliges.
 Nur Python-Standardbibliothek."""
 import argparse
 import ftplib
@@ -100,12 +102,22 @@ def ftp_connect(host):
     return f
 
 
+class FtpTrouble(Exception):
+    """FTP-Fehler, der nicht "Datei fehlt" heißt (Zeitüberschreitung, Verbindung weg)"""
+
+
 def ftp_get(f, path):
+    """Inhalt der Datei; None nur, wenn sie fehlt (550). Andere Fehler: FtpTrouble - sonst würde eine nur kurz nicht
+    lesbare Datei als "fehlt" gelten und ohne Sicherung überschrieben."""
     buf = io.BytesIO()
     try:
         f.retrbinary(f"RETR {path}", buf.write, blocksize=1 << 20)
-    except ftplib.all_errors:
-        return None
+    except ftplib.error_perm as e:
+        if str(e).startswith("550"):
+            return None
+        raise FtpTrouble(f"{path}: {e}") from None
+    except ftplib.all_errors as e:
+        raise FtpTrouble(f"{path}: {e}") from None
     return buf.getvalue()
 
 
@@ -158,8 +170,11 @@ def check_local(version):
 
 
 def compare(f, files):
-    """[(pfad, inhalt, entfernter inhalt oder None)]"""
-    return [(rel, data, ftp_get(f, f"{APP_REMOTE}/{rel}")) for rel, data in files.items()]
+    """[(pfad, inhalt, entfernter inhalt oder None = fehlt)]"""
+    try:
+        return [(rel, data, ftp_get(f, f"{APP_REMOTE}/{rel}")) for rel, data in files.items()]
+    except FtpTrouble as e:
+        fail(f"App-Ordner auf der PS5 nicht lesbar ({e}) - nichts geändert")
 
 
 # ------------------------------------------------------------------ Kernel-Log
@@ -223,22 +238,26 @@ def cmd_status(host):
                             ", ".join(f"{rel} ({'fehlt' if r is None else 'anders'})" for rel, _d, r in diff)))
 
 
-def cmd_update(host, dry_run, force, backup):
+def cmd_update(host, dry_run, ignore_running, resend, backup):
     version = read_version()
     elf, files = check_local(version)
     say(f"Stand {version}: usb_format.elf {len(elf) / 1e6:.2f} MB, App-Ordner {len(files)} Dateien")
     f = ftp_connect(host)
     titles = running_titles(f)
-    if titles and not force:
+    say(f"Spiele/Apps: {', '.join(titles) if titles else 'keine laufen'}")
+    if titles and not ignore_running:
         f.quit()
-        fail(f"auf der PS5 läuft {', '.join(titles)} - erst beenden (oder --force, wenn es sicher ist)")
+        fail(f"auf der PS5 läuft {', '.join(titles)} - erst beenden (oder --ignore-running, wenn es sicher ist)")
     info = api(host, "/api/info")
-    st = api(host, "/api/status") if info else None
-    if st and st.get("busy"):
+    if info is None and port_open(host, API_PORT):   # läuft, antwortet aber nicht: nicht blind ersetzen
         f.quit()
-        fail("der Formatierer arbeitet gerade an einem Auftrag - abwarten")
+        fail("Port 8090 ist offen, der Formatierer antwortet aber nicht - Zustand unklar, nichts geändert")
+    st = api(host, "/api/status") if info else None
+    if info and (st is None or st.get("busy")):
+        f.quit()
+        fail("der Formatierer arbeitet gerade an einem Auftrag (oder meldet seinen Zustand nicht) - abwarten")
     diff = [(rel, data, remote) for rel, data, remote in compare(f, files) if remote != data]
-    send_elf = not info or info.get("version") != version or force
+    send_elf = not info or info.get("version") != version or resend
     say(f"Formatierer: {info.get('version') if info else 'läuft nicht'} -> "
         + (f"{version} (ELF senden)" if send_elf else "bleibt (gleiche Version)"))
     say("App-Ordner: " + (", ".join(rel for rel, _d, _r in diff) if diff else "schon aktuell"))
@@ -250,23 +269,36 @@ def cmd_update(host, dry_run, force, backup):
     klog = Klog(host, os.path.join(backup, "kernel.log"))
     say(f"Sicherung und Kernel-Log: {backup}" + ("" if klog.sock else " (Kernel-Log nicht erreichbar)"))
 
-    for rel, data, remote in diff:   # erst sichern, dann schreiben, dann zurücklesen
+    for rel, data, remote in diff:   # erst alles sichern, dann schreiben und zurücklesen
         if remote is not None:
             dst = os.path.join(backup, "PPSA86920", *rel.split("/"))
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             with open(dst, "wb") as fh:
                 fh.write(remote)
-        sub = os.path.dirname(rel)
-        if sub:
+    done = []
+    for rel, data, _remote in diff:
+        try:
+            sub = os.path.dirname(rel)
+            if sub:
+                try:
+                    f.mkd(f"{APP_REMOTE}/{sub}")
+                except ftplib.error_perm:
+                    pass
+            f.storbinary(f"STOR {APP_REMOTE}/{rel}", io.BytesIO(data), blocksize=1 << 20)
+            same = ftp_get(f, f"{APP_REMOTE}/{rel}") == data
+        except (FtpTrouble, *ftplib.all_errors) as e:
+            same, err = None, e
+        if not same:
             try:
-                f.mkd(f"{APP_REMOTE}/{sub}")
-            except ftplib.error_perm:
+                f.close()
+            except OSError:
                 pass
-        f.storbinary(f"STOR {APP_REMOTE}/{rel}", io.BytesIO(data), blocksize=1 << 20)
-        if ftp_get(f, f"{APP_REMOTE}/{rel}") != data:
-            f.quit()
             klog.finish(0)
-            fail(f"{rel}: zurückgelesen anders als gesendet - Sicherung liegt in {backup}")
+            why = f"FTP-Fehler: {err}" if same is None else "zurückgelesen anders als gesendet"
+            fail(f"{rel}: {why}. Schon ersetzt: {', '.join(done) or 'nichts'}; {rel} ist womöglich unvollständig. "
+                 f"Die bisherigen Dateien liegen in {os.path.join(backup, 'PPSA86920')} - erneut versuchen oder per "
+                 "FTP zurückspielen. Der Formatierer wurde nicht angefasst.")
+        done.append(rel)
         say(f"  {rel}: hochgeladen, zurückgelesen identisch")
     f.quit()
 
@@ -285,11 +317,20 @@ def cmd_update(host, dry_run, force, backup):
                 fail("der alte Formatierer läuft noch")
             time.sleep(1)
         try:
-            with socket.create_connection((host, LOADER_PORT), timeout=10) as s:
-                s.sendall(elf)
+            s = socket.create_connection((host, LOADER_PORT), timeout=10)
         except OSError as e:
             klog.finish(0)
             fail(f"ELF-Loader (Port {LOADER_PORT}) nimmt nichts an ({e}) - Jailbreak/ELF-Loader auf der PS5 starten")
+        try:   # die 10 s galten fürs Verbinden; Senden darf bei schwachem WLAN dauern (bis 8 MB)
+            s.settimeout(180)
+            s.sendall(elf)
+            s.shutdown(socket.SHUT_WR)
+        except OSError as e:
+            klog.finish(0)
+            fail(f"Senden an den ELF-Loader abgebrochen ({e}) - die PS5 hat womöglich eine unvollständige ELF bekommen; "
+                 "ELF-Loader neu starten und erneut versuchen")
+        finally:
+            s.close()
         say(f"  ELF gesendet ({len(elf)} Bytes)")
         new = None
         for _ in range(60):
@@ -304,7 +345,7 @@ def cmd_update(host, dry_run, force, backup):
 
     bad = klog.finish()
     if bad:
-        say(f"Kernel-Log: {len(bad)} auffällige Zeile(n), z. B.: {bad[0][:160]}")
+        say(f"Kernel-Log: {len(bad)} auffällige Zeile(n), z. B.: {bad[0][:160]} - bitte {backup} ansehen")
     elif bad is not None:
         say("Kernel-Log: unauffällig")
     tile = api(host, "/api/tile")
@@ -313,7 +354,9 @@ def cmd_update(host, dry_run, force, backup):
             "neu anmelden mit: python tools/ps5_deploy.py tile")
     elif tile and tile.get("registered"):
         say(f"Kachel: {tile['registered']} - aktuell")
-    say("Fertig.")
+    say("Fertig." if not bad else "Fertig - aber das Kernel-Log ist auffällig (Exit-Code 2).")
+    if bad:
+        sys.exit(2)
 
 
 def cmd_tile(host, yes):
@@ -346,7 +389,8 @@ def main():
     ap.add_argument("command", choices=("status", "update", "tile"))
     ap.add_argument("--host", default=os.environ.get("USBFMT_PS5_HOST", ""), help="Adresse der PS5")
     ap.add_argument("--dry-run", action="store_true", help="update: nur zeigen")
-    ap.add_argument("--force", action="store_true", help="update: trotz laufendem Spiel; ELF auch bei gleicher Version")
+    ap.add_argument("--ignore-running", action="store_true", help="update: trotz laufendem Spiel/laufender App")
+    ap.add_argument("--resend-elf", action="store_true", help="update: ELF auch bei gleicher Version senden")
     ap.add_argument("--backup", help="update: Ordner für Sicherung und Kernel-Log")
     ap.add_argument("--yes", action="store_true", help="tile: ohne Rückfrage")
     a = ap.parse_args()
@@ -356,7 +400,7 @@ def main():
         cmd_status(a.host)
     elif a.command == "update":
         backup = a.backup or os.path.join(os.path.expanduser("~"), ".usbfmt-ps5", time.strftime("%Y%m%d-%H%M%S"))
-        cmd_update(a.host, a.dry_run, a.force, backup)
+        cmd_update(a.host, a.dry_run, a.ignore_running, a.resend_elf, backup)
     else:
         cmd_tile(a.host, a.yes)
 

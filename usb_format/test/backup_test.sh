@@ -155,6 +155,11 @@ echo "0000000000000000000000000000000000000000000000000000000000000000  anders.i
 vpost "$D/anders.img.zst" verify
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q ".sha256-Datei" "$W/st" \
     && ok "Prüfen: passt nicht zur .sha256 erkannt" || bad "Prüfen .sha256 ($code)" "$(cat "$W/st")"
+echo "SHA256 (anders.img.zst) = 0000000000000000000000000000000000000000000000000000000000000000" >"$D/anders.img.zst.sha256"
+vpost "$D/anders.img.zst" verify
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = True ] \
+    && ok "Prüfen: .sha256 in fremdem Format gilt nicht als beschädigt" || bad "Prüfen fremde .sha256 ($code)" "$(cat "$W/st")"
+echo "0000000000000000000000000000000000000000000000000000000000000000  anders.img.zst" >"$D/anders.img.zst.sha256"
 for p in "/etc/passwd" "$W/fremd.img.zst" "$D/../../fremd.img.zst" "$D/link.img.zst"; do
     vpost "$p" verify
     [ "$code" = 400 ] && ok "Prüfen: Pfad außerhalb abgelehnt: ${p#$W/}" || bad "Prüfen außerhalb ($code): $p"

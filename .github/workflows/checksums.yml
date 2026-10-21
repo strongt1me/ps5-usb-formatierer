@@ -17,15 +17,16 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: pruefsummen
-  cancel-in-progress: false
-
 jobs:
   sums:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success')
+    # je Release nacheinander - am Job, nicht am Workflow: sonst verdrängten die vielen übersprungenen Läufe (Push,
+    # Pull Requests) einen wartenden echten Lauf, und SHA256SUMS fehlten Dateien
+    concurrency:
+      group: pruefsummen-${{ inputs.tag || github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - name: SHA256SUMS erzeugen und anhängen

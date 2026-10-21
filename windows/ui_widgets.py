@@ -107,6 +107,9 @@ class DriveList(ttk.Frame):
                 row.pack(anchor="w", pady=(ui_theme.px(5), 0))
                 for text, kind in it["pills"]:
                     ttk.Label(row, text=text, style=f"Pill{kind}.TLabel").pack(side="left", padx=(0, ui_theme.px(4)))
+            if it.get("last"):   # letzter Auftrag an diesem Laufwerk (Verlauf)
+                ttk.Label(card, text=it["last"], style="Hint.TLabel", wraplength=ui_theme.px(340),
+                          justify="left").pack(anchor="w", pady=(ui_theme.px(4), 0))
             if it.get("used") is not None:
                 bar = ttk.Progressbar(card, style=("UsageWarn" if it["used"] > .9 else "Usage") +
                                       ".Horizontal.TProgressbar", maximum=1000, value=round(it["used"] * 1000))

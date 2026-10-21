@@ -465,6 +465,7 @@ class _WinJob:
                     result = (False, _("Der Helfer wurde unerwartet beendet (Code {code}).", code=code.value), {})
                 elif result is None and time.time() - last_change > self.STALL_S:
                     self.cancel()
+                    self.cancel_requested = False   # hängt: "fehlgeschlagen", nicht "abgebrochen"
                     # wirklich beenden, sonst schreibt er womöglich weiter, während schon ein neuer Auftrag läuft.
                     # Mitten im Formatieren abgebrochen bleibt ein leerer Stick (Tabelle wird zuletzt geschrieben).
                     ctypes.windll.kernel32.TerminateProcess(ctypes.c_void_p(self.proc), 1)
@@ -547,6 +548,7 @@ class PlainJob:
                     result = (False, _("Der Helfer wurde unerwartet beendet (Code {code}).", code=self.proc.returncode), {})
                 elif result is None and time.time() - last_change > self.STALL_S:
                     self.cancel()
+                    self.cancel_requested = False   # hängt: "fehlgeschlagen", nicht "abgebrochen"
                     self.proc.kill()
                     result = (False, _("Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen."), {})
                 elif result is None:
@@ -652,7 +654,8 @@ def record_job(args, ok, msg, dev=None, started=None, cancelled=False):
     e = {"t": int(time.time()), "kind": kind, "ok": bool(ok), "cancelled": bool(cancelled and not ok),
          "secs": max(0, int(time.time() - started)) if started else 0}
     if dev:
-        e.update(device=disk_name(dev), model=dev.get("model") or "", size=int(dev.get("size") or 0))
+        e.update(device=disk_name(dev), model=dev.get("model") or "", size=int(dev.get("size") or 0),
+                 ident=dev.get("serial") or "")
         labels = [v.get("label") for v in dev.get("volumes") or [] if v.get("label")]
         if labels:
             e["label"] = labels[0]
@@ -675,7 +678,14 @@ def record_job(args, ok, msg, dev=None, started=None, cancelled=False):
             with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
                 for x in entries:
                     f.write(json.dumps(x, ensure_ascii=False) + "\n")
-            os.replace(tmp, path)
+            for attempt in range(5):   # kurz gesperrt (Virenscanner, gleichzeitiges Lesen): nochmal versuchen
+                try:
+                    os.replace(tmp, path)
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.1)
         except OSError:
             try:
                 os.remove(tmp)
@@ -688,6 +698,33 @@ def history_kind(kind):
             "check": _("Prüfen & reparieren"), "label": _("Umbenennen"), "delete": _("Spiele löschen"),
             "backup": _("Image sichern"), "restore": _("Image wiederherstellen"), "tile": _("Kachel neu anmelden"),
             "verify": _("Image prüfen")}.get(kind, kind)
+
+
+DRIVE_KINDS = ("format", "layout", "check", "label", "speed", "backup", "restore", "delete")
+
+
+def last_job(entries, model, size, ident=""):
+    """letzter Auftrag an diesem Laufwerk (entries neueste zuerst): über die Seriennummer, ohne sie über Modell und
+    Größe - Namen wie da2 oder die Datenträgernummer wechseln mit der Steckreihenfolge"""
+    for e in entries:
+        if e.get("kind") not in DRIVE_KINDS:
+            continue
+        if e.get("ident") and ident:
+            same = e["ident"] == ident
+        else:
+            same = (e.get("model") or "") == (model or "") and int(e.get("size") or 0) == int(size or 0)
+        if same:
+            return e
+    return None
+
+
+def last_job_text(e):
+    """"Zuletzt: Formatieren (exFAT), 20.10.2026" für die Laufwerkskarte"""
+    what = history_kind(e.get("kind", "")) + (f" ({e['fs']})" if e.get("fs") else "")
+    if not e.get("ok"):
+        what += " – " + (_("abgebrochen") if e.get("cancelled") else _("fehlgeschlagen"))
+    fmt = {"de": "%d.%m.%Y", "en": "%Y-%m-%d"}.get(lang(), "%d/%m/%Y")
+    return _("Zuletzt: {what}, {date}", what=what, date=time.strftime(fmt, time.localtime(int(e.get("t") or 0))))
 
 
 def history_dialog(root, sources, on_clear):
@@ -1032,6 +1069,7 @@ def show_centered(win):
     (z. B. mit der Maus) lässt das Fenster, wo es ist."""
     center_window(win)
     win.deiconify()
+    ui_theme.dark_titlebar(win)   # erst jetzt gibt es den Fensterrahmen (apply_theme lief vor dem ersten Zeigen)
     win.after(80, lambda: center_window(win))
     size = {"wh": None, "job": None}
 
@@ -1141,9 +1179,7 @@ def newer_release(data, current=None):
     new, cur = version_tuple(tag), version_tuple(APP_VERSION if current is None else current)
     if not new or not cur or new <= cur:
         return None
-    url = str(data.get("html_url", ""))
-    if not url.startswith(REPO_URL + "/releases/"):   # nur Links in dieses Projekt öffnen
-        url = REPO_URL + "/releases/latest"
+    url = f"{REPO_URL}/releases/tag/v{tag}"   # selbst gebaut: html_url könnte mit ../ aus dem Projekt führen
     assets, digests = {}, {}
     for a in data.get("assets") if isinstance(data.get("assets"), list) else []:
         if isinstance(a, dict):

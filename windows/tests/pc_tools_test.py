@@ -68,7 +68,8 @@ check("ältere Version: nichts", nr({"tag_name": "v0.9.9", "html_url": url}) is 
 check("Vorabversion: nichts", nr({"tag_name": "v" + newer, "prerelease": True}) is None)
 check("Unsinn: nichts", nr({"tag_name": "neu"}) is None and nr([]) is None and nr({}) is None)
 check("fremder Link wird nicht geöffnet",
-      nr({"tag_name": "v" + newer, "html_url": "https://boese.example/x"})["url"] == pc_common.REPO_URL + "/releases/latest")
+      nr({"tag_name": "v" + newer, "html_url": "https://boese.example/x"})["url"] == url
+      and nr({"tag_name": "v" + newer, "html_url": pc_common.REPO_URL + "/releases/../../anderes"})["url"] == url)
 bad = nr({"tag_name": "v" + newer, "body": 5, "assets": 7})
 check("Unsinn in Hinweisen/Dateien: leer", bad and bad["notes"] == "" and bad["assets"] == {}, bad)
 check("zweistellig verglichen (2.10.0 > 2.9.9)", nr({"tag_name": "v2.10.0"}, current="2.9.9") is not None)
@@ -152,6 +153,19 @@ try:
           == ("exFAT", "NEU", "UDisk", dev["size"], True, True), f)
     check("abgebrochen / fehlgeschlagen unterschieden",
           len(h) == 3 and h[1]["cancelled"] and not h[0]["cancelled"] and h[0]["file"] == "a.img.zst", h)
+    dev2 = dict(dev, serial="S2")
+    pc_common.record_job(["label", "4", str(dev["size"]), "ZWEI"], True, "umbenannt", dev2, t0)
+    h = pc_common.history_load()
+    lj = pc_common.last_job
+    check("Zuletzt: über die Seriennummer", (lj(h, "UDisk", dev["size"], "S2") or {}).get("kind") == "label"
+          and h[0].get("ident") == "S2", h[:1])
+    check("Zuletzt: ohne Seriennummer über Modell und Größe (neuester Laufwerks-Auftrag)",
+          (lj(h, "UDisk", dev["size"], "") or {}).get("kind") == "label"
+          and (lj(h[1:], "UDisk", dev["size"], "") or {}).get("kind") == "speed", h[:3])
+    check("Zuletzt: anderer Stick / Image prüfen zählt nicht", lj(h[:1], "UDisk", dev["size"], "S9") is None
+          and lj(h, "SanDisk", dev["size"], "S9") is None and lj(h, "", 0, "") is None)
+    txt = pc_common.last_job_text(h[2])
+    check("Zuletzt: Text", txt.startswith("Zuletzt: Tempo messen – abgebrochen, "), txt)
     with open(pc_common._history["path"], "a", encoding="utf-8") as fh:
         fh.write("kaputt\n[1]\n")
     for i in range(120):
@@ -184,6 +198,30 @@ try:
         check("Fenster: Meldung und Dauer des gewählten Eintrags", not errors and "Kachel\nDauer: 4 s" in texts,
               (errors, texts))
         win.destroy()
+        root.destroy()
+        # Rückfragen: bei Warnungen bzw. default="cancel" ist "Nein/Abbrechen" vorgewählt; Enter löst den Knopf mit dem
+        # Fokus aus (früher immer "Ja" - Enter hätte Spiele gelöscht)
+        import ui_msgbox
+        check("Rückfrage: Vorwahl", (ui_msgbox._second("warning", None), ui_msgbox._second("question", "cancel"),
+                                     ui_msgbox._second("question", None), ui_msgbox._second("warning", "ok"))
+              == (1, 1, 0, 0))
+        root = tk.Tk()
+        pc_common.setup_window(root, "light")
+        root.geometry("400x300+50+50")
+        root.update()
+
+        def press(tab=False):
+            dlg = [w for w in root.winfo_children() if isinstance(w, tk.Toplevel)][0]
+            btn = dlg.focus_lastfor()   # Fokus innerhalb des Dialogs (auch ohne Fokus des Betriebssystems)
+            if tab:   # Fokus auf den anderen Knopf, dann Enter
+                btn = [w for w in btn.master.winfo_children() if w is not btn][0]
+            btn.focus_force()   # Tk schickt Tastendrücke an den Fokus - ohne ihn käme Enter nirgends an
+            btn.event_generate("<Return>", when="tail")
+        answers = []
+        for kw, tab in (({"icon": "warning"}, False), ({}, False), ({"icon": "warning"}, True)):
+            root.after(400, press, tab)
+            answers.append(ui_msgbox.askokcancel("T", "Text", parent=root, **kw))
+        check("Rückfrage: Enter = vorgewählt bzw. Knopf mit Fokus", answers == [False, True, True], answers)
         root.destroy()
     pc_common.history_clear()
     check("Verlauf geleert", pc_common.history_load() == [])
@@ -237,6 +275,14 @@ try:
         f.write("0" * 64 + "  anders.img.zst\n")
     (ok, msg, info), _s, _j = verify(other)
     check("falsche .sha256 erkannt", not ok and info.get("side") == "bad", (ok, msg, info))
+    with open(other + ".sha256", "w", encoding="utf-8") as f:   # anderes Werkzeug (BSD/certutil-Stil): nicht "beschädigt"
+        f.write("SHA256 (anders.img.zst) = " + "a" * 64 + "\n")
+    (ok, msg, info), _s, _j = verify(other)
+    check(".sha256 in fremdem Format: nicht als beschädigt gemeldet", ok and info.get("side") == "none", (ok, msg, info))
+    with open(other + ".sha256", "w", encoding="utf-8-sig") as f:   # mit BOM (z. B. PowerShell) - wird gelesen
+        f.write("0" * 64 + "  anders.img.zst\n")
+    (ok, msg, info), _s, _j = verify(other)
+    check(".sha256 mit BOM gelesen", not ok and info.get("side") == "bad", (ok, msg, info))
     os.remove(other + ".sha256")
     (ok, msg, info), _s, _j = verify(other)
     check("ohne .sha256: in Ordnung", ok and info.get("side") == "none", (ok, msg, info))

@@ -60,8 +60,10 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
+vm.runInContext("var jobHistory = [];", ctx);
 for (const src of [grab("const REPO ="), grab("function verTuple("), grab("function newerVersion("),
-                   grab("function checkUpdate("), grab("const HIST_KIND ="), grab("function historyList(")])
+                   grab("function checkUpdate("), grab("const HIST_KIND ="), grab("function historyList("),
+                   grab("const DRIVE_KINDS ="), grab("function lastJobOf("), grab("function lastJobText(")])
   vm.runInContext(src, ctx);
 const run = code => vm.runInContext(code, ctx);
 const flush = () => new Promise(r => setImmediate(r));
@@ -137,6 +139,22 @@ const flush = () => new Promise(r => setImmediate(r));
   ok("Verlauf: unbekannte Auftragsart (neuerer Formatierer) bleibt lesbar", rows[3].textContent.includes("neu-unbekannt"));
   ok("Verlauf: Zeilen per Controller erreichbar", rows.every(r => r.tabIndex === 0));
   ok("Verlauf leer: Hinweis", run("historyList([])").children[0].className === "empty");
+
+  // --------------------------------------------------------------- "Zuletzt: …" am Laufwerk
+  run(`jobHistory = [
+    {t: 1792593328, kind: "tile", ok: true},
+    {t: 1792593000, kind: "speed", ok: false, cancelled: true, model: "General UDisk", size: 1000},
+    {t: 1792592000, kind: "format", ok: true, model: "VendorCo", size: 64, ident: "AAA", fs: "exFAT"},
+    {t: 1792591000, kind: "label", ok: true, model: "VendorCo", size: 64, ident: "BBB"}]`);
+  const last = d => run("lastJobOf(" + JSON.stringify(d) + ")");
+  ok("Zuletzt: über die Seriennummer, nicht den Namen",
+     last({ name: "da5", model: "VendorCo", size: 64, ident: "BBB" }).kind === "label"
+     && last({ name: "da2", model: "VendorCo", size: 64, ident: "AAA" }).kind === "format");
+  ok("Zuletzt: anderer Stick mit Seriennummer: nichts", last({ model: "VendorCo", size: 64, ident: "CCC" }) === null);
+  ok("Zuletzt: ohne Seriennummer über Modell und Größe", last({ model: "General UDisk", size: 1000, ident: "" }).kind === "speed");
+  ok("Zuletzt: Kachel-Auftrag gehört zu keinem Laufwerk", last({ model: "", size: 0, ident: "" }) === null);
+  const lt = run("lastJobText(jobHistory[2]) + '|' + lastJobText(jobHistory[1])");
+  ok("Zuletzt: Text mit Dateisystem / abgebrochen", /^Zuletzt: Formatieren \(exFAT\), .+\|Zuletzt: Tempo messen – abgebrochen, /.test(lt), lt);
 
   console.log(fails ? `${fails} Test(s) fehlgeschlagen.` : "Alle Web-Logik-Tests bestanden.");
   process.exit(fails ? 1 : 0);

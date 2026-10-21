@@ -49,6 +49,9 @@ curl -s "$U/api/history" >"$W/h"
 [ "$(q '(d["entries"][2]["ok"], d["entries"][2]["fs"], d["entries"][2]["label"], d["entries"][2]["device"], d["entries"][2]["model"], d["entries"][2]["size"] > 0)' <"$W/h")" \
     = "(True, 'exFAT', 'VERLAUF', 'da0', 'Teststick', True)" ] && ok "Formatieren: Dateisystem, Bezeichnung, Laufwerk" \
     || bad "Formatieren-Eintrag" "$(q 'd["entries"][2]' <"$W/h")"
+ident=$(curl -s "$U/api/devices" | q 'd["devices"][0]["ident"]')
+[ -n "$ident" ] && [ "$(q 'd["entries"][2].get("ident")' <"$W/h")" = "$ident" ] \
+    && ok "Seriennummer im Eintrag (für \"Zuletzt\" am Laufwerk)" || bad "Seriennummer" "$ident / $(q 'd["entries"][2]' <"$W/h")"
 [ "$(q '(d["entries"][1]["ok"], d["entries"][1]["label"])' <"$W/h")" = "(True, 'NEU')" ] \
     && ok "Umbenennen: neue Bezeichnung" || bad "Umbenennen-Eintrag" "$(q 'd["entries"][1]' <"$W/h")"
 [ "$(q '(d["entries"][0]["ok"], d["entries"][0]["cancelled"], len(d["entries"][0]["msg"]) > 0, isinstance(d["entries"][0]["t"], int), d["entries"][0]["secs"] >= 0)' <"$W/h")" \

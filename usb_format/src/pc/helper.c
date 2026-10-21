@@ -581,17 +581,22 @@ static int cmd_backup(const char *disk, uint64_t size, const char *path) {
     return 0;
 }
 
-/* passt die Datei zu ihrer "<path>.sha256" daneben? 1 = ja, 0 = keine da, -1 = andere Prüfsumme */
+/* passt die Datei zu ihrer "<path>.sha256" daneben? 1 = ja, 0 = keine (verwertbare) da, -1 = andere Prüfsumme */
 static int side_check(const char *path, const char *sha) {
     char side[1100], line[160], e[128];
     if (snprintf(side, sizeof(side), "%s.sha256", path) >= (int)sizeof(side)) return 0;
     FILE *h = plat_fopen(side, 0, e, sizeof(e));
     if (!h) return 0;
-    int r = -1;
-    if (fgets(line, sizeof(line), h) && strlen(line) >= 64) {   /* "<hex>  <name>"; Windows-Werkzeuge schreiben groß */
-        r = 1;
-        for (int i = 0; i < 64; i++)
-            if (tolower((unsigned char)line[i]) != sha[i]) r = -1;
+    int r = 0;   /* nicht im Format "<hex>  <name>" (anderes Werkzeug, UTF-16, Kopfzeile): wie keine - nicht "beschädigt" */
+    if (fgets(line, sizeof(line), h)) {
+        const char *s = !strncmp(line, "\xEF\xBB\xBF", 3) ? line + 3 : line;   /* UTF-8-BOM */
+        int hex = strlen(s) >= 64 && !isxdigit((unsigned char)s[64]);
+        for (int i = 0; hex && i < 64; i++) hex = isxdigit((unsigned char)s[i]) != 0;
+        if (hex) {   /* Windows-Werkzeuge schreiben groß */
+            r = 1;
+            for (int i = 0; i < 64; i++)
+                if (tolower((unsigned char)s[i]) != sha[i]) r = -1;
+        }
     }
     fclose(h);
     return r;

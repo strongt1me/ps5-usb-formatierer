@@ -825,7 +825,8 @@ static int run_image(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t dev
         rd->pos = rd->len;   /* der Rest der Datei (falls etwas folgt) zählt für ihre SHA-256 mit */
         uint8_t *tmp = page;
         long g;
-        while ((g = rd_in(rd, tmp, PAGE)) > 0) {}
+        while ((g = rd_in(rd, tmp, PAGE)) > 0)   /* fremde Dateien können hier noch viel enthalten: abbrechbar */
+            if (cancel && __atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         if (g < 0) { snprintf(err, errlen, "%s", T("Lesen der Sicherung fehlgeschlagen")); goto out; }
         uint8_t fs[32];
         sha256_final(&rd->fsha, fs);

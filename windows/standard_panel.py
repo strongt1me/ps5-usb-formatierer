@@ -20,7 +20,8 @@ from i18n import _, quote
 from partition_editor import PartitionEditor
 from pc_common import (IMAGE_EXT, IS_WIN, PcJob, PlainJob, admin_wait_text, ask_string, confirm, data_kept_admin_text,
                        disk_name, fmt_size, hwnd_of, image_file_name, image_info, irreversible_admin_text, on_device,
-                       pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job, serial_args, show_scan)
+                       history_load, last_job, last_job_text, pc_dev_text, pc_list, pc_used, pc_volumes_text,
+                       record_job, serial_args, show_scan)
 
 from ui_widgets import ChoiceChips, DriveList, Tooltip
 
@@ -474,8 +475,10 @@ class StandardPanel(ttk.Frame):
         if not vols:
             pills.append((_("ohne Laufwerk"), ""))
         used = pc_used(d)
+        last = last_job(history_load(), d.get("model"), d.get("size"), d.get("serial", ""))
         return {"text": pc_dev_text(d), "title": d.get("model") or _("USB-Datenträger"), "size": fmt_size(d["size"]),
-                "sub": " · ".join(sub), "pills": pills, "used": min(1.0, used / d["size"]) if used and d["size"] else None}
+                "sub": " · ".join(sub), "pills": pills, "used": min(1.0, used / d["size"]) if used and d["size"] else None,
+                "last": last_job_text(last) if last else ""}
 
     # ------------------------------------------------------------------ Aufträge
 

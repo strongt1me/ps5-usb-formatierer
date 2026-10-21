@@ -143,6 +143,7 @@ class LinuxJob:
                 elif result is None and time.time() - last_change > self.STALL_S:
                     # pkexec läuft als root - beenden darf ihn nur er selbst; abbrechen lassen und aufgeben
                     self.cancel()
+                    self.cancel_requested = False   # hängt: "fehlgeschlagen", nicht "abgebrochen"
                     result = (False, _("Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen."), {})
                 elif result is None:
                     time.sleep(0.3)

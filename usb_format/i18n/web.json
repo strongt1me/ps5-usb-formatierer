@@ -1666,5 +1666,11 @@
   "it": "Svuota",
   "es": "Borrar",
   "fr": "Effacer"
+ },
+ "Zuletzt: {what}, {date}": {
+  "en": "Last: {what}, {date}",
+  "it": "Ultima: {what}, {date}",
+  "es": "Última: {what}, {date}",
+  "fr": "Dernière : {what}, {date}"
  }
 }

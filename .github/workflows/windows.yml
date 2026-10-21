@@ -6,6 +6,7 @@ name: Windows
 on:
   push:
     branches: [main]
+  pull_request:   # z. B. Dependabot-Vorschläge: bauen und prüfen, nichts veröffentlichen
   release:
     types: [published]
   workflow_dispatch:
@@ -24,7 +25,7 @@ jobs:
           python-version: "3.14"   # wie bei der Entwicklung - die Programme sind damit getestet
 
       - name: Python-Pakete
-        run: python -m pip install pyinstaller==6.22.3 pillow ziglang
+        run: python -m pip install -r windows/requirements-build.txt
 
       - name: Payload aus diesem (bzw. dem letzten) Release
         shell: bash

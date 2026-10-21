@@ -1,0 +1,7 @@
+# Werkzeuge zum Bauen und Prüfen der PC-Programme - CI und lokal: python -m pip install -r windows/requirements-build.txt
+# Feste Fassungen, damit die veröffentlichten Programme genau damit gebaut sind, womit getestet wurde. Neue Fassungen
+# schlägt Dependabot als Pull Request vor (.github/dependabot.yml); die CI prüft sie, übernommen wird von Hand.
+pyinstaller==6.22.3
+pillow==13.0.0
+pyflakes==4.0.3
+ziglang==0.16.0

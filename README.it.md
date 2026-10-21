@@ -111,6 +111,26 @@ Salva un'intera unità come <code>.img.zst</code> – solo le aree occupate, com
 
 </td>
 </tr>
+<tr>
+<td valign="top">
+
+### 🕓 Cronologia
+Le ultime operazioni con l'esito – sulla PS5 e sul PC. Ogni unità mostra cosa le è successo per ultimo.
+
+</td>
+<td valign="top">
+
+### 🔔 Sempre aggiornato
+Avviso di nuove versioni nell'interfaccia web e nei programmi per PC; «Novità» con il download del file giusto e del suo checksum.
+
+</td>
+<td valign="top">
+
+### ⌨️ Scorciatoie
+Programmi per PC: F1 guida, F5 rileggi, Ctrl+1 … 5 pagine, Ctrl+F cerca giochi, Ctrl+H cronologia.
+
+</td>
+</tr>
 </table>
 
 ## 📦 Download
@@ -125,6 +145,7 @@ Tutti i file sono nell'[ultima release](../../releases/latest).
 | `USB-Formatierer.exe` | **Programma Windows senza funzioni PS5:** tutti i file system, partizioni e modalità esperto. |
 | `PS5-USB-Formatierer-x86_64.AppImage`<br>`USB-Formatierer-x86_64.AppImage` | **Gli stessi due programmi per Linux** come AppImage: rendilo eseguibile (`chmod +x`) e avvialo – nessuna installazione. Per ARM64 (ad es. Raspberry Pi 4/5) usa i file con `aarch64`. |
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | Gli stessi programmi Linux come archivio: estrai e avvia (anche come `aarch64`). |
+| `SHA256SUMS` | **Checksum di tutti i file** per controllare i download: `sha256sum -c --ignore-missing SHA256SUMS` (Windows: `certutil -hashfile <file> SHA256`). |
 
 **Requisiti:** una PS5 con jailbreak attivo ed ELF loader (testato con il firmware 12.00); ShadowMountPlus per il riquadro app e per eliminare i giochi. Windows 10 o 11 (64 bit); per formattare sul PC, Windows chiede una volta i diritti di amministratore. Linux (x86_64 o ARM64): per formattare, il sistema chiede la password di amministratore (pkexec/polkit); NTFS, FAT16 ed ext li scrivono gli strumenti di sistema di `ntfs-3g`, `dosfstools` ed `e2fsprogs`.
 
@@ -168,9 +189,10 @@ Il pulsante **Aiuto** apre la guida dettagliata in cinque lingue – nell'interf
 |---|---|
 | Payload e avvio dell'app | WSL/Linux con [ps5-payload-sdk](https://github.com/ps5-payload-dev/sdk): `make -C usb_format all app PS5_PAYLOAD_SDK=…` (`app` richiede `ps5-native-tool`, vedi `usb_format/app/build_title.sh`) |
 | Cartella dell'app | `usb_format/dump/build.ps1` (.NET 10) |
-| Programmi Windows | `windows/build_exe.bat` (Python con PyInstaller, Pillow e ziglang) – compila anche l'helper `usbfmt_win.exe` e `mke2fs.exe` |
+| Programmi Windows | `windows/build_exe.bat` (strumenti: `pip install -r windows/requirements-build.txt`) – compila anche l'helper `usbfmt_win.exe` e `mke2fs.exe` |
 | Programmi Linux | `windows/build_linux.sh [usb_format.elf]` (Python 3 con tkinter, PyInstaller e Pillow, gcc) – compila anche l'helper `usbfmt_linux`. La CI (`.github/workflows/linux.yml`) compila e verifica tutto su Ubuntu, anche su dispositivi loop. |
-| Test | Linux/WSL: `usb_format/test/*.sh` |
+| Test | Linux/WSL: `usb_format/test/*.sh`, interfaccia web: `node usb_format/test/web_logic_test.js usb_format/web/index.html` |
+| Aggiornare la propria PS5 | `python tools/ps5_deploy.py update --host <IP-PS5>` – cartella dell'app (salvata prima) e formattatore; poi `… tile` per il riquadro |
 | Traduzioni | `usb_format/i18n/*.json` (`tools/i18n_gen.py`, `tools/web_i18n.py`) e `windows/i18n_app.json` (`windows/i18n_check.py`) |
 
 ## 📄 Licenze

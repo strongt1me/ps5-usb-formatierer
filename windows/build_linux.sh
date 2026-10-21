@@ -3,7 +3,7 @@
 # (PyInstaller) und packt sie als .tar.gz und - wenn APPIMAGETOOL gesetzt ist - als AppImage:
 #   PS5-USB-Formatierer   PS5 im Netz, "Am PC – für PS5" und "Am PC – frei" (braucht usb_format.elf)
 #   USB-Formatierer       nur "Am PC – frei": frei formatieren, ohne PS5-Funktionen
-# Benötigt: python3 mit tkinter, pip install pyinstaller pillow; gcc (statische glibc empfohlen).
+# Benötigt: python3 mit tkinter, python3 -m pip install -r requirements-build.txt; gcc (statische glibc empfohlen).
 #   [APPIMAGETOOL=pfad/appimagetool] [APPIMAGE_RUNTIME=pfad/runtime] windows/build_linux.sh [pfad/zu/usb_format.elf]
 set -euo pipefail
 cd "$(dirname "$0")"

@@ -26,7 +26,8 @@
  *   GET  /api/tile       App-Kachel PPSA86920 laut ShadowMountPlus: {smp, found, installed, registered (angemeldete
  *                         contentVersion), folder (contentVersion im App-Ordner), formatter}
  *   POST /api/tile       {} Kachel über ShadowMountPlus neu anmelden (Uninstall + Scan) - Auftrag "tile"
- *   GET  /api/history    {"entries":[{t, kind, ok, cancelled, secs, device, model, size, label, fs, file, count, msg}]}
+ *   GET  /api/history    {"entries":[{t, kind, ok, cancelled, secs, device, model, size, ident, label, fs, file, count,
+ *                         msg}]}
  *                         die letzten 100 Aufträge, neueste zuerst; POST /api/history/clear {} leert den Verlauf
  *   POST /api/open       {} Web-UI im PS5-Browser öffnen (für die App, app/title/starter.c)
  *   GET  /api/settings   {"theme":"auto|light|dark","scale_tv":160,"scale_pc":100,"lang":"de|en|it|es|fr|"};
@@ -442,17 +443,20 @@ static void history_add(const char *entry) {
     pthread_mutex_unlock(&hist_lock);
 }
 
-/* Eintrag zum eben beendeten Auftrag (nach finish: Meldung, abgebrochen) */
-static void history_job(const job_t *j, int ok) {
+/* Eintrag zum eben beendeten Auftrag. msg/cancelled kommen vom Aufrufer: nach finish() kann ein neuer Auftrag st schon
+ * geleert haben */
+static void history_job(const job_t *j, int ok, int cancelled, const char *msg) {
     static const char *const FS_NAME[] = {"", "exFAT", "FAT32", "NTFS", "ext4", "HFS+"};
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     long secs = (long)(now.tv_sec - j->t0.tv_sec);
-    char message[sizeof(st.message)];
-    pthread_mutex_lock(&lock);
-    int cancelled = st.cancelled;
-    memcpy(message, st.message, sizeof(message));
-    pthread_mutex_unlock(&lock);
+    char message[512];
+    snprintf(message, sizeof(message), "%s", msg ? msg : "");
+    if (msg && strlen(msg) >= sizeof(message)) {   /* gekürzt wie in finish(): kein halbes UTF-8-Zeichen */
+        size_t k = sizeof(message) - 4;
+        while (k && ((unsigned char)message[k] & 0xC0) == 0x80) k--;
+        memcpy(message + k, "…", 4);
+    }
 
     sbuf_t e = {0};
     sb_add(&e, "{\"t\":%lld,\"kind\":", (long long)time(NULL));
@@ -465,6 +469,10 @@ static void history_job(const job_t *j, int ok) {
         sb_add(&e, ",\"model\":");
         sb_str(&e, j->dev.model);
         sb_add(&e, ",\"size\":%llu", (unsigned long long)j->dev.size);
+        if (j->dev.ident[0]) {   /* erkennt den Stick wieder ("Zuletzt: …" am Laufwerk), auch unter anderem daN */
+            sb_add(&e, ",\"ident\":");
+            sb_str(&e, j->dev.ident);
+        }
     }
     const char *label = j->kind == JOB_FORMAT || j->kind == JOB_LABEL ? j->label : j->dev.label;
     if (label[0]) { sb_add(&e, ",\"label\":"); sb_str(&e, label); }
@@ -483,8 +491,9 @@ static void history_job(const job_t *j, int ok) {
 }
 
 static void job_done(job_t *j, int ok, sbuf_t *msg, sbuf_t *res, int refresh) {
+    int cancelled = !ok && __atomic_load_n(&cancel_requested, __ATOMIC_RELAXED);   /* wie finish() */
     finish(ok, msg->p, res->p);
-    history_job(j, ok);
+    history_job(j, ok, cancelled, msg->p);
     free(msg->p);
     free(res->p);
     free(j);
@@ -2158,17 +2167,22 @@ static void api_upload(int c, const char *query, const char *pre, size_t have, u
     else respond_error(c, 500, m);
 }
 
-/* passt die Datei zu ihrer "<path>.sha256" daneben? 1 = ja, 0 = keine da, -1 = andere Prüfsumme */
+/* passt die Datei zu ihrer "<path>.sha256" daneben? 1 = ja, 0 = keine (verwertbare) da, -1 = andere Prüfsumme */
 static int img_side_check(const char *path, const char *sha) {
     char side[600], line[160];
     if (snprintf(side, sizeof(side), "%s.sha256", path) >= (int)sizeof(side)) return 0;
     FILE *h = fopen(side, "r");
     if (!h) return 0;
-    int r = -1;
-    if (fgets(line, sizeof(line), h) && strlen(line) >= 64) {   /* "<hex>  <name>"; Windows-Werkzeuge schreiben groß */
-        r = 1;
-        for (int i = 0; i < 64; i++)
-            if (tolower((unsigned char)line[i]) != sha[i]) r = -1;
+    int r = 0;   /* nicht im Format "<hex>  <name>" (anderes Werkzeug, UTF-16, Kopfzeile): wie keine - nicht "beschädigt" */
+    if (fgets(line, sizeof(line), h)) {
+        const char *s = !strncmp(line, "\xEF\xBB\xBF", 3) ? line + 3 : line;   /* UTF-8-BOM */
+        int hex = strlen(s) >= 64 && !isxdigit((unsigned char)s[64]);
+        for (int i = 0; hex && i < 64; i++) hex = isxdigit((unsigned char)s[i]) != 0;
+        if (hex) {   /* Windows-Werkzeuge schreiben groß */
+            r = 1;
+            for (int i = 0; i < 64; i++)
+                if (tolower((unsigned char)s[i]) != sha[i]) r = -1;
+        }
     }
     fclose(h);
     return r;
@@ -2223,8 +2237,15 @@ static int request_image(int c, const char *body, char *path, size_t n) {
     int nl = loc ? img_locations(loc, MAX_LOCS) : 0;
     const imgloc_t *at = img_path_loc(p, loc, nl);
     free(loc);
-    if (!at || strlen(p) >= n) { respond_error(c, 400, "Image-Datei nicht gefunden – Liste neu laden."); return -1; }
-    snprintf(path, n, "%s", p);
+    /* weiter mit dem geprüften echten Pfad - ein Verweis (Symlink) zeigte sonst beim Löschen der .sha256 woandershin */
+    char *rp = at ? realpath(p, NULL) : NULL;
+    if (!rp || strlen(rp) >= n) {
+        free(rp);
+        respond_error(c, 400, "Image-Datei nicht gefunden – Liste neu laden.");
+        return -1;
+    }
+    snprintf(path, n, "%s", rp);
+    free(rp);
     return 0;
 }
 

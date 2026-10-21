@@ -198,21 +198,37 @@ def package(version, out):
     return [zpath, elf]
 
 
+# was der Release-Commit enthalten darf - alles andere gehört in einen eigenen Commit davor
+RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/")
+
+
 def publish(version, title, notes, message):
-    step("Einchecken, Tag, Push")
     tag = "v" + version
-    run(["git", "add", "-A"])
-    if message:
-        run(["git", "commit", "-q", "-F", message])
-    else:
-        run(["git", "commit", "-q", "-m", f"{version}: {title}"])
-    run(["git", "tag", tag])
-    run(["git", "push", "-q", "origin", "main"])
-    run(["git", "push", "-q", "origin", tag])
-    step("GitHub-Release")
     out = tempfile.mkdtemp(prefix="usbfmt-release-")
     try:
+        # erst alles prüfen, dann einchecken: ein öffentlicher Tag ohne Release ließe sich nicht einfach wiederholen
+        step("Release-Dateien prüfen")
         files = package(version, out)
+        elf = open(os.path.join(USB, "usb_format.elf"), "rb").read()
+        if version.encode() not in elf or len(elf) > ELF_MAX:
+            fail("usb_format.elf hat nicht die neue Version oder ist zu groß - ohne --skip-build neu bauen")
+        if subprocess.run(["gh", "auth", "status"], capture_output=True).returncode:
+            fail("gh ist nicht angemeldet (gh auth login)")
+        changed = [line[3:] for line in run(["git", "status", "--porcelain"], capture=True).splitlines() if line]
+        stray = [p for p in changed if not p.strip('"').startswith(RELEASE_PATHS)]
+        if stray:
+            fail("nicht zum Release gehörende Änderungen - erst einchecken oder wegräumen: " + ", ".join(stray))
+        print(f"{len(files)} Dateien, ELF {len(elf) / 1e6:.2f} MB, gh angemeldet")
+        step("Einchecken, Tag, Push")
+        run(["git", "add", "-A"])
+        if message:
+            run(["git", "commit", "-q", "-F", message])
+        else:
+            run(["git", "commit", "-q", "-m", f"{version}: {title}"])
+        run(["git", "tag", tag])
+        run(["git", "push", "-q", "origin", "main"])
+        run(["git", "push", "-q", "origin", tag])
+        step("GitHub-Release")
         run(["gh", "release", "create", tag, "--repo", REPO, "--title", f"USB-Formatierer {version}",
              "--notes-file", notes, *files])
     finally:

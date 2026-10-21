@@ -194,6 +194,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.5"/><path d="M12 17.1v.2"/></symbol>
   <symbol id="i-disk" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
   <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
   <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
 </svg>
 
@@ -229,6 +230,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#de-cluster">Zuordnungseinheit &amp; Partitionstabelle</a></li>
   <li><a href="#de-test">Echtheit &amp; Tempo</a></li>
   <li><a href="#de-image">Image sichern &amp; wiederherstellen</a></li>
+  <li><a href="#de-extras">Verlauf, Updates &amp; Tastenkürzel</a></li>
   <li><a href="#de-faq">Hilfe bei Problemen</a></li>
   <li><a href="#de-license">Lizenzen</a></li>
 </ol>
@@ -412,6 +414,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 speichert Dateien nur bis 4 GB. Für große Sicherungen ein Ziel mit exFAT oder NTFS wählen.</div></div>
 </section>
 
+<section id="de-extras">
+  <h2><span class="ic"><svg class="i"><use href="#i-clock" xlink:href="#i-clock"/></svg></span>Verlauf, Updates und Tastenkürzel</h2>
+  <h3>Verlauf</h3>
+  <p>Der Knopf <b>„Verlauf“</b> oben zeigt die letzten 100 Aufträge mit Ergebnis – erfolgreich, abgebrochen oder fehlgeschlagen –,
+    dazu Laufwerk, Dateisystem, Bezeichnung, Dauer und die Meldung. Die Weboberfläche zeigt die Aufträge des Formatierers auf der PS5,
+    die PC-Programme ihre eigenen; der PS5-USB-Formatierer zeigt beide zusammen (Spalte „Ort“). Unter jedem Laufwerk steht außerdem,
+    was zuletzt mit ihm passiert ist, z. B. „Zuletzt: Formatieren (exFAT), 20.10.2026“. Wiedererkannt wird es an der Seriennummer,
+    ohne sie an Modell und Größe. „Verlauf leeren“ löscht nur die Liste – Laufwerke und Sicherungen bleiben unverändert.</p>
+  <h3>Neue Versionen</h3>
+  <p>Gibt es auf GitHub eine neuere Version, erscheint unten neben der Versionsnummer <b>„Neue Version … verfügbar“</b>. In den
+    PC-Programmen öffnet ein Klick <b>„Was ist neu“</b> mit den Hinweisen zur neuen Version und einem Knopf, der die passende Datei
+    lädt (Windows: <code>.exe</code>, Linux: AppImage). Die Programme ersetzen sich nicht selbst: die neue Datei einfach an die Stelle
+    der alten legen, die Einstellungen bleiben erhalten. Ohne Internet bleibt alles still.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Downloads prüfen:</b> Jedes Release
+    enthält <code>SHA256SUMS</code> mit den Prüfsummen aller Dateien; „Was ist neu“ zeigt die Prüfsumme der angebotenen Datei gleich an.
+    Vergleichen unter Windows mit <code>certutil -hashfile &lt;Datei&gt; SHA256</code>, unter Linux mit
+    <code>sha256sum -c --ignore-missing SHA256SUMS</code>.</div></div>
+  <h3>Tastenkürzel (PC-Programme)</h3>
+  <div class="tbl"><table>
+    <tr><th>Taste</th><th>Wirkung</th></tr>
+    <tr><td><code>F1</code></td><td>diese Anleitung öffnen</td></tr>
+    <tr><td><code>F5</code></td><td>Laufwerke bzw. die PS5 neu einlesen</td></tr>
+    <tr><td><code>Strg+1</code> … <code>Strg+5</code></td><td>Seiten des PS5-USB-Formatierers (Formatieren, Spiele, Image-Sicherung, Am PC)</td></tr>
+    <tr><td><code>Strg+F</code></td><td>Spiele durchsuchen</td></tr>
+    <tr><td><code>Strg+H</code></td><td>Verlauf öffnen</td></tr>
+  </table></div>
+</section>
+
 <section id="de-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Hilfe bei Problemen</h2>
   <details><summary>„ELF-Loader (Port 9021) nicht erreichbar“</summary><p>Der Jailbreak läuft nicht (mehr). Jailbreak laden und die App erneut starten.</p></details>
@@ -457,6 +487,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#en-cluster">Allocation unit &amp; partition table</a></li>
   <li><a href="#en-test">Authenticity &amp; speed</a></li>
   <li><a href="#en-image">Back up &amp; restore images</a></li>
+  <li><a href="#en-extras">History, updates &amp; shortcuts</a></li>
   <li><a href="#en-faq">Troubleshooting</a></li>
   <li><a href="#en-license">Licences</a></li>
 </ol>
@@ -640,6 +671,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 stores files of up to 4 GB only. For large backups choose a destination with exFAT or NTFS.</div></div>
 </section>
 
+<section id="en-extras">
+  <h2><span class="ic"><svg class="i"><use href="#i-clock" xlink:href="#i-clock"/></svg></span>History, updates and shortcuts</h2>
+  <h3>History</h3>
+  <p>The <b>“History”</b> button at the top shows the last 100 tasks and their results – successful, cancelled or failed – together
+    with drive, file system, label, duration and the message. The web interface shows the formatter's tasks on the PS5, the PC
+    programs their own; the PS5-USB-Formatierer shows both together (column “Where”). Below every drive you also see what last happened
+    to it, e.g. “Last: Format (exFAT), 2026-10-20”. The drive is recognised by its serial number, without one by model and size.
+    “Clear history” only deletes the list – drives and backups stay unchanged.</p>
+  <h3>New versions</h3>
+  <p>When a newer version is available on GitHub, <b>“New version … available”</b> appears next to the version number at the bottom.
+    In the PC programs a click opens <b>“What's new”</b> with the release notes and a button that downloads the right file (Windows:
+    <code>.exe</code>, Linux: AppImage). The programs do not replace themselves: simply put the new file where the old one was – your
+    settings are kept. Without internet nothing is shown.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Check your downloads:</b> every
+    release contains <code>SHA256SUMS</code> with the checksums of all files; “What's new” shows the checksum of the offered file right
+    away. Compare on Windows with <code>certutil -hashfile &lt;file&gt; SHA256</code>, on Linux with
+    <code>sha256sum -c --ignore-missing SHA256SUMS</code>.</div></div>
+  <h3>Keyboard shortcuts (PC programs)</h3>
+  <div class="tbl"><table>
+    <tr><th>Key</th><th>Effect</th></tr>
+    <tr><td><code>F1</code></td><td>open this guide</td></tr>
+    <tr><td><code>F5</code></td><td>reload the drives or the PS5</td></tr>
+    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>pages of the PS5-USB-Formatierer (Format, Games, Image backup, On the PC)</td></tr>
+    <tr><td><code>Ctrl+F</code></td><td>search games</td></tr>
+    <tr><td><code>Ctrl+H</code></td><td>open the history</td></tr>
+  </table></div>
+</section>
+
 <section id="en-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Troubleshooting</h2>
   <details><summary>“ELF loader (port 9021) not reachable”</summary><p>The jailbreak is not running (any more). Load the jailbreak and start the app again.</p></details>
@@ -685,6 +744,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#it-cluster">Unità di allocazione e tabella</a></li>
   <li><a href="#it-test">Autenticità e velocità</a></li>
   <li><a href="#it-image">Salvare e ripristinare immagini</a></li>
+  <li><a href="#it-extras">Cronologia, aggiornamenti e scorciatoie</a></li>
   <li><a href="#it-faq">Risoluzione dei problemi</a></li>
   <li><a href="#it-license">Licenze</a></li>
 </ol>
@@ -868,6 +928,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 memorizza file solo fino a 4 GB. Per backup grandi scegli una destinazione exFAT o NTFS.</div></div>
 </section>
 
+<section id="it-extras">
+  <h2><span class="ic"><svg class="i"><use href="#i-clock" xlink:href="#i-clock"/></svg></span>Cronologia, aggiornamenti e scorciatoie</h2>
+  <h3>Cronologia</h3>
+  <p>Il pulsante <b>«Cronologia»</b> in alto mostra le ultime 100 operazioni con l'esito – riuscita, annullata o non riuscita – insieme
+    a unità, file system, etichetta, durata e messaggio. L'interfaccia web mostra le operazioni del formattatore sulla PS5, i programmi
+    per PC le proprie; il PS5-USB-Formatierer le mostra entrambe (colonna «Dove»). Sotto ogni unità compare inoltre cosa le è
+    successo per ultimo, ad es. «Ultima: Formatta (exFAT), 20/10/2026». L'unità viene riconosciuta dal numero di serie, senza di esso
+    da modello e dimensione. «Svuota cronologia» elimina solo l'elenco – unità e backup restano invariati.</p>
+  <h3>Nuove versioni</h3>
+  <p>Se su GitHub c'è una versione più recente, in basso accanto al numero di versione compare <b>«Nuova versione … disponibile»</b>.
+    Nei programmi per PC un clic apre <b>«Novità»</b> con le note della versione e un pulsante che scarica il file giusto (Windows:
+    <code>.exe</code>, Linux: AppImage). I programmi non si sostituiscono da soli: basta mettere il nuovo file al posto del vecchio –
+    le impostazioni restano. Senza internet non compare nulla.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Verificare i download:</b> ogni
+    release contiene <code>SHA256SUMS</code> con i checksum di tutti i file; «Novità» mostra subito il checksum del file offerto.
+    Confronta su Windows con <code>certutil -hashfile &lt;file&gt; SHA256</code>, su Linux con
+    <code>sha256sum -c --ignore-missing SHA256SUMS</code>.</div></div>
+  <h3>Scorciatoie da tastiera (programmi per PC)</h3>
+  <div class="tbl"><table>
+    <tr><th>Tasto</th><th>Effetto</th></tr>
+    <tr><td><code>F1</code></td><td>apre questa guida</td></tr>
+    <tr><td><code>F5</code></td><td>rilegge le unità o la PS5</td></tr>
+    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>pagine del PS5-USB-Formatierer (Formatta, Giochi, Backup immagine, Sul PC)</td></tr>
+    <tr><td><code>Ctrl+F</code></td><td>cerca giochi</td></tr>
+    <tr><td><code>Ctrl+H</code></td><td>apre la cronologia</td></tr>
+  </table></div>
+</section>
+
 <section id="it-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Risoluzione dei problemi</h2>
   <details><summary>«ELF loader (porta 9021) non raggiungibile»</summary><p>Il jailbreak non è (più) attivo. Carica il jailbreak e avvia di nuovo l'app.</p></details>
@@ -913,6 +1001,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#es-cluster">Unidad de asignación y tabla</a></li>
   <li><a href="#es-test">Autenticidad y velocidad</a></li>
   <li><a href="#es-image">Guardar y restaurar imágenes</a></li>
+  <li><a href="#es-extras">Historial, actualizaciones y atajos</a></li>
   <li><a href="#es-faq">Solución de problemas</a></li>
   <li><a href="#es-license">Licencias</a></li>
 </ol>
@@ -1096,6 +1185,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 solo guarda archivos de hasta 4 GB. Para copias grandes elige un destino con exFAT o NTFS.</div></div>
 </section>
 
+<section id="es-extras">
+  <h2><span class="ic"><svg class="i"><use href="#i-clock" xlink:href="#i-clock"/></svg></span>Historial, actualizaciones y atajos</h2>
+  <h3>Historial</h3>
+  <p>El botón <b>«Historial»</b> de arriba muestra las últimas 100 tareas con su resultado – correcta, cancelada o fallida – junto con
+    la unidad, el sistema de archivos, la etiqueta, la duración y el mensaje. La interfaz web muestra las tareas del formateador en la
+    PS5 y los programas de PC las suyas; el PS5-USB-Formatierer muestra ambas juntas (columna «Dónde»). Debajo de cada unidad aparece
+    además lo último que se hizo con ella, p. ej. «Última: Formatear (exFAT), 20/10/2026». La unidad se reconoce por su número de
+    serie y, si no lo tiene, por modelo y tamaño. «Borrar historial» solo borra la lista: las unidades y las copias no cambian.</p>
+  <h3>Nuevas versiones</h3>
+  <p>Si en GitHub hay una versión más reciente, abajo junto al número de versión aparece <b>«Nueva versión … disponible»</b>. En los
+    programas de PC, un clic abre <b>«Novedades»</b> con las notas de la versión y un botón que descarga el archivo adecuado (Windows:
+    <code>.exe</code>, Linux: AppImage). Los programas no se sustituyen solos: basta con poner el archivo nuevo en lugar del antiguo;
+    los ajustes se conservan. Sin internet no aparece nada.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Comprobar las descargas:</b> cada
+    versión incluye <code>SHA256SUMS</code> con las sumas de comprobación de todos los archivos; «Novedades» muestra directamente la del
+    archivo ofrecido. Compara en Windows con <code>certutil -hashfile &lt;archivo&gt; SHA256</code> y en Linux con
+    <code>sha256sum -c --ignore-missing SHA256SUMS</code>.</div></div>
+  <h3>Atajos de teclado (programas de PC)</h3>
+  <div class="tbl"><table>
+    <tr><th>Tecla</th><th>Efecto</th></tr>
+    <tr><td><code>F1</code></td><td>abrir esta guía</td></tr>
+    <tr><td><code>F5</code></td><td>volver a leer las unidades o la PS5</td></tr>
+    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>páginas del PS5-USB-Formatierer (Formatear, Juegos, Copia de imagen, En el PC)</td></tr>
+    <tr><td><code>Ctrl+F</code></td><td>buscar juegos</td></tr>
+    <tr><td><code>Ctrl+H</code></td><td>abrir el historial</td></tr>
+  </table></div>
+</section>
+
 <section id="es-faq">
   <h2><span class="ic"><svg class="i"><use href="#i-help" xlink:href="#i-help"/></svg></span>Solución de problemas</h2>
   <details><summary>«Cargador ELF (puerto 9021) inaccesible»</summary><p>El jailbreak no está (o ya no está) activo. Carga el jailbreak y vuelve a iniciar la app.</p></details>
@@ -1141,6 +1258,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#fr-cluster">Unité d'allocation et table</a></li>
   <li><a href="#fr-test">Authenticité et vitesse</a></li>
   <li><a href="#fr-image">Sauvegarder &amp; restaurer des images</a></li>
+  <li><a href="#fr-extras">Historique, mises à jour et raccourcis</a></li>
   <li><a href="#fr-faq">Dépannage</a></li>
   <li><a href="#fr-license">Licences</a></li>
 </ol>
@@ -1322,6 +1440,34 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">La restauration écrase toutes les données de la cible.</b>
     La cible doit être au moins aussi grande que le lecteur sauvegardé ; si elle est plus grande, le reste n'est pas utilisé.</div></div>
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>FAT32 ne stocke que des fichiers jusqu'à 4 Go. Pour les grosses sauvegardes, choisissez une destination en exFAT ou NTFS.</div></div>
+</section>
+
+<section id="fr-extras">
+  <h2><span class="ic"><svg class="i"><use href="#i-clock" xlink:href="#i-clock"/></svg></span>Historique, mises à jour et raccourcis</h2>
+  <h3>Historique</h3>
+  <p>Le bouton <b>« Historique »</b> en haut affiche les 100 dernières tâches et leur résultat – réussie, annulée ou échouée – avec le
+    lecteur, le système de fichiers, le nom, la durée et le message. L'interface web montre les tâches du formateur sur la PS5, les
+    programmes PC les leurs ; le PS5-USB-Formatierer montre les deux ensemble (colonne « Où »). Sous chaque lecteur figure en outre ce
+    qui lui est arrivé en dernier, p. ex. « Dernière : Formater (exFAT), 20/10/2026 ». Le lecteur est reconnu à son numéro de série,
+    sans celui-ci au modèle et à la taille. « Effacer l'historique » supprime seulement la liste – lecteurs et sauvegardes ne changent pas.</p>
+  <h3>Nouvelles versions</h3>
+  <p>Lorsqu'une version plus récente existe sur GitHub, <b>« Nouvelle version … disponible »</b> apparaît en bas à côté du numéro de
+    version. Dans les programmes PC, un clic ouvre <b>« Nouveautés »</b> avec les notes de version et un bouton qui télécharge le bon
+    fichier (Windows : <code>.exe</code>, Linux : AppImage). Les programmes ne se remplacent pas eux-mêmes : placez simplement le
+    nouveau fichier à la place de l'ancien – les réglages sont conservés. Sans internet, rien ne s'affiche.</p>
+  <div class="note ok"><svg class="i"><use href="#i-okc" xlink:href="#i-okc"/></svg><div><b class="t">Vérifier les téléchargements :</b>
+    chaque version contient <code>SHA256SUMS</code> avec les sommes de contrôle de tous les fichiers ; « Nouveautés » affiche
+    directement celle du fichier proposé. Comparez sous Windows avec <code>certutil -hashfile &lt;fichier&gt; SHA256</code>, sous Linux
+    avec <code>sha256sum -c --ignore-missing SHA256SUMS</code>.</div></div>
+  <h3>Raccourcis clavier (programmes PC)</h3>
+  <div class="tbl"><table>
+    <tr><th>Touche</th><th>Effet</th></tr>
+    <tr><td><code>F1</code></td><td>ouvrir ce guide</td></tr>
+    <tr><td><code>F5</code></td><td>relire les lecteurs ou la PS5</td></tr>
+    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>pages du PS5-USB-Formatierer (Formater, Jeux, Sauvegarde d'image, Sur le PC)</td></tr>
+    <tr><td><code>Ctrl+F</code></td><td>rechercher des jeux</td></tr>
+    <tr><td><code>Ctrl+H</code></td><td>ouvrir l'historique</td></tr>
+  </table></div>
 </section>
 
 <section id="fr-faq">

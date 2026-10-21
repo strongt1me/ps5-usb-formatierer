@@ -2620,5 +2620,11 @@
   "it": "Per verificare: Windows «certutil -hashfile <file> SHA256», Linux «sha256sum <file>».",
   "es": "Para comprobar: Windows «certutil -hashfile <archivo> SHA256», Linux «sha256sum <archivo>».",
   "fr": "Pour vérifier : Windows « certutil -hashfile <fichier> SHA256 », Linux « sha256sum <fichier> »."
+ },
+ "Zuletzt: {what}, {date}": {
+  "en": "Last: {what}, {date}",
+  "it": "Ultima: {what}, {date}",
+  "es": "Última: {what}, {date}",
+  "fr": "Dernière : {what}, {date}"
  }
 }

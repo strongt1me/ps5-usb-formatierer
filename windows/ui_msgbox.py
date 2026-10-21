@@ -46,7 +46,14 @@ def _dialog(title, message, kind, buttons, parent=None, default=0, cancel=None):
         b.pack(side="left", padx=(ui_theme.px(8), 0))
         widgets.append(b)
     win.bind("<Escape>", lambda e: done(cancel))
-    win.bind("<Return>", lambda e: done(buttons[default][1]))
+
+    def enter(e):   # Enter löst den Knopf mit dem Fokus aus (mit Tab gewählt), sonst den vorgewählten
+        w = e.widget if e.widget in widgets else win.focus_get()
+        if w in widgets:
+            w.invoke()
+        else:
+            done(buttons[default][1])
+    win.bind("<Return>", enter)
     win.protocol("WM_DELETE_WINDOW", lambda: done(cancel))
     win.update_idletasks()
     if root is not None and root.winfo_viewable():
@@ -56,11 +63,20 @@ def _dialog(title, message, kind, buttons, parent=None, default=0, cancel=None):
     win.deiconify()
     ui_theme.dark_titlebar(win)
     widgets[default].focus_set()
+    old = win.grab_current()   # z. B. ein modaler Dialog, der diese Meldung zeigt - danach wieder modal machen
     try:
+        win.wait_visibility()   # Linux: grab_set scheitert sonst, solange die Maustaste noch gedrückt ist
         win.grab_set()
     except tk.TclError:
         pass
     win.wait_window()
+    if old is not None:
+        try:
+            if old.winfo_exists():
+                old.grab_set()
+                old.focus_set()
+        except tk.TclError:
+            pass
     return result["v"]
 
 
@@ -76,11 +92,17 @@ def showerror(title, message, parent=None, **kw):
     return _dialog(title, message, "error", [(_("OK"), "ok", "Accent.TButton")], parent, cancel="ok")
 
 
-def askyesno(title, message, parent=None, icon="question", **kw):
+def _second(icon, default):
+    """vorgewählt "Nein"/"Abbrechen": ausdrücklich (default="no"/"cancel" wie bei tkinter.messagebox) oder bei
+    Warnungen - Enter allein soll nichts Unumkehrbares bestätigen"""
+    return 1 if default in ("no", "cancel") or (default is None and icon == "warning") else 0
+
+
+def askyesno(title, message, parent=None, icon="question", default=None, **kw):
     return _dialog(title, message, icon, [(_("Ja"), True, "Accent.TButton"), (_("Nein"), False, "TButton")],
-                   parent, default=0, cancel=False)
+                   parent, default=_second(icon, default), cancel=False)
 
 
-def askokcancel(title, message, parent=None, icon="question", **kw):
+def askokcancel(title, message, parent=None, icon="question", default=None, **kw):
     return _dialog(title, message, icon, [(_("OK"), True, "Accent.TButton"), (_("Abbrechen"), False, "TButton")],
-                   parent, default=0, cancel=False)
+                   parent, default=_second(icon, default), cancel=False)

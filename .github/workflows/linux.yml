@@ -53,7 +53,7 @@ jobs:
           python-version: "3.14"
 
       - name: Python-Pakete
-        run: python -m pip install pyinstaller==6.22.3 pillow pyflakes
+        run: python -m pip install -r windows/requirements-build.txt
 
       - name: Übersetzungen und Code prüfen
         run: |
@@ -172,6 +172,21 @@ jobs:
         run: |
           ls -l dist
           gh release upload "$TAG" dist/*.tar.gz dist/*.AppImage --clobber --repo "$GITHUB_REPOSITORY"
+
+      # von Hand neu angehängt (workflow_dispatch): die Dateien sind neu gebaut, also SHA256SUMS erneuern - beim
+      # Veröffentlichen erledigt das checksums.yml
+      - name: Prüfsummen erneuern
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
+            -q '.assets[] | select(.name != "SHA256SUMS") | "\(.digest // "" | ltrimstr("sha256:"))  \(.name)"' \
+            | sort -k2 >SHA256SUMS
+          cat SHA256SUMS
+          if grep -qv '^[0-9a-f]\{64\}  [^ /]' SHA256SUMS; then echo "Datei ohne Prüfsumme von GitHub"; exit 1; fi
+          gh release upload "$TAG" SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
 
   # Der PS5-Code (Payload) als Host-Programm - FreeBSD hat arc4random, glibc erst ab 2.36: daher Ubuntu 24.04
   payload:

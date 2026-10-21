@@ -12,7 +12,7 @@ import ui_theme
 from i18n import _
 from pc_common import (APP_VERSION, enable_dpi_awareness, enable_history, footer, history_clear, history_dialog,
                        history_load, keep_on_screen, lang_selector, load_settings, open_help, save_settings,
-                       setup_window, show_centered)
+                       setup_window, show_centered, work_area)
 from standard_panel import StandardPanel
 from ui_widgets import THEME_NEXT, app_header
 
@@ -37,9 +37,10 @@ class StandardApp(tk.Tk):
         self.after(100, self.panel.activate)
         self._sys_id = self.after(5000, self._follow_system)
         self.bind_all("<F1>", lambda e: open_help(i18n.lang(), self))
-        self.bind_all("<F5>", lambda e: self.panel.reload())
-        self.bind_all("<Control-h>", lambda e: self._history())
-        self.bind_all("<Control-H>", lambda e: self._history())
+        self.bind_all("<F5>", lambda e: not (self.panel.busy or self.grab_current()) and self.panel.reload())
+        for seq in ("<Control-h>", "<Control-H>"):   # nicht in Eingabefeldern: dort ist Strg+H der Rückschritt
+            self.bind_all(seq, lambda e: not isinstance(e.widget, (tk.Entry, ttk.Entry)) and not self.grab_current()
+                          and self._history())
 
     def _build(self):
         self.title(_("USB-Datenträger formatieren"))
@@ -57,7 +58,9 @@ class StandardApp(tk.Tk):
         self.panel = StandardPanel(self.frm, self.settings, lambda: save_settings(APP_NAME, self.settings))
         self.panel.grid(row=1, column=0, sticky="nsew")
         footer(self.frm, ps5=False).grid(row=2, column=0, sticky="ew")
-        self.minsize(ui_theme.px(940), ui_theme.px(640))
+        # höchstens so hoch, wie der Bildschirm Platz hat (Full HD mit 150 % und mehr) - center_window verkleinert sonst
+        # vergeblich
+        self.minsize(ui_theme.px(940), min(ui_theme.px(640), work_area(self)[3] - ui_theme.px(60)))
 
     def _history(self):
         """Fenster "Verlauf": die letzten Aufträge an diesem PC"""
@@ -80,8 +83,9 @@ class StandardApp(tk.Tk):
     def _follow_system(self):
         """Design "Automatisch": dem System folgen, auch wenn es im laufenden Betrieb umschaltet"""
         self._sys_id = self.after(5000, self._follow_system)
-        if self.settings.get("theme", "auto") != "auto" or self.panel.busy:
-            return
+        if self.settings.get("theme", "auto") != "auto" or self.panel.busy or self.grab_current() \
+                or any(isinstance(w, tk.Toplevel) for w in self.winfo_children()):
+            return   # offener Dialog: sein Auftrag hinge sonst an der abgebauten Oberfläche
         if ("dark" if ui_theme.system_dark() else "light") != ui_theme.mode():
             ui_theme.apply_theme(self, "auto")
             self._rebuild()

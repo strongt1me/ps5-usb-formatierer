@@ -1,0 +1,25 @@
+# Dependabot: schlägt einmal im Monat neue Fassungen der GitHub-Actions und der Python-Bauwerkzeuge
+# (windows/requirements-build.txt) als Pull Request vor - je ein gesammelter PR. Die CI (Windows, Linux x86_64/aarch64)
+# baut und testet ihn; übernommen wird nur von Hand. Nicht erfasst: appimagetool/type2-runtime (feste Fassung mit
+# Prüfsumme in linux.yml) und das ps5-payload-sdk (lokal in WSL).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "CI"
+
+  - package-ecosystem: pip
+    directory: "/windows"
+    schedule:
+      interval: monthly
+    groups:
+      bauwerkzeuge:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Bauwerkzeuge"
