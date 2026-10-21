@@ -123,9 +123,10 @@ Alle Dateien gibt es beim [neuesten Release](../../releases/latest).
 | `usb_format.elf` | **Der Formatierer (Payload).** Die App startet ihn selbst, das PC-Programm schickt ihn per „ELF senden“; sonst von Hand an den ELF-Loader (Port 9021). |
 | `PS5-USB-Formatierer.exe` | **Windows-Programm mit PS5-Funktionen:** „An der PS5“ (übers Netz), „Am PC – für PS5“, „Am PC – frei“ – mit eingebauter ELF. |
 | `USB-Formatierer.exe` | **Windows-Programm ohne PS5-Funktionen:** alle Dateisysteme, Partitionen und Expertenmodus. |
-| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Dieselben beiden Programme für Linux** (x86_64): entpacken und starten. |
+| `PS5-USB-Formatierer-x86_64.AppImage`<br>`USB-Formatierer-x86_64.AppImage` | **Dieselben beiden Programme für Linux** als AppImage: ausführbar machen (`chmod +x`) und starten – keine Installation. Für ARM64 (z. B. Raspberry Pi 4/5) die Dateien mit `aarch64`. |
+| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | Dieselben Linux-Programme als Archiv: entpacken und starten (auch als `aarch64`). |
 
-**Voraussetzungen:** PS5 mit laufendem Jailbreak und ELF-Loader (getestet mit Firmware 12.00), für die App-Kachel und das Löschen von Spielen ShadowMountPlus. Windows 10 oder 11 (64 Bit); zum Formatieren am PC fragt Windows einmal nach Administratorrechten. Linux (x86_64): zum Formatieren fragt das System nach dem Administrator-Passwort (pkexec/polkit); NTFS, FAT16 und ext schreiben die Systemwerkzeuge aus `ntfs-3g`, `dosfstools` und `e2fsprogs`.
+**Voraussetzungen:** PS5 mit laufendem Jailbreak und ELF-Loader (getestet mit Firmware 12.00), für die App-Kachel und das Löschen von Spielen ShadowMountPlus. Windows 10 oder 11 (64 Bit); zum Formatieren am PC fragt Windows einmal nach Administratorrechten. Linux (x86_64 oder ARM64): zum Formatieren fragt das System nach dem Administrator-Passwort (pkexec/polkit); NTFS, FAT16 und ext schreiben die Systemwerkzeuge aus `ntfs-3g`, `dosfstools` und `e2fsprogs`.
 
 ## 🚀 Schnellstart
 

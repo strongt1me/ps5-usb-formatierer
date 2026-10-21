@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Baut beide Programme für Linux (x86_64) als einzelne ausführbare Dateien (PyInstaller) und packt sie als .tar.gz:
+# Baut beide Programme für Linux (Architektur dieses Rechners: x86_64 oder aarch64) als einzelne ausführbare Dateien
+# (PyInstaller) und packt sie als .tar.gz und - wenn APPIMAGETOOL gesetzt ist - als AppImage:
 #   PS5-USB-Formatierer   PS5 im Netz, "Am PC – für PS5" und "Am PC – frei" (braucht usb_format.elf)
 #   USB-Formatierer       nur "Am PC – frei": frei formatieren, ohne PS5-Funktionen
 # Benötigt: python3 mit tkinter, pip install pyinstaller pillow; gcc (statische glibc empfohlen).
-#   windows/build_linux.sh [pfad/zu/usb_format.elf]
+#   [APPIMAGETOOL=pfad/appimagetool] [APPIMAGE_RUNTIME=pfad/runtime] windows/build_linux.sh [pfad/zu/usb_format.elf]
 set -euo pipefail
 cd "$(dirname "$0")"
 ELF=${1:-../usb_format/usb_format.elf}
 [ -f "$ELF" ] || { echo "usb_format.elf fehlt ($ELF) - für die PS5-Fassung nötig"; exit 1; }
 PY=${PYTHON:-python3}
+ARCH=$(uname -m)
+case "$ARCH" in amd64) ARCH=x86_64 ;; arm64) ARCH=aarch64 ;; esac
 
 # Übersetzungen vollständig?
 "$PY" i18n_check.py
@@ -45,13 +48,51 @@ for app in PS5-USB-Formatierer USB-Formatierer; do
     cp "dist/$app" "$d/"
     cp ../LICENSE "$d/LICENSE.txt"
     cat >"$d/LIESMICH.txt" <<EOF
-$app für Linux (x86_64)
+$app für Linux ($ARCH)
 
 Starten: ./$app  (oder doppelt anklicken)
 Zum Formatieren fragt das System nach dem Administrator-Passwort (pkexec, Paket polkit).
 NTFS, FAT16 und ext2/3/4 schreiben die Werkzeuge des Systems: Pakete ntfs-3g, dosfstools und e2fsprogs.
 Anleitung: Knopf "Hilfe" im Programm.
 EOF
-    tar -C dist/pack -czf "dist/$app-linux-x86_64.tar.gz" "$app"
+    tar -C dist/pack -czf "dist/$app-linux-$ARCH.tar.gz" "$app"
 done
 ls -l dist/*.tar.gz
+
+# AppImage: eine Datei, ausführbar machen und starten. Drin steckt dasselbe Einzeldatei-Programm wie im Archiv - mit
+# Absicht: es entpackt sich (samt Helfer) nach /tmp. Läge der Helfer direkt im AppImage, also in dessen FUSE-Einhängung,
+# könnte root (pkexec) ihn nicht lesen - FUSE lässt ohne allow_other nur den Benutzer selbst hinein.
+if [ -z "${APPIMAGETOOL:-}" ]; then
+    echo "AppImage übersprungen (APPIMAGETOOL nicht gesetzt)"
+    exit 0
+fi
+"$PY" - <<'EOF'
+from PIL import Image
+Image.open("../usb_format/app/art/icon.png").convert("RGBA").resize((256, 256), Image.LANCZOS).save("dist/pack/icon256.png")
+EOF
+for app in PS5-USB-Formatierer USB-Formatierer; do
+    a="dist/pack/$app.AppDir"
+    rm -rf "$a"
+    mkdir -p "$a/usr/bin"
+    cp "dist/$app" "$a/usr/bin/$app"
+    cp dist/pack/icon256.png "$a/$app.png"
+    ln -s "$app.png" "$a/.DirIcon"
+    cat >"$a/AppRun" <<EOF
+#!/bin/sh
+exec "\$APPDIR/usr/bin/$app" "\$@"
+EOF
+    chmod +x "$a/AppRun"
+    cat >"$a/$app.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$app
+Comment=USB-Laufwerke formatieren, prüfen und sichern
+Exec=$app
+Icon=$app
+Terminal=false
+Categories=Utility;System;
+EOF
+    ARCH=$ARCH APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" --no-appstream \
+        ${APPIMAGE_RUNTIME:+--runtime-file "$APPIMAGE_RUNTIME"} "$a" "dist/$app-$ARCH.AppImage"
+done
+ls -l dist/*.AppImage

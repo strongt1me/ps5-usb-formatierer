@@ -5,6 +5,7 @@ import ctypes
 import hashlib
 import json
 import os
+import platform
 import re
 import secrets
 import struct
@@ -941,8 +942,13 @@ _update = {"state": None, "found": None}   # state: None = nicht gefragt, "busy"
 _update_lock = threading.Lock()
 
 
+NOTES_MAX = 20000   # Zeichen der Release-Hinweise, die das Fenster "Was ist neu" höchstens zeigt
+
+
 def newer_release(data, current=None):
-    """Antwort von GitHub (releases/latest) auswerten: (version, link), wenn neuer als die laufende, sonst None"""
+    """Antwort von GitHub (releases/latest) auswerten. Neuer als die laufende Version: {"version", "url" (Release-Seite),
+    "notes" (Hinweise als Markdown), "assets" ({Dateiname: Download-Link})}, sonst None. Links, die nicht in dieses
+    Projekt führen, werden ersetzt bzw. weggelassen."""
     if not isinstance(data, dict) or data.get("draft") or data.get("prerelease"):
         return None
     tag = str(data.get("tag_name", "")).strip().lstrip("vV")
@@ -952,7 +958,53 @@ def newer_release(data, current=None):
     url = str(data.get("html_url", ""))
     if not url.startswith(REPO_URL + "/releases/"):   # nur Links in dieses Projekt öffnen
         url = REPO_URL + "/releases/latest"
-    return ".".join(map(str, new)), url
+    assets = {}
+    for a in data.get("assets") if isinstance(data.get("assets"), list) else []:
+        if isinstance(a, dict):
+            name, link = str(a.get("name", "")), str(a.get("browser_download_url", ""))
+            if name and "/" not in name and link == f"{REPO_URL}/releases/download/v{tag}/{name}":
+                assets[name] = link
+    notes = data.get("body")
+    return {"version": ".".join(map(str, new)), "url": url, "assets": assets,
+            "notes": notes[:NOTES_MAX] if isinstance(notes, str) else ""}
+
+
+def machine():
+    """Prozessor-Architektur in der Schreibweise der Release-Dateien: x86_64 oder aarch64"""
+    m = platform.machine().lower()
+    return {"amd64": "x86_64", "x64": "x86_64", "arm64": "aarch64"}.get(m, m)
+
+
+def release_file(found, app):
+    """passende Datei des Releases für dieses System: (name, link) oder None. Linux: AppImage vor dem Archiv."""
+    names = [f"{app}.exe"] if IS_WIN else [f"{app}-{machine()}.AppImage", f"{app}-linux-{machine()}.tar.gz"]
+    for name in names:
+        if name in found.get("assets", {}):
+            return name, found["assets"][name]
+    return None
+
+
+def note_lines(md):
+    """Release-Hinweise (Markdown) als schlichte Zeilen [(text, überschrift?)]: Überschriften ohne #, Aufzählungen
+    mit •, Links nur als Text, keine doppelten Leerzeilen"""
+    out = []
+    for line in str(md or "").replace("\r\n", "\n").split("\n"):
+        s = line.rstrip()
+        head = re.match(r"^\s{0,3}#{1,6}\s+", s)
+        s = s[head.end():] if head else s
+        s = re.sub(r"^(\s*)[-*+]\s+", lambda m: m.group(1) + "• ", s)
+        s = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", s)
+        s = re.sub(r"(\*\*|__|`)", "", s)
+        if s or (out and out[-1][0]):
+            out.append((s, bool(head)))
+    while out and not out[-1][0]:
+        out.pop()
+    return out
+
+
+def plain_notes(md):
+    """Release-Hinweise als schlichter Text (siehe note_lines)"""
+    return "\n".join(s for s, _head in note_lines(md))
 
 
 def _fetch_update():
@@ -979,20 +1031,86 @@ def start_update_check():
     threading.Thread(target=_fetch_update, daemon=True).start()
 
 
-def update_note(parent):
-    """Link "Neue Version … verfügbar" - erscheint, sobald die Prüfung eine neuere Version gefunden hat"""
+def update_dialog(root, found, app):
+    """Fenster "Was ist neu": Release-Hinweise der neuen Version, Knopf zum Laden der passenden Datei (öffnet den
+    Download im Browser - das Programm ersetzt sich nicht selbst) und zur Release-Seite"""
+    import webbrowser
+    c = ui_theme.colors()
+    win = tk.Toplevel(root)
+    win.withdraw()
+    win.title(_("Neue Version {version}", version=found["version"]))
+    win.transient(root)
+    win.configure(bg=c["card"])
+    frm = ttk.Frame(win, padding=ui_theme.pad((22, 18, 22, 16)))
+    frm.pack(fill="both", expand=True)
+    frm.columnconfigure(0, weight=1)
+    frm.rowconfigure(2, weight=1)
+    ttk.Label(frm, text=_("Neue Version {version}", version=found["version"]), style="H2.TLabel").grid(
+        row=0, column=0, columnspan=2, sticky="w")
+    ttk.Label(frm, text=_("Installiert ist v{version}. Was ist neu:", version=APP_VERSION), style="Muted.TLabel").grid(
+        row=1, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(4), ui_theme.px(8)))
+    text = tk.Text(frm, wrap="word", width=72, height=16, relief="flat", borderwidth=0, highlightthickness=1,
+                   highlightbackground=c["border"], highlightcolor=c["border"], bg=c["field"], fg=c["text"],
+                   padx=ui_theme.px(10), pady=ui_theme.px(8), font="TkDefaultFont", cursor="arrow")
+    bar = ttk.Scrollbar(frm, orient="vertical", command=text.yview)
+    text.configure(yscrollcommand=bar.set)
+    text.grid(row=2, column=0, sticky="nsew")
+    bar.grid(row=2, column=1, sticky="ns")
+    text.tag_configure("head", font="UfBold")
+    lines = note_lines(found.get("notes")) or [(_("Keine Hinweise zu dieser Version."), False)]
+    for i, (s, head) in enumerate(lines):
+        text.insert("end", s + ("\n" if i < len(lines) - 1 else ""), ("head",) if head else ())
+    text.configure(state="disabled")
+    target = release_file(found, app)
+    if not target:
+        hint = _("Für dieses System liegt keine passende Datei im Release – bitte auf der Release-Seite wählen.")
+    elif IS_WIN:
+        hint = _("Die neue Datei ersetzt einfach die alte – die Einstellungen bleiben erhalten.")
+    elif target[0].endswith(".AppImage"):
+        hint = _("Unter Linux die geladene Datei ausführbar machen (chmod +x) und starten.")
+    else:
+        hint = _("Unter Linux das Archiv entpacken und das Programm starten.")
+    ttk.Label(frm, text=hint, style="Hint.TLabel", wraplength=ui_theme.px(520), justify="left").grid(
+        row=3, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(10), 0))
+    btns = ttk.Frame(frm)
+    btns.grid(row=4, column=0, columnspan=2, sticky="e", pady=(ui_theme.px(14), 0))
+
+    def open_url(url):
+        webbrowser.open(url)
+        win.destroy()
+
+    first = None
+    if target:
+        first = ttk.Button(btns, text=_("Herunterladen ({file})", file=target[0]), style="Accent.TButton",
+                           command=lambda: open_url(target[1]))
+        first.pack(side="left")
+    page = ttk.Button(btns, text=_("Release-Seite öffnen"), style="TButton" if target else "Accent.TButton",
+                      command=lambda: open_url(found["url"]))
+    page.pack(side="left", padx=(ui_theme.px(8), 0))
+    ttk.Button(btns, text=_("Schließen"), command=win.destroy).pack(side="left", padx=(ui_theme.px(8), 0))
+    win.bind("<Escape>", lambda e: win.destroy())
+    win.update_idletasks()
+    top = root.winfo_toplevel()
+    x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
+    y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(_inside(win, top, x, y))
+    win.minsize(win.winfo_reqwidth() // 2, win.winfo_reqheight() // 2)
+    win.deiconify()
+    ui_theme.dark_titlebar(win)
+    (first or page).focus_set()
+    return win
+
+
+def update_note(parent, app):
+    """Link "Neue Version … verfügbar" - erscheint, sobald die Prüfung eine neuere Version gefunden hat; ein Klick
+    öffnet "Was ist neu" (update_dialog) für das Programm app (Name der Release-Datei)"""
     note = ttk.Label(parent, text="", style="PageLink.TLabel", cursor="hand2")
     after = [None]
 
     def show(found):
-        version, url = found
-        note.configure(text="·  " + _("Neue Version {version} verfügbar", version=version))
+        note.configure(text="·  " + _("Neue Version {version} verfügbar", version=found["version"]))
         note.pack(side="left", padx=(8, 0))
-
-        def visit(_e=None):
-            import webbrowser
-            webbrowser.open(url)
-        note.bind("<Button-1>", visit)
+        note.bind("<Button-1>", lambda _e=None: update_dialog(note.winfo_toplevel(), found, app))
 
     def poll(n=0):
         after[0] = None
@@ -1050,7 +1168,7 @@ def footer(parent, ps5=True):
     credit(row, ps5).pack(side="left")
     if APP_VERSION:
         ttk.Label(row, text=f"·  v{APP_VERSION}", style="Page.TLabel").pack(side="left", padx=(8, 0))
-        update_note(row)
+        update_note(row, "PS5-USB-Formatierer" if ps5 else "USB-Formatierer")
     return frm
 
 

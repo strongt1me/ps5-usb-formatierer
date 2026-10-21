@@ -123,9 +123,10 @@ Tous les fichiers se trouvent dans la [dernière version](../../releases/latest)
 | `usb_format.elf` | **Le formateur (payload).** L'app le lance elle-même, le programme PC l'envoie via « Envoyer l'ELF » ; sinon, envoyez-le à la main au chargeur ELF (port 9021). |
 | `PS5-USB-Formatierer.exe` | **Programme Windows avec fonctions PS5 :** « Sur la PS5 » (via le réseau), « Sur le PC – pour PS5 », « Sur le PC – libre » – avec l'ELF intégré. |
 | `USB-Formatierer.exe` | **Programme Windows sans fonctions PS5 :** tous les systèmes de fichiers, partitions et mode expert. |
-| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Les deux mêmes programmes pour Linux** (x86_64) : décompresser et lancer. |
+| `PS5-USB-Formatierer-x86_64.AppImage`<br>`USB-Formatierer-x86_64.AppImage` | **Les deux mêmes programmes pour Linux** en AppImage : le rendre exécutable (`chmod +x`) et le lancer – aucune installation. Pour ARM64 (p. ex. Raspberry Pi 4/5), les fichiers avec `aarch64`. |
+| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | Les mêmes programmes Linux en archive : décompresser et lancer (aussi en `aarch64`). |
 
-**Prérequis :** une PS5 avec un jailbreak actif et un chargeur ELF (testé avec le firmware 12.00) ; ShadowMountPlus pour la vignette de l'app et la suppression des jeux. Windows 10 ou 11 (64 bits) ; pour formater sur le PC, Windows demande une fois les droits d'administrateur. Linux (x86_64) : pour formater, le système demande le mot de passe administrateur (pkexec/polkit) ; NTFS, FAT16 et ext sont écrits par les outils système de `ntfs-3g`, `dosfstools` et `e2fsprogs`.
+**Prérequis :** une PS5 avec un jailbreak actif et un chargeur ELF (testé avec le firmware 12.00) ; ShadowMountPlus pour la vignette de l'app et la suppression des jeux. Windows 10 ou 11 (64 bits) ; pour formater sur le PC, Windows demande une fois les droits d'administrateur. Linux (x86_64 ou ARM64) : pour formater, le système demande le mot de passe administrateur (pkexec/polkit) ; NTFS, FAT16 et ext sont écrits par les outils système de `ntfs-3g`, `dosfstools` et `e2fsprogs`.
 
 ## 🚀 Démarrage rapide
 

@@ -2434,5 +2434,65 @@
   "it": "{n} spuntati · {size}",
   "es": "{n} marcados · {size}",
   "fr": "{n} cochés · {size}"
+ },
+ "Neue Version {version}": {
+  "en": "New version {version}",
+  "it": "Nuova versione {version}",
+  "es": "Nueva versión {version}",
+  "fr": "Nouvelle version {version}"
+ },
+ "Installiert ist v{version}. Was ist neu:": {
+  "en": "Installed: v{version}. What's new:",
+  "it": "Installata: v{version}. Novità:",
+  "es": "Instalada: v{version}. Novedades:",
+  "fr": "Installée : v{version}. Nouveautés :"
+ },
+ "Keine Hinweise zu dieser Version.": {
+  "en": "No notes for this version.",
+  "it": "Nessuna nota per questa versione.",
+  "es": "No hay notas para esta versión.",
+  "fr": "Aucune note pour cette version."
+ },
+ "Für dieses System liegt keine passende Datei im Release – bitte auf der Release-Seite wählen.": {
+  "en": "The release has no matching file for this system – please choose one on the release page.",
+  "it": "La release non contiene un file adatto a questo sistema – sceglilo nella pagina della release.",
+  "es": "La versión no tiene un archivo adecuado para este sistema; elígelo en la página de la versión.",
+  "fr": "La version ne contient pas de fichier adapté à ce système – choisissez-le sur la page de la version."
+ },
+ "Die neue Datei ersetzt einfach die alte – die Einstellungen bleiben erhalten.": {
+  "en": "The new file simply replaces the old one – your settings are kept.",
+  "it": "Il nuovo file sostituisce semplicemente quello vecchio – le impostazioni restano.",
+  "es": "El archivo nuevo sustituye sin más al antiguo; los ajustes se conservan.",
+  "fr": "Le nouveau fichier remplace simplement l'ancien – les réglages sont conservés."
+ },
+ "Unter Linux die geladene Datei ausführbar machen (chmod +x) und starten.": {
+  "en": "On Linux, make the downloaded file executable (chmod +x) and start it.",
+  "it": "Su Linux rendi eseguibile il file scaricato (chmod +x) e avvialo.",
+  "es": "En Linux, haz ejecutable el archivo descargado (chmod +x) e inícialo.",
+  "fr": "Sous Linux, rendez le fichier téléchargé exécutable (chmod +x) puis lancez-le."
+ },
+ "Unter Linux das Archiv entpacken und das Programm starten.": {
+  "en": "On Linux, unpack the archive and start the program.",
+  "it": "Su Linux estrai l'archivio e avvia il programma.",
+  "es": "En Linux, descomprime el archivo e inicia el programa.",
+  "fr": "Sous Linux, décompressez l'archive puis lancez le programme."
+ },
+ "Herunterladen ({file})": {
+  "en": "Download ({file})",
+  "it": "Scarica ({file})",
+  "es": "Descargar ({file})",
+  "fr": "Télécharger ({file})"
+ },
+ "Release-Seite öffnen": {
+  "en": "Open release page",
+  "it": "Apri la pagina della release",
+  "es": "Abrir la página de la versión",
+  "fr": "Ouvrir la page de la version"
+ },
+ "Schließen": {
+  "en": "Close",
+  "it": "Chiudi",
+  "es": "Cerrar",
+  "fr": "Fermer"
  }
 }

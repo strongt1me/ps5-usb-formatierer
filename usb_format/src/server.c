@@ -817,9 +817,11 @@ static void respond_ex(int c, int code, const char *ctype, const char *body, siz
                      "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
                      "Cache-Control: %s\r\nX-Content-Type-Options: nosniff\r\n"
                      "X-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\n"
-                     /* nur eigene Inhalte (die Seite ist eine Datei mit eingebettetem Skript/Stil) */
+                     /* nur eigene Inhalte (die Seite ist eine Datei mit eingebettetem Skript/Stil); nach außen nur
+                        die Abfrage der neuesten Version bei GitHub (Hinweis unten auf der Seite) */
                      "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; "
-                     "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+                     "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+                     "connect-src 'self' https://api.github.com; "
                      "frame-ancestors 'none'; base-uri 'none'; form-action 'none'\r\n"
                      "Connection: close\r\n\r\n",
                      code, reason, ctype, len, cache);

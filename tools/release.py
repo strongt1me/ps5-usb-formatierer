@@ -5,7 +5,8 @@ README-Bilder erneuern - und erst mit --publish einchecken, taggen, hochladen un
     python tools/release.py 2.5.12 --title "Kurztext" --notes hinweise.md --publish --skip-build --skip-images
                                                          danach: Commit, Tag, Push, Release mit ELF und Kachel-ZIP
 
-Die Windows-Programme und die Linux-Archive baut und hängt die CI an das Release (release: published).
+Die Windows-Programme und die Linux-Fassungen (Archive und AppImages, x86_64 und aarch64) baut und hängt die CI an
+das Release (release: published).
 Voraussetzungen: WSL mit dem ps5-payload-sdk (PS5_PAYLOAD_SDK, sonst ~/ps5-build/boilerplate-sdk044/...), .NET-SDK für
 den Dump, Python mit Pillow, Microsoft Edge für die Bilder der Weboberfläche, gh (angemeldet) zum Veröffentlichen.
 Nie gleichzeitig mit den Host-Tests laufen lassen: beide brauchen Port 8090."""
@@ -215,7 +216,7 @@ def publish(version, title, notes, message):
              "--notes-file", notes, *files])
     finally:
         shutil.rmtree(out, ignore_errors=True)
-    print("Die CI baut jetzt die Windows-Programme und die Linux-Archive und hängt sie an das Release.")
+    print("Die CI baut jetzt die Windows-Programme und die Linux-Fassungen und hängt sie an das Release.")
 
 
 def main():

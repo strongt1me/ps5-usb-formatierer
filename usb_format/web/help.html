@@ -268,7 +268,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><td><code>usb_format.elf</code></td><td>Formatierer (Payload)</td><td>Die App startet ihn automatisch. Ohne App: an den ELF-Loader des Jailbreaks schicken (Port 9021).</td></tr>
     <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, mit PS5-Funktionen</td><td>Einfach starten – keine Installation nötig.</td></tr>
     <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, ohne PS5-Funktionen</td><td>Einfach starten – keine Installation nötig.</td></tr>
-    <tr><td><code>PS5-USB-Formatierer-linux-x86_64.tar.gz</code><br><code>USB-Formatierer-linux-x86_64.tar.gz</code></td><td>Linux (x86_64), mit bzw. ohne PS5-Funktionen</td><td>Entpacken und das Programm darin starten – keine Installation nötig.</td></tr>
+    <tr><td><code>PS5-USB-Formatierer-x86_64.AppImage</code><br><code>USB-Formatierer-x86_64.AppImage</code></td><td>Linux (x86_64, ARM64), mit bzw. ohne PS5-Funktionen</td><td>Ausführbar machen (<code>chmod +x</code>) und starten – keine Installation nötig. Für ARM64 (z. B. Raspberry Pi) die Dateien mit <code>aarch64</code>; als Archiv (<code>…-linux-x86_64.tar.gz</code>) entpacken und starten.</td></tr>
   </table></div>
   <p class="small">An der PS5 braucht es einen laufenden Jailbreak mit ELF-Loader (getestet mit Firmware 12.00). Zum Formatieren am PC fragt Windows nach Administratorrechten – mit „Ja“ bestätigen. Unter Linux fragt das System nach dem Administrator-Passwort.</p>
 </section>
@@ -496,7 +496,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><td><code>usb_format.elf</code></td><td>Formatter (payload)</td><td>The app starts it automatically. Without the app: send it to the jailbreak's ELF loader (port 9021).</td></tr>
     <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, with PS5 features</td><td>Just start it – no installation needed.</td></tr>
     <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, without PS5 features</td><td>Just start it – no installation needed.</td></tr>
-    <tr><td><code>PS5-USB-Formatierer-linux-x86_64.tar.gz</code><br><code>USB-Formatierer-linux-x86_64.tar.gz</code></td><td>Linux (x86_64), with or without PS5 features</td><td>Unpack and start the program inside – no installation needed.</td></tr>
+    <tr><td><code>PS5-USB-Formatierer-x86_64.AppImage</code><br><code>USB-Formatierer-x86_64.AppImage</code></td><td>Linux (x86_64, ARM64), with or without PS5 features</td><td>Make it executable (<code>chmod +x</code>) and start it – no installation needed. For ARM64 (e.g. Raspberry Pi) use the files with <code>aarch64</code>; as an archive (<code>…-linux-x86_64.tar.gz</code>) unpack and start.</td></tr>
   </table></div>
   <p class="small">The PS5 needs a running jailbreak with an ELF loader (tested with firmware 12.00). For formatting on the PC, Windows asks for administrator rights – confirm with “Yes”. On Linux the system asks for the administrator password.</p>
 </section>
@@ -724,7 +724,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><td><code>usb_format.elf</code></td><td>Formattatore (payload)</td><td>L'app lo avvia automaticamente. Senza app: invialo all'ELF loader del jailbreak (porta 9021).</td></tr>
     <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, con funzioni PS5</td><td>Basta avviarlo – nessuna installazione.</td></tr>
     <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, senza funzioni PS5</td><td>Basta avviarlo – nessuna installazione.</td></tr>
-    <tr><td><code>PS5-USB-Formatierer-linux-x86_64.tar.gz</code><br><code>USB-Formatierer-linux-x86_64.tar.gz</code></td><td>Linux (x86_64), con o senza funzioni PS5</td><td>Estrai l'archivio e avvia il programma contenuto – nessuna installazione.</td></tr>
+    <tr><td><code>PS5-USB-Formatierer-x86_64.AppImage</code><br><code>USB-Formatierer-x86_64.AppImage</code></td><td>Linux (x86_64, ARM64), con o senza funzioni PS5</td><td>Rendilo eseguibile (<code>chmod +x</code>) e avvialo – nessuna installazione. Per ARM64 (ad es. Raspberry Pi) i file con <code>aarch64</code>; come archivio (<code>…-linux-x86_64.tar.gz</code>) estrai e avvia.</td></tr>
   </table></div>
   <p class="small">Sulla PS5 serve un jailbreak attivo con ELF loader (testato con il firmware 12.00). Per formattare sul PC, Windows chiede i diritti di amministratore – conferma con «Sì». Su Linux il sistema chiede la password di amministratore.</p>
 </section>
@@ -952,7 +952,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><td><code>usb_format.elf</code></td><td>Formateador (payload)</td><td>La app lo inicia automáticamente. Sin la app: envíalo al cargador ELF del jailbreak (puerto 9021).</td></tr>
     <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, con funciones de PS5</td><td>Solo hay que iniciarlo – no requiere instalación.</td></tr>
     <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, sin funciones de PS5</td><td>Solo hay que iniciarlo – no requiere instalación.</td></tr>
-    <tr><td><code>PS5-USB-Formatierer-linux-x86_64.tar.gz</code><br><code>USB-Formatierer-linux-x86_64.tar.gz</code></td><td>Linux (x86_64), con o sin funciones de PS5</td><td>Descomprime y ejecuta el programa que contiene – no requiere instalación.</td></tr>
+    <tr><td><code>PS5-USB-Formatierer-x86_64.AppImage</code><br><code>USB-Formatierer-x86_64.AppImage</code></td><td>Linux (x86_64, ARM64), con o sin funciones de PS5</td><td>Hazlo ejecutable (<code>chmod +x</code>) e inícialo; no requiere instalación. Para ARM64 (p. ej. Raspberry Pi), los archivos con <code>aarch64</code>; como archivo comprimido (<code>…-linux-x86_64.tar.gz</code>), descomprime y ejecuta.</td></tr>
   </table></div>
   <p class="small">La PS5 necesita un jailbreak activo con cargador ELF (probado con el firmware 12.00). Para formatear en el PC, Windows pide permisos de administrador – confirma con «Sí». En Linux el sistema pide la contraseña de administrador.</p>
 </section>
@@ -1180,7 +1180,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><td><code>usb_format.elf</code></td><td>Formateur (payload)</td><td>L'app le lance automatiquement. Sans l'app : envoyez-le au chargeur ELF du jailbreak (port 9021).</td></tr>
     <tr><td><code>PS5-USB-Formatierer.exe</code></td><td>Windows, avec fonctions PS5</td><td>Il suffit de le lancer – aucune installation.</td></tr>
     <tr><td><code>USB-Formatierer.exe</code></td><td>Windows, sans fonctions PS5</td><td>Il suffit de le lancer – aucune installation.</td></tr>
-    <tr><td><code>PS5-USB-Formatierer-linux-x86_64.tar.gz</code><br><code>USB-Formatierer-linux-x86_64.tar.gz</code></td><td>Linux (x86_64), avec ou sans fonctions PS5</td><td>Décompressez et lancez le programme qu'il contient – aucune installation.</td></tr>
+    <tr><td><code>PS5-USB-Formatierer-x86_64.AppImage</code><br><code>USB-Formatierer-x86_64.AppImage</code></td><td>Linux (x86_64, ARM64), avec ou sans fonctions PS5</td><td>Rendez-le exécutable (<code>chmod +x</code>) puis lancez-le – aucune installation. Pour ARM64 (p. ex. Raspberry Pi), les fichiers avec <code>aarch64</code> ; en archive (<code>…-linux-x86_64.tar.gz</code>), décompressez et lancez.</td></tr>
   </table></div>
   <p class="small">La PS5 a besoin d'un jailbreak actif avec chargeur ELF (testé avec le firmware 12.00). Pour formater sur le PC, Windows demande des droits d'administrateur – confirmez avec « Oui ». Sous Linux, le système demande le mot de passe administrateur.</p>
 </section>

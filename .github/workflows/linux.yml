@@ -1,7 +1,8 @@
 # Linux-Fassung: Helfer bauen und testen (auch als root an echten Loop-Geräten), Oberfläche unter Xvfb prüfen,
-# beide Programme mit PyInstaller bauen. Gebaut wird auf Ubuntu 22.04 (glibc 2.35), damit die Programme auch auf
-# älteren Verteilungen laufen; der Helfer ist statisch. Daneben die Host-Tests des PS5-Codes (eigener Job).
-# Beim Veröffentlichen eines Releases: mit dessen usb_format.elf bauen und die Archive an das Release hängen. Von Hand
+# beide Programme mit PyInstaller bauen - als .tar.gz und als AppImage, für x86_64 und aarch64 (ARM64, z. B. Raspberry
+# Pi). Gebaut wird auf Ubuntu 22.04 (glibc 2.35), damit die Programme auch auf älteren Verteilungen laufen; der Helfer
+# ist statisch. Python wie bei der Entwicklung (3.14). Daneben die Host-Tests des PS5-Codes (eigener Job).
+# Beim Veröffentlichen eines Releases: mit dessen usb_format.elf bauen und die Dateien an das Release hängen. Von Hand
 # (workflow_dispatch mit tag) dasselbe für ein schon veröffentlichtes Release, etwa nach einem behobenen Testfehler.
 name: Linux
 
@@ -23,7 +24,20 @@ permissions:
 
 jobs:
   linux:
-    runs-on: ubuntu-22.04
+    name: linux (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+            appimagetool_sha256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+            runtime_sha256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+            appimagetool_sha256: f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158
+            runtime_sha256: 00cbdfcf917cc6c0ff6d3347d59e0ca1f7f45a6df1a428a0d6d8a78664d87444
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
 
@@ -36,10 +50,10 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Python-Pakete
-        run: python -m pip install pyinstaller pillow pyflakes
+        run: python -m pip install pyinstaller==6.22.3 pillow pyflakes
 
       - name: Übersetzungen und Code prüfen
         run: |
@@ -68,7 +82,7 @@ jobs:
         run: sudo -E env "PATH=$PATH" bash test/linux_loop_test.sh
 
       - name: Update-Hinweis und Image prüfen (ohne Root)
-        run: python windows/tests/pc_tools_test.py /tmp/usbfmt_linux_test
+        run: xvfb-run -a python windows/tests/pc_tools_test.py /tmp/usbfmt_linux_test
 
       - name: Oberfläche (Xvfb)
         timeout-minutes: 20   # ein unerwarteter Dialog hielte den Test sonst bis zur 6-Stunden-Grenze an
@@ -80,35 +94,63 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
-        run: gh release download $TAG --repo "$GITHUB_REPOSITORY" --pattern usb_format.elf --dir /tmp/elf
+        run: |
+          command -v gh >/dev/null || sudo apt-get install -y gh   # falls das ARM-Abbild es nicht mitbringt
+          gh release download $TAG --repo "$GITHUB_REPOSITORY" --pattern usb_format.elf --dir /tmp/elf
+
+      - name: AppImage-Werkzeug (feste Fassung, Prüfsumme)
+        run: |
+          mkdir -p /tmp/appimage && cd /tmp/appimage
+          curl -fsSLo appimagetool "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-${{ matrix.arch }}.AppImage"
+          curl -fsSLo runtime "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-${{ matrix.arch }}"
+          echo "${{ matrix.appimagetool_sha256 }}  appimagetool" | sha256sum -c
+          echo "${{ matrix.runtime_sha256 }}  runtime" | sha256sum -c
+          chmod +x appimagetool
 
       - name: Programme bauen
+        env:
+          APPIMAGETOOL: /tmp/appimage/appimagetool
+          APPIMAGE_RUNTIME: /tmp/appimage/runtime
         run: bash windows/build_linux.sh /tmp/elf/usb_format.elf
 
-      - name: Eingebaute ELF und Version prüfen
-        run: python windows/tests/elf_in_program.py windows/dist/PS5-USB-Formatierer /tmp/elf/usb_format.elf "$(cat VERSION)"
+      - name: Eingebaute ELF und Version prüfen, AppImage enthält dasselbe Programm
+        run: |
+          python windows/tests/elf_in_program.py windows/dist/PS5-USB-Formatierer /tmp/elf/usb_format.elf "$(cat VERSION)"
+          for app in PS5-USB-Formatierer USB-Formatierer; do
+            rm -rf /tmp/x && mkdir /tmp/x && cd /tmp/x
+            APPIMAGE_EXTRACT_AND_RUN=1 "$GITHUB_WORKSPACE/windows/dist/$app-${{ matrix.arch }}.AppImage" --appimage-extract >/dev/null
+            cmp squashfs-root/usr/bin/$app "$GITHUB_WORKSPACE/windows/dist/$app" || { echo "$app.AppImage weicht ab"; exit 1; }
+            echo "$app.AppImage: Programm identisch"
+            cd "$GITHUB_WORKSPACE"
+          done
 
       - name: Gebaute Programme starten (Xvfb, ohne Datenträger)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1   # Läufer ohne FUSE
+          USBFMT_NO_UPDATE_CHECK: 1
         run: |
-          for app in PS5-USB-Formatierer USB-Formatierer; do
-            timeout 15 xvfb-run -a "windows/dist/$app" & pid=$!
-            sleep 10
-            kill -0 $pid && echo "$app läuft" || { echo "$app ist abgestürzt"; exit 1; }
+          for prog in PS5-USB-Formatierer USB-Formatierer PS5-USB-Formatierer-${{ matrix.arch }}.AppImage \
+                      USB-Formatierer-${{ matrix.arch }}.AppImage; do
+            timeout 20 xvfb-run -a "windows/dist/$prog" & pid=$!
+            sleep 12
+            kill -0 $pid && echo "$prog läuft" || { echo "$prog ist abgestürzt"; exit 1; }
             kill $pid 2>/dev/null || true
           done
 
       - uses: actions/upload-artifact@v7
         with:
-          name: linux-programme
-          path: windows/dist/*.tar.gz
+          name: linux-programme-${{ matrix.arch }}
+          path: |
+            windows/dist/*.tar.gz
+            windows/dist/*.AppImage
 
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: linux-bilder
+          name: linux-bilder-${{ matrix.arch }}
           path: shots/
 
-  # nur beim Veröffentlichen: die geprüften Archive an das Release hängen
+  # nur beim Veröffentlichen: die geprüften Archive und AppImages beider Architekturen an das Release hängen
   release:
     if: github.event_name == 'release' || inputs.tag != ''
     needs: linux
@@ -118,14 +160,17 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: linux-programme
+          pattern: linux-programme-*
+          merge-multiple: true
           path: dist
 
       - name: An das Release hängen
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
-        run: gh release upload "$TAG" dist/*.tar.gz --clobber --repo "$GITHUB_REPOSITORY"
+        run: |
+          ls -l dist
+          gh release upload "$TAG" dist/*.tar.gz dist/*.AppImage --clobber --repo "$GITHUB_REPOSITORY"
 
   # Der PS5-Code (Payload) als Host-Programm - FreeBSD hat arc4random, glibc erst ab 2.36: daher Ubuntu 24.04
   payload:

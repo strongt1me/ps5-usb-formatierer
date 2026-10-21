@@ -1570,5 +1570,17 @@
   "it": "Immagine verificata",
   "es": "Imagen comprobada",
   "fr": "Image vérifiée"
+ },
+ "Neue Version {version} verfügbar": {
+  "en": "New version {version} available",
+  "it": "Nuova versione {version} disponibile",
+  "es": "Nueva versión {version} disponible",
+  "fr": "Nouvelle version {version} disponible"
+ },
+ "Neue Fassung holen: im PC-Programm „ELF senden“ wählen oder die usb_format.elf aus dem Release an den ELF-Loader schicken.": {
+  "en": "Get the new version: choose “Send ELF” in the PC program or send usb_format.elf from the release to the ELF loader.",
+  "it": "Ottieni la nuova versione: nel programma per PC scegli «Invia ELF» oppure invia usb_format.elf della release all'ELF loader.",
+  "es": "Obtener la nueva versión: en el programa de PC elige «Enviar ELF» o envía usb_format.elf de la versión al cargador ELF.",
+  "fr": "Obtenir la nouvelle version : dans le programme PC, choisissez « Envoyer l'ELF » ou envoyez usb_format.elf de la version au chargeur ELF."
  }
 }

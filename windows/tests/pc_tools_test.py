@@ -1,5 +1,5 @@
-"""PC-Programme ohne Oberfläche: Hinweis auf neue Versionen (Auswertung der GitHub-Antwort, Abruf über eine
-file:-Adresse) und "Image prüfen" über den Helfer ohne Administratorrechte (PlainJob) - heile, beschädigte,
+"""PC-Programme ohne Oberfläche: Hinweis auf neue Versionen (Auswertung der GitHub-Antwort, passende Datei je
+System, Release-Hinweise als Text, Abruf über eine file:-Adresse, Fenster "Was ist neu" falls ein Bildschirm da ist) und "Image prüfen" über den Helfer ohne Administratorrechte (PlainJob) - heile, beschädigte,
 abgeschnittene Datei und eine falsche .sha256 daneben.
 
     python windows/tests/pc_tools_test.py <test-helfer>   (usbfmt_win_test.exe bzw. usbfmt_linux mit -DUSBFMT_TEST)
@@ -35,20 +35,44 @@ check("eigene Version lesbar", cur is not None, pc_common.APP_VERSION)
 newer = f"{cur[0]}.{cur[1]}.{cur[2] + 1}"
 url = pc_common.REPO_URL + f"/releases/tag/v{newer}"
 nr = pc_common.newer_release
-check("neuere Version erkannt", nr({"tag_name": "v" + newer, "html_url": url}) == (newer, url))
+dl = f"{pc_common.REPO_URL}/releases/download/v{newer}/"
+names = ["PS5-USB-Formatierer.exe", "USB-Formatierer.exe", "PS5-USB-Formatierer-x86_64.AppImage",
+         "PS5-USB-Formatierer-linux-x86_64.tar.gz", "USB-Formatierer-linux-aarch64.tar.gz", "usb_format.elf"]
+rel = {"tag_name": "v" + newer, "html_url": url, "body": "## Neu\n\n- **schneller**\n- [Hilfe](x)",
+       "assets": [{"name": n, "browser_download_url": dl + n} for n in names]
+       + [{"name": "Boese.exe", "browser_download_url": "https://boese.example/Boese.exe"}, "kaputt"]}
+found = nr(rel)
+check("neuere Version erkannt", found and found["version"] == newer and found["url"] == url, found)
+check("nur Dateien dieses Releases übernommen", found and sorted(found["assets"]) == sorted(names), found)
+check("Release-Hinweise übernommen", found and found["notes"].startswith("## Neu"), found)
+check("Hinweise als Text", pc_common.plain_notes(found["notes"]) == "Neu\n\n• schneller\n• Hilfe",
+      pc_common.plain_notes(found["notes"]))
+pick = pc_common.release_file
+if pc_common.IS_WIN:
+    check("Windows: passende .exe", pick(found, "USB-Formatierer") == ("USB-Formatierer.exe", dl + "USB-Formatierer.exe"))
+else:
+    arch = pc_common.machine()
+    want = "PS5-USB-Formatierer-x86_64.AppImage" if arch == "x86_64" else None
+    check("Linux: AppImage vor dem Archiv", (pick(found, "PS5-USB-Formatierer") or (None,))[0] == want,
+          pick(found, "PS5-USB-Formatierer"))
+    check("Linux: Archiv, wenn kein AppImage", (pick(found, "USB-Formatierer") or (None,))[0]
+          == (None if arch != "aarch64" else "USB-Formatierer-linux-aarch64.tar.gz"), pick(found, "USB-Formatierer"))
+check("keine passende Datei: None", pick({"assets": {}}, "USB-Formatierer") is None)
 check("gleiche Version: nichts", nr({"tag_name": "v" + pc_common.APP_VERSION, "html_url": url}) is None)
 check("ältere Version: nichts", nr({"tag_name": "v0.9.9", "html_url": url}) is None)
 check("Vorabversion: nichts", nr({"tag_name": "v" + newer, "prerelease": True}) is None)
 check("Unsinn: nichts", nr({"tag_name": "neu"}) is None and nr([]) is None and nr({}) is None)
 check("fremder Link wird nicht geöffnet",
-      nr({"tag_name": "v" + newer, "html_url": "https://boese.example/x"}) == (newer, pc_common.REPO_URL + "/releases/latest"))
+      nr({"tag_name": "v" + newer, "html_url": "https://boese.example/x"})["url"] == pc_common.REPO_URL + "/releases/latest")
+bad = nr({"tag_name": "v" + newer, "body": 5, "assets": 7})
+check("Unsinn in Hinweisen/Dateien: leer", bad and bad["notes"] == "" and bad["assets"] == {}, bad)
 check("zweistellig verglichen (2.10.0 > 2.9.9)", nr({"tag_name": "v2.10.0"}, current="2.9.9") is not None)
 
 work = tempfile.mkdtemp(prefix="pctools-")
 try:
     feed = os.path.join(work, "latest.json")
     with open(feed, "w", encoding="utf-8") as f:
-        json.dump({"tag_name": "v" + newer, "html_url": url, "draft": False, "prerelease": False}, f)
+        json.dump(dict(rel, draft=False, prerelease=False), f)
     os.environ["USBFMT_UPDATE_URL"] = pathlib.Path(feed).as_uri()
     pc_common.start_update_check()
     for _ in range(100):
@@ -56,7 +80,7 @@ try:
             if pc_common._update["state"] == "done":
                 break
         time.sleep(0.05)
-    check("Abruf: neue Version gefunden", pc_common._update["found"] == (newer, url), pc_common._update)
+    check("Abruf: neue Version gefunden", pc_common._update["found"] == found, pc_common._update)
     pc_common._update.update(state=None, found=None)
     os.environ["USBFMT_UPDATE_URL"] = pathlib.Path(os.path.join(work, "fehlt.json")).as_uri()
     pc_common.start_update_check()
@@ -69,6 +93,36 @@ try:
     pc_common._update.update(state=None, found=None)
     pc_common.start_update_check()
     check("abschaltbar (USBFMT_NO_UPDATE_CHECK)", pc_common._update["state"] is None)
+
+    # ---------------------------------------------------------------- Fenster "Was ist neu" (nur mit Bildschirm)
+    try:
+        import tkinter as tk
+        root = tk.Tk()
+    except Exception as e:   # kein Bildschirm (CI ohne Xvfb)
+        print("        Fenster \"Was ist neu\" übersprungen:", e)
+    else:
+        pc_common.setup_window(root, "dark")
+        win = pc_common.update_dialog(root, found, "PS5-USB-Formatierer")
+        root.update()
+        texts = []
+
+        def walk(w):
+            for ch in w.winfo_children():
+                try:
+                    texts.append(str(ch.cget("text")))
+                except tk.TclError:
+                    if isinstance(ch, tk.Text):
+                        texts.append(ch.get("1.0", "end"))
+                walk(ch)
+        walk(win)
+        joined = "\n".join(texts)
+        check("Fenster: Version, Hinweise, Knöpfe", newer in joined and "• schneller" in joined
+              and "Release-Seite öffnen" in joined and "Schließen" in joined, texts)
+        target = pc_common.release_file(found, "PS5-USB-Formatierer")
+        check("Fenster: Knopf für die passende Datei", (target is None) or ("Herunterladen (" + target[0] + ")") in joined,
+              texts)
+        win.destroy()
+        root.destroy()
 
     # ---------------------------------------------------------------- Image prüfen ohne Administratorrechte
     raw, img = os.path.join(work, "stick.img"), os.path.join(work, "stick.img.zst")

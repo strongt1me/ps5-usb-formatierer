@@ -123,9 +123,10 @@ Todos los archivos están en la [última versión](../../releases/latest).
 | `usb_format.elf` | **El formateador (payload).** La app lo inicia sola, el programa de PC lo envía con «Enviar ELF»; si no, envíalo a mano al cargador ELF (puerto 9021). |
 | `PS5-USB-Formatierer.exe` | **Programa de Windows con funciones de PS5:** «En la PS5» (por red), «En el PC – para PS5», «En el PC – libre» – con el ELF integrado. |
 | `USB-Formatierer.exe` | **Programa de Windows sin funciones de PS5:** todos los sistemas de archivos, particiones y modo experto. |
-| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | **Los mismos dos programas para Linux** (x86_64): descomprimir y ejecutar. |
+| `PS5-USB-Formatierer-x86_64.AppImage`<br>`USB-Formatierer-x86_64.AppImage` | **Los mismos dos programas para Linux** como AppImage: hazlo ejecutable (`chmod +x`) e inícialo; sin instalación. Para ARM64 (p. ej. Raspberry Pi 4/5), los archivos con `aarch64`. |
+| `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | Los mismos programas de Linux como archivo comprimido: descomprimir y ejecutar (también como `aarch64`). |
 
-**Requisitos:** una PS5 con jailbreak activo y cargador ELF (probado con el firmware 12.00); ShadowMountPlus para el icono de la app y para borrar juegos. Windows 10 u 11 (64 bits); para formatear en el PC, Windows pide una vez permisos de administrador. Linux (x86_64): para formatear, el sistema pide la contraseña de administrador (pkexec/polkit); NTFS, FAT16 y ext los escriben las herramientas del sistema de `ntfs-3g`, `dosfstools` y `e2fsprogs`.
+**Requisitos:** una PS5 con jailbreak activo y cargador ELF (probado con el firmware 12.00); ShadowMountPlus para el icono de la app y para borrar juegos. Windows 10 u 11 (64 bits); para formatear en el PC, Windows pide una vez permisos de administrador. Linux (x86_64 o ARM64): para formatear, el sistema pide la contraseña de administrador (pkexec/polkit); NTFS, FAT16 y ext los escriben las herramientas del sistema de `ntfs-3g`, `dosfstools` y `e2fsprogs`.
 
 ## 🚀 Primeros pasos
 
