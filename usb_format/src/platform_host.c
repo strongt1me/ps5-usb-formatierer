@@ -268,6 +268,11 @@ void plat_library_hints(lib_hint_t **h, int *n) {
     if ((buf = slurp_file(getenv("USBFMT_SMP_GAMES"), &len))) { lib_parse_smp_games(buf, len, h, n); free(buf); }
 }
 
+void *plat_dynsym(const char *module, const char *symbol) {
+    (void)module; (void)symbol;
+    return NULL;
+}
+
 int plat_open_browser(const char *url, char *err, size_t errlen) {
     (void)err; (void)errlen;
     printf("[Browser] %s\n", url);

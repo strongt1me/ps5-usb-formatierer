@@ -42,7 +42,8 @@ LABEL_RE = re.compile(r"^[A-Za-z0-9 _-]{0,11}\Z")   # \Z: kein Zeilenumbruch am 
 IP_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
 MODES = (("ps5", "An der PS5"), ("pc", "Am PC – für PS5"), ("std", "Am PC – frei"))
 # Seitenleiste: An der PS5 drei Seiten, am PC die beiden Modi
-NAV = (("An der PS5", (("ps5:format", "Formatieren"), ("ps5:games", "Spiele"), ("ps5:images", "Image-Sicherung"))),
+NAV = (("An der PS5", (("ps5:format", "Formatieren"), ("ps5:games", "Spiele"), ("ps5:images", "Image-Sicherung"),
+                      ("ps5:saves", "Spielstände"))),
        ("Am PC", (("pc", "Für die PS5 formatieren"), ("std", "Frei formatieren"))))
 
 
@@ -228,6 +229,37 @@ class Api:
     def quit(self):
         """Formatierer auf der PS5 beenden (lehnt ab, solange ein Auftrag läuft)"""
         return self._call("/api/quit", {})
+
+    # Spielstände: auflisten, sichern, wiederherstellen, neusignieren
+    def get(self, path, timeout=8):
+        return self._call(path, timeout=timeout)
+
+    def download_save(self, idx):
+        """Spielstand-ZIP herunterladen; gibt rohe Bytes zurück"""
+        url = f"{self.base}/api/saves/download?idx={idx}&lang={i18n.lang()}"
+        try:
+            with _OPENER.open(url, timeout=120) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            raise self._http_error(e) from None
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
+            raise ConnectionError(str(e) or type(e).__name__) from None
+
+    def restore_save(self, data):
+        """Spielstand aus ZIP wiederherstellen; data: rohe ZIP-Bytes"""
+        url = f"{self.base}/api/saves/restore/upload?lang={i18n.lang()}"
+        req = urllib.request.Request(url, data=data, method="POST",
+                                     headers={"Content-Type": "application/zip",
+                                              "Content-Length": str(len(data))})
+        try:
+            with _OPENER.open(req, timeout=60) as r:
+                r.read()
+        except urllib.error.HTTPError as e:
+            raise self._http_error(e) from None
+
+    def resign_save(self, idx, account_id):
+        """Spielstand neusignieren"""
+        return self._call("/api/saves/resign", {"idx": idx, "account_id": account_id})
 
 
 def send_payload(host, path):
@@ -592,6 +624,60 @@ class App(tk.Tk):
         Tooltip(self.img_del_btn, lambda: self._why(self.img_del_btn, need_dev=False) or _(
             "Gewählte Sicherung samt .sha256-Datei löschen"))
 
+        # ---- Spielstände
+        sc = self.saves_card = ui_theme.card(right)
+        sc.grid(row=0, column=0, sticky="nsew")
+        sc.columnconfigure(0, weight=1)
+        ttk.Label(sc, text=_("Spielstände sichern, wiederherstellen oder neu signieren (nur PS5-Spielstände)."),
+                  style="Bold.TLabel", wraplength=px(440), justify="left").grid(row=0, column=0, sticky="w")
+        sh = ttk.Frame(sc)
+        sh.grid(row=1, column=0, sticky="ew", pady=(px(10), 0))
+        ttk.Label(sh, text=_("Spielstände").upper(), style="Section.TLabel").pack(side="left")
+        ico_sr = ui_theme.icon(self, "refresh", "muted", 15)
+        self.saves_reload_btn = ttk.Button(sh, text=" " + _("Aktualisieren"), image=ico_sr, compound="left",
+                                           style="Ghost.TButton", command=self._load_saves)
+        self.saves_reload_btn.image = ico_sr
+        self.saves_reload_btn.pack(side="right")
+        # Benutzerfilter
+        uf = ttk.Frame(sc)
+        uf.grid(row=2, column=0, sticky="ew", pady=(px(6), 0))
+        uf.columnconfigure(1, weight=1)
+        ttk.Label(uf, text=_("Benutzer")).grid(row=0, column=0, sticky="w", padx=(0, px(8)))
+        self.saves_user_var = tk.StringVar(value="")
+        self.saves_user_cb = ttk.Combobox(uf, textvariable=self.saves_user_var, state="readonly", width=30)
+        self.saves_user_cb.grid(row=0, column=1, sticky="ew")
+        self.saves_user_cb.bind("<<ComboboxSelected>>", lambda e: self._saves_filter_changed())
+        sc.rowconfigure(3, weight=1)
+        sf = ttk.Frame(sc)
+        sf.grid(row=3, column=0, sticky="nsew", pady=(px(6), 0))
+        sf.columnconfigure(0, weight=1)
+        sf.rowconfigure(0, weight=1)
+        self.saves_tree = ttk.Treeview(sf, columns=("user", "dir"), show="headings", height=6,
+                                       selectmode="browse", style="Games.Treeview")
+        self.saves_tree.heading("user", text=_("Benutzer"), anchor="w")
+        self.saves_tree.heading("dir", text=_("Ordner"), anchor="w")
+        self.saves_tree.column("user", width=px(130), minwidth=80, anchor="w", stretch=False)
+        self.saves_tree.column("dir", width=px(130), minwidth=80, anchor="w", stretch=False)
+        self.saves_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
+        self.saves_tree.grid(row=0, column=0, sticky="nsew")
+        ssb = ttk.Scrollbar(sf, orient="vertical", command=self.saves_tree.yview)
+        ssb.grid(row=0, column=1, sticky="ns", padx=(px(4), 0))
+        self.saves_tree.configure(yscrollcommand=ssb.set)
+        self.saves_tree.bind("<<TreeviewSelect>>", lambda e: self._update())
+        self.saves_hint = ttk.Label(sc, style="Hint.TLabel", wraplength=px(440), justify="left")
+        self.saves_hint.grid(row=4, column=0, sticky="w", pady=(px(4), 0))
+        sa = ttk.Frame(sc)
+        sa.grid(row=5, column=0, sticky="e", pady=(px(8), 0))
+        self.saves_down_btn = ttk.Button(sa, text=_("Sichern"), command=self._saves_download,
+                                         style="Accent.TButton")
+        self.saves_down_btn.pack(side="left")
+        self.saves_rest_btn = ttk.Button(sa, text=_("Wiederherstellen …"), command=self._saves_restore)
+        self.saves_rest_btn.pack(side="left", padx=(px(8), 0))
+        self.saves_resign_btn = ttk.Button(sa, text=_("Neusignieren …"), command=self._saves_resign)
+        self.saves_resign_btn.pack(side="left", padx=(px(8), 0))
+        self._saves_data = []      # [{idx, title_id, title_name, save_dir, uid, username}]
+        self._saves_users = []     # [{uid, username, account_id}]
+
         # ---- Fortschritt (der Bereich "frei" hat seinen eigenen)
         st = self.status_card = ui_theme.card(main, padding=(16, 10))
         st.grid(row=2, column=0, sticky="ew", pady=(gap, 0))
@@ -630,7 +716,7 @@ class App(tk.Tk):
         for k, b in self.nav_btns.items():
             b.configure(style="NavSel.TButton" if k == key else "Nav.TButton")
         titles = {"ps5:format": _("Formatieren"), "ps5:games": _("Spiele"), "ps5:images": _("Image-Sicherung"),
-                  "pc": _("Am PC – für PS5"), "std": _("Am PC – frei")}
+                  "ps5:saves": _("Spielstände"), "pc": _("Am PC – für PS5"), "std": _("Am PC – frei")}
         self.page_title.configure(text=titles.get(key, ""))
         if mode == "std":
             self.ps5_body.grid_remove()
@@ -645,10 +731,13 @@ class App(tk.Tk):
         self.tools.grid_remove() if ps5 else self.tools.grid()
         self.ps5_warn.pack(side="bottom", anchor="w", pady=(ui_theme.px(8), 0)) if ps5 else self.ps5_warn.pack_forget()
         page = self.page if ps5 else "format"
-        for name, card in (("format", self.format_card), ("games", self.games_box), ("images", self.img_row)):
+        for name, card in (("format", self.format_card), ("games", self.games_box),
+                           ("images", self.img_row), ("saves", self.saves_card)):
             card.grid() if name == page else card.grid_remove()
         if page == "images" and self.api:
             self._load_img_list()
+        if page == "saves" and self.api:
+            self._load_saves()
         self.dev_combo.set_empty_text(
             _("Kein USB-Datenträger am PC gefunden. Stick einstecken und „Aktualisieren“ klicken.") if not ps5 else
             _("Kein USB-Stick an der PS5 gefunden. Stick einstecken und „Aktualisieren“ klicken.") if self.api else
@@ -840,6 +929,147 @@ class App(tk.Tk):
 
         self._run(work)
 
+    # ------------------------------------------------------------------ Spielstände
+
+    def _load_saves(self):
+        """Spielstände und Benutzer von der PS5 laden (im Hintergrund)"""
+        api = self.api
+        if not api:
+            return
+        self.saves_hint.configure(text=_("Spielstand wird geladen …"))
+
+        def work():
+            try:
+                saves = api.get("/api/saves")
+                users = api.get("/api/saves/users")
+                self.q.put(("saves_loaded", saves, users))
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("saves_loaded_err", str(e)))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _fill_saves(self, saves_data, users_data):
+        """Spielstand-Liste und Benutzerfilter füllen"""
+        self._saves_data = saves_data.get("saves", [])
+        self._saves_users = users_data.get("users", [])
+        # Benutzerfilter
+        names = [_("Alle Benutzer")] + [u.get("username") or u["uid"] for u in self._saves_users]
+        uids = [""] + [u["uid"] for u in self._saves_users]
+        self.saves_user_cb["values"] = names
+        cur = self.saves_user_var.get()
+        if cur not in uids:
+            self.saves_user_var.set("")
+        self._render_saves_tree()
+        self.saves_hint.configure(text="" if self._saves_data else _("Keine Spielstände gefunden."))
+
+    def _saves_filter_changed(self):
+        self._render_saves_tree()
+
+    def _render_saves_tree(self):
+        uid_filter = ""
+        idx = self.saves_user_cb.current()
+        if idx > 0 and idx <= len(self._saves_users):
+            uid_filter = self._saves_users[idx - 1]["uid"]
+        tree = self.saves_tree
+        tree.delete(*tree.get_children())
+        filtered = [s for s in self._saves_data if not uid_filter or s.get("uid") == uid_filter]
+        for i, s in enumerate(filtered):
+            tag = "odd" if i % 2 else ""
+            name = s.get("title_name") or s.get("title_id", "")
+            tree.insert("", "end", iid=str(s["idx"]),
+                        values=(s.get("username") or s.get("uid", ""), s.get("save_dir", "")),
+                        text=name, tags=(tag,) if tag else ())
+        self._update()
+
+    def _saves_selected(self):
+        sel = self.saves_tree.selection()
+        if not sel:
+            return None
+        idx = int(sel[0])
+        return next((s for s in self._saves_data if s["idx"] == idx), None)
+
+    def _saves_download(self):
+        """Spielstand als ZIP herunterladen"""
+        save = self._saves_selected()
+        if not save or not self.api:
+            return
+        from tkinter import filedialog
+        path = filedialog.asksaveasfilename(
+            parent=self, defaultextension=".zip",
+            filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
+            initialfile=f"{save['title_id']}_{save['save_dir']}.zip")
+        if not path:
+            return
+        api = self.api
+
+        def work():
+            try:
+                data = api.download_save(save["idx"])
+                with open(path, "wb") as f:
+                    f.write(data)
+                self.q.put(("saves_msg", True, _("Spielstand gesichert.")))
+            except (ConnectionError, ApiError, OSError) as e:
+                self.q.put(("saves_msg", False, str(e)))
+
+        self._run(work)
+
+    def _saves_restore(self):
+        """Spielstand aus ZIP wiederherstellen"""
+        if not self.api:
+            return
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            parent=self,
+            filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")])
+        if not path:
+            return
+        if not messagebox.askokcancel(
+                _("Spielstand wiederherstellen"),
+                _("Alle Daten werden überschrieben"),
+                icon="warning", parent=self):
+            return
+        api = self.api
+
+        def work():
+            try:
+                with open(path, "rb") as f:
+                    data = f.read()
+                api.restore_save(data)
+                self.q.put(("saves_msg", True, _("Spielstand wiederhergestellt.")))
+            except (ConnectionError, ApiError, OSError) as e:
+                self.q.put(("saves_msg", False, str(e)))
+
+        self._run(work)
+
+    def _saves_resign(self):
+        """Spielstand mit anderem Account neusignieren"""
+        save = self._saves_selected()
+        if not save or not self.api:
+            return
+        if not self._saves_users:
+            messagebox.showinfo(self.title(), _("Keine Konten gefunden."), parent=self)
+            return
+        choices_data = [(u["account_id"], (u.get("username") or u["uid"]) + " – " + u["account_id"])
+                        for u in self._saves_users if u.get("account_id")]
+        if not choices_data:
+            messagebox.showinfo(self.title(), _("Keine Account-IDs aus der Registry gefunden."), parent=self)
+            return
+        idx = ask_choice(self, _("Neues Konto auswählen"), _("Neues Konto"),
+                         [c[1] for c in choices_data], _("Neusignieren"))
+        if idx is None:
+            return
+        aid = choices_data[idx][0]
+        api = self.api
+
+        def work():
+            try:
+                api.resign_save(save["idx"], aid)
+                self.q.put(("saves_msg", True, _("Neusigniert!")))
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("saves_msg", False, str(e)))
+
+        self._run(work)
+
     def _fs_picked(self, key):
         self.fs_var.set(key)
         self._update()
@@ -961,6 +1191,11 @@ class App(tk.Tk):
         for w in (self.img_verify_btn, self.img_del_btn):
             enable(w, idle and not pc and self.api and has_img)
         enable(self.img_reload_btn, idle and self.api)
+        has_save = bool(self.saves_tree.selection())
+        enable(self.saves_down_btn, idle and not pc and self.api and has_save)
+        enable(self.saves_rest_btn, idle and not pc and self.api)
+        enable(self.saves_resign_btn, idle and not pc and self.api and has_save)
+        enable(self.saves_reload_btn, idle and self.api)
         enable(self.uninstall_chk, idle)
         # nur bei genau einem Laufwerk auf dem Datenträger: der Helfer nimmt nicht unbedingt das angezeigte
         vols = dev.get("volumes", []) if dev else []
@@ -2167,6 +2402,19 @@ class App(tk.Tk):
                 self.status_var.set(_("{name} gelöscht.", name=msg[2]))
             if msg[1] is self.api:
                 self._load_img_list()
+            self._update()
+        elif kind == "saves_loaded":
+            self._fill_saves(msg[1], msg[2])
+        elif kind == "saves_loaded_err":
+            self.saves_hint.configure(text=msg[1])
+        elif kind == "saves_msg":
+            self.busy = False
+            if msg[1]:
+                self.status_var.set(msg[2])
+                if self.api:
+                    self._load_saves()
+            else:
+                messagebox.showerror(_("Spielstände"), msg[2], parent=self)
             self._update()
         elif kind == "devices_quiet":
             # leise nachgeladen (nach einem Auftrag): nur übernehmen, wenn inzwischen nichts anderes läuft

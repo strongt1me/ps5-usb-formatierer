@@ -97,6 +97,10 @@ static void *dynsym(const char *module, const char *symbol) {
     return found > 0 ? (void *)found : NULL;
 }
 
+void *plat_dynsym(const char *module, const char *symbol) {
+    return dynsym(module, symbol);
+}
+
 int plat_open_browser(const char *url, char *err, size_t errlen) {
     typedef int (*fn_usinit_t)(void *);
     typedef int (*fn_browser_t)(const char *, void *);

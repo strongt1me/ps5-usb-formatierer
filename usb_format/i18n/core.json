@@ -2236,5 +2236,59 @@
   "it": "Il file %s non può essere eliminato: %s",
   "es": "No se puede eliminar el archivo %s: %s",
   "fr": "Le fichier %s ne peut pas être supprimé : %s"
+ },
+ "Spielstand erfolgreich neusigniert.": {
+  "en": "Save game re-signed successfully.",
+  "it": "Salvataggio rifirmato con successo.",
+  "es": "Partida guardada refirmada correctamente.",
+  "fr": "Sauvegarde re-signée avec succès."
+ },
+ "Spielstand nicht gefunden": {
+  "en": "Save game not found",
+  "it": "Salvataggio non trovato",
+  "es": "Partida guardada no encontrada",
+  "fr": "Sauvegarde introuvable"
+ },
+ "Neusignierung fehlgeschlagen": {
+  "en": "Re-signing failed",
+  "it": "Firma non riuscita",
+  "es": "Error al refirmar",
+  "fr": "Nouvelle signature échouée"
+ },
+ "libSceFsInternalForVsh.sprx nicht gefunden": {
+  "en": "libSceFsInternalForVsh.sprx not found",
+  "it": "libSceFsInternalForVsh.sprx non trovato",
+  "es": "libSceFsInternalForVsh.sprx no encontrado",
+  "fr": "libSceFsInternalForVsh.sprx introuvable"
+ },
+ "Abgebrochen – ShadowMountPlus meldet die Kachel beim nächsten Suchlauf selbst wieder an.": {
+  "en": "Cancelled – ShadowMountPlus will re-register the tile on the next scan.",
+  "it": "Annullato – ShadowMountPlus registrerà di nuovo il riquadro alla prossima scansione.",
+  "es": "Cancelado – ShadowMountPlus volverá a registrar el mosaico en el siguiente análisis.",
+  "fr": "Annulé – ShadowMountPlus réenregistrera la tuile lors du prochain scan."
+ },
+ "idx fehlt": {
+  "en": "idx missing",
+  "it": "idx mancante",
+  "es": "Falta idx",
+  "fr": "idx manquant"
+ },
+ "idx und account_id erforderlich": {
+  "en": "idx and account_id required",
+  "it": "idx e account_id obbligatori",
+  "es": "Se requieren idx y account_id",
+  "fr": "idx et account_id requis"
+ },
+ "account_id fehlt oder leer": {
+  "en": "account_id missing or empty",
+  "it": "account_id mancante o vuoto",
+  "es": "account_id faltante o vacío",
+  "fr": "account_id manquant ou vide"
+ },
+ "Content-Length fehlt oder zu groß (max 16 MiB)": {
+  "en": "Content-Length missing or too large (max 16 MiB)",
+  "it": "Content-Length mancante o troppo grande (max 16 MiB)",
+  "es": "Content-Length faltante o demasiado grande (máx. 16 MiB)",
+  "fr": "Content-Length manquant ou trop grand (max 16 Mio)"
  }
 }

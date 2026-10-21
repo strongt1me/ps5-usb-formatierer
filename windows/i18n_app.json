@@ -2626,5 +2626,119 @@
   "it": "Ultima: {what}, {date}",
   "es": "Última: {what}, {date}",
   "fr": "Dernière : {what}, {date}"
+ },
+ "Spielstände": {
+  "en": "Save Games",
+  "it": "Salvataggi",
+  "es": "Partidas",
+  "fr": "Sauvegardes"
+ },
+ "Spielstand wird geladen …": {
+  "en": "Loading saves …",
+  "it": "Caricamento salvataggi …",
+  "es": "Cargando partidas …",
+  "fr": "Chargement des sauvegardes …"
+ },
+ "Keine Spielstände gefunden.": {
+  "en": "No save games found.",
+  "it": "Nessun salvataggio trovato.",
+  "es": "No se encontraron partidas.",
+  "fr": "Aucune sauvegarde trouvée."
+ },
+ "Spielstände sichern, wiederherstellen oder neu signieren (nur PS5-Spielstände).": {
+  "en": "Back up, restore or re-sign save games (PS5 saves only).",
+  "it": "Esegui backup, ripristina o rifirma i salvataggi (solo PS5).",
+  "es": "Haz copia, restaura o refirma partidas guardadas (solo PS5).",
+  "fr": "Sauvegardez, restaurez ou re-signez des sauvegardes (PS5 uniquement)."
+ },
+ "Sicherungen auf der PS5": {
+  "en": "Backups on the PS5",
+  "it": "Backup sulla PS5",
+  "es": "Copias en la PS5",
+  "fr": "Sauvegardes sur la PS5"
+ },
+ "Benutzer": {
+  "en": "User",
+  "it": "Utente",
+  "es": "Usuario",
+  "fr": "Utilisateur"
+ },
+ "Alle Benutzer": {
+  "en": "All users",
+  "it": "Tutti gli utenti",
+  "es": "Todos los usuarios",
+  "fr": "Tous les utilisateurs"
+ },
+ "Sichern": {
+  "en": "Back up",
+  "it": "Backup",
+  "es": "Copiar",
+  "fr": "Sauvegarder"
+ },
+ "Neusignieren": {
+  "en": "Re-sign",
+  "it": "Rifirma",
+  "es": "Refirmar",
+  "fr": "Re-signer"
+ },
+ "Neues Konto auswählen": {
+  "en": "Select new account",
+  "it": "Seleziona nuovo account",
+  "es": "Seleccionar nueva cuenta",
+  "fr": "Choisir le nouveau compte"
+ },
+ "Neues Konto": {
+  "en": "New account",
+  "it": "Nuovo account",
+  "es": "Nueva cuenta",
+  "fr": "Nouveau compte"
+ },
+ "Neusigniert!": {
+  "en": "Re-signed!",
+  "it": "Rifirmato!",
+  "es": "¡Refirmado!",
+  "fr": "Re-signé !"
+ },
+ "Keine Konten gefunden.": {
+  "en": "No accounts found.",
+  "it": "Nessun account trovato.",
+  "es": "No se encontraron cuentas.",
+  "fr": "Aucun compte trouvé."
+ },
+ "Keine Account-IDs aus der Registry gefunden.": {
+  "en": "No account IDs found in the registry.",
+  "it": "Nessun ID account trovato nel registro.",
+  "es": "No se encontraron IDs de cuenta en el registro.",
+  "fr": "Aucun identifiant de compte trouvé dans le registre."
+ },
+ "Spielstand gesichert.": {
+  "en": "Save game backed up.",
+  "it": "Salvataggio completato.",
+  "es": "Partida copiada.",
+  "fr": "Sauvegarde effectuée."
+ },
+ "Spielstand wiederhergestellt.": {
+  "en": "Save game restored.",
+  "it": "Salvataggio ripristinato.",
+  "es": "Partida restaurada.",
+  "fr": "Sauvegarde restaurée."
+ },
+ "Spielstand wiederherstellen": {
+  "en": "Restore save game",
+  "it": "Ripristina salvataggio",
+  "es": "Restaurar partida",
+  "fr": "Restaurer la sauvegarde"
+ },
+ "Neusignieren …": {
+  "en": "Re-sign …",
+  "it": "Rifirma …",
+  "es": "Refirmar …",
+  "fr": "Re-signer …"
+ },
+ "ZIP-Sicherung": {
+  "en": "ZIP backup",
+  "it": "Backup ZIP",
+  "es": "Copia ZIP",
+  "fr": "Sauvegarde ZIP"
  }
 }

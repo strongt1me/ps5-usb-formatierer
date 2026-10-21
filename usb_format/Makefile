@@ -10,7 +10,7 @@ endif
 ELF := usb_format.elf
 
 SRCS := src/main.c src/server.c src/i18n.c src/i18n_table.c src/mkfs.c src/hfsplus.c src/upcase.c src/geom_xml.c src/extfs.c src/fsdetect.c src/fsread.c \
-        src/vollabel.c src/devtest.c src/library.c src/exfat_fsck.c src/smpapi.c src/sha256.c src/imgbak.c src/platform_ps5.c
+        src/vollabel.c src/devtest.c src/library.c src/exfat_fsck.c src/smpapi.c src/sha256.c src/imgbak.c src/saves.c src/platform_ps5.c
 
 # mkntfs (ntfs-3g) und mke2fs (e2fsprogs) für NTFS/ext4, gebaut mit tools/build_fstools.sh
 TOOLS := tools/bin/mkntfs.elf tools/bin/mke2fs.elf

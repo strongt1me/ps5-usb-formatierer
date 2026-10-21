@@ -72,4 +72,7 @@ const char *plat_sandbox_dir(void);
 /* Öffnet den PS5-Browser mit url. 0 = ok, sonst Fehlertext in err. */
 int  plat_open_browser(const char *url, char *err, size_t errlen);
 
+/* Laufzeit-Symbol aus einer Sony-Bibliothek (PS5); auf dem Host immer NULL. */
+void *plat_dynsym(const char *module, const char *symbol);
+
 #endif

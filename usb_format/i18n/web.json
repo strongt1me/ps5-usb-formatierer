@@ -1672,5 +1672,83 @@
   "it": "Ultima: {what}, {date}",
   "es": "Última: {what}, {date}",
   "fr": "Dernière : {what}, {date}"
+ },
+ "Spielstände": {
+  "en": "Save Games",
+  "it": "Salvataggi",
+  "es": "Partidas",
+  "fr": "Sauvegardes"
+ },
+ "Alle Benutzer": {
+  "en": "All users",
+  "it": "Tutti gli utenti",
+  "es": "Todos los usuarios",
+  "fr": "Tous les utilisateurs"
+ },
+ "Spielstand wiederherstellen": {
+  "en": "Restore save",
+  "it": "Ripristina salvataggio",
+  "es": "Restaurar partida",
+  "fr": "Restaurer la partie"
+ },
+ "Neusignieren": {
+  "en": "Re-sign",
+  "it": "Rifirma",
+  "es": "Refirmar",
+  "fr": "Re-signer"
+ },
+ "Neusignieren …": {
+  "en": "Re-sign …",
+  "it": "Rifirma …",
+  "es": "Refirmar …",
+  "fr": "Re-signer …"
+ },
+ "Neues Konto": {
+  "en": "New account",
+  "it": "Nuovo account",
+  "es": "Nueva cuenta",
+  "fr": "Nouveau compte"
+ },
+ "Kein Spielstand ausgewählt.": {
+  "en": "No save selected.",
+  "it": "Nessun salvataggio selezionato.",
+  "es": "Ninguna partida seleccionada.",
+  "fr": "Aucune sauvegarde sélectionnée."
+ },
+ "Spielstand wird geladen …": {
+  "en": "Loading saves …",
+  "it": "Caricamento salvataggi …",
+  "es": "Cargando partidas …",
+  "fr": "Chargement des sauvegardes …"
+ },
+ "Keine Spielstände gefunden.": {
+  "en": "No save games found.",
+  "it": "Nessun salvataggio trovato.",
+  "es": "No se encontraron partidas.",
+  "fr": "Aucune sauvegarde trouvée."
+ },
+ "Sichern": {
+  "en": "Backup",
+  "it": "Backup",
+  "es": "Copia",
+  "fr": "Sauvegarder"
+ },
+ "Wiederherstellen": {
+  "en": "Restore",
+  "it": "Ripristina",
+  "es": "Restaurar",
+  "fr": "Restaurer"
+ },
+ "Neusignierung läuft …": {
+  "en": "Re-signing …",
+  "it": "Firma in corso …",
+  "es": "Refirmando …",
+  "fr": "Re-signature en cours …"
+ },
+ "Neusigniert!": {
+  "en": "Re-signed!",
+  "it": "Rifirmato!",
+  "es": "¡Refirmado!",
+  "fr": "Re-signé !"
  }
 }
