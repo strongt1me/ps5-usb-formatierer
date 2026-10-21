@@ -26,6 +26,7 @@
 #include "library.h"
 #include "platform.h"
 #include "saves.h"
+#include "sqlite3.h"
 
 #define SAVE_SUBDIR     "savedata_prospero"
 #define SEALED_KEY_OFF  0x800   /* Sealed Key im PS5-Container */
@@ -761,7 +762,73 @@ static int sfo_find(int fd, const char *want, off_t *off, uint32_t *len) {
     return -1;
 }
 
-int saves_sfo_patch(const char *path, const uint8_t aid[8], uint32_t user_id, char *err, size_t errsz) {
+/* ── param.sfo lesen und ändern ──────────────────────────────────────── */
+
+typedef struct {
+    char     title_id[16], dir[64], main_title[128], sub_title[128], detail[256], game_title_id[16];
+    uint64_t blocks, sys_blocks;
+    uint32_t user_param;
+    uint8_t  hmac[32];   /* PARAMS +8: bindet den Spielstand an die Konsole */
+} sfo_meta_t;
+
+static int sfo_str(int fd, const char *key, char *out, size_t n) {
+    off_t o;
+    uint32_t l;
+    out[0] = 0;
+    if (sfo_find(fd, key, &o, &l)) return -1;
+    if (l >= n) l = (uint32_t)n - 1;
+    ssize_t r = l ? pread(fd, out, l, o) : 0;
+    if (r < 0) return -1;
+    out[r] = 0;
+    return 0;
+}
+
+static uint64_t sfo_num(int fd, const char *key, uint32_t bytes) {
+    off_t o;
+    uint32_t l;
+    uint8_t b[8];
+    uint64_t v = 0;
+    if (sfo_find(fd, key, &o, &l) || l < bytes || pread_full(fd, b, bytes, o)) return 0;
+    for (uint32_t i = 0; i < bytes; i++) v |= (uint64_t)b[i] << (8 * i);
+    return v;
+}
+
+static int sfo_read_meta(const char *path, sfo_meta_t *m) {
+    memset(m, 0, sizeof(*m));
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return -1;
+    off_t po;
+    uint32_t pl;
+    int ok = sfo_find(fd, "ACCOUNT_ID", &po, &pl) == 0;
+    sfo_str(fd, "TITLE_ID", m->title_id, sizeof(m->title_id));
+    sfo_str(fd, "SAVEDATA_DIRECTORY", m->dir, sizeof(m->dir));
+    if (sfo_str(fd, "MAINTITLE", m->main_title, sizeof(m->main_title)) || !m->main_title[0])
+        sfo_str(fd, "TITLE", m->main_title, sizeof(m->main_title));
+    sfo_str(fd, "SUBTITLE", m->sub_title, sizeof(m->sub_title));
+    sfo_str(fd, "DETAIL", m->detail, sizeof(m->detail));
+    m->blocks = sfo_num(fd, "SAVEDATA_BLOCKS", 8);
+    m->sys_blocks = sfo_num(fd, "SYSTEM_BLOCKS", 8);
+    m->user_param = (uint32_t)sfo_num(fd, "SAVEDATA_LIST_PARAM", 4);
+    if (sfo_find(fd, "PARAMS", &po, &pl) == 0 && pl >= 0x28) {
+        pread_full(fd, m->hmac, sizeof(m->hmac), po + 8);
+        if (pl >= 0x44) {   /* +0x38: Titel-ID des Spiels */
+            char g[13] = "";
+            if (pread_full(fd, g, 12, po + 0x38) == 0) scpy(m->game_title_id, sizeof(m->game_title_id), g);
+        }
+    }
+    close(fd);
+    if (!m->game_title_id[0]) scpy(m->game_title_id, sizeof(m->game_title_id), m->title_id);
+    return ok ? 0 : -1;
+}
+
+static int is_zero(const uint8_t *b, size_t n) {
+    for (size_t i = 0; i < n; i++)
+        if (b[i]) return 0;
+    return 1;
+}
+
+int saves_sfo_patch(const char *path, const uint8_t aid[8], uint32_t user_id, const uint8_t *hmac, char *err,
+                    size_t errsz) {
     int fd = open(path, O_RDWR);
     if (fd < 0) {
         snprintf(err, errsz, "%s", T("param.sfo des Spielstands konnte nicht geöffnet werden"));
@@ -769,15 +836,18 @@ int saves_sfo_patch(const char *path, const uint8_t aid[8], uint32_t user_id, ch
     }
     off_t ao = 0, uo = 0;
     uint32_t al = 0, ul = 0;
-    uint8_t uid4[4], chk[8];
+    uint8_t uid4[4], chk[32];
     wr32(uid4, user_id);
     int ok = sfo_find(fd, "ACCOUNT_ID", &ao, &al) == 0 && al >= 8;
     if (ok) {
         ok = pwrite(fd, aid, 8, ao) == 8 && fsync(fd) == 0 && pread_full(fd, chk, 8, ao) == 0 && !memcmp(chk, aid, 8);
         /* die Benutzer-ID steht in PARAMS bei +4 (kein eigener Schlüssel; garlic-savemgr: SFO-Offset 0x660) */
         if (ok && sfo_find(fd, "PARAMS", &uo, &ul) == 0 && ul >= 8) {
-            uo += 4;
-            ok = pwrite(fd, uid4, 4, uo) == 4 && fsync(fd) == 0 && pread_full(fd, chk, 4, uo) == 0 && !memcmp(chk, uid4, 4);
+            ok = pwrite(fd, uid4, 4, uo + 4) == 4 && fsync(fd) == 0 && pread_full(fd, chk, 4, uo + 4) == 0 &&
+                 !memcmp(chk, uid4, 4);
+            if (ok && hmac && ul >= 0x28)
+                ok = pwrite(fd, hmac, 32, uo + 8) == 32 && fsync(fd) == 0 && pread_full(fd, chk, 32, uo + 8) == 0 &&
+                     !memcmp(chk, hmac, 32);
         }
     }
     close(fd);
@@ -793,19 +863,18 @@ typedef int (*fn_mount_init_t)(MountOpt *);
 typedef int (*fn_mount_t)(MountOpt *, const char *, const char *, uint8_t *);
 typedef int (*fn_umount_init_t)(UmountOpt *);
 typedef int (*fn_umount_t)(UmountOpt *, const char *, int, int);
+typedef struct { fn_mount_init_t mi; fn_mount_t m; fn_umount_init_t ui; fn_umount_t u; } fsapi_t;
 
 /* Datei src nach dst kopieren (0 = ok); dst wird neu angelegt */
-static int copy_file(const char *src, const char *dst, mode_t mode, uid_t u, gid_t g, uint64_t *crc_out) {
+static int copy_file(const char *src, const char *dst, mode_t mode, uid_t u, gid_t g) {
     int s = open(src, O_RDONLY), d = open(dst, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     uint8_t *buf = malloc(CHUNK);
     int rc = -1;
-    uint32_t crc = 0;
     if (s >= 0 && d >= 0 && buf) {
         ssize_t r;
         rc = 0;
         while ((r = read(s, buf, CHUNK)) > 0) {
             if (write_full(d, buf, (size_t)r)) { rc = -1; break; }
-            crc = crc32_update(crc, buf, (size_t)r);
         }
         if (r < 0) rc = -1;
         fchmod(d, mode);
@@ -815,7 +884,177 @@ static int copy_file(const char *src, const char *dst, mode_t mode, uid_t u, gid
     if (s >= 0) close(s);
     if (d >= 0 && close(d) != 0) rc = -1;
     free(buf);
-    if (crc_out) *crc_out = crc;
+    return rc;
+}
+
+static void mkdirs(const char *path) {
+    char p[1300];
+    scpy(p, sizeof(p), path);
+    for (char *c = p + 1; *c; c++) {
+        if (*c != '/') continue;
+        *c = 0;
+        mkdir(p, 0777);
+        *c = '/';
+    }
+    mkdir(p, 0777);
+}
+
+/* Container src in den Arbeitsordner kopieren (Einhängen direkt aus savedata_prospero endet mit EPIPE) und unter mnt
+ * einhängen. 0 = ok; die Arbeitskopie work löscht der Aufrufer. */
+static int cont_mount(const fsapi_t *f, const char *src, const char *work, const char *mnt, char *err, size_t errsz) {
+    uint8_t sealed[SEALED_KEY_LEN], key[0x20];
+    if (copy_file(src, work, 0777, (uid_t)-1, (gid_t)-1)) {
+        snprintf(err, errsz, "%s", T("Arbeitskopie konnte nicht erstellt werden"));
+        return -1;
+    }
+    int fd = open(work, O_RDONLY);
+    if (fd < 0 || pread_full(fd, sealed, sizeof(sealed), SEALED_KEY_OFF)) {
+        if (fd >= 0) close(fd);
+        snprintf(err, errsz, "%s", T("Sealed Key konnte nicht gelesen werden"));
+        return -1;
+    }
+    close(fd);
+    if (plat_pfs_decrypt(sealed, key) != 0) {
+        snprintf(err, errsz, "%s", T("Schlüssel konnte nicht entschlüsselt werden (pfsmgr)"));
+        return -1;
+    }
+    MountOpt mopt;
+    memset(&mopt, 0, sizeof(mopt));
+    f->mi(&mopt);
+    char budget[] = "system";
+    mopt.budgetid = budget;
+    struct sigaction dfl, old;   /* das Einhängen braucht SIGPIPE in Standardbehandlung (wie garlic-savemgr) */
+    memset(&dfl, 0, sizeof(dfl));
+    dfl.sa_handler = SIG_DFL;
+    sigaction(SIGPIPE, &dfl, &old);
+    int mr = f->m(&mopt, work, mnt, key);
+    sigaction(SIGPIPE, &old, NULL);
+    memset(key, 0, sizeof(key));
+    if (mr < 0) {
+        snprintf(err, errsz, T("Einhängen fehlgeschlagen (0x%08x)"), (unsigned)mr);
+        return -1;
+    }
+    return 0;
+}
+
+static void cont_umount(const fsapi_t *f, const char *mnt) {
+    UmountOpt uo;
+    memset(&uo, 0, sizeof(uo));
+    f->ui(&uo);
+    f->u(&uo, mnt, 0, 0);   /* verschlüsselt den Container wieder */
+    sync();
+}
+
+/* PARAMS-HMAC eines anderen Spielstands dieser Konsole (bevorzugt vom Zielbenutzer): wie garlic-savemgr, das den
+ * HMAC aus einem vorhandenen Spielstand übernimmt, statt ihn zu berechnen (Schlüssel der PS5 unbekannt) */
+static int donor_hmac(const fsapi_t *f, const save_info_t *skip, const char *target_uid, uint8_t out[32],
+                      const char *work, const char *mnt) {
+    save_info_t *all = NULL;
+    int n = 0, tried = 0, rc = -1;
+    if (saves_scan(&all, &n) < 0) return -1;
+    for (int pass = 0; pass < 2 && rc; pass++) {
+        for (int i = 0; i < n && tried < 3 && rc; i++) {
+            int same = !strcmp(all[i].uid, target_uid);
+            if (!strcmp(all[i].key, skip->key) || (pass == 0 ? !same : same) || all[i].size > (64ull << 20)) continue;
+            char e[200], sfo[500];
+            sfo_meta_t m;
+            if (cont_mount(f, all[i].path, work, mnt, e, sizeof(e)) == 0) {
+                tried++;
+                if (!path_fmt(sfo, sizeof(sfo), "%s/sce_sys/param.sfo", mnt) && sfo_read_meta(sfo, &m) == 0 &&
+                    !is_zero(m.hmac, 32)) {
+                    memcpy(out, m.hmac, 32);
+                    rc = 0;
+                }
+                cont_umount(f, mnt);
+            }
+            unlink(work);
+        }
+    }
+    free(all);
+    return rc;
+}
+
+/* Eintrag in der Spielstand-Datenbank des Benutzers (Einhängen/Anzeige der PS5 liest sie): vorhandene Zeile ändern,
+ * sonst anlegen. Vorher Sicherungskopie der Datenbank (…usbfmt.bak). 0 = ok, 1 = Datenbank nicht vorhanden (übersprungen) */
+static int db_update(const char *dbfile, const sfo_meta_t *m, uint64_t aid, uint32_t uid, int create, char *err,
+                     size_t errsz) {
+    struct stat st;
+    int exists = stat(dbfile, &st) == 0;
+    if (!exists && !create) return 1;
+    char dir[1300], bak[1400];
+    scpy(dir, sizeof(dir), dbfile);
+    char *sl = strrchr(dir, '/');
+    if (sl) { *sl = 0; mkdirs(dir); }
+    if (exists && (path_fmt(bak, sizeof(bak), "%s.usbfmt.bak", dbfile) || copy_file(dbfile, bak, 0644, st.st_uid, st.st_gid))) {
+        snprintf(err, errsz, "%s", T("Sicherungskopie der Spielstand-Datenbank fehlgeschlagen"));
+        return -1;
+    }
+    sqlite3 *db = NULL;
+    int rc = -1;
+    sqlite3_stmt *q = NULL;
+    char mtime[40];
+    time_t now = time(NULL);
+    struct tm tmv;
+    gmtime_r(&now, &tmv);
+    strftime(mtime, sizeof(mtime), "%Y-%m-%dT%H:%M:%S.00Z", &tmv);
+    if (sqlite3_open(dbfile, &db) != SQLITE_OK) goto fail;
+    sqlite3_busy_timeout(db, 8000);
+    if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) goto fail;
+    if (sqlite3_exec(db,
+            "CREATE TABLE IF NOT EXISTS savedata (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+            "title_id NOT NULL, dir_name NOT NULL, main_title NOT NULL, sub_title, detail, tmp_dir_name, is_broken,"
+            "user_param, blocks, free_blocks, size_kib, mtime NOT NULL, fake_broken, account_id, user_id, faked_owner,"
+            "cloud_icon_url, cloud_revision, game_title_id NOT NULL, system_blocks)", NULL, NULL, NULL) != SQLITE_OK)
+        goto fail_tx;
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM savedata WHERE title_id=?1 AND dir_name=?2", -1, &q, NULL) != SQLITE_OK)
+        goto fail_tx;
+    sqlite3_bind_text(q, 1, m->title_id, -1, SQLITE_STATIC);
+    sqlite3_bind_text(q, 2, m->dir, -1, SQLITE_STATIC);
+    int have = sqlite3_step(q) == SQLITE_ROW && sqlite3_column_int(q, 0) > 0;
+    sqlite3_finalize(q);
+    q = NULL;
+    if (!have && !create) {   /* nur vorhandene Zeilen ändern, bei einem Neusignieren am Ort keine neue anlegen */
+        sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL);
+        rc = 1;
+        goto out;
+    }
+    const char *sql = have
+        ? "UPDATE savedata SET main_title=?3, sub_title=?4, detail=?5, user_param=?6, blocks=?7, free_blocks=?7,"
+          "size_kib=?8, mtime=?9, account_id=?10, user_id=?11 WHERE title_id=?1 AND dir_name=?2"
+        : "INSERT INTO savedata (title_id, dir_name, main_title, sub_title, detail, is_broken, user_param, blocks,"
+          "free_blocks, size_kib, mtime, fake_broken, account_id, user_id, faked_owner, cloud_revision, game_title_id,"
+          "system_blocks) VALUES (?1,?2,?3,?4,?5,0,?6,?7,?7,?8,?9,0,?10,?11,0,0,?12,?13)";
+    if (sqlite3_prepare_v2(db, sql, -1, &q, NULL) != SQLITE_OK) goto fail_tx;
+    sqlite3_bind_text(q, 1, m->title_id, -1, SQLITE_STATIC);
+    sqlite3_bind_text(q, 2, m->dir, -1, SQLITE_STATIC);
+    sqlite3_bind_text(q, 3, m->main_title, -1, SQLITE_STATIC);
+    sqlite3_bind_text(q, 4, m->sub_title, -1, SQLITE_STATIC);
+    sqlite3_bind_text(q, 5, m->detail, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(q, 6, (sqlite3_int64)m->user_param);
+    sqlite3_bind_int64(q, 7, (sqlite3_int64)m->blocks);
+    sqlite3_bind_int64(q, 8, (sqlite3_int64)(m->blocks * 0x40));
+    sqlite3_bind_text(q, 9, mtime, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(q, 10, (sqlite3_int64)aid);
+    sqlite3_bind_int64(q, 11, (sqlite3_int64)uid);
+    if (!have) {
+        sqlite3_bind_text(q, 12, m->game_title_id, -1, SQLITE_STATIC);
+        sqlite3_bind_int64(q, 13, (sqlite3_int64)m->sys_blocks);
+    }
+    if (sqlite3_step(q) != SQLITE_DONE) goto fail_tx;
+    sqlite3_finalize(q);
+    q = NULL;
+    if (sqlite3_exec(db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK) goto fail_tx;
+    rc = 0;
+    goto out;
+fail_tx:
+    if (q) sqlite3_finalize(q);
+    q = NULL;
+    sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL);
+fail:
+    snprintf(err, errsz, T("Die Spielstand-Datenbank des Zielbenutzers konnte nicht aktualisiert werden: %s"),
+             db ? sqlite3_errmsg(db) : "open");
+out:
+    if (db) sqlite3_close(db);
     return rc;
 }
 
@@ -836,21 +1075,40 @@ int saves_resign(const save_info_t *s, const char *target_uid, char *err, size_t
     uint64_t av = strtoull(aid_hex, NULL, 16);
     for (int i = 0; i < 8; i++) aid[i] = (uint8_t)(av >> (8 * i));   /* little-endian wie in der param.sfo */
     uint32_t user_id = (uint32_t)strtoul(target_uid, NULL, 16);
+    const int copy = strcmp(target_uid, s->uid) != 0;   /* anderer Benutzer: Kopie bei ihm, das Original bleibt */
 
-    fn_mount_init_t mount_init = (fn_mount_init_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsInitMountSaveDataOpt");
-    fn_mount_t mount = (fn_mount_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsMountSaveData");
-    fn_umount_init_t umount_init = (fn_umount_init_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsInitUmountSaveDataOpt");
-    fn_umount_t umount_fn = (fn_umount_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsUmountSaveData");
-    if (!mount_init || !mount || !umount_init || !umount_fn) {
+    fsapi_t f;
+    f.mi = (fn_mount_init_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsInitMountSaveDataOpt");
+    f.m = (fn_mount_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsMountSaveData");
+    f.ui = (fn_umount_init_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsInitUmountSaveDataOpt");
+    f.u = (fn_umount_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsUmountSaveData");
+    if (!f.mi || !f.m || !f.ui || !f.u) {
         snprintf(err, errsz, "%s", T("libSceFsInternalForVsh.sprx nicht gefunden"));
         return -1;
     }
+
+    /* Ziel bei einer Kopie: <home>/<ziel>/savedata_prospero/<Titel>/<Name>; ein vorhandener Spielstand wird nie überschrieben */
+    char tdir[1000] = "", dest[1300] = "", final_path[600];
+    scpy(final_path, sizeof(final_path), s->path);
+    if (copy) {
+        if (path_fmt(tdir, sizeof(tdir), "%s/%s/" SAVE_SUBDIR "/%s", home, target_uid, s->title_id) ||
+            path_fmt(dest, sizeof(dest), "%s/%s", tdir, s->save_dir)) {
+            snprintf(err, errsz, "%s", T("Pfad zu lang"));
+            return -1;
+        }
+        if (stat(dest, &st) == 0) {
+            snprintf(err, errsz, "%s", T("Beim Zielbenutzer existiert bereits ein Spielstand gleichen Namens"));
+            return -1;
+        }
+    }
     if (op_enter(err, errsz)) return -1;
 
-    int rc = -1, mounted = 0;
+    int rc = -1, mounted = 0, elevated = 0, wrote = 0, have_icon_dest = 0;
     plat_creds_t creds;
-    int elevated = 0;
-    char work[700], back[1300], mnt[400], sfo[500];
+    char work[700], back[1300], mnt[400], sfo[500], icon_dest[1400] = "";
+    uint8_t *icon = NULL, donor[32];
+    size_t icon_len = 0;
+    int have_donor = 0;
     work[0] = back[0] = 0;
     if (stat(s->path, &st) != 0 || !S_ISREG(st.st_mode) || (uint64_t)st.st_size < IMG_MIN || (uint64_t)st.st_size > IMG_MAX) {
         snprintf(err, errsz, "%s", T("Der Spielstand hat eine ungültige Größe"));
@@ -874,101 +1132,113 @@ int saves_resign(const save_info_t *s, const char *target_uid, char *err, size_t
             goto done;
         }
     }
-    if (!space_ok(saves_workdir(), size)) {
+    if (!space_ok(saves_workdir(), size) || (copy && !space_ok(udir, size))) {
         snprintf(err, errsz, "%s", T("Nicht genug freier Speicher auf der PS5"));
         goto done;
     }
-    /* Einhängen direkt aus savedata_prospero endet mit EPIPE: Arbeitskopie unter /data */
     if (path_fmt(work, sizeof(work), "%s/resign_%s_%s", saves_workdir(), s->title_id, s->save_dir) ||
         path_fmt(mnt, sizeof(mnt), "%s/mnt", saves_workdir())) {
         snprintf(err, errsz, "%s", T("Pfad zu lang"));
         goto done;
     }
     mkdir(mnt, 0755);
-    uint64_t crc_src = 0;
-    if (copy_file(s->path, work, 0777, (uid_t)-1, (gid_t)-1, &crc_src)) {
-        snprintf(err, errsz, "%s", T("Arbeitskopie konnte nicht erstellt werden"));
-        goto done;
-    }
 
     plat_creds_elevate(&creds);
     elevated = 1;
 
-    /* Sealed Key aus dem Container lesen und über /dev/pfsmgr entschlüsseln */
-    uint8_t sealed[SEALED_KEY_LEN], key[0x20];
-    int wfd = open(work, O_RDONLY);
-    if (wfd < 0 || pread_full(wfd, sealed, sizeof(sealed), SEALED_KEY_OFF)) {
-        if (wfd >= 0) close(wfd);
-        snprintf(err, errsz, "%s", T("Sealed Key konnte nicht gelesen werden"));
-        goto done;
-    }
-    close(wfd);
-    if (plat_pfs_decrypt(sealed, key) != 0) {
-        snprintf(err, errsz, "%s", T("Schlüssel konnte nicht entschlüsselt werden (pfsmgr)"));
-        goto done;
-    }
+    if (copy) have_donor = donor_hmac(&f, s, target_uid, donor, work, mnt) == 0;
 
-    MountOpt mopt;
-    memset(&mopt, 0, sizeof(mopt));
-    mount_init(&mopt);
-    char budget[] = "system";
-    mopt.budgetid = budget;
-    struct sigaction dfl, old;   /* das Einhängen braucht SIGPIPE in Standardbehandlung (wie garlic-savemgr) */
-    memset(&dfl, 0, sizeof(dfl));
-    dfl.sa_handler = SIG_DFL;
-    sigaction(SIGPIPE, &dfl, &old);
-    int mr = mount(&mopt, work, mnt, key);
-    sigaction(SIGPIPE, &old, NULL);
-    memset(key, 0, sizeof(key));
-    if (mr < 0) {
-        snprintf(err, errsz, T("Einhängen fehlgeschlagen (0x%08x)"), (unsigned)mr);
-        goto done;
-    }
+    if (cont_mount(&f, s->path, work, mnt, err, errsz)) goto done;
     mounted = 1;
 
+    sfo_meta_t meta;
+    int pr = path_fmt(sfo, sizeof(sfo), "%s/sce_sys/param.sfo", mnt);
     char e2[256] = "";
-    int pr = path_fmt(sfo, sizeof(sfo), "%s/sce_sys/param.sfo", mnt) ? -1 : saves_sfo_patch(sfo, aid, user_id, e2, sizeof(e2));
-    UmountOpt uopt;
-    memset(&uopt, 0, sizeof(uopt));
-    umount_init(&uopt);
-    umount_fn(&uopt, mnt, 0, 0);   /* verschlüsselt den Container wieder */
+    if (!pr) {
+        sfo_read_meta(sfo, &meta);
+        pr = saves_sfo_patch(sfo, aid, user_id, have_donor && memcmp(donor, meta.hmac, 32) ? donor : NULL, e2, sizeof(e2));
+    }
+    if (!pr && copy) {   /* Symbolbild für die Anzeige beim Zielbenutzer */
+        char ip[500];
+        int ifd = path_fmt(ip, sizeof(ip), "%s/sce_sys/icon0.png", mnt) ? -1 : open(ip, O_RDONLY);
+        struct stat is;
+        if (ifd >= 0 && fstat(ifd, &is) == 0 && is.st_size > 0 && is.st_size <= (8 << 20) && (icon = malloc((size_t)is.st_size)) &&
+            pread_full(ifd, icon, (size_t)is.st_size, 0) == 0)
+            icon_len = (size_t)is.st_size;
+        else { free(icon); icon = NULL; }
+        if (ifd >= 0) close(ifd);
+    }
+    cont_umount(&f, mnt);
     mounted = 0;
-    sync();
     if (pr) {
         snprintf(err, errsz, "%s", e2[0] ? e2 : T("param.sfo konnte nicht geändert werden (ACCOUNT_ID nicht gefunden)"));
         goto done;
     }
 
-    /* neben das Original schreiben und umbenennen: bricht etwas ab, bleibt das Original unverändert; der Name beginnt
-     * mit ".", damit die Liste ihn nicht zeigt */
+    /* neben das Ziel schreiben und umbenennen: bricht etwas ab, bleibt das Vorhandene unverändert; der Name beginnt mit
+     * ".", damit die Liste ihn nicht zeigt */
+    const char *finalp = copy ? dest : final_path;
     {
-        const char *sl = strrchr(s->path, '/');
-        if (!sl || path_fmt(back, sizeof(back), "%.*s/.%s.resign.tmp", (int)(sl - s->path), s->path, sl + 1)) {
+        const char *sl = strrchr(finalp, '/');
+        if (copy) { mkdirs(tdir); }
+        if (!sl || path_fmt(back, sizeof(back), "%.*s/.%s.resign.tmp", (int)(sl - finalp), finalp, sl + 1)) {
             snprintf(err, errsz, "%s", T("Pfad zu lang"));
             back[0] = 0;
             goto done;
         }
     }
-    if (copy_file(work, back, mode, own_u, own_g, NULL)) {
+    if (copy_file(work, back, mode, own_u, own_g)) {
         snprintf(err, errsz, "%s", T("Zurückkopieren fehlgeschlagen"));
         goto done;
     }
-    if (rename(back, s->path) != 0) {
+    if (rename(back, finalp) != 0) {
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
         goto done;
     }
     back[0] = 0;
-    rc = 0;
-done:
-    if (mounted) {
-        UmountOpt uopt;
-        memset(&uopt, 0, sizeof(uopt));
-        umount_init(&uopt);
-        umount_fn(&uopt, mnt, 0, 0);
+    wrote = 1;
+
+    /* Symbolbild: <ziel>/savedata_prospero_meta/user/<Titel>/<SAVEDATA_DIRECTORY>_icon0.png (Fehler hier sind unkritisch) */
+    if (copy && icon) {
+        char md[1100];
+        const char *dn = meta.dir[0] ? meta.dir : (!strncmp(s->save_dir, "sdimg_", 6) ? s->save_dir + 6 : s->save_dir);
+        if (!path_fmt(md, sizeof(md), "%s/%s/savedata_prospero_meta/user/%s", home, target_uid, s->title_id) &&
+            !path_fmt(icon_dest, sizeof(icon_dest), "%s/%s_icon0.png", md, dn)) {
+            mkdirs(md);
+            int ifd = open(icon_dest, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (ifd >= 0) {
+                have_icon_dest = write_full(ifd, icon, icon_len) == 0;
+                close(ifd);
+                if (!have_icon_dest) unlink(icon_dest);
+            }
+        }
     }
+
+    /* Spielstand-Datenbank des Zielbenutzers (PS5: /system_data/savedata_prospero/<uid>/db/user/savedata.db) */
+    {
+        const char *dbroot = plat_savedb_dir();
+        char dbf[1300], e3[300] = "";
+        if (dbroot && !path_fmt(dbf, sizeof(dbf), "%s/%s/db/user/savedata.db", dbroot, target_uid)) {
+            if (!meta.title_id[0]) scpy(meta.title_id, sizeof(meta.title_id), s->title_id);
+            if (!meta.dir[0]) scpy(meta.dir, sizeof(meta.dir), !strncmp(s->save_dir, "sdimg_", 6) ? s->save_dir + 6 : s->save_dir);
+            int dr = db_update(dbf, &meta, av, user_id, copy, e3, sizeof(e3));
+            if (dr < 0 && copy) {   /* ohne Eintrag zeigt die PS5 die Kopie nicht: zurücknehmen */
+                unlink(dest);
+                if (have_icon_dest) unlink(icon_dest);
+                wrote = 0;
+                snprintf(err, errsz, "%s", e3);
+                goto done;
+            }
+        }
+    }
+    rc = copy ? 1 : 0;
+done:
+    if (mounted) cont_umount(&f, mnt);
     if (elevated) plat_creds_restore(&creds);
     if (back[0]) unlink(back);
     if (work[0]) unlink(work);
+    (void)wrote;
+    free(icon);
     op_leave();
     return rc;
 }

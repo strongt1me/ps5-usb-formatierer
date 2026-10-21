@@ -2482,5 +2482,29 @@
   "it": "Copia di ritorno non riuscita",
   "es": "Error al copiar de vuelta",
   "fr": "Échec de la copie de retour"
+ },
+ "Spielstand beim Zielbenutzer als Kopie angelegt und neu signiert. Das Original bleibt unverändert.": {
+  "en": "Save game created as a copy for the target user and re-signed. The original is unchanged.",
+  "it": "Salvataggio creato come copia per l'utente di destinazione e firmato di nuovo. L'originale resta invariato.",
+  "es": "Partida creada como copia para el usuario de destino y refirmada. El original no cambia.",
+  "fr": "Sauvegarde créée en copie pour l'utilisateur cible et re-signée. L'original reste inchangé."
+ },
+ "Sicherungskopie der Spielstand-Datenbank fehlgeschlagen": {
+  "en": "Backup copy of the save game database failed",
+  "it": "Copia di sicurezza del database dei salvataggi non riuscita",
+  "es": "Error al hacer la copia de seguridad de la base de datos de partidas",
+  "fr": "Échec de la copie de sauvegarde de la base de données des sauvegardes"
+ },
+ "Die Spielstand-Datenbank des Zielbenutzers konnte nicht aktualisiert werden: %s": {
+  "en": "The target user's save game database could not be updated: %s",
+  "it": "Impossibile aggiornare il database dei salvataggi dell'utente di destinazione: %s",
+  "es": "No se pudo actualizar la base de datos de partidas del usuario de destino: %s",
+  "fr": "La base de données des sauvegardes de l'utilisateur cible n'a pas pu être mise à jour : %s"
+ },
+ "Beim Zielbenutzer existiert bereits ein Spielstand gleichen Namens": {
+  "en": "The target user already has a save game with the same name",
+  "it": "L'utente di destinazione ha già un salvataggio con lo stesso nome",
+  "es": "El usuario de destino ya tiene una partida con el mismo nombre",
+  "fr": "L'utilisateur cible a déjà une sauvegarde du même nom"
  }
 }

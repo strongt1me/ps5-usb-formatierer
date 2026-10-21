@@ -1091,8 +1091,9 @@ class App(tk.Tk):
             messagebox.showinfo(self.title(), _("Keine Konten gefunden."), parent=self)
             return
         pick = ask_choice(self, _("Neusignieren"),
-                          _("„{game}“ wird für diesen Benutzer neu signiert. Der Spielstand auf der PS5 wird dabei "
-                            "verändert – vorher am besten sichern.", game=save.get("title_name") or save["title_id"]),
+                          _("„{game}“ wird neu signiert. Beim Besitzer geschieht das am Ort (vorher am besten sichern); "
+                            "bei einem anderen Benutzer entsteht dort eine Kopie, das Original bleibt unverändert.",
+                            game=save.get("title_name") or save["title_id"]),
                           [(u.get("username") or u["uid"]) + " – " + u["account_id"] for u in targets], _("Neusignieren"))
         if pick is None:
             return

@@ -271,7 +271,7 @@ void plat_library_hints(lib_hint_t **h, int *n) {
 /* ---- Attrappe für die Spielstand-Neusignierung (Test): USBFMT_SAVES_MOCK="Name=0123456789abcdef,Name2=..." -----
  * Die Registry kennt diese Konten (Platz 1, 2, ...). Der "eingehängte" Container ist ein Pseudo-Image mit einer param.sfo
  * bei 0x2000 (test/saves_fixture.py): Einhängen legt sie als <Einhängeordner>/sce_sys/param.sfo ab, Aushängen schreibt sie
- * zurück. Ohne die Umgebungsvariable gibt es die Symbole nicht (wie auf einem Host ohne PS5). */
+ * zurück; das Symbolbild (0x3000, 0x400 Byte) liegt als sce_sys/icon0.png dabei. Ohne die Umgebungsvariable gibt es die Symbole nicht (wie auf einem Host ohne PS5). */
 #define MOCK_SFO_OFF 0x2000
 #define MOCK_SFO_MAX 0x1000
 static char mock_img[1024];
@@ -326,6 +326,15 @@ static int mock_mount(void *opt, const char *path, const char *mnt, unsigned cha
     int out = open(sfo, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (out < 0 || write(out, blob, sizeof(blob)) != (ssize_t)sizeof(blob)) return -3;
     close(out);
+    unsigned char icon[0x400];   /* Symbolbild bei 0x3000 */
+    fd = open(path, O_RDONLY);
+    n = fd >= 0 ? pread(fd, icon, sizeof(icon), 0x3000) : -1;
+    if (fd >= 0) close(fd);
+    if (n == (ssize_t)sizeof(icon)) {
+        snprintf(sfo, sizeof(sfo), "%s/icon0.png", dir);
+        out = open(sfo, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (out >= 0) { if (write(out, icon, sizeof(icon)) < 0) {} close(out); }
+    }
     snprintf(mock_img, sizeof(mock_img), "%s", path);
     return 0;
 }
@@ -371,6 +380,8 @@ int plat_pfs_decrypt(const uint8_t sealed[0x60], uint8_t key[0x20]) {
 
 /* Test: USBFMT_SAVES=<ordner> ersetzt /user/home (darin <uid>/username.dat und <uid>/savedata_prospero/...) */
 const char *plat_saves_dir(void) { return getenv("USBFMT_SAVES"); }
+/* Test: USBFMT_SAVEDB=<ordner> mit <uid>/db/user/savedata.db */
+const char *plat_savedb_dir(void) { return getenv("USBFMT_SAVEDB"); }
 
 void plat_creds_elevate(plat_creds_t *old) { old->valid = 0; }
 void plat_creds_restore(const plat_creds_t *old) { (void)old; }

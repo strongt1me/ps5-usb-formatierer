@@ -21,6 +21,7 @@ int lib_parse_param_sfo(const uint8_t *b, size_t l, char *id, size_t idn, char *
 
 static const char *g_home, *g_data;
 const char *plat_saves_dir(void) { return g_home; }
+const char *plat_savedb_dir(void) { return NULL; }
 const char *plat_data_dir(void) { return g_data; }
 void *plat_dynsym(const char *m, const char *s) { (void)m; (void)s; return NULL; }
 void plat_creds_elevate(plat_creds_t *o) { o->valid = 0; }

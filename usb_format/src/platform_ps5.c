@@ -102,6 +102,7 @@ void *plat_dynsym(const char *module, const char *symbol) {
 }
 
 const char *plat_saves_dir(void) { return "/user/home"; }
+const char *plat_savedb_dir(void) { return "/system_data/savedata_prospero"; }
 
 /* wie garlic-savemgr: authid des Systemdienstes und eine zusätzliche Fähigkeit, sonst lehnt das Einhängen ab */
 void plat_creds_elevate(plat_creds_t *old) {

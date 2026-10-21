@@ -2723,12 +2723,6 @@
   "es": "Cierra antes los juegos en ejecución.",
   "fr": "Fermez d'abord les jeux en cours."
  },
- "„{game}“ wird für diesen Benutzer neu signiert. Der Spielstand auf der PS5 wird dabei verändert – vorher am besten sichern.": {
-  "en": "“{game}” will be re-signed for this user. This changes the save game on the PS5 – best back it up first.",
-  "it": "«{game}» verrà firmato di nuovo per questo utente. Il salvataggio sulla PS5 viene modificato – meglio fare prima un backup.",
-  "es": "«{game}» se volverá a firmar para este usuario. Esto modifica la partida en la PS5 – es mejor hacer antes una copia.",
-  "fr": "« {game} » sera re-signée pour cet utilisateur. La sauvegarde sur la PS5 est modifiée – mieux vaut la sauvegarder d'abord."
- },
  "Neusignieren konnte nicht gestartet werden: {e}": {
   "en": "Re-signing could not be started: {e}",
   "it": "Impossibile avviare la firma: {e}",
@@ -2752,5 +2746,11 @@
   "it": "Gioco",
   "es": "Juego",
   "fr": "Jeu"
+ },
+ "„{game}“ wird neu signiert. Beim Besitzer geschieht das am Ort (vorher am besten sichern); bei einem anderen Benutzer entsteht dort eine Kopie, das Original bleibt unverändert.": {
+  "en": "“{game}” will be re-signed. For the owner this happens in place (best back it up first); for another user a copy is created for them and the original stays unchanged.",
+  "it": "«{game}» verrà firmato di nuovo. Per il proprietario avviene sul posto (meglio fare prima un backup); per un altro utente viene creata una copia e l'originale resta invariato.",
+  "es": "«{game}» se volverá a firmar. Para el propietario se hace en el mismo sitio (mejor hacer antes una copia); para otro usuario se crea una copia y el original no cambia.",
+  "fr": "« {game} » sera re-signée. Pour le propriétaire, cela se fait sur place (mieux vaut sauvegarder d'abord) ; pour un autre utilisateur, une copie est créée et l'original reste inchangé."
  }
 }

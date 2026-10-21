@@ -78,6 +78,9 @@ void *plat_dynsym(const char *module, const char *symbol);
 /* Ordner mit den Benutzern und ihren Spielständen (PS5: /user/home); NULL = keiner (Host ohne USBFMT_SAVES) */
 const char *plat_saves_dir(void);
 
+/* Ordner mit den Spielstand-Datenbanken (PS5: /system_data/savedata_prospero, darin <uid>/db/user/savedata.db); NULL = keiner */
+const char *plat_savedb_dir(void);
+
 /* Rechte für das Einhängen eines Spielstand-Containers (Kernel-Rechte des Prozesses); plat_creds_restore stellt
  * den vorherigen Stand wieder her. Auf dem Host ohne Wirkung. */
 typedef struct { uint64_t authid; uint8_t caps[16]; int valid; } plat_creds_t;

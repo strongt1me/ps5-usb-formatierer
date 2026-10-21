@@ -2863,9 +2863,11 @@ static void *resign_worker(void *arg) {
         sb_add(&msg, "%s", T("Spielstand nicht gefunden"));
     } else {
         char err[256] = "";
-        if (saves_resign(&s, j->saves_uid, err, sizeof(err)) == 0) {
+        int rr = saves_resign(&s, j->saves_uid, err, sizeof(err));
+        if (rr >= 0) {
             ok = 1;
-            sb_tr(&msg, "Spielstand erfolgreich neusigniert.");
+            if (rr == 1) sb_tr(&msg, "Spielstand beim Zielbenutzer als Kopie angelegt und neu signiert. Das Original bleibt unverändert.");
+            else sb_tr(&msg, "Spielstand erfolgreich neusigniert.");
         } else {
             sb_add(&msg, "%s", err[0] ? err : T("Neusignierung fehlgeschlagen"));
         }

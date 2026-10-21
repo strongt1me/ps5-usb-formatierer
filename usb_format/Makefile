@@ -30,6 +30,11 @@ EXFAT_FLAGS := -O2 -w -DNDEBUG -include src/exfat_shim.h $(EXFAT_INC)
 ZSTD_INC := -isystem third_party/zstd/lib
 ZSTD_OBJ := build/zstd_all.o
 
+# SQLite 3.46.0 (gemeinfrei) für die Spielstand-Datenbank der PS5 (savedata.db), wie garlic-savemgr gebaut
+SQLITE_OBJ   := build/sqlite3.o
+SQLITE_FLAGS := -O2 -w -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_WAL -DSQLITE_DEFAULT_MEMSTATUS=0
+SQLITE_INC   := -isystem third_party/sqlite
+
 LIBS := -lpthread -lkernel_sys -lSceSystemService -lSceUserService
 HDRS := $(wildcard src/*.h)
 
@@ -42,11 +47,11 @@ all: $(ELF)
 # server.c bettet web/index.html und web/help.html, platform_ps5.c die Werkzeuge per .incbin ein -> aus dem
 # Projektordner bauen. Vorher: Übersetzungen vollständig (Meldungen und Weboberfläche)?
 $(ELF): $(SRCS) $(HDRS) web/index.html web/help.html web/bg.jpg web/page-dark.jpg web/page-light.jpg web/avatar.png $(TOOLS) \
-        $(EXFAT_OBJS) $(ZSTD_OBJ) i18n/core.json i18n/web.json ../VERSION
+        $(EXFAT_OBJS) $(ZSTD_OBJ) $(SQLITE_OBJ) i18n/core.json i18n/web.json ../VERSION
 	@command -v python3 >/dev/null || { echo "python3 fehlt - ohne es wären die Übersetzungen ungeprüft"; exit 1; }
 	@echo "$(APP_VERSION)" | grep -Eqx "[0-9]+\.[0-9]+\.[0-9]+" || { echo "VERSION ungültig: $(APP_VERSION)"; exit 1; }
 	python3 tools/i18n_gen.py && python3 tools/web_i18n.py --check
-	$(CC) $(CFLAGS) $(EXFAT_INC) $(ZSTD_INC) -o $@ $(SRCS) $(EXFAT_OBJS) $(ZSTD_OBJ) $(LIBS)
+	$(CC) $(CFLAGS) $(EXFAT_INC) $(ZSTD_INC) $(SQLITE_INC) -o $@ $(SRCS) $(EXFAT_OBJS) $(ZSTD_OBJ) $(SQLITE_OBJ) $(LIBS)
 	@# größer als 8 MB macht die ELF auf der PS5 Probleme
 	@test $$(wc -c <$@) -le 8388608 || { echo "$@ ist größer als 8 MB"; rm -f $@; exit 1; }
 
@@ -55,6 +60,10 @@ build/exfatprogs/%.o: $(EXFAT)/%.c src/exfat_shim.h
 	@mkdir -p $(dir $@)
 	$(CC) $(EXFAT_FLAGS) $(if $(findstring libexfat.c,$<),-Dexfat_get_blk_dev_info=exfatprogs_get_blk_dev_info_orig) \
 	    $(if $(findstring fsck/fsck.c,$<),-Dmain=exfatprogs_fsck_main) -c $< -o $@
+
+$(SQLITE_OBJ): third_party/sqlite/sqlite3.c
+	@mkdir -p $(dir $@)
+	$(CC) $(SQLITE_FLAGS) -c $< -o $@
 
 $(ZSTD_OBJ): src/zstd_all.c
 	@mkdir -p $(dir $@)
