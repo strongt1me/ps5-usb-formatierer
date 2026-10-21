@@ -4,4 +4,4 @@
 pyinstaller==6.22.3
 pillow==13.0.0
 pyflakes==4.0.3
-ziglang==0.16.0
+ziglang==0.17.0
