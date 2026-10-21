@@ -6,6 +6,7 @@ import os
 import queue
 import subprocess
 import threading
+import time
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, ttk
@@ -19,7 +20,7 @@ from i18n import _, quote
 from partition_editor import PartitionEditor
 from pc_common import (IMAGE_EXT, IS_WIN, PcJob, PlainJob, admin_wait_text, ask_string, confirm, data_kept_admin_text,
                        disk_name, fmt_size, hwnd_of, image_file_name, image_info, irreversible_admin_text, on_device,
-                       pc_dev_text, pc_list, pc_used, pc_volumes_text, serial_args, show_scan)
+                       pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job, serial_args, show_scan)
 
 from ui_widgets import ChoiceChips, DriveList, Tooltip
 
@@ -793,8 +794,10 @@ class StandardPanel(ttk.Frame):
         if self.busy:
             return
         hwnd = hwnd_of(self)
+        dev = next((d for d in self.devices if len(args) > 1 and str(d["disk"]) == str(args[1])), None)
 
         def work():
+            started = time.time()
             try:
                 job = (PlainJob if plain else PcJob)(args, hwnd)
             except (OSError, RuntimeError) as e:
@@ -804,6 +807,7 @@ class StandardPanel(ttk.Frame):
             self.job = job
             self.q.put(("started",))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step)))
+            record_job(args, ok, msg, None if plain else dev, started, getattr(job, "cancel_requested", False))
             self.q.put(("jobended",))   # der Helfer ist fertig - "Abbrechen" weg, auch während des Neueinlesens
             if plain:
                 self.q.put(("done", ok, msg, info, None, after))

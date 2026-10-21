@@ -39,11 +39,16 @@ dl = f"{pc_common.REPO_URL}/releases/download/v{newer}/"
 names = ["PS5-USB-Formatierer.exe", "USB-Formatierer.exe", "PS5-USB-Formatierer-x86_64.AppImage",
          "PS5-USB-Formatierer-linux-x86_64.tar.gz", "USB-Formatierer-linux-aarch64.tar.gz", "usb_format.elf"]
 rel = {"tag_name": "v" + newer, "html_url": url, "body": "## Neu\n\n- **schneller**\n- [Hilfe](x)",
-       "assets": [{"name": n, "browser_download_url": dl + n} for n in names]
-       + [{"name": "Boese.exe", "browser_download_url": "https://boese.example/Boese.exe"}, "kaputt"]}
+       "assets": [{"name": n, "browser_download_url": dl + n, "digest": "sha256:" + hashlib.sha256(n.encode()).hexdigest()}
+                  for n in names[:-1]]
+       + [{"name": names[-1], "browser_download_url": dl + names[-1], "digest": "md5:1234"},
+          {"name": "Boese.exe", "browser_download_url": "https://boese.example/Boese.exe"}, "kaputt"]}
 found = nr(rel)
 check("neuere Version erkannt", found and found["version"] == newer and found["url"] == url, found)
 check("nur Dateien dieses Releases übernommen", found and sorted(found["assets"]) == sorted(names), found)
+check("Prüfsummen von GitHub übernommen, ungültige weggelassen", found
+      and found["digests"].get(names[0]) == hashlib.sha256(names[0].encode()).hexdigest()
+      and names[-1] not in found["digests"] and len(found["digests"]) == len(names) - 1, found and found["digests"])
 check("Release-Hinweise übernommen", found and found["notes"].startswith("## Neu"), found)
 check("Hinweise als Text", pc_common.plain_notes(found["notes"]) == "Neu\n\n• schneller\n• Hilfe",
       pc_common.plain_notes(found["notes"]))
@@ -108,6 +113,9 @@ try:
 
         def walk(w):
             for ch in w.winfo_children():
+                if ch.winfo_class() == "TEntry":
+                    texts.append(ch.get())
+                    continue
                 try:
                     texts.append(str(ch.cget("text")))
                 except tk.TclError:
@@ -121,8 +129,65 @@ try:
         target = pc_common.release_file(found, "PS5-USB-Formatierer")
         check("Fenster: Knopf für die passende Datei", (target is None) or ("Herunterladen (" + target[0] + ")") in joined,
               texts)
+        check("Fenster: Prüfsumme der angebotenen Datei", (target is None)
+              or hashlib.sha256(target[0].encode()).hexdigest() in texts, texts)
         win.destroy()
         root.destroy()
+
+    # ---------------------------------------------------------------- Auftragsverlauf am PC
+    os.environ["APPDATA" if pc_common.IS_WIN else "XDG_CONFIG_HOME"] = os.path.join(work, "cfg")
+    pc_common.record_job(["format", "4", "1000"], True, "vorher", None)
+    check("ohne enable_history: nichts geschrieben", not os.path.exists(os.path.join(work, "cfg")))
+    pc_common.enable_history("VerlaufTest")
+    dev = {"disk": 4, "size": 64 * 10 ** 9, "model": "UDisk", "volumes": [{"label": "ALT"}]}
+    t0 = time.time() - 3
+    pc_common.record_job(["format", "4", str(dev["size"]), "exfat", "NEU", "serial=x"], True, "formatiert", dev, t0)
+    pc_common.record_job(["speed", "4", str(dev["size"])], False, "Abgebrochen.", dev, t0, cancelled=True)
+    pc_common.record_job(["verify", os.path.join(work, "a.img.zst")], False, "beschädigt", None, t0)
+    h = pc_common.history_load()
+    check("Verlauf: neueste zuerst", [e["kind"] for e in h] == ["verify", "speed", "format"], h)
+    f = h[2] if len(h) == 3 else {}
+    check("Formatieren: Dateisystem, neue Bezeichnung, Laufwerk, Dauer",
+          (f.get("fs"), f.get("label"), f.get("model"), f.get("size"), f.get("ok"), f.get("secs", 0) >= 3)
+          == ("exFAT", "NEU", "UDisk", dev["size"], True, True), f)
+    check("abgebrochen / fehlgeschlagen unterschieden",
+          len(h) == 3 and h[1]["cancelled"] and not h[0]["cancelled"] and h[0]["file"] == "a.img.zst", h)
+    with open(pc_common._history["path"], "a", encoding="utf-8") as fh:
+        fh.write("kaputt\n[1]\n")
+    for i in range(120):
+        pc_common.record_job(["speed", "4", "1"], True, f"lauf {i}", dev)
+    h = pc_common.history_load()
+    check("höchstens 100 Einträge, kaputte Zeilen fallen weg", len(h) == 100 and h[0]["msg"] == "lauf 119"
+          and all(isinstance(e, dict) for e in h), (len(h), h[:1]))
+    try:
+        import tkinter as tk
+        root = tk.Tk()
+    except Exception as e:   # kein Bildschirm (CI ohne Xvfb)
+        print("        Fenster \"Verlauf\" übersprungen:", e)
+    else:
+        pc_common.setup_window(root, "light")
+        errors = []
+        root.report_callback_exception = lambda *a: errors.append(a[1])
+        cleared = []
+        win = pc_common.history_dialog(root, [("PC", h[:3]), ("PS5", [{"t": int(time.time()) + 5, "kind": "tile",
+                                                                       "ok": True, "secs": 4, "msg": "Kachel"}])],
+                                       lambda: cleared.append(1) or [("PC", []), ("PS5", [])])
+        root.update()
+        tree = [w for w in win.winfo_children()[0].winfo_children() if w.winfo_class() == "Treeview"][0]
+        first = tree.item(tree.get_children()[0], "values")
+        check("Fenster: 4 Zeilen, PS5-Eintrag (neuester) oben", len(tree.get_children()) == 4 and first[1] == "PS5"
+              and first[2] == "Kachel neu anmelden", (len(tree.get_children()), first))
+        for iid in reversed(tree.get_children()):   # jede Zeile wählen, zuletzt die oberste (PS5, 4 s)
+            tree.selection_set(iid)
+            root.update()
+        texts = [str(w.cget("text")) for w in win.winfo_children()[0].winfo_children() if w.winfo_class() == "TLabel"]
+        check("Fenster: Meldung und Dauer des gewählten Eintrags", not errors and "Kachel\nDauer: 4 s" in texts,
+              (errors, texts))
+        win.destroy()
+        root.destroy()
+    pc_common.history_clear()
+    check("Verlauf geleert", pc_common.history_load() == [])
+    pc_common._history["path"] = None
 
     # ---------------------------------------------------------------- Image prüfen ohne Administratorrechte
     raw, img = os.path.join(work, "stick.img"), os.path.join(work, "stick.img.zst")

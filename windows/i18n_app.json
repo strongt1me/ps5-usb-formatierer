@@ -2494,5 +2494,131 @@
   "it": "Chiudi",
   "es": "Cerrar",
   "fr": "Fermer"
+ },
+ "Partitionen anlegen": {
+  "en": "Create partitions",
+  "it": "Crea partizioni",
+  "es": "Crear particiones",
+  "fr": "Créer des partitions"
+ },
+ "Prüfen & reparieren": {
+  "en": "Check & repair",
+  "it": "Verifica e ripara",
+  "es": "Comprobar y reparar",
+  "fr": "Vérifier et réparer"
+ },
+ "Kachel neu anmelden": {
+  "en": "Re-register tile",
+  "it": "Registra di nuovo il riquadro",
+  "es": "Volver a registrar el icono",
+  "fr": "Réenregistrer la vignette"
+ },
+ "Verlauf": {
+  "en": "History",
+  "it": "Cronologia",
+  "es": "Historial",
+  "fr": "Historique"
+ },
+ "Zeit": {
+  "en": "Time",
+  "it": "Ora",
+  "es": "Hora",
+  "fr": "Heure"
+ },
+ "Auftrag": {
+  "en": "Task",
+  "it": "Operazione",
+  "es": "Tarea",
+  "fr": "Tâche"
+ },
+ "Ort": {
+  "en": "Where",
+  "it": "Dove",
+  "es": "Dónde",
+  "fr": "Où"
+ },
+ "Laufwerk": {
+  "en": "Drive",
+  "it": "Unità",
+  "es": "Unidad",
+  "fr": "Lecteur"
+ },
+ "Ergebnis": {
+  "en": "Result",
+  "it": "Risultato",
+  "es": "Resultado",
+  "fr": "Résultat"
+ },
+ "erfolgreich": {
+  "en": "successful",
+  "it": "riuscita",
+  "es": "correcta",
+  "fr": "réussie"
+ },
+ "abgebrochen": {
+  "en": "cancelled",
+  "it": "annullata",
+  "es": "cancelada",
+  "fr": "annulée"
+ },
+ "fehlgeschlagen": {
+  "en": "failed",
+  "it": "non riuscita",
+  "es": "fallida",
+  "fr": "échouée"
+ },
+ "Die letzten Aufträge, neueste zuerst. Klick zeigt die Meldung.": {
+  "en": "The latest tasks, newest first. Click one to see its message.",
+  "it": "Le ultime operazioni, dalla più recente. Fai clic per vedere il messaggio.",
+  "es": "Las últimas tareas, de la más reciente a la más antigua. Haz clic para ver el mensaje.",
+  "fr": "Les dernières tâches, les plus récentes d'abord. Cliquez pour voir le message."
+ },
+ "Noch keine Aufträge.": {
+  "en": "No tasks yet.",
+  "it": "Ancora nessuna operazione.",
+  "es": "Aún no hay tareas.",
+  "fr": "Aucune tâche pour l'instant."
+ },
+ "Dauer: {s} s": {
+  "en": "Duration: {s} s",
+  "it": "Durata: {s} s",
+  "es": "Duración: {s} s",
+  "fr": "Durée : {s} s"
+ },
+ "Verlauf leeren?": {
+  "en": "Clear history?",
+  "it": "Svuotare la cronologia?",
+  "es": "¿Borrar el historial?",
+  "fr": "Effacer l'historique ?"
+ },
+ "Die Liste der bisherigen Aufträge wird gelöscht. Laufwerke und Sicherungen bleiben unverändert.": {
+  "en": "The list of previous tasks will be deleted. Drives and backups stay unchanged.",
+  "it": "L'elenco delle operazioni precedenti verrà eliminato. Unità e backup restano invariati.",
+  "es": "Se borrará la lista de tareas anteriores. Las unidades y las copias no cambian.",
+  "fr": "La liste des tâches précédentes sera supprimée. Les lecteurs et les sauvegardes ne changent pas."
+ },
+ "Verlauf leeren": {
+  "en": "Clear history",
+  "it": "Svuota cronologia",
+  "es": "Borrar historial",
+  "fr": "Effacer l'historique"
+ },
+ "Die letzten Aufträge mit Ergebnis (Strg+H)": {
+  "en": "The latest tasks and their results (Ctrl+H)",
+  "it": "Le ultime operazioni con l'esito (Ctrl+H)",
+  "es": "Las últimas tareas con su resultado (Ctrl+H)",
+  "fr": "Les dernières tâches et leur résultat (Ctrl+H)"
+ },
+ "Prüfsumme (SHA-256) von {file}:": {
+  "en": "Checksum (SHA-256) of {file}:",
+  "it": "Checksum (SHA-256) di {file}:",
+  "es": "Suma de comprobación (SHA-256) de {file}:",
+  "fr": "Somme de contrôle (SHA-256) de {file} :"
+ },
+ "Prüfen: Windows „certutil -hashfile <Datei> SHA256“, Linux „sha256sum <Datei>“.": {
+  "en": "To check: Windows “certutil -hashfile <file> SHA256”, Linux “sha256sum <file>”.",
+  "it": "Per verificare: Windows «certutil -hashfile <file> SHA256», Linux «sha256sum <file>».",
+  "es": "Para comprobar: Windows «certutil -hashfile <archivo> SHA256», Linux «sha256sum <archivo>».",
+  "fr": "Pour vérifier : Windows « certutil -hashfile <fichier> SHA256 », Linux « sha256sum <fichier> »."
  }
 }

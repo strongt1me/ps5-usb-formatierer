@@ -432,6 +432,7 @@ class _WinJob:
             pass
 
     def cancel(self):
+        self.cancel_requested = True   # für den Verlauf: "abgebrochen" statt "fehlgeschlagen"
         try:
             open(self.cancel_file, "w").close()
         except OSError:
@@ -519,6 +520,7 @@ class PlainJob:
             pass
 
     def cancel(self):
+        self.cancel_requested = True   # für den Verlauf: "abgebrochen" statt "fehlgeschlagen"
         try:
             open(self.cancel_file, "w").close()
         except OSError:
@@ -597,6 +599,190 @@ def irreversible_admin_text():
 def data_kept_admin_text():
     return _("Die Daten bleiben erhalten. Windows fragt anschließend nach Administratorrechten.") if IS_WIN \
         else _("Die Daten bleiben erhalten. Anschließend fragt das System nach dem Administrator-Passwort.")
+
+
+# ---------------------------------------------------------------------- Auftragsverlauf
+# Die letzten HISTORY_MAX Aufträge am PC mit Ergebnis, neueste zuerst, als JSON-Zeilen neben den Einstellungen
+# (history.jsonl; dieselben Felder wie /api/history des Formatierers auf der PS5). Geschrieben wird erst nach
+# enable_history (beim Programmstart) - Tests, die die Fenster ohne Start bauen, hinterlassen nichts.
+HISTORY_MAX = 100
+_history = {"path": None}
+_history_lock = threading.Lock()
+FS_NAMES = {"exfat": "exFAT", "fat32": "FAT32", "fat16": "FAT16", "ntfs": "NTFS", "ext2": "ext2", "ext3": "ext3",
+            "ext4": "ext4", "hfsplus": "HFS+"}
+
+
+def enable_history(app_name):
+    _history["path"] = os.path.join(os.path.dirname(settings_file(app_name)), "history.jsonl")
+
+
+def history_load():
+    """Einträge, neueste zuerst; kaputte Zeilen fallen weg"""
+    out = []
+    try:
+        with open(_history["path"] or "", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(e, dict) and isinstance(e.get("kind"), str):
+                    out.append(e)
+                if len(out) >= HISTORY_MAX:
+                    break
+    except OSError:
+        pass
+    return out
+
+
+def history_clear():
+    with _history_lock:
+        try:
+            os.remove(_history["path"] or "")
+        except OSError:
+            pass
+
+
+def record_job(args, ok, msg, dev=None, started=None, cancelled=False):
+    """Auftrag des Helfers (args wie an den Helfer) in den Verlauf schreiben - still, wenn es nicht geht"""
+    path = _history["path"]
+    if not path or not args:
+        return
+    kind = str(args[0])
+    e = {"t": int(time.time()), "kind": kind, "ok": bool(ok), "cancelled": bool(cancelled and not ok),
+         "secs": max(0, int(time.time() - started)) if started else 0}
+    if dev:
+        e.update(device=disk_name(dev), model=dev.get("model") or "", size=int(dev.get("size") or 0))
+        labels = [v.get("label") for v in dev.get("volumes") or [] if v.get("label")]
+        if labels:
+            e["label"] = labels[0]
+    if kind == "format" and len(args) > 4:
+        e["fs"] = FS_NAMES.get(args[3], str(args[3]))
+        e["label"] = args[4]
+    elif kind == "label" and len(args) > 3:
+        e["label"] = args[3]
+    elif kind in ("backup", "restore") and len(args) > 3:
+        e["file"] = os.path.basename(args[3])
+    elif kind == "verify" and len(args) > 1:
+        e["file"] = os.path.basename(args[1])
+    e["msg"] = str(msg or "")[:600]
+    e = {k: v for k, v in e.items() if v != ""}
+    with _history_lock:
+        entries = [e] + history_load()[:HISTORY_MAX - 1]
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            fd, tmp = tempfile.mkstemp(prefix="history-", suffix=".tmp", dir=os.path.dirname(path))
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+                for x in entries:
+                    f.write(json.dumps(x, ensure_ascii=False) + "\n")
+            os.replace(tmp, path)
+        except OSError:
+            try:
+                os.remove(tmp)
+            except (OSError, UnboundLocalError):
+                pass
+
+
+def history_kind(kind):
+    return {"format": _("Formatieren"), "layout": _("Partitionen anlegen"), "speed": _("Tempo messen"),
+            "check": _("Prüfen & reparieren"), "label": _("Umbenennen"), "delete": _("Spiele löschen"),
+            "backup": _("Image sichern"), "restore": _("Image wiederherstellen"), "tile": _("Kachel neu anmelden"),
+            "verify": _("Image prüfen")}.get(kind, kind)
+
+
+def history_dialog(root, sources, on_clear):
+    """Fenster "Verlauf": sources = [(ort, einträge)] (ort "PC"/"PS5", bei nur einer Quelle None). Neueste zuerst,
+    unten die Meldung des gewählten Eintrags. on_clear() leert und liefert die neuen sources."""
+    c = ui_theme.colors()
+    win = tk.Toplevel(root)
+    win.withdraw()
+    win.title(_("Verlauf"))
+    win.transient(root)
+    win.configure(bg=c["card"])
+    frm = ttk.Frame(win, padding=ui_theme.pad((22, 18, 22, 16)))
+    frm.pack(fill="both", expand=True)
+    frm.columnconfigure(0, weight=1)
+    frm.rowconfigure(2, weight=1)
+    ttk.Label(frm, text=_("Verlauf"), style="H2.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
+    sub = ttk.Label(frm, style="Muted.TLabel")
+    sub.grid(row=1, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(4), ui_theme.px(8)))
+    where = any(o for o, _e in sources)
+    cols = (("when", _("Zeit"), 130), *((("where", _("Ort"), 50),) if where else ()), ("what", _("Auftrag"), 190),
+            ("drive", _("Laufwerk"), 320), ("result", _("Ergebnis"), 110))
+    tree = ttk.Treeview(frm, columns=[k for k, _t, _w in cols], show="headings", height=12, selectmode="browse")
+    for key, title, width in cols:
+        tree.heading(key, text=title, anchor="w")
+        tree.column(key, width=ui_theme.px(width), anchor="w", stretch=key == "drive")
+    tree.tag_configure("fail", foreground=c["danger"])
+    tree.tag_configure("cancel", foreground=c["warn"])
+    bar = ttk.Scrollbar(frm, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=bar.set)
+    tree.grid(row=2, column=0, sticky="nsew")
+    bar.grid(row=2, column=1, sticky="ns")
+    detail = ttk.Label(frm, text="", wraplength=ui_theme.px(720), justify="left", style="Muted.TLabel")
+    detail.grid(row=3, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(10), 0))
+    rows = {}
+    stamp = {"de": "%d.%m.%Y %H:%M", "en": "%Y-%m-%d %H:%M"}.get(lang(), "%d/%m/%Y %H:%M")
+
+    def fill(srcs):
+        tree.delete(*tree.get_children())
+        rows.clear()
+        merged = sorted(((o, e) for o, entries in srcs for e in entries), key=lambda x: -int(x[1].get("t") or 0))
+        for i, (o, e) in enumerate(merged):
+            state = "ok" if e.get("ok") else "cancel" if e.get("cancelled") else "fail"
+            drive = " · ".join(str(x) for x in (
+                (e.get("model") or "") + (f" ({e['device']})" if e.get("device") and e.get("model") else
+                                          e.get("device") or ""),
+                fmt_size(e["size"]) if e.get("size") else "", e.get("fs") or "",
+                quote(e["label"]) if e.get("label") else "", e.get("file") or "") if x)
+            when = time.strftime(stamp, time.localtime(int(e.get("t") or 0)))
+            values = (when, *((o or "",) if where else ()), history_kind(e.get("kind", "")), drive,
+                      {"ok": _("erfolgreich"), "cancel": _("abgebrochen"), "fail": _("fehlgeschlagen")}[state])
+            iid = str(i)
+            tree.insert("", "end", iid=iid, values=values, tags=(state,))
+            rows[iid] = e
+        n = len(merged)
+        sub.configure(text=_("Die letzten Aufträge, neueste zuerst. Klick zeigt die Meldung.") if n
+                      else _("Noch keine Aufträge."))
+        clear_btn.state(["!disabled"] if n else ["disabled"])
+        detail.configure(text="")
+        if n:
+            tree.selection_set("0")
+
+    def show(_e=None):
+        sel = tree.selection()
+        e = rows.get(sel[0]) if sel else None
+        if not e:
+            detail.configure(text="")
+            return
+        extra = _("Dauer: {s} s", s=int(e["secs"])) if e.get("secs") else ""
+        detail.configure(text="\n".join(x for x in (e.get("msg", ""), extra) if x))
+
+    def clear():
+        if messagebox.askyesno(_("Verlauf leeren?"), _("Die Liste der bisherigen Aufträge wird gelöscht. Laufwerke "
+                                                      "und Sicherungen bleiben unverändert."),
+                               parent=win, icon="warning"):
+            fill(on_clear())
+
+    tree.bind("<<TreeviewSelect>>", show)
+    btns = ttk.Frame(frm)
+    btns.grid(row=4, column=0, columnspan=2, sticky="e", pady=(ui_theme.px(14), 0))
+    clear_btn = ttk.Button(btns, text=_("Verlauf leeren"), command=clear)
+    clear_btn.pack(side="left")
+    close_btn = ttk.Button(btns, text=_("Schließen"), style="Accent.TButton", command=win.destroy)
+    close_btn.pack(side="left", padx=(ui_theme.px(8), 0))
+    fill(sources)
+    win.bind("<Escape>", lambda e: win.destroy())
+    win.update_idletasks()
+    top = root.winfo_toplevel()
+    x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
+    y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(_inside(win, top, x, y))
+    win.minsize(win.winfo_reqwidth() // 2, win.winfo_reqheight() // 2)
+    win.deiconify()
+    ui_theme.dark_titlebar(win)
+    close_btn.focus_set()
+    return win
 
 
 # ---------------------------------------------------------------------- Oberfläche
@@ -958,14 +1144,17 @@ def newer_release(data, current=None):
     url = str(data.get("html_url", ""))
     if not url.startswith(REPO_URL + "/releases/"):   # nur Links in dieses Projekt öffnen
         url = REPO_URL + "/releases/latest"
-    assets = {}
+    assets, digests = {}, {}
     for a in data.get("assets") if isinstance(data.get("assets"), list) else []:
         if isinstance(a, dict):
             name, link = str(a.get("name", "")), str(a.get("browser_download_url", ""))
             if name and "/" not in name and link == f"{REPO_URL}/releases/download/v{tag}/{name}":
                 assets[name] = link
+                digest = str(a.get("digest") or "")   # SHA-256, von GitHub beim Hochladen berechnet
+                if re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+                    digests[name] = digest[7:]
     notes = data.get("body")
-    return {"version": ".".join(map(str, new)), "url": url, "assets": assets,
+    return {"version": ".".join(map(str, new)), "url": url, "assets": assets, "digests": digests,
             "notes": notes[:NOTES_MAX] if isinstance(notes, str) else ""}
 
 
@@ -1072,8 +1261,19 @@ def update_dialog(root, found, app):
         hint = _("Unter Linux das Archiv entpacken und das Programm starten.")
     ttk.Label(frm, text=hint, style="Hint.TLabel", wraplength=ui_theme.px(520), justify="left").grid(
         row=3, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(10), 0))
+    digest = found.get("digests", {}).get(target[0]) if target else None
+    if digest:   # zum Vergleichen nach dem Laden - markier- und kopierbar
+        ttk.Label(frm, text=_("Prüfsumme (SHA-256) von {file}:", file=target[0]), style="Hint.TLabel").grid(
+            row=4, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(8), 0))
+        var = tk.StringVar(value=digest)
+        ttk.Entry(frm, textvariable=var, state="readonly", font="TkFixedFont").grid(
+            row=5, column=0, columnspan=2, sticky="ew", pady=(ui_theme.px(2), 0))
+        ttk.Label(frm, text=_("Prüfen: Windows „certutil -hashfile <Datei> SHA256“, Linux „sha256sum <Datei>“."),
+                  style="Hint.TLabel", wraplength=ui_theme.px(520), justify="left").grid(
+            row=6, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(2), 0))
+        win._digest = var   # Verweis halten
     btns = ttk.Frame(frm)
-    btns.grid(row=4, column=0, columnspan=2, sticky="e", pady=(ui_theme.px(14), 0))
+    btns.grid(row=7, column=0, columnspan=2, sticky="e", pady=(ui_theme.px(14), 0))
 
     def open_url(url):
         webbrowser.open(url)

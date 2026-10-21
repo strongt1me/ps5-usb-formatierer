@@ -28,10 +28,10 @@ import ui_msgbox as messagebox
 import ui_theme
 from i18n import _, quote
 from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, check_images, confirm,
-                       disk_name, enable_dpi_awareness, fmt_size, footer, hwnd_of, image_file_name, image_info,
-                       irreversible_admin_text, keep_on_screen, lang_selector, open_help, pc_dev_text, pc_list, pc_used,
-                       pc_volumes_text, resource_path, serial_args, setup_window, show_centered, show_scan,
-                       version_tuple)
+                       disk_name, enable_dpi_awareness, enable_history, fmt_size, footer, history_clear, history_dialog,
+                       history_load, hwnd_of, image_file_name, image_info, irreversible_admin_text, keep_on_screen,
+                       lang_selector, open_help, pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job,
+                       resource_path, serial_args, setup_window, show_centered, show_scan, version_tuple)
 from standard_panel import StandardPanel
 from ui_widgets import THEME_NEXT, ChoiceChips, DriveList, Tooltip, header_tools
 
@@ -173,6 +173,12 @@ class Api:
 
     def delete_image(self, path):
         return self._call("/api/images/delete", {"path": path})
+
+    def history(self):
+        return self._call("/api/history").get("entries") or []
+
+    def clear_history(self):
+        return self._call("/api/history/clear", {})
 
     @staticmethod
     def _http_error(e):
@@ -355,7 +361,7 @@ class App(tk.Tk):
         self.page_title.pack(side="left")
         self.lang_box = header_tools(head, self.settings.get("theme", "auto"), self._toggle_theme,
                                      lambda par: lang_selector(par, i18n.lang(), self._set_lang),
-                                     lambda: open_help(i18n.lang(), self))
+                                     lambda: open_help(i18n.lang(), self), self._history)
         content = ttk.Frame(main, style="Page.TFrame")
         content.grid(row=1, column=0, sticky="nsew")
         content.columnconfigure(0, weight=1)
@@ -649,6 +655,38 @@ class App(tk.Tk):
             self.bind_all(f"<Control-Key-{i + 1}>", lambda e, k=key: self._nav(k))
         self.bind_all("<Control-f>", lambda e: self._find_game())
         self.bind_all("<Control-F>", lambda e: self._find_game())
+        self.bind_all("<Control-h>", lambda e: self._history())
+        self.bind_all("<Control-H>", lambda e: self._history())
+
+    def _history(self):
+        """Fenster "Verlauf": Aufträge am PC und - wenn verbunden - die des Formatierers auf der PS5 (im Hintergrund
+        geholt; ältere Formatierer ohne Verlauf zeigen einfach nur den PC-Teil)"""
+        api = self.api
+
+        def ps5_entries():
+            try:
+                return api.history() if api else None
+            except (ApiError, ConnectionError):
+                return None
+
+        def work():
+            self.q.put(("history", api, ps5_entries()))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_history(self, api, ps5):
+        def sources(ps5_list):
+            return [("PC", history_load())] + ([("PS5", ps5_list)] if ps5_list is not None else [])
+
+        def clear():
+            history_clear()
+            if api:
+                try:
+                    api.clear_history()
+                    return sources(api.history())
+                except (ApiError, ConnectionError):
+                    pass
+            return sources(None)
+        history_dialog(self, sources(ps5), clear)
 
     def _f5(self):
         mode = self.mode_var.get()
@@ -1895,8 +1933,10 @@ class App(tk.Tk):
     def _pc_run(self, op, args, cancellable=False, after=None):
         """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread"""
         hwnd = hwnd_of(self)
+        dev = next((d for d in self.devices if len(args) > 1 and str(d.get("disk")) == str(args[1])), None)
 
         def work():
+            started = time.time()
             try:
                 job = PcJob(args, hwnd)
             except (OSError, RuntimeError) as e:
@@ -1906,6 +1946,7 @@ class App(tk.Tk):
             self.pc_job = job
             self.q.put(("formatting", False))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step, {})))
+            record_job(args, ok, msg, dev, started, getattr(job, "cancel_requested", False))
             self.q.put(("jobended",))   # der Helfer ist fertig - "Abbrechen" weg, auch während des Neueinlesens
             try:
                 # danach neu einlesen - mit Fortschritt, schlafende Platten laufen dabei womöglich erst an
@@ -2043,6 +2084,9 @@ class App(tk.Tk):
 
     def _handle(self, msg):
         kind = msg[0]
+        if kind == "history":
+            self._show_history(msg[1], msg[2])
+            return
         if kind == "status":
             self.status_var.set(msg[1])
         elif kind == "scan":
@@ -2304,4 +2348,5 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     enable_dpi_awareness()
+    enable_history(APP_NAME)
     App().mainloop()

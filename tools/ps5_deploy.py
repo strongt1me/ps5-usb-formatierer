@@ -1,0 +1,365 @@
+"""Die PS5 auf den Stand dieses Projekts bringen - nach einem Release (oder zum Testen eines frischen Baus):
+
+    python tools/ps5_deploy.py status            nur lesen: Formatierer, Kachel, laufende Spiele, App-Ordner-Vergleich
+    python tools/ps5_deploy.py update            App-Ordner (vorher gesichert) und Formatierer auf diesen Stand bringen
+    python tools/ps5_deploy.py update --dry-run  nur zeigen, was update täte
+    python tools/ps5_deploy.py tile              App-Kachel neu anmelden (fragt vorher; --yes ohne Frage)
+
+PS5: --host 192.168.x.y oder Umgebungsvariable USBFMT_PS5_HOST. Gebraucht werden der FTP-Server (Port 2121) und für den
+Formatierer der ELF-Loader (9021, wird nur zum Senden geöffnet, nie vorab abgetastet), dazu - wenn er läuft - das
+Kernel-Log (klogsrv, 3232), das während update mitgeschnitten wird.
+
+update in dieser Reihenfolge:
+  1. Vorprüfung: gebaute ELF und App-Ordner (usb_format/dump/out/PPSA86920) haben die Version aus VERSION, laufen auf der
+     PS5 ein Spiel/eine App (/mnt/sandbox) oder ein Auftrag des Formatierers: Abbruch (--force übergeht nur das Spiel).
+  2. App-Ordner /data/homebrew/PPSA86920: jede Datei, die anders ist, erst von der PS5 sichern, dann hochladen und
+     zurücklesen. Sicherung und Kernel-Log unter ~/.usbfmt-ps5/<zeit>/ (oder --backup <ordner>).
+  3. Formatierer: läuft er, per /api/quit beenden; die neue ELF an den ELF-Loader; warten, bis /api/info die neue
+     Version meldet. Läuft dieselbe Version schon, bleibt er (--force sendet trotzdem).
+  4. Kachel: zeigt, ob sie neu angemeldet werden muss (dann "tile").
+Nur Python-Standardbibliothek."""
+import argparse
+import ftplib
+import hashlib
+import io
+import json
+import os
+import re
+import socket
+import sys
+import threading
+import time
+import urllib.error
+import urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+USB = os.path.join(ROOT, "usb_format")
+APP_LOCAL = os.path.join(USB, "dump", "out", "PPSA86920")
+APP_REMOTE = "/data/homebrew/PPSA86920"
+OWN_TITLE = "PPSA86920"
+FTP_PORT, API_PORT, LOADER_PORT, KLOG_PORT = 2121, 8090, 9021, 3232
+
+
+def say(text):
+    print(text, flush=True)
+
+
+def fail(text):
+    print(f"FEHLER: {text}", file=sys.stderr, flush=True)
+    sys.exit(1)
+
+
+def read_version():
+    with open(os.path.join(ROOT, "VERSION"), encoding="ascii") as f:
+        return f.read().strip()
+
+
+def content_version(v):
+    a, b, c = (int(x) for x in v.split("."))
+    return f"{a:02d}.{b:03d}.{c:03d}"
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+# ------------------------------------------------------------------ PS5-Verbindungen
+
+def port_open(host, port, timeout=2):
+    try:
+        socket.create_connection((host, port), timeout=timeout).close()
+        return True
+    except OSError:
+        return False
+
+
+def api(host, path, body=None, timeout=10):
+    """JSON vom Formatierer; None, wenn er nicht antwortet"""
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(f"http://{host}:{API_PORT}{path}", data=data,
+                                 headers={"Content-Type": "application/json"} if data else {})
+    try:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        try:
+            return {"error": json.loads(e.read().decode("utf-8", "replace")).get("error"), "status": e.code}
+        except (ValueError, OSError):
+            return {"error": f"HTTP {e.code}", "status": e.code}
+    except (OSError, ValueError):
+        return None
+
+
+def ftp_connect(host):
+    f = ftplib.FTP()
+    try:
+        f.connect(host, FTP_PORT, timeout=30)
+        f.login()
+    except ftplib.all_errors as e:
+        fail(f"FTP auf {host}:{FTP_PORT} nicht erreichbar ({e}) - läuft der FTP-Server des Jailbreaks?")
+    return f
+
+
+def ftp_get(f, path):
+    buf = io.BytesIO()
+    try:
+        f.retrbinary(f"RETR {path}", buf.write, blocksize=1 << 20)
+    except ftplib.all_errors:
+        return None
+    return buf.getvalue()
+
+
+def running_titles(f):
+    """Titel-IDs laufender Spiele/Apps (Sandboxen PPSA…/CUSA…, außer dem eigenen) - die PS5 spiegelt eingebundene
+    USB-Laufwerke in ihre Sandbox; währenddessen nichts umstellen"""
+    names = []
+    try:
+        f.retrlines("NLST /mnt/sandbox", names.append)
+    except ftplib.all_errors as e:
+        fail(f"/mnt/sandbox nicht lesbar ({e})")
+    ids = {n.rsplit("/", 1)[-1][:9] for n in names}
+    return sorted(i for i in ids if re.fullmatch(r"(PPSA|CUSA)\d{5}", i) and i != OWN_TITLE)
+
+
+# ------------------------------------------------------------------ lokaler Stand
+
+def local_app():
+    """{relativer Pfad: Inhalt} des gebauten App-Ordners"""
+    if not os.path.isdir(APP_LOCAL):
+        fail(f"{APP_LOCAL} fehlt - erst bauen (usb_format/dump/build.ps1 bzw. tools/release.py)")
+    files = {}
+    for base, _dirs, names in os.walk(APP_LOCAL):
+        for n in sorted(names):
+            p = os.path.join(base, n)
+            with open(p, "rb") as fh:
+                files[os.path.relpath(p, APP_LOCAL).replace(os.sep, "/")] = fh.read()
+    return files
+
+
+def check_local(version):
+    """gebaute ELF und App-Ordner passen zu VERSION - sonst landete ein alter Bau auf der PS5"""
+    elf = os.path.join(USB, "usb_format.elf")
+    if not os.path.isfile(elf):
+        fail("usb_format/usb_format.elf fehlt - erst bauen")
+    with open(elf, "rb") as fh:
+        data = fh.read()
+    if version.encode() not in data:
+        fail(f"usb_format.elf enthält Version {version} nicht - neu bauen")
+    files = local_app()
+    param = files.get("sce_sys/param.json", b"").decode("utf-8", "replace")
+    if f'"contentVersion": "{content_version(version)}"' not in param:
+        fail(f"App-Ordner hat nicht contentVersion {content_version(version)} - neu bauen")
+    app_eboot = os.path.join(USB, "app", "eboot.bin")
+    if os.path.isfile(app_eboot):
+        with open(app_eboot, "rb") as fh:
+            if sha(fh.read()) != sha(files.get("eboot.bin", b"")):
+                fail("App-Ordner passt nicht zur gebauten App (eboot.bin) - usb_format/dump/build.ps1 erneut")
+    return data, files
+
+
+def compare(f, files):
+    """[(pfad, inhalt, entfernter inhalt oder None)]"""
+    return [(rel, data, ftp_get(f, f"{APP_REMOTE}/{rel}")) for rel, data in files.items()]
+
+
+# ------------------------------------------------------------------ Kernel-Log
+
+class Klog:
+    """Kernel-Log der PS5 (klogsrv) während des Updates mitschneiden - zur Diagnose, falls die PS5 aus dem Tritt kommt"""
+
+    def __init__(self, host, path):
+        self.path, self.stop, self.size = path, threading.Event(), 0
+        try:
+            self.sock = socket.create_connection((host, KLOG_PORT), timeout=5)
+        except OSError:
+            self.sock = None
+            return
+        self.sock.settimeout(1)
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+    def _run(self):
+        with open(self.path, "wb") as out:
+            while not self.stop.is_set():
+                try:
+                    d = self.sock.recv(65536)
+                    if not d:
+                        break
+                    out.write(d)
+                    self.size += len(d)
+                except socket.timeout:
+                    continue
+                except OSError:
+                    break
+
+    def finish(self, linger=5):
+        if not self.sock:
+            return None
+        time.sleep(linger)
+        self.stop.set()
+        self.thread.join(5)
+        self.sock.close()
+        with open(self.path, "rb") as fh:
+            text = fh.read().decode("utf-8", "replace")
+        return [line for line in text.splitlines() if re.search(r"panic|fatal|SIGSEGV|abort", line, re.I)]
+
+
+# ------------------------------------------------------------------ Befehle
+
+def cmd_status(host):
+    version = read_version()
+    info = api(host, "/api/info")
+    say(f"Projekt:      {version}")
+    say(f"Formatierer:  {info.get('version') if info else 'läuft nicht (Port 8090 zu)'}")
+    tile = api(host, "/api/tile") if info else None
+    if tile and "registered" in tile:
+        say(f"Kachel:       angemeldet {tile.get('registered')}, App-Ordner {tile.get('folder')}")
+    f = ftp_connect(host)
+    titles = running_titles(f)
+    say(f"Spiele/Apps:  {', '.join(titles) if titles else 'keine laufen'}")
+    diff = [(rel, data, remote) for rel, data, remote in compare(f, local_app()) if remote != data]
+    f.quit()
+    say("App-Ordner:   " + ("gleich wie der Bau" if not diff else
+                            ", ".join(f"{rel} ({'fehlt' if r is None else 'anders'})" for rel, _d, r in diff)))
+
+
+def cmd_update(host, dry_run, force, backup):
+    version = read_version()
+    elf, files = check_local(version)
+    say(f"Stand {version}: usb_format.elf {len(elf) / 1e6:.2f} MB, App-Ordner {len(files)} Dateien")
+    f = ftp_connect(host)
+    titles = running_titles(f)
+    if titles and not force:
+        f.quit()
+        fail(f"auf der PS5 läuft {', '.join(titles)} - erst beenden (oder --force, wenn es sicher ist)")
+    info = api(host, "/api/info")
+    st = api(host, "/api/status") if info else None
+    if st and st.get("busy"):
+        f.quit()
+        fail("der Formatierer arbeitet gerade an einem Auftrag - abwarten")
+    diff = [(rel, data, remote) for rel, data, remote in compare(f, files) if remote != data]
+    send_elf = not info or info.get("version") != version or force
+    say(f"Formatierer: {info.get('version') if info else 'läuft nicht'} -> "
+        + (f"{version} (ELF senden)" if send_elf else "bleibt (gleiche Version)"))
+    say("App-Ordner: " + (", ".join(rel for rel, _d, _r in diff) if diff else "schon aktuell"))
+    if dry_run:
+        f.quit()
+        say("Probelauf - nichts geändert.")
+        return
+    os.makedirs(backup, exist_ok=True)
+    klog = Klog(host, os.path.join(backup, "kernel.log"))
+    say(f"Sicherung und Kernel-Log: {backup}" + ("" if klog.sock else " (Kernel-Log nicht erreichbar)"))
+
+    for rel, data, remote in diff:   # erst sichern, dann schreiben, dann zurücklesen
+        if remote is not None:
+            dst = os.path.join(backup, "PPSA86920", *rel.split("/"))
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            with open(dst, "wb") as fh:
+                fh.write(remote)
+        sub = os.path.dirname(rel)
+        if sub:
+            try:
+                f.mkd(f"{APP_REMOTE}/{sub}")
+            except ftplib.error_perm:
+                pass
+        f.storbinary(f"STOR {APP_REMOTE}/{rel}", io.BytesIO(data), blocksize=1 << 20)
+        if ftp_get(f, f"{APP_REMOTE}/{rel}") != data:
+            f.quit()
+            klog.finish(0)
+            fail(f"{rel}: zurückgelesen anders als gesendet - Sicherung liegt in {backup}")
+        say(f"  {rel}: hochgeladen, zurückgelesen identisch")
+    f.quit()
+
+    if send_elf:
+        if info:
+            r = api(host, "/api/quit", {})
+            if not r or r.get("error"):
+                klog.finish(0)
+                fail(f"Formatierer lässt sich nicht beenden: {r}")
+            for _ in range(30):
+                if not port_open(host, API_PORT):
+                    break
+                time.sleep(0.5)
+            else:
+                klog.finish(0)
+                fail("der alte Formatierer läuft noch")
+            time.sleep(1)
+        try:
+            with socket.create_connection((host, LOADER_PORT), timeout=10) as s:
+                s.sendall(elf)
+        except OSError as e:
+            klog.finish(0)
+            fail(f"ELF-Loader (Port {LOADER_PORT}) nimmt nichts an ({e}) - Jailbreak/ELF-Loader auf der PS5 starten")
+        say(f"  ELF gesendet ({len(elf)} Bytes)")
+        new = None
+        for _ in range(60):
+            time.sleep(0.5)
+            new = api(host, "/api/info", timeout=3)
+            if new:
+                break
+        if not new or new.get("version") != version:
+            klog.finish(0)
+            fail(f"der neue Formatierer meldet {new.get('version') if new else 'nichts'} statt {version}")
+        say(f"  Formatierer läuft: {new.get('version')}")
+
+    bad = klog.finish()
+    if bad:
+        say(f"Kernel-Log: {len(bad)} auffällige Zeile(n), z. B.: {bad[0][:160]}")
+    elif bad is not None:
+        say("Kernel-Log: unauffällig")
+    tile = api(host, "/api/tile")
+    if tile and tile.get("registered") and tile.get("registered") != tile.get("folder"):
+        say(f"Kachel: angemeldet {tile['registered']}, App-Ordner {tile['folder']} - "
+            "neu anmelden mit: python tools/ps5_deploy.py tile")
+    elif tile and tile.get("registered"):
+        say(f"Kachel: {tile['registered']} - aktuell")
+    say("Fertig.")
+
+
+def cmd_tile(host, yes):
+    tile = api(host, "/api/tile")
+    if not tile or "registered" not in tile:
+        fail("der Formatierer antwortet nicht oder kennt keine Kachel (ShadowMountPlus?)")
+    say(f"Kachel: angemeldet {tile.get('registered')}, App-Ordner {tile.get('folder')}")
+    if tile.get("registered") == tile.get("folder"):
+        say("schon aktuell - nichts zu tun")
+        return
+    if not yes and input("Kachel jetzt neu anmelden? Sie steht danach womöglich an anderer Stelle [j/N] ").strip().lower() \
+            not in ("j", "ja", "y", "yes"):
+        say("nicht angemeldet")
+        return
+    r = api(host, "/api/tile", {})
+    if not r or r.get("error"):
+        fail(f"abgelehnt: {r.get('error') if r else 'keine Antwort'}")
+    for _ in range(120):
+        st = api(host, "/api/status")
+        if st and not st.get("busy"):
+            break
+        time.sleep(1)
+    say(f"{'ok' if st and st.get('ok') else 'FEHLER'}: {st.get('message') if st else 'keine Antwort'}")
+    if not (st and st.get("ok")):
+        sys.exit(1)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("command", choices=("status", "update", "tile"))
+    ap.add_argument("--host", default=os.environ.get("USBFMT_PS5_HOST", ""), help="Adresse der PS5")
+    ap.add_argument("--dry-run", action="store_true", help="update: nur zeigen")
+    ap.add_argument("--force", action="store_true", help="update: trotz laufendem Spiel; ELF auch bei gleicher Version")
+    ap.add_argument("--backup", help="update: Ordner für Sicherung und Kernel-Log")
+    ap.add_argument("--yes", action="store_true", help="tile: ohne Rückfrage")
+    a = ap.parse_args()
+    if not a.host:
+        fail("PS5-Adresse fehlt: --host <ip> oder USBFMT_PS5_HOST setzen")
+    if a.command == "status":
+        cmd_status(a.host)
+    elif a.command == "update":
+        backup = a.backup or os.path.join(os.path.expanduser("~"), ".usbfmt-ps5", time.strftime("%Y%m%d-%H%M%S"))
+        cmd_update(a.host, a.dry_run, a.force, backup)
+    else:
+        cmd_tile(a.host, a.yes)
+
+
+if __name__ == "__main__":
+    main()

@@ -26,6 +26,8 @@
  *   GET  /api/tile       App-Kachel PPSA86920 laut ShadowMountPlus: {smp, found, installed, registered (angemeldete
  *                         contentVersion), folder (contentVersion im App-Ordner), formatter}
  *   POST /api/tile       {} Kachel über ShadowMountPlus neu anmelden (Uninstall + Scan) - Auftrag "tile"
+ *   GET  /api/history    {"entries":[{t, kind, ok, cancelled, secs, device, model, size, label, fs, file, count, msg}]}
+ *                         die letzten 100 Aufträge, neueste zuerst; POST /api/history/clear {} leert den Verlauf
  *   POST /api/open       {} Web-UI im PS5-Browser öffnen (für die App, app/title/starter.c)
  *   GET  /api/settings   {"theme":"auto|light|dark","scale_tv":160,"scale_pc":100,"lang":"de|en|it|es|fr|"};
  *                         POST ändert (einzeln oder zusammen) und speichert es
@@ -263,6 +265,7 @@ typedef struct {
     FILE    *img;
     ib_reader_t *rd;
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
+    struct timespec t0;  /* Start (für die Dauer im Verlauf) */
 } job_t;
 
 static void job_free(job_t *j) {
@@ -392,8 +395,96 @@ static const char *rating_text(double read_mbps) {
            ? T("für Spiele ausreichend") : T("langsam – Spiele laden länger");
 }
 
+/* ------------------------------------------------------------ Auftragsverlauf
+ * Die letzten HIST_MAX Aufträge mit Ergebnis, neueste zuerst, als JSON-Zeilen in <datenordner>/history.jsonl - eine
+ * kaputte Zeile kostet nur sich selbst. GET /api/history liefert sie, POST /api/history/clear leert ihn. */
+#define HIST_MAX  100
+#define HIST_LINE 2048
+static pthread_mutex_t hist_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void history_path(char *p, size_t n) {
+    snprintf(p, n, "%s/history.jsonl", plat_data_dir());
+}
+
+/* höchstens max Zeilen der Datei (neueste zuerst), je mit malloc; liefert die Anzahl. Aufruf unter hist_lock. */
+static int history_read(char **lines, int max) {
+    char path[256], buf[HIST_LINE];
+    history_path(path, sizeof(path));
+    FILE *f = fopen(path, "r");
+    int n = 0;
+    while (f && n < max && fgets(buf, sizeof(buf), f)) {
+        size_t l = strlen(buf);
+        while (l && (buf[l - 1] == '\n' || buf[l - 1] == '\r')) buf[--l] = 0;
+        if (l < 2 || buf[0] != '{' || buf[l - 1] != '}') continue;   /* angeschnitten oder fremd: auslassen */
+        if (!(lines[n] = strdup(buf))) break;
+        n++;
+    }
+    if (f) fclose(f);
+    return n;
+}
+
+/* neuen Eintrag vorn anfügen - erst vollständig in eine neue Datei, dann umbenennen (wie settings_save) */
+static void history_add(const char *entry) {
+    char *lines[HIST_MAX], path[256], tmp[264];
+    pthread_mutex_lock(&hist_lock);
+    int n = history_read(lines, HIST_MAX - 1);
+    mkdir(plat_data_dir(), 0755);
+    history_path(path, sizeof(path));
+    snprintf(tmp, sizeof(tmp), "%s.neu", path);
+    FILE *f = fopen(tmp, "w");
+    int ok = f && fprintf(f, "%s\n", entry) > 0;
+    for (int i = 0; i < n; i++) {
+        if (ok && fprintf(f, "%s\n", lines[i]) < 0) ok = 0;
+        free(lines[i]);
+    }
+    if (f) ok = fclose(f) == 0 && ok;
+    if (!ok || rename(tmp, path) != 0) remove(tmp);
+    pthread_mutex_unlock(&hist_lock);
+}
+
+/* Eintrag zum eben beendeten Auftrag (nach finish: Meldung, abgebrochen) */
+static void history_job(const job_t *j, int ok) {
+    static const char *const FS_NAME[] = {"", "exFAT", "FAT32", "NTFS", "ext4", "HFS+"};
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    long secs = (long)(now.tv_sec - j->t0.tv_sec);
+    char message[sizeof(st.message)];
+    pthread_mutex_lock(&lock);
+    int cancelled = st.cancelled;
+    memcpy(message, st.message, sizeof(message));
+    pthread_mutex_unlock(&lock);
+
+    sbuf_t e = {0};
+    sb_add(&e, "{\"t\":%lld,\"kind\":", (long long)time(NULL));
+    sb_str(&e, JOB_KIND[j->kind]);
+    sb_add(&e, ",\"ok\":%s,\"cancelled\":%s,\"secs\":%ld", ok ? "true" : "false", cancelled ? "true" : "false",
+           secs > 0 ? secs : 0L);
+    if (j->dev.name[0]) {
+        sb_add(&e, ",\"device\":");
+        sb_str(&e, j->dev.name);
+        sb_add(&e, ",\"model\":");
+        sb_str(&e, j->dev.model);
+        sb_add(&e, ",\"size\":%llu", (unsigned long long)j->dev.size);
+    }
+    const char *label = j->kind == JOB_FORMAT || j->kind == JOB_LABEL ? j->label : j->dev.label;
+    if (label[0]) { sb_add(&e, ",\"label\":"); sb_str(&e, label); }
+    if (j->kind == JOB_FORMAT && j->fs > 0 && j->fs <= FS_HFSPLUS) sb_add(&e, ",\"fs\":\"%s\"", FS_NAME[j->fs]);
+    if ((j->kind == JOB_RESTORE || j->kind == JOB_VERIFY) && j->path[0]) {
+        const char *base = strrchr(j->path, '/');
+        sb_add(&e, ",\"file\":");
+        sb_str(&e, base ? base + 1 : j->path);
+    }
+    if (j->kind == JOB_DELETE) sb_add(&e, ",\"count\":%d", j->nitems);
+    sb_add(&e, ",\"msg\":");
+    sb_str(&e, message);
+    sb_add(&e, "}");
+    if (e.p && e.len < HIST_LINE - 1) history_add(e.p);
+    free(e.p);
+}
+
 static void job_done(job_t *j, int ok, sbuf_t *msg, sbuf_t *res, int refresh) {
     finish(ok, msg->p, res->p);
+    history_job(j, ok);
     free(msg->p);
     free(res->p);
     free(j);
@@ -1130,6 +1221,31 @@ static int settings_save(void) {
     return 0;
 }
 
+/* Auftragsverlauf (history_job): GET liefert ihn, clear leert ihn */
+static void api_history(int c, int clear) {
+    char path[256], *lines[HIST_MAX];
+    if (clear) {
+        pthread_mutex_lock(&hist_lock);
+        history_path(path, sizeof(path));
+        remove(path);
+        pthread_mutex_unlock(&hist_lock);
+        respond_ok(c, 200);
+        return;
+    }
+    pthread_mutex_lock(&hist_lock);
+    int n = history_read(lines, HIST_MAX);
+    pthread_mutex_unlock(&hist_lock);
+    sbuf_t b = {0};
+    sb_add(&b, "{\"entries\":[");
+    for (int i = 0; i < n; i++) {
+        sb_add(&b, "%s%s", i ? "," : "", lines[i]);
+        free(lines[i]);
+    }
+    sb_add(&b, "]}");
+    respond_json(c, 200, &b);
+    free(b.p);
+}
+
 static void api_settings(int c, int is_post, const char *body) {
     if (is_post) {
         /* einzeln oder zusammen: theme (auto|light|dark), scale_tv / scale_pc (50..250 %), lang (de|en|it|es|fr,
@@ -1392,6 +1508,7 @@ static int claim_job(int c, job_t *j) {
     }
     memset(&st, 0, sizeof(st));
     st.busy = 1;
+    clock_gettime(CLOCK_MONOTONIC, &j->t0);
     job_seq++;
     snprintf(st.kind, sizeof(st.kind), "%s", JOB_KIND[j->kind]);
     snprintf(st.device, sizeof(st.device), "%s", j->dev.name);
@@ -2829,6 +2946,10 @@ static void handle(int c) {
         api_label(c, body);
     else if (strcmp(path, "/api/tile") == 0 && (is_get || is_post))
         api_tile(c, is_post);
+    else if (strcmp(path, "/api/history") == 0 && is_get)
+        api_history(c, 0);
+    else if (strcmp(path, "/api/history/clear") == 0 && is_post)
+        api_history(c, 1);
     else if (strcmp(path, "/api/delete") == 0 && is_post)
         api_delete(c, body);
     else if (strcmp(path, "/api/images") == 0 && is_get)

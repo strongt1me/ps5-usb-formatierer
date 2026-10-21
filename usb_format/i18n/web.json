@@ -1582,5 +1582,89 @@
   "it": "Ottieni la nuova versione: nel programma per PC scegli «Invia ELF» oppure invia usb_format.elf della release all'ELF loader.",
   "es": "Obtener la nueva versión: en el programa de PC elige «Enviar ELF» o envía usb_format.elf de la versión al cargador ELF.",
   "fr": "Obtenir la nouvelle version : dans le programme PC, choisissez « Envoyer l'ELF » ou envoyez usb_format.elf de la version au chargeur ELF."
+ },
+ "Spiele löschen": {
+  "en": "Delete games",
+  "it": "Elimina giochi",
+  "es": "Eliminar juegos",
+  "fr": "Supprimer des jeux"
+ },
+ "Image wiederherstellen": {
+  "en": "Restore image",
+  "it": "Ripristina immagine",
+  "es": "Restaurar imagen",
+  "fr": "Restaurer l'image"
+ },
+ "Noch keine Aufträge.": {
+  "en": "No tasks yet.",
+  "it": "Ancora nessuna operazione.",
+  "es": "Aún no hay tareas.",
+  "fr": "Aucune tâche pour l'instant."
+ },
+ "erfolgreich": {
+  "en": "successful",
+  "it": "riuscita",
+  "es": "correcta",
+  "fr": "réussie"
+ },
+ "abgebrochen": {
+  "en": "cancelled",
+  "it": "annullata",
+  "es": "cancelada",
+  "fr": "annulée"
+ },
+ "fehlgeschlagen": {
+  "en": "failed",
+  "it": "non riuscita",
+  "es": "fallida",
+  "fr": "échouée"
+ },
+ "{n} Spiele": {
+  "en": "{n} games",
+  "it": "{n} giochi",
+  "es": "{n} juegos",
+  "fr": "{n} jeux"
+ },
+ "{s} s": {
+  "en": "{s} s",
+  "it": "{s} s",
+  "es": "{s} s",
+  "fr": "{s} s"
+ },
+ "Verlauf": {
+  "en": "History",
+  "it": "Cronologia",
+  "es": "Historial",
+  "fr": "Historique"
+ },
+ "Die letzten Aufträge auf dieser PS5, neueste zuerst.": {
+  "en": "The latest tasks on this PS5, newest first.",
+  "it": "Le ultime operazioni su questa PS5, dalla più recente.",
+  "es": "Las últimas tareas en esta PS5, de la más reciente a la más antigua.",
+  "fr": "Les dernières tâches sur cette PS5, les plus récentes d'abord."
+ },
+ "Verlauf leeren": {
+  "en": "Clear history",
+  "it": "Svuota cronologia",
+  "es": "Borrar historial",
+  "fr": "Effacer l'historique"
+ },
+ "Verlauf leeren?": {
+  "en": "Clear history?",
+  "it": "Svuotare la cronologia?",
+  "es": "¿Borrar el historial?",
+  "fr": "Effacer l'historique ?"
+ },
+ "Die Liste der bisherigen Aufträge wird gelöscht. Laufwerke und Sicherungen bleiben unverändert.": {
+  "en": "The list of previous tasks will be deleted. Drives and backups stay unchanged.",
+  "it": "L'elenco delle operazioni precedenti verrà eliminato. Unità e backup restano invariati.",
+  "es": "Se borrará la lista de tareas anteriores. Las unidades y las copias no cambian.",
+  "fr": "La liste des tâches précédentes sera supprimée. Les lecteurs et les sauvegardes ne changent pas."
+ },
+ "Leeren": {
+  "en": "Clear",
+  "it": "Svuota",
+  "es": "Borrar",
+  "fr": "Effacer"
  }
 }

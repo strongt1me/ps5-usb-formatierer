@@ -10,8 +10,9 @@ import i18n
 import ui_msgbox as messagebox
 import ui_theme
 from i18n import _
-from pc_common import (APP_VERSION, enable_dpi_awareness, footer, keep_on_screen, lang_selector, load_settings,
-                       open_help, save_settings, setup_window, show_centered)
+from pc_common import (APP_VERSION, enable_dpi_awareness, enable_history, footer, history_clear, history_dialog,
+                       history_load, keep_on_screen, lang_selector, load_settings, open_help, save_settings,
+                       setup_window, show_centered)
 from standard_panel import StandardPanel
 from ui_widgets import THEME_NEXT, app_header
 
@@ -37,6 +38,8 @@ class StandardApp(tk.Tk):
         self._sys_id = self.after(5000, self._follow_system)
         self.bind_all("<F1>", lambda e: open_help(i18n.lang(), self))
         self.bind_all("<F5>", lambda e: self.panel.reload())
+        self.bind_all("<Control-h>", lambda e: self._history())
+        self.bind_all("<Control-H>", lambda e: self._history())
 
     def _build(self):
         self.title(_("USB-Datenträger formatieren"))
@@ -49,12 +52,19 @@ class StandardApp(tk.Tk):
         top, self.lang_box = app_header(self.frm, _("USB-Formatierer"), APP_VERSION, self.settings.get("theme", "auto"),
                                         self._toggle_theme,
                                         lambda p: lang_selector(p, i18n.lang(), self._set_lang),
-                                        lambda: open_help(i18n.lang(), self))
+                                        lambda: open_help(i18n.lang(), self), self._history)
         top.grid(row=0, column=0, sticky="ew", pady=(0, ui_theme.px(12)))
         self.panel = StandardPanel(self.frm, self.settings, lambda: save_settings(APP_NAME, self.settings))
         self.panel.grid(row=1, column=0, sticky="nsew")
         footer(self.frm, ps5=False).grid(row=2, column=0, sticky="ew")
         self.minsize(ui_theme.px(940), ui_theme.px(640))
+
+    def _history(self):
+        """Fenster "Verlauf": die letzten Aufträge an diesem PC"""
+        def clear():
+            history_clear()
+            return [(None, history_load())]
+        history_dialog(self, [(None, history_load())], clear)
 
     def _toggle_theme(self):
         """Hell/Dunkel umschalten und merken; die Oberfläche wird im neuen Theme neu aufgebaut"""
@@ -108,4 +118,5 @@ class StandardApp(tk.Tk):
 
 if __name__ == "__main__":
     enable_dpi_awareness()
+    enable_history(APP_NAME)
     StandardApp().mainloop()

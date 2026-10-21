@@ -65,6 +65,7 @@ jobs:
           cd windows && python -m pyflakes usb_formatierer.py usb_standard.py standard_panel.py partition_editor.py \
             pc_common.py pc_linux.py fsinfo.py i18n.py ps5_discovery.py ui_theme.py ui_widgets.py ui_msgbox.py \
             tests/linux_ui_test.py tests/ps5_image_flow_test.py tests/pc_tools_test.py
+          cd .. && python -m pyflakes tools/release.py tools/ps5_deploy.py && python tools/ps5_deploy.py --help >/dev/null
 
       - name: Helfer bauen
         working-directory: usb_format
@@ -193,6 +194,10 @@ jobs:
         working-directory: usb_format
         run: bash test/pc_flow_test.sh
 
+      - name: Weboberfläche - Update-Hinweis und Verlauf (node, Code aus web/index.html)
+        working-directory: usb_format
+        run: node --version && node test/web_logic_test.js web/index.html
+
       - name: Payload-Tests (Host)
         working-directory: usb_format
         run: |
@@ -200,7 +205,7 @@ jobs:
           for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
                    test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
                    test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh \
-                   test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh; do
+                   test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh test/history_test.sh; do
             echo "== $t"
             bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
           done

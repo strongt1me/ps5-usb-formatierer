@@ -469,7 +469,7 @@ def _build(root, style, c, s, m):
 
 
 def icon(root, name, color="muted", size=16):
-    """kleines Symbol (sun, moon, refresh, check, help) in einer Theme-Farbe"""
+    """kleines Symbol (sun, moon, refresh, check, clock, help) in einer Theme-Farbe"""
     s = _state["scale"]
     n = max(8, round(size * s))
     col = colors().get(color, color)
@@ -497,6 +497,11 @@ def icon(root, name, color="muted", size=16):
             d = math.hypot(x - c, y - c)
             ring = _cov(abs(d - n * .38) - w / 2)
             return max(ring, _cov(d - n * .38) * _cov(c - x + .5))
+    elif name == "clock":   # Kreis mit Zeigern (Verlauf)
+        def f(x, y):
+            ring = _cov(abs(math.hypot(x - c, y - c) - n * .38) - w / 2)
+            hands = min(_sd_seg(x, y, c, c, c, n * .26), _sd_seg(x, y, c, c, c + n * .17, c + n * .1))
+            return max(ring, _cov(hands - w / 2))
     elif name == "check":
         f = lambda x, y: _cov(min(_sd_seg(x, y, n * .2, n * .52, n * .42, n * .72),  # noqa: E731
                                   _sd_seg(x, y, n * .42, n * .72, n * .8, n * .3)) - w / 2)

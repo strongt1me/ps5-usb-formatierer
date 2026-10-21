@@ -89,6 +89,7 @@ class LinuxJob:
             pass
 
     def cancel(self):
+        self.cancel_requested = True   # für den Verlauf: "abgebrochen" statt "fehlgeschlagen"
         try:
             open(self.cancel_file, "w").close()
         except OSError:

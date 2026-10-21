@@ -254,7 +254,7 @@ class Tooltip:
 THEME_NEXT = {"auto": "light", "light": "dark", "dark": "auto"}
 
 
-def app_header(parent, title, version, theme_choice, on_theme, lang_box_factory, on_help):
+def app_header(parent, title, version, theme_choice, on_theme, lang_box_factory, on_help, on_history=None):
     """Kopfzeile: Symbol und Name mit Version links; rechts Hell/Dunkel, Sprache und Hilfe.
     lang_box_factory(parent) baut die Sprachauswahl; liefert (karte, sprachauswahl)."""
     bar = ui_theme.card(parent, padding=(14, 9))
@@ -263,13 +263,14 @@ def app_header(parent, title, version, theme_choice, on_theme, lang_box_factory,
     ttk.Label(bar, text=title, style="H2.TLabel").pack(side="left", padx=(ui_theme.px(10), ui_theme.px(8)))
     if version:
         ttk.Label(bar, text="v" + version, style="Pill.TLabel").pack(side="left")
-    box = header_tools(bar, theme_choice, on_theme, lang_box_factory, on_help)
+    box = header_tools(bar, theme_choice, on_theme, lang_box_factory, on_help, on_history)
     return bar, box
 
 
-def header_tools(bar, theme_choice, on_theme, lang_box_factory, on_help):
-    """rechts in einer Kopfzeile: Design (Automatisch/Hell/Dunkel, Klick schaltet weiter), Sprache, Hilfe (von rechts
-    nach links gepackt). theme_choice: die Einstellung ("auto", "light", "dark"). Liefert die Sprachauswahl."""
+def header_tools(bar, theme_choice, on_theme, lang_box_factory, on_help, on_history=None):
+    """rechts in einer Kopfzeile: Verlauf (wenn on_history), Design (Automatisch/Hell/Dunkel, Klick schaltet weiter),
+    Sprache, Hilfe (von rechts nach links gepackt). theme_choice: die Einstellung ("auto", "light", "dark").
+    Liefert die Sprachauswahl."""
     hb = ttk.Button(bar, text="?", style="Ghost.TButton", width=2, command=on_help)
     hb.pack(side="right")
     Tooltip(hb, _("Anleitung öffnen (F1)"))
@@ -283,4 +284,11 @@ def header_tools(bar, theme_choice, on_theme, lang_box_factory, on_help):
     tb.pack(side="right")
     Tooltip(tb, _("Design: {now} – Klick wechselt zu „{next}“. Automatisch folgt dem System.", now=names[choice],
                   next=names[THEME_NEXT[choice]]))
+    if on_history:
+        ico = ui_theme.icon(bar, "clock", "muted", 16)
+        vb = ttk.Button(bar, text=" " + _("Verlauf"), image=ico, compound="left", style="Ghost.TButton",
+                        command=on_history)
+        vb.image = ico
+        vb.pack(side="right")
+        Tooltip(vb, _("Die letzten Aufträge mit Ergebnis (Strg+H)"))
     return box
