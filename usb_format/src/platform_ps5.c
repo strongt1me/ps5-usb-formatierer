@@ -101,6 +101,45 @@ void *plat_dynsym(const char *module, const char *symbol) {
     return dynsym(module, symbol);
 }
 
+const char *plat_saves_dir(void) { return "/user/home"; }
+
+/* wie garlic-savemgr: authid des Systemdienstes und eine zusätzliche Fähigkeit, sonst lehnt das Einhängen ab */
+void plat_creds_elevate(plat_creds_t *old) {
+    pid_t pid = getpid();
+    old->authid = kernel_get_ucred_authid(pid);
+    old->valid = kernel_get_ucred_caps(pid, old->caps) == 0;
+    uint8_t caps[16];
+    if (kernel_get_ucred_caps(pid, caps) == 0) {
+        caps[7] |= 0x40;
+        kernel_set_ucred_caps(pid, caps);
+    }
+    kernel_set_ucred_authid(pid, 0x4800000000000010ULL);
+    setuid(0);
+}
+
+/* Puffer auf dem Heap: der Treiber schreibt weiter als die 0x84 Byte der Struktur (garlic-savemgr) */
+int plat_pfs_decrypt(const uint8_t sealed[0x60], uint8_t key[0x20]) {
+    uint8_t *buf = calloc(1, 0x100);
+    int fd = open("/dev/pfsmgr", O_RDWR), rc = -1;
+    if (buf && fd >= 0) {
+        memcpy(buf, sealed, 0x60);
+        if (ioctl(fd, 0xC0845302UL, buf) >= 0) {
+            memcpy(key, buf + 0x60, 0x20);
+            rc = 0;
+        }
+    }
+    if (fd >= 0) close(fd);
+    if (buf) { memset(buf, 0, 0x100); free(buf); }
+    return rc;
+}
+
+void plat_creds_restore(const plat_creds_t *old) {
+    if (!old->valid) return;
+    pid_t pid = getpid();
+    kernel_set_ucred_authid(pid, old->authid);
+    kernel_set_ucred_caps(pid, old->caps);
+}
+
 int plat_open_browser(const char *url, char *err, size_t errlen) {
     typedef int (*fn_usinit_t)(void *);
     typedef int (*fn_browser_t)(const char *, void *);

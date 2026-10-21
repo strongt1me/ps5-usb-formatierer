@@ -10,5 +10,7 @@ bash test/host_build.sh "$B/usb_format_host"
 [ -f "$B/stick0.img" ] || truncate -s 16G "$B/stick0.img"
 [ -f "$B/stick1.img" ] || truncate -s 64G "$B/stick1.img"
 export USBFMT_IMAGES="$B/stick0.img:$B/stick1.img"
+[ -d "$B/psfix/home" ] || python3 test/saves_fixture.py "$B/psfix" >/dev/null
+export USBFMT_SAVES="$B/psfix/home"   # Spielstände für die Spielstände-Seite
 [ -n "${SLOW:-}" ] && export USBFMT_SLOW=1
 exec "$B/usb_format_host"

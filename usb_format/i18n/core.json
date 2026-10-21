@@ -2178,10 +2178,10 @@
   "fr": "Le support a déjà été partiellement écrasé."
  },
  "Abgebrochen – ShadowMountPlus meldet die Kachel beim nächsten Suchlauf selbst wieder an.": {
-  "en": "Cancelled – ShadowMountPlus registers the tile again by itself on its next scan.",
-  "it": "Annullato – ShadowMountPlus registra di nuovo il riquadro da solo alla prossima ricerca.",
-  "es": "Cancelado: ShadowMountPlus vuelve a registrar el icono por sí solo en la próxima búsqueda.",
-  "fr": "Annulé – ShadowMountPlus réinscrit la vignette lui-même lors de sa prochaine recherche."
+  "en": "Cancelled – ShadowMountPlus will re-register the tile on the next scan.",
+  "it": "Annullato – ShadowMountPlus registrerà di nuovo il riquadro alla prossima scansione.",
+  "es": "Cancelado – ShadowMountPlus volverá a registrar el mosaico en el siguiente análisis.",
+  "fr": "Annulé – ShadowMountPlus réenregistrera la tuile lors du prochain scan."
  },
  "Zu viele Laufwerke auf dem Datenträger – abgelehnt.": {
   "en": "Too many volumes on the drive – refused.",
@@ -2261,34 +2261,226 @@
   "es": "libSceFsInternalForVsh.sprx no encontrado",
   "fr": "libSceFsInternalForVsh.sprx introuvable"
  },
- "Abgebrochen – ShadowMountPlus meldet die Kachel beim nächsten Suchlauf selbst wieder an.": {
-  "en": "Cancelled – ShadowMountPlus will re-register the tile on the next scan.",
-  "it": "Annullato – ShadowMountPlus registrerà di nuovo il riquadro alla prossima scansione.",
-  "es": "Cancelado – ShadowMountPlus volverá a registrar el mosaico en el siguiente análisis.",
-  "fr": "Annulé – ShadowMountPlus réenregistrera la tuile lors du prochain scan."
+ "Es läuft gerade ein Spiel oder eine App (%s) – bitte zuerst beenden, sonst kann der Spielstand beschädigt werden.": {
+  "en": "A game or app is running (%s) – please close it first, otherwise the save game may be damaged.",
+  "it": "È in esecuzione un gioco o un'app (%s) – chiudilo prima, altrimenti il salvataggio può danneggiarsi.",
+  "es": "Hay un juego o una app en ejecución (%s) – ciérralo primero, de lo contrario la partida guardada puede dañarse.",
+  "fr": "Un jeu ou une app est en cours d'exécution (%s) – fermez-le d'abord, sinon la sauvegarde peut être endommagée."
  },
- "idx fehlt": {
-  "en": "idx missing",
-  "it": "idx mancante",
-  "es": "Falta idx",
-  "fr": "idx manquant"
+ "Spielstand wird neu signiert …": {
+  "en": "Re-signing save game …",
+  "it": "Firma del salvataggio in corso …",
+  "es": "Refirmando la partida …",
+  "fr": "Re-signature de la sauvegarde …"
  },
- "idx und account_id erforderlich": {
-  "en": "idx and account_id required",
-  "it": "idx e account_id obbligatori",
-  "es": "Se requieren idx y account_id",
-  "fr": "idx et account_id requis"
+ "Nicht genug freier Speicher auf der PS5": {
+  "en": "Not enough free space on the PS5",
+  "it": "Spazio libero insufficiente sulla PS5",
+  "es": "No hay suficiente espacio libre en la PS5",
+  "fr": "Pas assez d'espace libre sur la PS5"
  },
- "account_id fehlt oder leer": {
-  "en": "account_id missing or empty",
-  "it": "account_id mancante o vuoto",
-  "es": "account_id faltante o vacío",
-  "fr": "account_id manquant ou vide"
+ "Zwischendatei konnte nicht angelegt werden: %s": {
+  "en": "Temporary file could not be created: %s",
+  "it": "Impossibile creare il file temporaneo: %s",
+  "es": "No se pudo crear el archivo temporal: %s",
+  "fr": "Le fichier temporaire n'a pas pu être créé : %s"
  },
- "Content-Length fehlt oder zu groß (max 16 MiB)": {
-  "en": "Content-Length missing or too large (max 16 MiB)",
-  "it": "Content-Length mancante o troppo grande (max 16 MiB)",
-  "es": "Content-Length faltante o demasiado grande (máx. 16 MiB)",
-  "fr": "Content-Length manquant ou trop grand (max 16 Mio)"
+ "Spielstand wird hochgeladen …": {
+  "en": "Uploading save game …",
+  "it": "Caricamento del salvataggio …",
+  "es": "Subiendo la partida …",
+  "fr": "Envoi de la sauvegarde …"
+ },
+ "Das Hochladen wurde unterbrochen": {
+  "en": "The upload was interrupted",
+  "it": "Il caricamento è stato interrotto",
+  "es": "La subida se interrumpió",
+  "fr": "L'envoi a été interrompu"
+ },
+ "Spielstand wird zurückgeschrieben …": {
+  "en": "Writing save game back …",
+  "it": "Scrittura del salvataggio …",
+  "es": "Escribiendo la partida …",
+  "fr": "Écriture de la sauvegarde …"
+ },
+ "Wiederherstellen fehlgeschlagen": {
+  "en": "Restore failed",
+  "it": "Ripristino non riuscito",
+  "es": "Error al restaurar",
+  "fr": "Échec de la restauration"
+ },
+ "Spielstand wiederhergestellt.": {
+  "en": "Save game restored.",
+  "it": "Salvataggio ripristinato.",
+  "es": "Partida restaurada.",
+  "fr": "Sauvegarde restaurée."
+ },
+ "key fehlt": {
+  "en": "key missing",
+  "it": "key mancante",
+  "es": "Falta key",
+  "fr": "key manquant"
+ },
+ "key und uid erforderlich": {
+  "en": "key and uid required",
+  "it": "key e uid obbligatori",
+  "es": "Se requieren key y uid",
+  "fr": "key et uid requis"
+ },
+ "Content-Length fehlt oder zu groß (max 4 GiB)": {
+  "en": "Content-Length missing or too large (max 4 GiB)",
+  "it": "Content-Length mancante o troppo grande (max 4 GiB)",
+  "es": "Falta Content-Length o es demasiado grande (máx. 4 GiB)",
+  "fr": "Content-Length manquant ou trop grand (max 4 Gio)"
+ },
+ "Es läuft bereits ein Spielstand-Vorgang": {
+  "en": "A save game operation is already running",
+  "it": "È già in corso un'operazione sui salvataggi",
+  "es": "Ya hay una operación de partidas en curso",
+  "fr": "Une opération sur les sauvegardes est déjà en cours"
+ },
+ "Spielstand konnte nicht geöffnet werden: %s": {
+  "en": "Save game could not be opened: %s",
+  "it": "Impossibile aprire il salvataggio: %s",
+  "es": "No se pudo abrir la partida: %s",
+  "fr": "La sauvegarde n'a pas pu être ouverte : %s"
+ },
+ "Der Spielstand hat eine ungültige Größe": {
+  "en": "The save game has an invalid size",
+  "it": "Il salvataggio ha una dimensione non valida",
+  "es": "La partida tiene un tamaño no válido",
+  "fr": "La sauvegarde a une taille invalide"
+ },
+ "Spielstand konnte nicht gelesen werden": {
+  "en": "Save game could not be read",
+  "it": "Impossibile leggere il salvataggio",
+  "es": "No se pudo leer la partida",
+  "fr": "La sauvegarde n'a pas pu être lue"
+ },
+ "Keine gültige Spielstand-ZIP-Datei": {
+  "en": "Not a valid save game ZIP file",
+  "it": "Non è un file ZIP di salvataggio valido",
+  "es": "No es un archivo ZIP de partida válido",
+  "fr": "Ce n'est pas un fichier ZIP de sauvegarde valide"
+ },
+ "Datei konnte nicht geöffnet werden: %s": {
+  "en": "File could not be opened: %s",
+  "it": "Impossibile aprire il file: %s",
+  "es": "No se pudo abrir el archivo: %s",
+  "fr": "Le fichier n'a pas pu être ouvert : %s"
+ },
+ "metadata.json fehlt im ZIP oder ist ungültig": {
+  "en": "metadata.json is missing from the ZIP or invalid",
+  "it": "metadata.json manca nello ZIP o non è valido",
+  "es": "metadata.json falta en el ZIP o no es válido",
+  "fr": "metadata.json est absent du ZIP ou invalide"
+ },
+ "Die Angaben in metadata.json sind unvollständig oder ungültig": {
+  "en": "The data in metadata.json is incomplete or invalid",
+  "it": "I dati in metadata.json sono incompleti o non validi",
+  "es": "Los datos de metadata.json están incompletos o no son válidos",
+  "fr": "Les données de metadata.json sont incomplètes ou invalides"
+ },
+ "Container (%s) fehlt im ZIP": {
+  "en": "Container (%s) is missing from the ZIP",
+  "it": "Il contenitore (%s) manca nello ZIP",
+  "es": "Falta el contenedor (%s) en el ZIP",
+  "fr": "Le conteneur (%s) est absent du ZIP"
+ },
+ "PS4-Spielstände werden noch nicht unterstützt": {
+  "en": "PS4 save games are not supported yet",
+  "it": "I salvataggi PS4 non sono ancora supportati",
+  "es": "Las partidas de PS4 aún no son compatibles",
+  "fr": "Les sauvegardes PS4 ne sont pas encore prises en charge"
+ },
+ "Der Benutzer %s ist auf dieser PS5 nicht vorhanden": {
+  "en": "User %s does not exist on this PS5",
+  "it": "L'utente %s non esiste su questa PS5",
+  "es": "El usuario %s no existe en esta PS5",
+  "fr": "L'utilisateur %s n'existe pas sur cette PS5"
+ },
+ "Pfad zu lang": {
+  "en": "Path too long",
+  "it": "Percorso troppo lungo",
+  "es": "Ruta demasiado larga",
+  "fr": "Chemin trop long"
+ },
+ "Ziel ist keine Datei": {
+  "en": "Target is not a file",
+  "it": "La destinazione non è un file",
+  "es": "El destino no es un archivo",
+  "fr": "La destination n'est pas un fichier"
+ },
+ "Zieldatei konnte nicht angelegt werden: %s": {
+  "en": "Target file could not be created: %s",
+  "it": "Impossibile creare il file di destinazione: %s",
+  "es": "No se pudo crear el archivo de destino: %s",
+  "fr": "Le fichier de destination n'a pas pu être créé : %s"
+ },
+ "Schreibfehler: %s": {
+  "en": "Write error: %s",
+  "it": "Errore di scrittura: %s",
+  "es": "Error de escritura: %s",
+  "fr": "Erreur d'écriture : %s"
+ },
+ "Prüfsumme des Spielstands stimmt nicht – die ZIP-Datei ist beschädigt": {
+  "en": "The save game checksum does not match – the ZIP file is damaged",
+  "it": "Il checksum del salvataggio non corrisponde – il file ZIP è danneggiato",
+  "es": "La suma de comprobación de la partida no coincide – el archivo ZIP está dañado",
+  "fr": "La somme de contrôle de la sauvegarde ne correspond pas – le fichier ZIP est endommagé"
+ },
+ "param.sfo des Spielstands konnte nicht geöffnet werden": {
+  "en": "The save game's param.sfo could not be opened",
+  "it": "Impossibile aprire param.sfo del salvataggio",
+  "es": "No se pudo abrir param.sfo de la partida",
+  "fr": "Le param.sfo de la sauvegarde n'a pas pu être ouvert"
+ },
+ "param.sfo konnte nicht geändert werden (ACCOUNT_ID nicht gefunden)": {
+  "en": "param.sfo could not be changed (ACCOUNT_ID not found)",
+  "it": "Impossibile modificare param.sfo (ACCOUNT_ID non trovato)",
+  "es": "No se pudo modificar param.sfo (ACCOUNT_ID no encontrado)",
+  "fr": "param.sfo n'a pas pu être modifié (ACCOUNT_ID introuvable)"
+ },
+ "Der Zielbenutzer ist auf dieser PS5 nicht vorhanden": {
+  "en": "The target user does not exist on this PS5",
+  "it": "L'utente di destinazione non esiste su questa PS5",
+  "es": "El usuario de destino no existe en esta PS5",
+  "fr": "L'utilisateur cible n'existe pas sur cette PS5"
+ },
+ "Für den Benutzer %s wurde keine Account-ID in der Registry gefunden": {
+  "en": "No account ID was found in the registry for user %s",
+  "it": "Nessun ID account trovato nel registro per l'utente %s",
+  "es": "No se encontró ningún ID de cuenta en el registro para el usuario %s",
+  "fr": "Aucun identifiant de compte trouvé dans le registre pour l'utilisateur %s"
+ },
+ "Arbeitskopie konnte nicht erstellt werden": {
+  "en": "Working copy could not be created",
+  "it": "Impossibile creare la copia di lavoro",
+  "es": "No se pudo crear la copia de trabajo",
+  "fr": "La copie de travail n'a pas pu être créée"
+ },
+ "Sealed Key konnte nicht gelesen werden": {
+  "en": "Sealed key could not be read",
+  "it": "Impossibile leggere la sealed key",
+  "es": "No se pudo leer la sealed key",
+  "fr": "La sealed key n'a pas pu être lue"
+ },
+ "Schlüssel konnte nicht entschlüsselt werden (pfsmgr)": {
+  "en": "Key could not be decrypted (pfsmgr)",
+  "it": "Impossibile decifrare la chiave (pfsmgr)",
+  "es": "No se pudo descifrar la clave (pfsmgr)",
+  "fr": "La clé n'a pas pu être déchiffrée (pfsmgr)"
+ },
+ "Einhängen fehlgeschlagen (0x%08x)": {
+  "en": "Mounting failed (0x%08x)",
+  "it": "Montaggio non riuscito (0x%08x)",
+  "es": "Error al montar (0x%08x)",
+  "fr": "Échec du montage (0x%08x)"
+ },
+ "Zurückkopieren fehlgeschlagen": {
+  "en": "Copying back failed",
+  "it": "Copia di ritorno non riuscita",
+  "es": "Error al copiar de vuelta",
+  "fr": "Échec de la copie de retour"
  }
 }

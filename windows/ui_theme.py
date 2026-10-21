@@ -237,7 +237,11 @@ def _build(root, style, c, s, m):
         return _rrect_img(root, k + key, *a, **kw)
 
     rc, rb = px(12), px(8)   # Ecken: Karten, Bedienelemente
-    card_sz, ctl_sz = 2 * rc + 4, 2 * rb + 4
+    # Mitte des 9-Teile-Bildes: ttk kachelt sie über die ganze Fläche, bei 4 px Kantenlänge also tausendfach je Karte
+    # (erstes Zeichnen des Fensters und jeder Neuaufbau dauerten ~8 s); mit 64/32 px sind es ~0,3 s. Die Mindestgröße
+    # des Elements (width/height) bleibt die alte, sonst würden Knöpfe und Karten größer.
+    card_sz, ctl_sz = 2 * rc + 64, 2 * rb + 32
+    card_min, ctl_min = 2 * rc + 4, 2 * rb + 4
 
     # Grundwerte
     style.configure(".", background=c["card"], foreground=c["text"], font="TkDefaultFont",
@@ -250,14 +254,14 @@ def _build(root, style, c, s, m):
     style.configure("TFrame", background=c["card"])
     style.configure("Page.TFrame", background=c["page"])
     style.element_create("Uf.Card.bg", "image", img("card", card_sz, card_sz, rc, c["card"], c["border"], 1),
-                         border=rc, padding=0, sticky="nsew")
+                         border=rc, padding=0, sticky="nsew", width=card_min, height=card_min)
     style.layout("Card.TFrame", [("Uf.Card.bg", {"sticky": "nsew", "children": [
         ("Frame.padding", {"sticky": "nsew"})]})])
     style.configure("Card.TFrame", padding=(px(16), px(14)))
     for key, fill, stroke, sw in (("Drive", c["card"], c["border"], 1), ("DriveHover", c["card"], c["border2"], 1),
                                   ("DriveSel", c["card"], c["accent"], px(2))):
         style.element_create(f"Uf.{key}.bg", "image", img(key, card_sz, card_sz, rb + px(2), fill, stroke, sw),
-                             border=rb + px(3), padding=0, sticky="nsew")
+                             border=rb + px(3), padding=0, sticky="nsew", width=card_min, height=card_min)
         style.layout(f"{key}.TFrame", [(f"Uf.{key}.bg", {"sticky": "nsew", "children": [
             ("Frame.padding", {"sticky": "nsew"})]})])
         style.configure(f"{key}.TFrame", padding=(px(12), px(9)))
@@ -296,7 +300,8 @@ def _build(root, style, c, s, m):
             ("n", normal, stroke), ("h", hover, stroke), ("p", press, stroke), ("d", dis, dis_stroke),
             ("f", normal, focus or stroke))}
         style.element_create(el, "image", imgs["n"], ("disabled", imgs["d"]), ("pressed", imgs["p"]),
-                             ("active", imgs["h"]), ("focus", imgs["f"]), border=rb + 1, padding=0, sticky="nsew")
+                             ("active", imgs["h"]), ("focus", imgs["f"]), border=rb + 1, padding=0, sticky="nsew",
+                             width=ctl_min, height=ctl_min)
         style.layout(stylename, [(el, {"sticky": "nsew", "children": [("Button.padding", {"sticky": "nsew", "children": [
             ("Button.label", {"sticky": "nsew"})]})]})])
         style.configure(stylename, foreground=fg, padding=(px(14), px(6)), anchor="center")
@@ -325,7 +330,7 @@ def _build(root, style, c, s, m):
     chip_sel = img("chipsel", ctl_sz, ctl_sz, rb, c["accent_bg"], c["accent"], px(2))
     chip_sel_d = img("chipseld", ctl_sz, ctl_sz, rb, c["card2"], c["border2"], px(2))
     style.element_create("Uf.ChipSel.bg", "image", chip_sel, ("disabled", chip_sel_d), border=rb + 1, padding=0,
-                         sticky="nsew")
+                         sticky="nsew", width=ctl_min, height=ctl_min)
     style.layout("ChipSel.TButton", [("Uf.ChipSel.bg", {"sticky": "nsew", "children": [("Button.padding", {
         "sticky": "nsew", "children": [("Button.label", {"sticky": "nsew"})]})]})])
     style.configure("ChipSel.TButton", foreground=c["accent"], font="UfBold", padding=(px(10), px(7)), anchor="center")
@@ -336,7 +341,8 @@ def _build(root, style, c, s, m):
         ("n", c["field"], c["border"], 1), ("h", c["field"], c["border2"], 1), ("f", c["field"], c["accent"], px(2)),
         ("d", c["card2"], c["border"], 1))}
     style.element_create("Uf.Field.bg", "image", fld["n"], ("disabled", fld["d"]), ("focus", fld["f"]),
-                         ("hover", fld["h"]), border=rb + 1, padding=0, sticky="nsew")
+                         ("hover", fld["h"]), border=rb + 1, padding=0, sticky="nsew", width=ctl_min,
+                         height=ctl_min)
     style.layout("TEntry", [("Uf.Field.bg", {"sticky": "nsew", "children": [("Entry.padding", {"sticky": "nsew", "children": [
         ("Entry.textarea", {"sticky": "nsew"})]})]})])
     style.configure("TEntry", padding=(px(10), px(6)), foreground=c["text"], insertcolor=c["text"])

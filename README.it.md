@@ -109,6 +109,9 @@ Controllo del numero di serie: se nel frattempo è inserita un'altra chiavetta d
 ### 💾 Salvare e ripristinare immagini
 Salva un'intera unità come <code>.img.zst</code> – solo le aree occupate, compresse con zstd, con <code>.sha256</code>. Sulla PS5 nella memoria interna, su un'altra unità USB o come download; sul PC in qualsiasi cartella, anche da chiavette e schede SD con la protezione da scrittura attiva. Riscrittura con verifica finale – anche caricando il file da telefono o PC. Con <code>zstd -d</code> il file diventa una normale immagine.
 
+### 🎮 Salvataggi: backup, ripristino e nuova firma
+Mostra i singoli salvataggi PS5 con nome del gioco e utente, li scarica come ZIP sul PC o sul telefono (il contenitore cifrato resta invariato), li riscrive e li firma di nuovo per un altro utente della console. I checksum vengono verificati, un gioco in esecuzione impedisce le modifiche. Giochi PS5; i salvataggi PS4 seguiranno.
+
 </td>
 </tr>
 <tr>

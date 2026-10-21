@@ -1,44 +1,789 @@
 /*
- * PS5-Spielstand-Sicherung, Wiederherstellung und Neusignierung
- * Nur für den PS5-ELF-Payload; läuft nach dem Kernel-Jailbreak.
- * Neusignierung: verwendet sceFsMountSaveData aus libSceFsInternalForVsh.sprx
- * und /dev/pfsmgr (ioctl 0xC0845302) zum Entschlüsseln des Sealed Key.
- * Lizenzen: garlic-worker (GPL-3.0) als Referenz für Mount-Ablauf/Offsets.
+ * PS5-Spielstand-Sicherung, Wiederherstellung und Neusignierung.
+ * Sichern: das verschlüsselte Container-Image + metadata.json als ZIP (nichts wird entschlüsselt).
+ * Neusignieren: Container über sceFsMountSaveData einhängen (Schlüssel über /dev/pfsmgr), Account-ID und Benutzer-ID
+ * in sce_sys/param.sfo ändern. Ablauf und Offsets nach garlic-savemgr (GPL-3.0).
  */
+#include <ctype.h>
 #include <dirent.h>
-#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
-
-#include <ps5/kernel.h>
 
 #include "i18n.h"
 #include "library.h"
 #include "platform.h"
 #include "saves.h"
 
-/* ── Konstanten ───────────────────────────────────────────────────────── */
-#define SAVE_HOME       "/user/home"
-#define SAVE_PROSPERO   "savedata_prospero"
-#define SAVE_TMPDIR     "/data/usb_format/save_tmp"
-#define SAVE_MNTDIR     "/data/usb_format/save_mnt"
-#define SAVE_AUTHID     0x4800000000000010ULL
-#define PFSMGR_PATH     "/dev/pfsmgr"
-#define PFSMGR_DECRYPT  0xC0845302UL
-#define SEALED_KEY_OFF  0x800    /* Offset des Sealed Key im Container-Image */
+#define SAVE_SUBDIR     "savedata_prospero"
+#define SEALED_KEY_OFF  0x800   /* Sealed Key im PS5-Container */
 #define SEALED_KEY_LEN  0x60
+#define IMG_MIN         0x1000ull
+#define IMG_MAX         0xF0000000ull   /* ZIP ohne ZIP64: Größen passen in 32 Bit */
+#define META_MAX        4096
+#define SAVES_MAX       4096
+#define CHUNK           65536
+#define FREE_MARGIN     (1ull << 20)
 
-/* ── Laufzeit-Bibliothek für Save-Mount ──────────────────────────────── */
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
+static pthread_mutex_t g_op = PTHREAD_MUTEX_INITIALIZER;
+
+/* ein Vorgang zur Zeit: Sichern, Wiederherstellen und Neusignieren würden sich an derselben Datei in die Quere kommen */
+static int op_enter(char *err, size_t errsz) {
+    if (pthread_mutex_trylock(&g_op) == 0) return 0;
+    snprintf(err, errsz, "%s", T("Es läuft bereits ein Spielstand-Vorgang"));
+    return -1;
+}
+static void op_leave(void) { pthread_mutex_unlock(&g_op); }
+
+/* ── Hilfen ──────────────────────────────────────────────────────────── */
+
+/* Zeichenkette in einen Puffer fester Größe kopieren (abgeschnitten, immer mit Ende) */
+static void scpy(char *dst, size_t n, const char *src) {
+    size_t l = strlen(src);
+    if (l >= n) l = n - 1;
+    memcpy(dst, src, l);
+    dst[l] = 0;
+}
+
+static int path_fmt(char *out, size_t n, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+static int path_fmt(char *out, size_t n, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int r = vsnprintf(out, n, fmt, ap);
+    va_end(ap);
+    if (r < 0 || (size_t)r >= n) { out[0] = 0; return -1; }
+    return 0;
+}
+
+int saves_name_ok(const char *s, size_t max) {
+    size_t n = s ? strlen(s) : 0;
+    if (!n || n >= max || s[0] == '.') return 0;
+    for (; *s; s++) {
+        char c = *s;
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' ||
+              c == '.'))
+            return 0;
+    }
+    return 1;
+}
+
+static int pread_full(int fd, void *buf, size_t n, off_t off) {
+    uint8_t *p = buf;
+    while (n) {
+        ssize_t r = pread(fd, p, n, off);
+        if (r < 0 && errno == EINTR) continue;
+        if (r <= 0) return -1;
+        p += r; off += r; n -= (size_t)r;
+    }
+    return 0;
+}
+
+static int write_full(int fd, const void *buf, size_t n) {
+    const uint8_t *p = buf;
+    while (n) {
+        ssize_t r = write(fd, p, n);
+        if (r < 0 && errno == EINTR) continue;
+        if (r <= 0) return -1;
+        p += r; n -= (size_t)r;
+    }
+    return 0;
+}
+
+static uint32_t rd16(const uint8_t *b) { return (uint32_t)b[0] | (uint32_t)b[1] << 8; }
+static uint32_t rd32(const uint8_t *b) { return rd16(b) | rd16(b + 2) << 16; }
+static void wr16(uint8_t *b, uint32_t v) { b[0] = (uint8_t)v; b[1] = (uint8_t)(v >> 8); }
+static void wr32(uint8_t *b, uint32_t v) { wr16(b, v & 0xFFFF); wr16(b + 2, v >> 16); }
+
+static uint32_t g_crc_tbl[256];
+static pthread_once_t g_crc_once = PTHREAD_ONCE_INIT;
+static void crc_init(void) {
+    for (uint32_t i = 0; i < 256; i++) {
+        uint32_t c = i;
+        for (int j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320u ^ (c >> 1)) : (c >> 1);
+        g_crc_tbl[i] = c;
+    }
+}
+static uint32_t crc32_update(uint32_t crc, const void *buf, size_t len) {
+    pthread_once(&g_crc_once, crc_init);
+    const uint8_t *p = buf;
+    crc = ~crc;
+    for (size_t i = 0; i < len; i++) crc = g_crc_tbl[(crc ^ p[i]) & 0xFF] ^ (crc >> 8);
+    return ~crc;
+}
+
+/* legt den Ordner bei Bedarf an */
+const char *saves_workdir(void) {
+    static char dir[300];
+    const char *d = plat_data_dir();
+    snprintf(dir, sizeof(dir), "%s/save_tmp", d ? d : "/tmp");
+    if (d) mkdir(d, 0755);
+    mkdir(dir, 0755);
+    return dir;
+}
+
+/* freier Platz im Ordner path ≥ need? */
+static int space_ok(const char *path, uint64_t need) {
+    struct statvfs sv;
+    if (statvfs(path, &sv) != 0) return 1;   /* unbekannt: nicht blockieren, Schreibfehler werden gemeldet */
+    return (uint64_t)sv.f_bavail * sv.f_frsize >= need + FREE_MARGIN;
+}
+
+/* ── Benutzer und Account-IDs ────────────────────────────────────────── */
+
+typedef int (*fn_regstr_t)(int key, char *buf, size_t sz);
+typedef int (*fn_regbin_t)(int key, void *buf, size_t sz);
+
+static int read_username(const char *home, const char *uid, char *out, size_t n) {
+    char p[640];
+    out[0] = 0;
+    if (path_fmt(p, sizeof(p), "%s/%s/username.dat", home, uid)) return -1;
+    int fd = open(p, O_RDONLY);
+    if (fd < 0) return -1;
+    ssize_t r = read(fd, out, n - 1);
+    close(fd);
+    if (r <= 0) { out[0] = 0; return -1; }
+    out[r] = 0;
+    out[strcspn(out, "\r\n")] = 0;   /* NUL-terminiert; Zeilenende abschneiden */
+    return out[0] ? 0 : -1;
+}
+
+/* Account-ID des Benutzers aus der Registry: Konto mit gleichem Namen (wie garlic-savemgr). 0 = gefunden */
+static int account_id_of(const char *username, char *out, size_t outsz) {
+    static fn_regstr_t get_str;   /* einmal suchen: die Auflistung fragt für jeden Benutzer */
+    static fn_regbin_t get_bin;
+    if (!get_str || !get_bin) {
+        get_str = (fn_regstr_t)plat_dynsym("libSceRegMgr.sprx", "sceRegMgrGetStr");
+        get_bin = (fn_regbin_t)plat_dynsym("libSceRegMgr.sprx", "sceRegMgrGetBin");
+    }
+    if (!get_str || !get_bin || !username[0]) return -1;
+    for (int slot = 1; slot <= 16; slot++) {
+        char reg_name[64] = "";
+        if (get_str((slot - 1) * 65536 + 125829632, reg_name, sizeof(reg_name)) < 0 || !reg_name[0]) continue;
+        if (strcmp(reg_name, username) != 0) continue;
+        uint64_t aid = 0;
+        if (get_bin((slot - 1) * 65536 + 125830400, &aid, sizeof(aid)) < 0 || !aid) return -1;
+        snprintf(out, outsz, "%016llx", (unsigned long long)aid);
+        return 0;
+    }
+    return -1;
+}
+
+static int cmp_users(const void *a, const void *b) {
+    return strcmp(((const save_user_t *)a)->uid, ((const save_user_t *)b)->uid);
+}
+
+int saves_scan_users(save_user_t **out, int *count) {
+    *out = NULL;
+    *count = 0;
+    const char *home = plat_saves_dir();
+    DIR *d = home ? opendir(home) : NULL;
+    if (!d) return -1;
+    save_user_t *arr = NULL;
+    int n = 0, cap = 0;
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        char name[64];
+        if (!saves_name_ok(e->d_name, sizeof(((save_user_t *)0)->uid))) continue;
+        if (read_username(home, e->d_name, name, sizeof(name)) < 0) continue;
+        if (n == cap) {
+            save_user_t *p = realloc(arr, (size_t)(cap = cap ? cap * 2 : 8) * sizeof(*p));
+            if (!p) { free(arr); closedir(d); return -1; }
+            arr = p;
+        }
+        save_user_t *u = &arr[n++];
+        memset(u, 0, sizeof(*u));
+        scpy(u->uid, sizeof(u->uid), e->d_name);
+        scpy(u->username, sizeof(u->username), name);
+        if (account_id_of(name, u->account_id, sizeof(u->account_id)) < 0) u->account_id[0] = 0;
+    }
+    closedir(d);
+    if (n > 1) qsort(arr, (size_t)n, sizeof(*arr), cmp_users);
+    *out = arr;
+    *count = n;
+    return 0;
+}
+
+/* ── Spielstände auflisten ───────────────────────────────────────────── */
+
+/* Spielname aus der param.sfo des installierten Titels: <Ordner über /user/home>/appmeta (PS5: /user/appmeta) */
+static void title_name_of(const char *home, const char *title_id, char *name, size_t n) {
+    char meta[700], sys[] = "/system_data/priv/appmeta";
+    scpy(meta, sizeof(meta) - 8, home);
+    size_t l = strlen(meta);
+    while (l > 1 && meta[l - 1] == '/') meta[--l] = 0;
+    char *sl = strrchr(meta, '/');
+    if (sl) *sl = 0;   /* "/user/home" -> "/user" */
+    strcat(meta, "/appmeta");
+    const char *dirs[2] = {meta, sys};
+    name[0] = 0;
+    for (int i = 0; i < 2; i++) {
+        char p[900];
+        if (path_fmt(p, sizeof(p), "%s/%s/param.sfo", dirs[i], title_id)) continue;
+        int fd = open(p, O_RDONLY);
+        if (fd < 0) continue;
+        uint8_t buf[16384];
+        ssize_t r = read(fd, buf, sizeof(buf));
+        close(fd);
+        char tid[32] = "";
+        if (r > 0 && lib_parse_param_sfo(buf, (size_t)r, tid, sizeof(tid), name, n) == 0 && name[0]) return;
+        name[0] = 0;
+    }
+}
+
+static int cmp_saves(const void *a, const void *b) {
+    return strcmp(((const save_info_t *)a)->key, ((const save_info_t *)b)->key);
+}
+
+int saves_scan(save_info_t **out, int *count) {
+    *out = NULL;
+    *count = 0;
+    const char *home = plat_saves_dir();
+    DIR *hd = home ? opendir(home) : NULL;
+    if (!hd) return -1;
+    save_info_t *arr = NULL;
+    int n = 0, cap = 0, full = 0;
+    char last_tid[32] = "", last_name[256] = "";
+    struct dirent *ue;
+    while (!full && (ue = readdir(hd))) {
+        if (!saves_name_ok(ue->d_name, sizeof(arr->uid))) continue;
+        char username[64] = "", pdir[640];
+        read_username(home, ue->d_name, username, sizeof(username));
+        if (path_fmt(pdir, sizeof(pdir), "%s/%s/" SAVE_SUBDIR, home, ue->d_name)) continue;
+        DIR *pd = opendir(pdir);
+        if (!pd) continue;
+        struct dirent *te;
+        while (!full && (te = readdir(pd))) {
+            char tdir[900];
+            if (!saves_name_ok(te->d_name, sizeof(arr->title_id)) || path_fmt(tdir, sizeof(tdir), "%s/%s", pdir, te->d_name))
+                continue;
+            DIR *sd = opendir(tdir);
+            if (!sd) continue;
+            struct dirent *se;
+            while ((se = readdir(sd))) {
+                size_t nl = strlen(se->d_name);
+                char fpath[1200];
+                struct stat st;
+                if (!saves_name_ok(se->d_name, sizeof(arr->save_dir))) continue;
+                if (nl > 4 && !strcmp(se->d_name + nl - 4, ".bin")) continue;   /* Schlüssel-Begleiter (PS4) */
+                if (path_fmt(fpath, sizeof(fpath), "%s/%s", tdir, se->d_name) || stat(fpath, &st) != 0 ||
+                    !S_ISREG(st.st_mode) || (uint64_t)st.st_size < IMG_MIN)
+                    continue;
+                if (n >= SAVES_MAX) { full = 1; break; }
+                if (n == cap) {
+                    save_info_t *p = realloc(arr, (size_t)(cap = cap ? cap * 2 : 32) * sizeof(*p));
+                    if (!p) { free(arr); closedir(sd); closedir(pd); closedir(hd); return -1; }
+                    arr = p;
+                }
+                save_info_t *s = &arr[n++];
+                memset(s, 0, sizeof(*s));
+                if (path_fmt(s->path, sizeof(s->path), "%s", fpath)) { n--; continue; }
+                scpy(s->title_id, sizeof(s->title_id), te->d_name);
+                scpy(s->save_dir, sizeof(s->save_dir), se->d_name);
+                scpy(s->uid, sizeof(s->uid), ue->d_name);
+                scpy(s->username, sizeof(s->username), username);
+                snprintf(s->key, sizeof(s->key), "%s/%s/%s", s->uid, s->title_id, s->save_dir);
+                s->size = (uint64_t)st.st_size;
+                if (strcmp(last_tid, s->title_id) != 0) {
+                    title_name_of(home, s->title_id, last_name, sizeof(last_name));
+                    scpy(last_tid, sizeof(last_tid), s->title_id);
+                }
+                scpy(s->title_name, sizeof(s->title_name), last_name[0] ? last_name : s->title_id);
+            }
+            closedir(sd);
+        }
+        closedir(pd);
+    }
+    closedir(hd);
+    if (n > 1) qsort(arr, (size_t)n, sizeof(*arr), cmp_saves);
+    *out = arr;
+    *count = n;
+    return 0;
+}
+
+int saves_find(const char *key, save_info_t *out) {
+    save_info_t *all = NULL;
+    int n = 0, found = -1;
+    if (!key || !key[0] || saves_scan(&all, &n) < 0) return -1;
+    for (int i = 0; i < n; i++)
+        if (!strcmp(all[i].key, key)) { *out = all[i]; found = 0; break; }
+    free(all);
+    return found;
+}
+
+/* ── ZIP schreiben (gespeichert, ohne Deflate), Strom als chunked HTTP ─ */
+
+typedef struct {
+    int      sock, broken, started;
+    char     head[768];
+    uint64_t off;
+    struct { char name[300]; uint32_t crc, size, off; uint16_t flags; } cd[2];
+    int      cd_n;
+} zs_t;
+
+static int sock_send(int sock, const void *buf, size_t n) {
+    const uint8_t *p = buf;
+    while (n) {
+        ssize_t r = send(sock, p, n, MSG_NOSIGNAL);
+        if (r < 0 && errno == EINTR) continue;
+        if (r <= 0) return -1;
+        p += r; n -= (size_t)r;
+    }
+    return 0;
+}
+
+/* ein HTTP-Chunk; eine Länge 0 würde den Strom beenden und wird nie gesendet */
+static void zs_chunk(zs_t *z, const void *buf, size_t len) {
+    if (z->broken || !len) return;
+    char hdr[24];
+    int hl = snprintf(hdr, sizeof(hdr), "%zx\r\n", len);
+    if (!z->started) {
+        z->started = 1;
+        if (sock_send(z->sock, z->head, strlen(z->head))) { z->broken = 1; return; }
+    }
+    if (sock_send(z->sock, hdr, (size_t)hl) || sock_send(z->sock, buf, len) || sock_send(z->sock, "\r\n", 2))
+        z->broken = 1;
+}
+
+static void zs_data(zs_t *z, const void *buf, size_t len) {
+    zs_chunk(z, buf, len);
+    z->off += len;
+}
+
+/* flags: 0x0800 UTF-8, 0x0008 = Größen/CRC folgen hinter den Daten */
+static void zs_local(zs_t *z, const char *name, uint16_t flags, uint32_t crc, uint32_t size) {
+    uint8_t h[30 + 300];
+    size_t nl = strlen(name);
+    memset(h, 0, 30);
+    wr32(h, 0x04034b50);
+    wr16(h + 4, 20);
+    wr16(h + 6, flags);
+    wr16(h + 10, 0);        /* Uhrzeit */
+    wr16(h + 12, 0x0021);   /* Datum 1980-01-01 */
+    wr32(h + 14, crc);
+    wr32(h + 18, size);
+    wr32(h + 22, size);
+    wr16(h + 26, (uint32_t)nl);
+    memcpy(h + 30, name, nl);
+    z->cd[z->cd_n].crc = crc;
+    z->cd[z->cd_n].size = size;
+    z->cd[z->cd_n].off = (uint32_t)z->off;
+    z->cd[z->cd_n].flags = flags;
+    scpy(z->cd[z->cd_n].name, sizeof(z->cd[0].name), name);
+    z->cd_n++;
+    zs_data(z, h, 30 + nl);
+}
+
+static void zs_finish(zs_t *z) {
+    uint8_t buf[2 * (46 + 300) + 22];
+    size_t pos = 0;
+    uint32_t cd_off = (uint32_t)z->off;
+    for (int i = 0; i < z->cd_n; i++) {
+        size_t nl = strlen(z->cd[i].name);
+        uint8_t *e = buf + pos;
+        memset(e, 0, 46);
+        wr32(e, 0x02014b50);
+        wr16(e + 4, 20);
+        wr16(e + 6, 20);
+        wr16(e + 8, z->cd[i].flags);
+        wr16(e + 12, 0);
+        wr16(e + 14, 0x0021);
+        wr32(e + 16, z->cd[i].crc);
+        wr32(e + 20, z->cd[i].size);
+        wr32(e + 24, z->cd[i].size);
+        wr16(e + 28, (uint32_t)nl);
+        wr32(e + 42, z->cd[i].off);
+        memcpy(e + 46, z->cd[i].name, nl);
+        pos += 46 + nl;
+    }
+    uint8_t *e = buf + pos;
+    memset(e, 0, 22);
+    wr32(e, 0x06054b50);
+    wr16(e + 8, (uint32_t)z->cd_n);
+    wr16(e + 10, (uint32_t)z->cd_n);
+    wr32(e + 12, (uint32_t)pos);
+    wr32(e + 16, cd_off);
+    zs_chunk(z, buf, pos + 22);
+    if (!z->broken && z->started && sock_send(z->sock, "0\r\n\r\n", 5)) z->broken = 1;
+}
+
+/* Text für JSON: " \ und Steuerzeichen maskieren, übrige Bytes (UTF-8) bleiben */
+static size_t json_put(char *out, size_t n, const char *s) {
+    size_t i = 0;
+    for (; *s && i + 7 < n; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c == '"' || c == '\\') { out[i++] = '\\'; out[i++] = (char)c; }
+        else if (c < 0x20) i += (size_t)snprintf(out + i, n - i, "\\u%04x", c);
+        else out[i++] = (char)c;
+    }
+    out[i] = 0;
+    return i;
+}
+
+int saves_download(int sock, const save_info_t *s, char *err, size_t errsz) {
+    if (op_enter(err, errsz)) return -1;
+    int rc = -1;
+    int fd = open(s->path, O_RDONLY);
+    struct stat st;
+    if (fd < 0 || fstat(fd, &st) != 0) {
+        snprintf(err, errsz, T("Spielstand konnte nicht geöffnet werden: %s"), strerror(errno));
+        goto done;
+    }
+    if ((uint64_t)st.st_size < IMG_MIN || (uint64_t)st.st_size > IMG_MAX) {
+        snprintf(err, errsz, "%s", T("Der Spielstand hat eine ungültige Größe"));
+        goto done;
+    }
+    uint32_t imgsz = (uint32_t)st.st_size;
+
+    char tid[96], sdir[800], uid[64], user[256], tname[1100], meta[2600];
+    json_put(tid, sizeof(tid), s->title_id);
+    json_put(sdir, sizeof(sdir), s->save_dir);
+    json_put(uid, sizeof(uid), s->uid);
+    json_put(user, sizeof(user), s->username);
+    json_put(tname, sizeof(tname), s->title_name);
+    int ml = snprintf(meta, sizeof(meta),
+                      "{\"format\":1,\"title_id\":\"%s\",\"title_name\":\"%s\",\"save_dir\":\"%s\",\"uid\":\"%s\","
+                      "\"username\":\"%s\",\"size\":%u,\"timestamp\":%lld}",
+                      tid, tname, sdir, uid, user, imgsz, (long long)time(NULL));
+    if (ml <= 0 || ml >= (int)sizeof(meta)) {
+        snprintf(err, errsz, "%s", T("Der Spielstand hat eine ungültige Größe"));
+        goto done;
+    }
+    char imgname[320];
+    path_fmt(imgname, sizeof(imgname), "%s_%s.img", s->title_id, s->save_dir);
+
+    zs_t z;
+    memset(&z, 0, sizeof(z));
+    z.sock = sock;
+    snprintf(z.head, sizeof(z.head),
+             "HTTP/1.1 200 OK\r\nContent-Type: application/zip\r\n"
+             "Content-Disposition: attachment; filename=\"%s_%s.zip\"\r\nTransfer-Encoding: chunked\r\n"
+             "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n",
+             s->title_id, s->save_dir);
+    struct timeval tv = {60, 0};
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+
+    zs_local(&z, "metadata.json", 0x0800, crc32_update(0, meta, (size_t)ml), (uint32_t)ml);
+    zs_data(&z, meta, (size_t)ml);
+    zs_local(&z, imgname, 0x0808, 0, 0);   /* CRC und Größe stehen hinter den Daten (ein Durchgang) */
+    z.cd[1].size = imgsz;
+    uint32_t crc = 0;
+    uint8_t *buf = malloc(CHUNK);
+    if (!buf) { snprintf(err, errsz, "%s", T("Kein Speicher")); goto done; }
+    int readerr = 0;
+    for (uint64_t pos = 0; pos < imgsz && !z.broken;) {
+        size_t want = imgsz - pos < CHUNK ? (size_t)(imgsz - pos) : CHUNK;
+        if (pread_full(fd, buf, want, (off_t)pos)) { readerr = 1; break; }
+        crc = crc32_update(crc, buf, want);
+        zs_data(&z, buf, want);
+        pos += want;
+    }
+    free(buf);
+    if (readerr || z.broken) { rc = z.started ? -2 : -1; if (rc == -1) snprintf(err, errsz, "%s", T("Spielstand konnte nicht gelesen werden")); goto done; }
+    z.cd[1].crc = crc;
+    uint8_t dd[16];
+    wr32(dd, 0x08074b50);
+    wr32(dd + 4, crc);
+    wr32(dd + 8, imgsz);
+    wr32(dd + 12, imgsz);
+    zs_data(&z, dd, sizeof(dd));
+    zs_finish(&z);
+    rc = z.broken ? -2 : 0;
+done:
+    if (fd >= 0) close(fd);
+    op_leave();
+    return rc;
+}
+
+/* ── ZIP lesen ───────────────────────────────────────────────────────── */
+
+typedef struct { char name[300]; uint32_t crc, size; uint64_t data; } zent_t;
+
+#define ZIP_MAXENT 16
+
+/* Zentralverzeichnis lesen und jeden Eintrag prüfen: gespeichert (ohne Kompression), keine Verschlüsselung, kein
+ * ZIP64, Daten innerhalb der Datei */
+static int zip_dir(int fd, uint64_t fsz, zent_t *ents, int *n, char *err, size_t errsz) {
+    *n = 0;
+    if (fsz < 22) goto bad;
+    size_t tail = fsz < 22 + 65535 ? (size_t)fsz : 22 + 65535;
+    uint8_t *t = malloc(tail);
+    if (!t) { snprintf(err, errsz, "%s", T("Kein Speicher")); return -1; }
+    if (pread_full(fd, t, tail, (off_t)(fsz - tail))) { free(t); goto bad; }
+    ssize_t e = -1;
+    for (ssize_t i = (ssize_t)tail - 22; i >= 0; i--)
+        if (rd32(t + i) == 0x06054b50 && (size_t)i + 22 + rd16(t + i + 20) == tail) { e = i; break; }
+    if (e < 0) { free(t); goto bad; }
+    uint32_t disk = rd16(t + e + 4), cdisk = rd16(t + e + 6), n1 = rd16(t + e + 8), n2 = rd16(t + e + 10);
+    uint32_t cd_size = rd32(t + e + 12), cd_off = rd32(t + e + 16);
+    uint64_t eocd_pos = fsz - tail + (uint64_t)e;
+    free(t);
+    if (disk || cdisk || n1 != n2 || !n1 || n1 > ZIP_MAXENT || cd_size > 16384 || (uint64_t)cd_off + cd_size > eocd_pos)
+        goto bad;
+    uint8_t *cd = malloc(cd_size ? cd_size : 1);
+    if (!cd) { snprintf(err, errsz, "%s", T("Kein Speicher")); return -1; }
+    if (pread_full(fd, cd, cd_size, (off_t)cd_off)) { free(cd); goto bad; }
+    size_t pos = 0;
+    for (uint32_t i = 0; i < n1; i++) {
+        if (pos + 46 > cd_size || rd32(cd + pos) != 0x02014b50) { free(cd); goto bad; }
+        uint32_t flags = rd16(cd + pos + 8), method = rd16(cd + pos + 10), crc = rd32(cd + pos + 16);
+        uint32_t csize = rd32(cd + pos + 20), usize = rd32(cd + pos + 24), nl = rd16(cd + pos + 28);
+        uint32_t xl = rd16(cd + pos + 30), cl = rd16(cd + pos + 32), lho = rd32(cd + pos + 42);
+        if (pos + 46 + nl + xl + cl > cd_size || nl >= sizeof(ents[0].name) || (flags & 1) || method != 0 ||
+            csize != usize || csize == 0xFFFFFFFFu || lho == 0xFFFFFFFFu) { free(cd); goto bad; }
+        zent_t *z = &ents[*n];
+        memcpy(z->name, cd + pos + 46, nl);
+        z->name[nl] = 0;
+        z->crc = crc;
+        z->size = usize;
+        uint8_t lh[30];
+        if (pread_full(fd, lh, sizeof(lh), (off_t)lho) || rd32(lh) != 0x04034b50) { free(cd); goto bad; }
+        z->data = (uint64_t)lho + 30 + rd16(lh + 26) + rd16(lh + 28);
+        if (z->data + usize > cd_off) { free(cd); goto bad; }
+        (*n)++;
+        pos += 46 + nl + xl + cl;
+    }
+    free(cd);
+    return 0;
+bad:
+    snprintf(err, errsz, "%s", T("Keine gültige Spielstand-ZIP-Datei"));
+    return -1;
+}
+
+static zent_t *zip_get(zent_t *ents, int n, const char *name) {
+    for (int i = 0; i < n; i++)
+        if (!strcmp(ents[i].name, name)) return &ents[i];
+    return NULL;
+}
+
+/* Wert eines Schlüssels der obersten Ebene (nur Zeichenketten): String-Wert, \"-Maskierungen werden aufgelöst */
+static int meta_get(const char *j, const char *key, char *out, size_t n) {
+    const char *p = j;
+    size_t kl = strlen(key);
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (*p++ != '{') return -1;
+    for (;;) {
+        while (*p && (isspace((unsigned char)*p) || *p == ',')) p++;
+        if (*p != '"') return -1;
+        p++;
+        char k[64];
+        size_t ki = 0;
+        for (; *p && *p != '"'; p++) {
+            if (*p == '\\' && p[1]) p++;
+            if (ki + 1 < sizeof(k)) k[ki++] = *p;
+        }
+        if (*p != '"') return -1;
+        k[ki] = 0;
+        p++;
+        while (*p && isspace((unsigned char)*p)) p++;
+        if (*p++ != ':') return -1;
+        while (*p && isspace((unsigned char)*p)) p++;
+        int match = ki == kl && !strcmp(k, key);
+        if (*p == '"') {
+            p++;
+            size_t vi = 0;
+            int cut = 0;
+            for (; *p && *p != '"'; p++) {
+                if (*p == '\\' && p[1]) p++;
+                if (vi + 1 < n) out[vi++] = *p;
+                else cut = 1;
+            }
+            if (*p != '"') return -1;
+            p++;
+            out[vi] = 0;
+            if (match) return cut ? -1 : 0;
+        } else {
+            while (*p && *p != ',' && *p != '}') p++;
+            if (match) return -1;   /* kein String */
+        }
+        if (*p == '}' || !*p) return -1;
+    }
+}
+
+int saves_restore_file(const char *zip_path, char *err, size_t errsz) {
+    if (op_enter(err, errsz)) return -1;
+    int rc = -1, zfd = open(zip_path, O_RDONLY), dfd = -1;
+    char tmp[1300] = "";
+    struct stat st;
+    zent_t ents[ZIP_MAXENT];
+    int ne = 0;
+    if (zfd < 0 || fstat(zfd, &st) != 0) {
+        snprintf(err, errsz, T("Datei konnte nicht geöffnet werden: %s"), strerror(errno));
+        goto done;
+    }
+    if (zip_dir(zfd, (uint64_t)st.st_size, ents, &ne, err, errsz)) goto done;
+
+    zent_t *me = zip_get(ents, ne, "metadata.json");
+    if (!me || !me->size || me->size > META_MAX) {
+        snprintf(err, errsz, "%s", T("metadata.json fehlt im ZIP oder ist ungültig"));
+        goto done;
+    }
+    char meta[META_MAX + 1];
+    if (pread_full(zfd, meta, me->size, (off_t)me->data) || crc32_update(0, meta, me->size) != me->crc) {
+        snprintf(err, errsz, "%s", T("metadata.json fehlt im ZIP oder ist ungültig"));
+        goto done;
+    }
+    meta[me->size] = 0;
+    char tid[32] = "", sdir[256] = "", uid[16] = "";
+    if (meta_get(meta, "title_id", tid, sizeof(tid)) || meta_get(meta, "save_dir", sdir, sizeof(sdir)) ||
+        meta_get(meta, "uid", uid, sizeof(uid)) || !saves_name_ok(tid, sizeof(tid)) ||
+        !saves_name_ok(sdir, sizeof(sdir)) || !saves_name_ok(uid, sizeof(uid))) {
+        snprintf(err, errsz, "%s", T("Die Angaben in metadata.json sind unvollständig oder ungültig"));
+        goto done;
+    }
+    char imgname[320];
+    path_fmt(imgname, sizeof(imgname), "%s_%s.img", tid, sdir);
+    zent_t *ie = zip_get(ents, ne, imgname);
+    if (!ie) {
+        snprintf(err, errsz, T("Container (%s) fehlt im ZIP"), imgname);
+        goto done;
+    }
+    if (ie->size < IMG_MIN || ie->size > IMG_MAX) {
+        snprintf(err, errsz, "%s", T("Der Spielstand hat eine ungültige Größe"));
+        goto done;
+    }
+    uint8_t first;
+    if (pread_full(zfd, &first, 1, (off_t)ie->data)) goto done;
+    if (first == 0x01) {
+        snprintf(err, errsz, "%s", T("PS4-Spielstände werden noch nicht unterstützt"));
+        goto done;
+    }
+
+    const char *home = plat_saves_dir();
+    char udir[700], tdir[900], dest[1300], d2[1300];
+    if (!home || path_fmt(udir, sizeof(udir), "%s/%s", home, uid) || stat(udir, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        snprintf(err, errsz, T("Der Benutzer %s ist auf dieser PS5 nicht vorhanden"), uid);
+        goto done;
+    }
+    if (path_fmt(d2, sizeof(d2), "%s/" SAVE_SUBDIR, udir) || path_fmt(tdir, sizeof(tdir), "%s/%s", d2, tid) ||
+        path_fmt(dest, sizeof(dest), "%s/%s", tdir, sdir) || path_fmt(tmp, sizeof(tmp), "%s/.%s.restore.tmp", tdir, sdir)) {
+        snprintf(err, errsz, "%s", T("Pfad zu lang"));
+        goto done;
+    }
+    if (!space_ok(udir, ie->size)) {
+        snprintf(err, errsz, "%s", T("Nicht genug freier Speicher auf der PS5"));
+        goto done;
+    }
+    mkdir(d2, 0777);
+    mkdir(tdir, 0777);
+    mode_t mode = 0644;
+    uid_t own_u = (uid_t)-1;
+    gid_t own_g = (gid_t)-1;
+    if (stat(dest, &st) == 0) {
+        if (!S_ISREG(st.st_mode)) {
+            snprintf(err, errsz, "%s", T("Ziel ist keine Datei"));
+            goto done;
+        }
+        mode = st.st_mode & 0777;
+        own_u = st.st_uid;
+        own_g = st.st_gid;
+    }
+    unlink(tmp);
+    dfd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0644);
+    if (dfd < 0) {
+        snprintf(err, errsz, T("Zieldatei konnte nicht angelegt werden: %s"), strerror(errno));
+        tmp[0] = 0;
+        goto done;
+    }
+    uint8_t *buf = malloc(CHUNK);
+    if (!buf) { snprintf(err, errsz, "%s", T("Kein Speicher")); goto done; }
+    uint32_t crc = 0;
+    int bad = 0;
+    for (uint64_t pos = 0; pos < ie->size && !bad;) {
+        size_t want = ie->size - pos < CHUNK ? (size_t)(ie->size - pos) : CHUNK;
+        if (pread_full(zfd, buf, want, (off_t)(ie->data + pos)) || write_full(dfd, buf, want)) bad = 1;
+        else { crc = crc32_update(crc, buf, want); pos += want; }
+    }
+    free(buf);
+    if (bad) {
+        snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
+        goto done;
+    }
+    if (crc != ie->crc) {
+        snprintf(err, errsz, "%s", T("Prüfsumme des Spielstands stimmt nicht – die ZIP-Datei ist beschädigt"));
+        goto done;
+    }
+    fchmod(dfd, mode);
+    if (own_u != (uid_t)-1) (void)!fchown(dfd, own_u, own_g);
+    if (fsync(dfd) != 0 || close(dfd) != 0) {
+        dfd = -1;
+        snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
+        goto done;
+    }
+    dfd = -1;
+    if (rename(tmp, dest) != 0) {
+        snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
+        goto done;
+    }
+    tmp[0] = 0;
+    rc = 0;
+done:
+    if (dfd >= 0) close(dfd);
+    if (tmp[0]) unlink(tmp);
+    if (zfd >= 0) close(zfd);
+    op_leave();
+    return rc;
+}
+
+/* ── param.sfo ändern ────────────────────────────────────────────────── */
+
+/* Wert-Position und -Länge eines Schlüssels */
+static int sfo_find(int fd, const char *want, off_t *off, uint32_t *len) {
+    uint8_t h[20];
+    if (pread_full(fd, h, sizeof(h), 0) || memcmp(h, "\0PSF", 4) != 0) return -1;
+    uint32_t kt = rd32(h + 8), dt = rd32(h + 12), cnt = rd32(h + 16);
+    if (cnt > 256 || kt < 20 || dt < kt) return -1;
+    for (uint32_t i = 0; i < cnt; i++) {
+        uint8_t e[16];
+        char key[32] = "";
+        if (pread_full(fd, e, sizeof(e), 20 + (off_t)i * 16)) return -1;
+        ssize_t r = pread(fd, key, sizeof(key) - 1, (off_t)kt + rd16(e));
+        if (r <= 0 || strcmp(key, want) != 0) continue;
+        *off = (off_t)dt + rd32(e + 12);
+        *len = rd32(e + 4);
+        return 0;
+    }
+    return -1;
+}
+
+int saves_sfo_patch(const char *path, const uint8_t aid[8], uint32_t user_id, char *err, size_t errsz) {
+    int fd = open(path, O_RDWR);
+    if (fd < 0) {
+        snprintf(err, errsz, "%s", T("param.sfo des Spielstands konnte nicht geöffnet werden"));
+        return -1;
+    }
+    off_t ao = 0, uo = 0;
+    uint32_t al = 0, ul = 0;
+    uint8_t uid4[4], chk[8];
+    wr32(uid4, user_id);
+    int ok = sfo_find(fd, "ACCOUNT_ID", &ao, &al) == 0 && al >= 8;
+    if (ok) {
+        ok = pwrite(fd, aid, 8, ao) == 8 && fsync(fd) == 0 && pread_full(fd, chk, 8, ao) == 0 && !memcmp(chk, aid, 8);
+        if (ok && sfo_find(fd, "USER_ID", &uo, &ul) == 0 && ul >= 4)
+            ok = pwrite(fd, uid4, 4, uo) == 4 && fsync(fd) == 0 && pread_full(fd, chk, 4, uo) == 0 && !memcmp(chk, uid4, 4);
+    }
+    close(fd);
+    if (!ok) snprintf(err, errsz, "%s", T("param.sfo konnte nicht geändert werden (ACCOUNT_ID nicht gefunden)"));
+    return ok ? 0 : -1;
+}
+
+/* ── Neusignieren ────────────────────────────────────────────────────── */
+
 typedef struct { uint8_t reserved; char *budgetid; } MountOpt;
 typedef struct { uint8_t dummy; } UmountOpt;
 typedef int (*fn_mount_init_t)(MountOpt *);
@@ -46,646 +791,181 @@ typedef int (*fn_mount_t)(MountOpt *, const char *, const char *, uint8_t *);
 typedef int (*fn_umount_init_t)(UmountOpt *);
 typedef int (*fn_umount_t)(UmountOpt *, const char *, int, int);
 
-static fn_mount_init_t  g_mount_init  = NULL;
-static fn_mount_t       g_mount       = NULL;
-static fn_umount_init_t g_umount_init = NULL;
-static fn_umount_t      g_umount      = NULL;
-static int g_fs_ready = 0;
+/* Datei src nach dst kopieren (0 = ok); dst wird neu angelegt */
+static int copy_file(const char *src, const char *dst, mode_t mode, uid_t u, gid_t g, uint64_t *crc_out) {
+    int s = open(src, O_RDONLY), d = open(dst, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    uint8_t *buf = malloc(CHUNK);
+    int rc = -1;
+    uint32_t crc = 0;
+    if (s >= 0 && d >= 0 && buf) {
+        ssize_t r;
+        rc = 0;
+        while ((r = read(s, buf, CHUNK)) > 0) {
+            if (write_full(d, buf, (size_t)r)) { rc = -1; break; }
+            crc = crc32_update(crc, buf, (size_t)r);
+        }
+        if (r < 0) rc = -1;
+        fchmod(d, mode);
+        if (u != (uid_t)-1) (void)!fchown(d, u, g);
+        if (fsync(d) != 0) rc = -1;
+    }
+    if (s >= 0) close(s);
+    if (d >= 0 && close(d) != 0) rc = -1;
+    free(buf);
+    if (crc_out) *crc_out = crc;
+    return rc;
+}
 
-static int fs_lib_init(char *err, size_t errsz) {
-    if (g_fs_ready) return 0;
-    const char *lib = "libSceFsInternalForVsh.sprx";
-    g_mount_init  = (fn_mount_init_t)  plat_dynsym(lib, "sceFsInitMountSaveDataOpt");
-    g_mount       = (fn_mount_t)       plat_dynsym(lib, "sceFsMountSaveData");
-    g_umount_init = (fn_umount_init_t) plat_dynsym(lib, "sceFsInitUmountSaveDataOpt");
-    g_umount      = (fn_umount_t)      plat_dynsym(lib, "sceFsUmountSaveData");
-    if (!g_mount_init || !g_mount || !g_umount_init || !g_umount) {
+int saves_resign(const save_info_t *s, const char *target_uid, char *err, size_t errsz) {
+    const char *home = plat_saves_dir();
+    char udir[700], username[64] = "", aid_hex[17] = "";
+    struct stat st;
+    if (!saves_name_ok(target_uid, sizeof(s->uid)) || !home || path_fmt(udir, sizeof(udir), "%s/%s", home, target_uid) ||
+        stat(udir, &st) != 0 || !S_ISDIR(st.st_mode) || read_username(home, target_uid, username, sizeof(username))) {
+        snprintf(err, errsz, "%s", T("Der Zielbenutzer ist auf dieser PS5 nicht vorhanden"));
+        return -1;
+    }
+    if (account_id_of(username, aid_hex, sizeof(aid_hex)) < 0) {
+        snprintf(err, errsz, T("Für den Benutzer %s wurde keine Account-ID in der Registry gefunden"), username);
+        return -1;
+    }
+    uint8_t aid[8];
+    uint64_t av = strtoull(aid_hex, NULL, 16);
+    for (int i = 0; i < 8; i++) aid[i] = (uint8_t)(av >> (8 * i));   /* little-endian wie in der param.sfo */
+    uint32_t user_id = (uint32_t)strtoul(target_uid, NULL, 16);
+
+    fn_mount_init_t mount_init = (fn_mount_init_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsInitMountSaveDataOpt");
+    fn_mount_t mount = (fn_mount_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsMountSaveData");
+    fn_umount_init_t umount_init = (fn_umount_init_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsInitUmountSaveDataOpt");
+    fn_umount_t umount_fn = (fn_umount_t)plat_dynsym("libSceFsInternalForVsh.sprx", "sceFsUmountSaveData");
+    if (!mount_init || !mount || !umount_init || !umount_fn) {
         snprintf(err, errsz, "%s", T("libSceFsInternalForVsh.sprx nicht gefunden"));
         return -1;
     }
-    g_fs_ready = 1;
-    return 0;
-}
+    if (op_enter(err, errsz)) return -1;
 
-/* ── Registry für Benutzer/Account-IDs ──────────────────────────────── */
-typedef int (*fn_regstr_t)(int key, char *buf, size_t sz);
-typedef int (*fn_regbin_t)(int key, void *buf, size_t sz);
-
-static fn_regstr_t g_reg_str = NULL;
-static fn_regbin_t g_reg_bin = NULL;
-static int g_reg_ready = 0;
-
-static int reg_init(void) {
-    if (g_reg_ready) return 0;
-    const char *lib = "libSceRegMgr.sprx";
-    g_reg_str = (fn_regstr_t)plat_dynsym(lib, "sceRegMgrGetStr");
-    g_reg_bin = (fn_regbin_t)plat_dynsym(lib, "sceRegMgrGetBin");
-    g_reg_ready = (g_reg_str && g_reg_bin) ? 1 : -1;
-    return g_reg_ready == 1 ? 0 : -1;
-}
-
-/* Account-ID für den Benutzer lesen: Benutzernamen-Datei → Registry */
-static int user_account_id(const char *uid, const char *username, char *out16, size_t outsz) {
-    if (reg_init() < 0 || !username[0]) return -1;
-    for (int slot = 1; slot <= 16; slot++) {
-        int key_name = (slot - 1) * 65536 + 125829632;
-        char reg_name[32] = "";
-        if (g_reg_str(key_name, reg_name, sizeof(reg_name)) < 0 || !reg_name[0]) continue;
-        if (strcmp(reg_name, username) != 0) continue;
-        int key_aid = (slot - 1) * 65536 + 125830400;
-        uint64_t aid = 0;
-        if (g_reg_bin(key_aid, &aid, sizeof(aid)) < 0) return -1;
-        snprintf(out16, outsz, "%016llx", (unsigned long long)aid);
-        (void)uid;
-        return 0;
+    int rc = -1, mounted = 0;
+    plat_creds_t creds;
+    int elevated = 0;
+    char work[700], back[1300], mnt[400], sfo[500];
+    work[0] = back[0] = 0;
+    if (stat(s->path, &st) != 0 || !S_ISREG(st.st_mode) || (uint64_t)st.st_size < IMG_MIN || (uint64_t)st.st_size > IMG_MAX) {
+        snprintf(err, errsz, "%s", T("Der Spielstand hat eine ungültige Größe"));
+        goto done;
     }
-    return -1;
-}
-
-/* ── Benutzerauflistung ───────────────────────────────────────────────── */
-int saves_scan_users(save_user_t **out, int *count) {
-    *out = NULL; *count = 0;
-    DIR *d = opendir(SAVE_HOME);
-    if (!d) return -1;
-    save_user_t *arr = NULL;
-    int n = 0, cap = 0;
-    struct dirent *ent;
-    while ((ent = readdir(d))) {
-        if (ent->d_name[0] == '.') continue;
-        char upath[256];
-        snprintf(upath, sizeof(upath), "%s/%s/username.dat", SAVE_HOME, ent->d_name);
-        int fd = open(upath, O_RDONLY);
-        if (fd < 0) continue;
-        char username[17] = "";
-        ssize_t nr = read(fd, username, 16);
-        close(fd);
-        if (nr <= 0 || !username[0]) continue;
-        username[16] = '\0';
-        if (n >= cap) {
-            int nc = cap ? cap * 2 : 8;
-            save_user_t *p = realloc(arr, nc * sizeof(*p));
-            if (!p) break;
-            arr = p; cap = nc;
-        }
-        save_user_t *u = &arr[n++];
-        memset(u, 0, sizeof(*u));
-        snprintf(u->uid, sizeof(u->uid), "%s", ent->d_name);
-        snprintf(u->username, sizeof(u->username), "%s", username);
-        user_account_id(ent->d_name, username, u->account_id, sizeof(u->account_id));
-    }
-    closedir(d);
-    *out = arr; *count = n;
-    return 0;
-}
-
-/* ── Spielname aus param.sfo des installierten Spiels ──────────────── */
-static void lookup_title_name(const char *title_id, char *name, size_t namesz) {
-    name[0] = '\0';
-    static const char *const paths[] = {
-        "/user/appmeta/%s/param.sfo",
-        "/system_data/priv/appmeta/%s/param.sfo",
-        NULL
-    };
-    for (int i = 0; paths[i]; i++) {
-        char path[256];
-        snprintf(path, sizeof(path), paths[i], title_id);
-        int fd = open(path, O_RDONLY);
-        if (fd < 0) continue;
-        uint8_t buf[4096];
-        ssize_t n = read(fd, buf, sizeof(buf));
-        close(fd);
-        if (n <= 0) continue;
-        char tid[32] = "";
-        if (lib_parse_param_sfo(buf, (size_t)n, tid, sizeof(tid), name, namesz) == 0 && name[0])
-            return;
-        name[0] = '\0';
-    }
-}
-
-/* ── Spielstand-Scan ─────────────────────────────────────────────────── */
-int saves_scan(save_info_t **out, int *count) {
-    *out = NULL; *count = 0;
-    DIR *home = opendir(SAVE_HOME);
-    if (!home) return -1;
-    save_info_t *arr = NULL;
-    int n = 0, cap = 0;
-    struct dirent *ue;
-    while ((ue = readdir(home))) {
-        if (ue->d_name[0] == '.') continue;
-        char uid[16];
-        snprintf(uid, sizeof(uid), "%s", ue->d_name);
-
-        /* Benutzername */
-        char upath[256], username[64] = "";
-        snprintf(upath, sizeof(upath), "%s/%s/username.dat", SAVE_HOME, uid);
-        int ufd = open(upath, O_RDONLY);
-        if (ufd >= 0) { read(ufd, username, 63); username[63] = '\0'; close(ufd); }
-
-        /* PS5-Spielstände */
-        char pdir[256];
-        snprintf(pdir, sizeof(pdir), "%s/%s/%s", SAVE_HOME, uid, SAVE_PROSPERO);
-        DIR *pd = opendir(pdir);
-        if (!pd) continue;
-        struct dirent *te;
-        while ((te = readdir(pd))) {
-            if (te->d_name[0] == '.') continue;
-            char tdir[512];
-            snprintf(tdir, sizeof(tdir), "%s/%s", pdir, te->d_name);
-            DIR *sd = opendir(tdir);
-            if (!sd) continue;
-            struct dirent *se;
-            while ((se = readdir(sd))) {
-                if (se->d_name[0] == '.') continue;
-                char fpath[512];
-                snprintf(fpath, sizeof(fpath), "%s/%s", tdir, se->d_name);
-                struct stat st;
-                if (stat(fpath, &st) != 0 || !S_ISREG(st.st_mode)) continue;
-                if (n >= cap) {
-                    int nc = cap ? cap * 2 : 32;
-                    save_info_t *p = realloc(arr, nc * sizeof(*p));
-                    if (!p) goto done_scan;
-                    arr = p; cap = nc;
-                }
-                save_info_t *s = &arr[n++];
-                memset(s, 0, sizeof(*s));
-                snprintf(s->path,      sizeof(s->path),      "%s", fpath);
-                snprintf(s->title_id,  sizeof(s->title_id),  "%s", te->d_name);
-                snprintf(s->save_dir,  sizeof(s->save_dir),  "%s", se->d_name);
-                snprintf(s->uid,       sizeof(s->uid),       "%s", uid);
-                snprintf(s->username,  sizeof(s->username),  "%s", username);
-                lookup_title_name(te->d_name, s->title_name, sizeof(s->title_name));
-                if (!s->title_name[0])
-                    snprintf(s->title_name, sizeof(s->title_name), "%s", te->d_name);
-            }
-            closedir(sd);
-        }
-        closedir(pd);
-    }
-done_scan:
-    closedir(home);
-    *out = arr; *count = n;
-    return 0;
-}
-
-/* ── CRC32 für ZIP ───────────────────────────────────────────────────── */
-static uint32_t g_crc_tbl[256];
-static int g_crc_ready = 0;
-static void crc32_init(void) {
-    for (uint32_t i = 0; i < 256; i++) {
-        uint32_t c = i;
-        for (int j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320u ^ (c >> 1)) : (c >> 1);
-        g_crc_tbl[i] = c;
-    }
-    g_crc_ready = 1;
-}
-static uint32_t crc32_update(uint32_t crc, const void *buf, size_t len) {
-    if (!g_crc_ready) crc32_init();
-    const uint8_t *p = buf;
-    crc = ~crc;
-    for (size_t i = 0; i < len; i++) crc = g_crc_tbl[(crc ^ p[i]) & 0xFF] ^ (crc >> 8);
-    return ~crc;
-}
-static uint32_t crc32_fd(int fd, size_t size) {
-    uint32_t crc = 0;
-    uint8_t buf[65536];
-    size_t rem = size;
-    off_t pos = 0;
-    while (rem) {
-        size_t chunk = rem > sizeof(buf) ? sizeof(buf) : rem;
-        ssize_t n = pread(fd, buf, chunk, pos);
-        if (n <= 0) break;
-        crc = crc32_update(crc, buf, (size_t)n);
-        pos += n; rem -= (size_t)n;
-    }
-    return crc;
-}
-
-/* ── Einfacher ZIP-Stream-Schreiber (gespeichert, kein Deflate) ───────── */
-typedef struct {
-    int    sock;
-    int    broken;
-    char   http_head[512];
-    int    head_sent;
-    /* Zentralverzeichnis – max. 2 Einträge */
-    struct { char name[512]; uint32_t crc, size, off; } cd[2];
-    int    cd_n;
-    uint32_t offset;
-} zstream_t;
-
-static void zs_send(zstream_t *z, const void *buf, size_t len) {
-    if (z->broken) return;
-    if (!z->head_sent) {
-        if (send(z->sock, z->http_head, strlen(z->http_head), 0) < 0) { z->broken = 1; return; }
-        z->head_sent = 1;
-    }
-    /* chunked encoding */
-    char hdr[32];
-    int hl = snprintf(hdr, sizeof(hdr), "%zx\r\n", len);
-    if (send(z->sock, hdr, (size_t)hl, 0) < 0 ||
-        send(z->sock, buf, len, 0) < 0 ||
-        send(z->sock, "\r\n", 2, 0) < 0) z->broken = 1;
-}
-
-static void zs_u16(uint8_t *b, uint16_t v) { b[0]=v&0xFF; b[1]=v>>8; }
-static void zs_u32(uint8_t *b, uint32_t v) { b[0]=v&0xFF; b[1]=(v>>8)&0xFF; b[2]=(v>>16)&0xFF; b[3]=v>>24; }
-
-/* Lokalen Datei-Header schreiben und Slot im Zentralverzeichnis reservieren */
-static void zs_start_file(zstream_t *z, const char *name, uint32_t crc, uint32_t size) {
-    if (z->cd_n >= 2 || z->broken) return;
-    uint16_t nlen = (uint16_t)strlen(name);
-    uint8_t lhdr[30]; memset(lhdr, 0, sizeof(lhdr));
-    lhdr[0]=0x50; lhdr[1]=0x4B; lhdr[2]=0x03; lhdr[3]=0x04;
-    zs_u16(lhdr+4, 20);          /* Version benötigt */
-    zs_u16(lhdr+6, 0);           /* Flags */
-    zs_u16(lhdr+8, 0);           /* Methode: gespeichert */
-    zs_u32(lhdr+14, crc);
-    zs_u32(lhdr+18, size);
-    zs_u32(lhdr+22, size);
-    zs_u16(lhdr+26, nlen);
-    z->cd[z->cd_n].crc  = crc;
-    z->cd[z->cd_n].size = size;
-    z->cd[z->cd_n].off  = z->offset;
-    snprintf(z->cd[z->cd_n].name, sizeof(z->cd[z->cd_n].name), "%s", name);
-    z->cd_n++;
-    zs_send(z, lhdr, 30);
-    zs_send(z, name, nlen);
-    z->offset += 30 + nlen;
-}
-
-static void zs_file_data(zstream_t *z, int fd, size_t size) {
-    uint8_t buf[65536];
-    size_t rem = size;
-    off_t pos = 0;
-    while (rem && !z->broken) {
-        size_t chunk = rem > sizeof(buf) ? sizeof(buf) : rem;
-        ssize_t n = pread(fd, buf, chunk, pos);
-        if (n <= 0) break;
-        zs_send(z, buf, (size_t)n);
-        pos += n; rem -= (size_t)n;
-    }
-    z->offset += (uint32_t)size;
-}
-
-static void zs_file_buf(zstream_t *z, const void *buf, size_t size) {
-    zs_send(z, buf, size);
-    z->offset += (uint32_t)size;
-}
-
-static void zs_finish(zstream_t *z) {
-    uint32_t cd_off = z->offset;
-    uint32_t cd_size = 0;
-    for (int i = 0; i < z->cd_n; i++) {
-        uint16_t nlen = (uint16_t)strlen(z->cd[i].name);
-        uint8_t cde[46]; memset(cde, 0, sizeof(cde));
-        cde[0]=0x50; cde[1]=0x4B; cde[2]=0x01; cde[3]=0x02;
-        zs_u16(cde+4, 20); zs_u16(cde+6, 20);
-        zs_u32(cde+16, z->cd[i].crc);
-        zs_u32(cde+20, z->cd[i].size);
-        zs_u32(cde+24, z->cd[i].size);
-        zs_u16(cde+28, nlen);
-        zs_u32(cde+42, z->cd[i].off);
-        zs_send(z, cde, 46);
-        zs_send(z, z->cd[i].name, nlen);
-        cd_size += 46 + nlen;
-    }
-    uint8_t eocd[22]; memset(eocd, 0, sizeof(eocd));
-    eocd[0]=0x50; eocd[1]=0x4B; eocd[2]=0x05; eocd[3]=0x06;
-    zs_u16(eocd+8,  (uint16_t)z->cd_n);
-    zs_u16(eocd+10, (uint16_t)z->cd_n);
-    zs_u32(eocd+12, cd_size);
-    zs_u32(eocd+16, cd_off);
-    zs_send(z, eocd, 22);
-    /* chunked end */
-    if (!z->broken && z->head_sent)
-        send(z->sock, "0\r\n\r\n", 5, 0);
-}
-
-/* ── Spielstand als ZIP herunterladen ────────────────────────────────── */
-void saves_download(int sock, const save_info_t *s, const char *filename) {
-    int fd = open(s->path, O_RDONLY);
-    if (fd < 0) {
-        const char *r = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-        send(sock, r, strlen(r), 0);
-        return;
-    }
-    struct stat st;
-    fstat(fd, &st);
-    size_t imgsz = (size_t)st.st_size;
-    uint32_t img_crc = crc32_fd(fd, imgsz);
-
-    /* Metadaten-JSON zusammenstellen */
-    char meta[1024];
-    time_t now = time(NULL);
-    int metalen = snprintf(meta, sizeof(meta),
-        "{\"title_id\":\"%s\",\"title_name\":\"%s\","
-        "\"save_dir\":\"%s\",\"uid\":\"%s\",\"username\":\"%s\","
-        "\"timestamp\":%lld}",
-        s->title_id, s->title_name, s->save_dir,
-        s->uid, s->username, (long long)now);
-    uint32_t meta_crc = crc32_update(0, meta, (size_t)metalen);
-
-    /* Dateinamen im ZIP */
-    char imgname[128];
-    snprintf(imgname, sizeof(imgname), "%s_%s.img", s->title_id, s->save_dir);
-
-    /* HTTP-Kopf */
-    zstream_t z; memset(&z, 0, sizeof(z));
-    z.sock = sock;
-    snprintf(z.http_head, sizeof(z.http_head),
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: application/zip\r\n"
-        "Content-Disposition: attachment; filename=\"%s\"\r\n"
-        "Transfer-Encoding: chunked\r\n"
-        "Cache-Control: no-store\r\n"
-        "X-Content-Type-Options: nosniff\r\n"
-        "Connection: close\r\n\r\n",
-        filename);
-
-    zs_start_file(&z, imgname, img_crc, (uint32_t)imgsz);
-    zs_file_data(&z, fd, imgsz);
-    zs_start_file(&z, "metadata.json", meta_crc, (uint32_t)metalen);
-    zs_file_buf(&z, meta, (size_t)metalen);
-    zs_finish(&z);
-    close(fd);
-}
-
-/* ── Spielstand aus ZIP wiederherstellen ─────────────────────────────── */
-
-/* Minimaler ZIP-Parser: sucht Local File Header, extrahiert name + Inhalt */
-static int zip_find_file(const char *body, size_t len, const char *name,
-                         const char **data_out, size_t *size_out) {
-    size_t pos = 0;
-    while (pos + 30 < len) {
-        if (memcmp(body + pos, "PK\x03\x04", 4) != 0) { pos++; continue; }
-        uint16_t flags, method, nlen, xlen;
-        uint32_t csize, usize;
-        memcpy(&flags,  body + pos + 6,  2);
-        memcpy(&method, body + pos + 8,  2);
-        memcpy(&csize,  body + pos + 18, 4);
-        memcpy(&usize,  body + pos + 22, 4);
-        memcpy(&nlen,   body + pos + 26, 2);
-        memcpy(&xlen,   body + pos + 28, 2);
-        size_t data_off = pos + 30 + nlen + xlen;
-        if (data_off > len) return -1;
-        char ename[512] = "";
-        size_t ncopy = nlen < sizeof(ename) - 1 ? nlen : sizeof(ename) - 1;
-        memcpy(ename, body + pos + 30, ncopy);
-        ename[ncopy] = '\0';
-        /* bei Datendeskriptor (bit3) ist usize möglicherweise 0; wir kennen das Format selbst */
-        size_t datasz = (flags & 0x0008) ? (len - data_off) : usize;
-        if (method != 0) { pos = data_off + csize; continue; }   /* nur Stored */
-        if (strcmp(ename, name) == 0) {
-            *data_out = body + data_off;
-            *size_out = (flags & 0x0008) ? datasz : (size_t)usize;
-            return 0;
-        }
-        pos = data_off + (usize > 0 ? usize : csize);
-    }
-    return -1;
-}
-
-/* Einfacher JSON-String-Extraktor (ohne Bibliothek) */
-static int json_str(const char *json, const char *key, char *out, size_t outsz) {
-    char pat[64];
-    snprintf(pat, sizeof(pat), "\"%s\"", key);
-    const char *p = strstr(json, pat);
-    if (!p) return -1;
-    p += strlen(pat);
-    while (*p == ' ' || *p == ':' || *p == ' ') p++;
-    if (*p != '"') return -1;
-    p++;
-    size_t n = 0;
-    while (*p && *p != '"' && n + 1 < outsz) out[n++] = *p++;
-    out[n] = '\0';
-    return *p == '"' ? 0 : -1;
-}
-
-int saves_restore(const char *body, size_t bodylen, char *err, size_t errsz) {
-    /* metadata.json aus ZIP lesen */
-    const char *meta_data; size_t meta_len;
-    if (zip_find_file(body, bodylen, "metadata.json", &meta_data, &meta_len) != 0) {
-        snprintf(err, errsz, "metadata.json nicht im ZIP gefunden");
-        return -1;
-    }
-    char meta[1024] = "";
-    size_t cp = meta_len < sizeof(meta) - 1 ? meta_len : sizeof(meta) - 1;
-    memcpy(meta, meta_data, cp);
-
-    char title_id[32] = "", save_dir[256] = "", uid[16] = "";
-    json_str(meta, "title_id", title_id, sizeof(title_id));
-    json_str(meta, "save_dir", save_dir, sizeof(save_dir));
-    json_str(meta, "uid",      uid,      sizeof(uid));
-
-    if (!title_id[0] || !save_dir[0] || !uid[0]) {
-        snprintf(err, errsz, "Metadaten unvollständig (title_id/save_dir/uid fehlt)");
-        return -1;
-    }
-
-    /* Image-Datei aus ZIP lesen */
-    char imgname[128];
-    snprintf(imgname, sizeof(imgname), "%s_%s.img", title_id, save_dir);
-    const char *img_data; size_t img_len;
-    if (zip_find_file(body, bodylen, imgname, &img_data, &img_len) != 0) {
-        snprintf(err, errsz, "Image-Datei (%s) nicht im ZIP gefunden", imgname);
-        return -1;
-    }
-
-    /* Zielordner anlegen */
-    char destdir[512];
-    snprintf(destdir, sizeof(destdir), "%s/%s/%s/%s",
-             SAVE_HOME, uid, SAVE_PROSPERO, title_id);
-    mkdir(SAVE_HOME, 0755); /* darf existieren */
-    char tmp[512]; snprintf(tmp, sizeof(tmp), "%s/%s", SAVE_HOME, uid); mkdir(tmp, 0755);
-    snprintf(tmp, sizeof(tmp), "%s/%s/%s", SAVE_HOME, uid, SAVE_PROSPERO); mkdir(tmp, 0755);
-    mkdir(destdir, 0755);
-
-    /* Image schreiben */
-    char dest[512];
-    snprintf(dest, sizeof(dest), "%s/%s", destdir, save_dir);
-    int fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) {
-        snprintf(err, errsz, "Zieldatei konnte nicht geöffnet werden: %s", strerror(errno));
-        return -1;
-    }
-    size_t written = 0, rem = img_len;
-    while (rem) {
-        ssize_t n = write(fd, img_data + written, rem);
-        if (n <= 0) break;
-        written += (size_t)n; rem -= (size_t)n;
-    }
-    if (fsync(fd) < 0) {}
-    close(fd);
-    if (written != img_len) {
-        snprintf(err, errsz, "Schreibfehler (%zu/%zu Bytes)", written, img_len);
-        return -1;
-    }
-    return 0;
-}
-
-/* ── SFO: Offset von ACCOUNT_ID im Datei-Deskriptor ────────────────── */
-static int sfo_account_offset(int fd, off_t *off) {
-    uint8_t hdr[20];
-    if (pread(fd, hdr, sizeof(hdr), 0) != (ssize_t)sizeof(hdr)) return -1;
-    if (memcmp(hdr, "\0PSF", 4) != 0) return -1;
-    uint32_t kt, dt, cnt;
-    memcpy(&kt,  hdr + 8,  4);
-    memcpy(&dt,  hdr + 12, 4);
-    memcpy(&cnt, hdr + 16, 4);
-    if (cnt > 256 || kt < 20 || dt < kt) return -1;
-    for (uint32_t i = 0; i < cnt; i++) {
-        uint8_t e[16];
-        if (pread(fd, e, sizeof(e), 20 + (off_t)i * 16) != (ssize_t)sizeof(e)) return -1;
-        uint16_t koff; uint32_t doff;
-        memcpy(&koff, e,      2);
-        memcpy(&doff, e + 12, 4);
-        char key[32] = "";
-        pread(fd, key, sizeof(key) - 1, (off_t)kt + koff);
-        if (strcmp(key, "ACCOUNT_ID") != 0) continue;
-        *off = (off_t)dt + doff;
-        return 0;
-    }
-    return -1;
-}
-
-/* ── Spielstand neusignieren ─────────────────────────────────────────── */
-int saves_resign(const save_info_t *s, const char *new_aid_hex, char *err, size_t errsz) {
-    /* Account-ID parsen */
-    if (strlen(new_aid_hex) != 16) {
-        snprintf(err, errsz, "Account-ID muss 16 Hex-Zeichen haben");
-        return -1;
-    }
-    uint8_t new_aid[8];
-    uint64_t aid_val = 0;
-    for (int i = 0; i < 16; i++) {
-        char c = new_aid_hex[i];
-        unsigned d = (c >= '0' && c <= '9') ? (unsigned)(c - '0') :
-                     (c >= 'a' && c <= 'f') ? (unsigned)(c - 'a' + 10) :
-                     (c >= 'A' && c <= 'F') ? (unsigned)(c - 'A' + 10) : 255u;
-        if (d > 15) { snprintf(err, errsz, "Ungültige Account-ID"); return -1; }
-        aid_val = (aid_val << 4) | d;
-    }
-    for (int i = 0; i < 8; i++) new_aid[i] = (uint8_t)(aid_val >> (i * 8));   /* little-endian */
-
-    /* Bibliothek laden */
-    if (fs_lib_init(err, errsz) < 0) return -1;
-
-    /* Privilegien erhöhen */
-    kernel_set_ucred_authid(getpid(), SAVE_AUTHID);
-
-    /* Arbeitsverzeichnisse anlegen */
-    mkdir("/data/usb_format", 0755);
-    mkdir(SAVE_TMPDIR, 0755);
-    mkdir(SAVE_MNTDIR, 0755);
-
-    /* Image in /data/ kopieren (direktes Einhängen aus savedata_prospero verursacht EPIPE) */
-    char work[512];
-    snprintf(work, sizeof(work), "%s/resign_%s_%s", SAVE_TMPDIR, s->title_id, s->save_dir);
+    mode_t mode = st.st_mode & 0777;
+    uid_t own_u = st.st_uid;
+    gid_t own_g = st.st_gid;
+    uint64_t size = (uint64_t)st.st_size;
     {
-        int src = open(s->path, O_RDONLY);
-        if (src < 0) {
-            snprintf(err, errsz, "Spielstand konnte nicht geöffnet werden: %s", strerror(errno));
-            return -1;
+        int fd = open(s->path, O_RDONLY);
+        uint8_t first = 0;
+        int bad = fd < 0 || pread_full(fd, &first, 1, 0);
+        if (fd >= 0) close(fd);
+        if (bad) {
+            snprintf(err, errsz, T("Spielstand konnte nicht geöffnet werden: %s"), strerror(errno));
+            goto done;
         }
-        struct stat st; fstat(src, &st);
-        int dst = open(work, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (dst < 0) { close(src); snprintf(err, errsz, "Arbeitskopie konnte nicht erstellt werden"); return -1; }
-        uint8_t buf[65536]; ssize_t n;
-        while ((n = read(src, buf, sizeof(buf))) > 0) write(dst, buf, (size_t)n);
-        fsync(dst); close(dst); close(src);
-        (void)st;
+        if (first == 0x01) {
+            snprintf(err, errsz, "%s", T("PS4-Spielstände werden noch nicht unterstützt"));
+            goto done;
+        }
+    }
+    if (!space_ok(saves_workdir(), size)) {
+        snprintf(err, errsz, "%s", T("Nicht genug freier Speicher auf der PS5"));
+        goto done;
+    }
+    /* Einhängen direkt aus savedata_prospero endet mit EPIPE: Arbeitskopie unter /data */
+    if (path_fmt(work, sizeof(work), "%s/resign_%s_%s", saves_workdir(), s->title_id, s->save_dir) ||
+        path_fmt(mnt, sizeof(mnt), "%s/mnt", saves_workdir())) {
+        snprintf(err, errsz, "%s", T("Pfad zu lang"));
+        goto done;
+    }
+    mkdir(mnt, 0755);
+    uint64_t crc_src = 0;
+    if (copy_file(s->path, work, 0777, (uid_t)-1, (gid_t)-1, &crc_src)) {
+        snprintf(err, errsz, "%s", T("Arbeitskopie konnte nicht erstellt werden"));
+        goto done;
     }
 
-    /* Sealed Key aus Image lesen */
-    uint8_t sealed[SEALED_KEY_LEN];
+    plat_creds_elevate(&creds);
+    elevated = 1;
+
+    /* Sealed Key aus dem Container lesen und über /dev/pfsmgr entschlüsseln */
+    uint8_t sealed[SEALED_KEY_LEN], key[0x20];
+    int wfd = open(work, O_RDONLY);
+    if (wfd < 0 || pread_full(wfd, sealed, sizeof(sealed), SEALED_KEY_OFF)) {
+        if (wfd >= 0) close(wfd);
+        snprintf(err, errsz, "%s", T("Sealed Key konnte nicht gelesen werden"));
+        goto done;
+    }
+    close(wfd);
+    if (plat_pfs_decrypt(sealed, key) != 0) {
+        snprintf(err, errsz, "%s", T("Schlüssel konnte nicht entschlüsselt werden (pfsmgr)"));
+        goto done;
+    }
+
+    MountOpt mopt;
+    memset(&mopt, 0, sizeof(mopt));
+    mount_init(&mopt);
+    char budget[] = "system";
+    mopt.budgetid = budget;
+    struct sigaction dfl, old;   /* das Einhängen braucht SIGPIPE in Standardbehandlung (wie garlic-savemgr) */
+    memset(&dfl, 0, sizeof(dfl));
+    dfl.sa_handler = SIG_DFL;
+    sigaction(SIGPIPE, &dfl, &old);
+    int mr = mount(&mopt, work, mnt, key);
+    sigaction(SIGPIPE, &old, NULL);
+    memset(key, 0, sizeof(key));
+    if (mr < 0) {
+        snprintf(err, errsz, T("Einhängen fehlgeschlagen (0x%08x)"), (unsigned)mr);
+        goto done;
+    }
+    mounted = 1;
+
+    char e2[256] = "";
+    int pr = path_fmt(sfo, sizeof(sfo), "%s/sce_sys/param.sfo", mnt) ? -1 : saves_sfo_patch(sfo, aid, user_id, e2, sizeof(e2));
+    UmountOpt uopt;
+    memset(&uopt, 0, sizeof(uopt));
+    umount_init(&uopt);
+    umount_fn(&uopt, mnt, 0, 0);   /* verschlüsselt den Container wieder */
+    mounted = 0;
+    sync();
+    if (pr) {
+        snprintf(err, errsz, "%s", e2[0] ? e2 : T("param.sfo konnte nicht geändert werden (ACCOUNT_ID nicht gefunden)"));
+        goto done;
+    }
+
+    /* neben das Original schreiben und umbenennen: bricht etwas ab, bleibt das Original unverändert; der Name beginnt
+     * mit ".", damit die Liste ihn nicht zeigt */
     {
-        int fd = open(work, O_RDONLY);
-        if (fd < 0 || pread(fd, sealed, SEALED_KEY_LEN, SEALED_KEY_OFF) != SEALED_KEY_LEN) {
-            if (fd >= 0) close(fd);
-            unlink(work);
-            snprintf(err, errsz, "Sealed Key konnte nicht gelesen werden");
-            return -1;
-        }
-        close(fd);
-    }
-
-    /* /dev/pfsmgr: Schlüssel entschlüsseln */
-    uint8_t key[0x20] = {0};
-    {
-        struct { uint8_t sk[0x60]; uint8_t key[0x20]; uint32_t res; } ioc;
-        memset(&ioc, 0, sizeof(ioc));
-        memcpy(ioc.sk, sealed, SEALED_KEY_LEN);
-        int pfsd = open(PFSMGR_PATH, O_RDWR);
-        if (pfsd < 0 || ioctl(pfsd, PFSMGR_DECRYPT, &ioc) < 0 || ioc.res != 0) {
-            if (pfsd >= 0) close(pfsd);
-            unlink(work);
-            snprintf(err, errsz, "Schlüssel konnte nicht entschlüsselt werden (pfsmgr)");
-            return -1;
-        }
-        close(pfsd);
-        memcpy(key, ioc.key, 0x20);
-    }
-
-    /* Einhängen */
-    MountOpt mopt; char budgetid[] = "system";
-    g_mount_init(&mopt);
-    mopt.reserved = 0; mopt.budgetid = budgetid;
-    /* SIGPIPE ignorieren während des Einhängens */
-    struct sigaction sa_old, sa_ign;
-    memset(&sa_ign, 0, sizeof(sa_ign));
-    sa_ign.sa_handler = SIG_DFL;
-    sigaction(SIGPIPE, &sa_ign, &sa_old);
-    int rc = g_mount(&mopt, work, SAVE_MNTDIR, key);
-    if (rc != 0) {
-        sigaction(SIGPIPE, &sa_old, NULL);
-        unlink(work);
-        snprintf(err, errsz, "Einhängen fehlgeschlagen (0x%08x)", (unsigned)rc);
-        return -1;
-    }
-    sigaction(SIGPIPE, &sa_old, NULL);
-
-    /* param.sfo patchen */
-    char sfo_path[512];
-    snprintf(sfo_path, sizeof(sfo_path), "%s/sce_sys/param.sfo", SAVE_MNTDIR);
-    int ok = 0;
-    {
-        int fd = open(sfo_path, O_RDWR);
-        if (fd >= 0) {
-            off_t aid_off = 0;
-            if (sfo_account_offset(fd, &aid_off) == 0 &&
-                pwrite(fd, new_aid, 8, aid_off) == 8) {
-                fsync(fd);
-                uint8_t check[8];
-                ok = pread(fd, check, 8, aid_off) == 8 && memcmp(check, new_aid, 8) == 0;
-            }
-            close(fd);
+        const char *sl = strrchr(s->path, '/');
+        if (!sl || path_fmt(back, sizeof(back), "%.*s/.%s.resign.tmp", (int)(sl - s->path), s->path, sl + 1)) {
+            snprintf(err, errsz, "%s", T("Pfad zu lang"));
+            back[0] = 0;
+            goto done;
         }
     }
-
-    /* Aushängen */
-    UmountOpt uopt; g_umount_init(&uopt);
-    g_umount(&uopt, SAVE_MNTDIR, 0, 0);
-
-    if (!ok) {
-        unlink(work);
-        snprintf(err, errsz, "Signierung fehlgeschlagen – param.sfo konnte nicht geändert werden");
-        return -1;
+    if (copy_file(work, back, mode, own_u, own_g, NULL)) {
+        snprintf(err, errsz, "%s", T("Zurückkopieren fehlgeschlagen"));
+        goto done;
     }
-
-    /* Arbeitskopie zurück an Original-Stelle kopieren */
-    {
-        int src = open(work, O_RDONLY);
-        int dst = open(s->path, O_WRONLY | O_TRUNC, 0644);
-        if (src < 0 || dst < 0) {
-            if (src >= 0) close(src);
-            if (dst >= 0) close(dst);
-            unlink(work);
-            snprintf(err, errsz, "Zurückkopieren fehlgeschlagen");
-            return -1;
-        }
-        uint8_t buf[65536]; ssize_t n;
-        while ((n = read(src, buf, sizeof(buf))) > 0) write(dst, buf, (size_t)n);
-        fsync(dst); close(dst); close(src);
+    if (rename(back, s->path) != 0) {
+        snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
+        goto done;
     }
-    unlink(work);
-    return 0;
+    back[0] = 0;
+    rc = 0;
+done:
+    if (mounted) {
+        UmountOpt uopt;
+        memset(&uopt, 0, sizeof(uopt));
+        umount_init(&uopt);
+        umount_fn(&uopt, mnt, 0, 0);
+    }
+    if (elevated) plat_creds_restore(&creds);
+    if (back[0]) unlink(back);
+    if (work[0]) unlink(work);
+    op_leave();
+    return rc;
 }

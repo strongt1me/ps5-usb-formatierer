@@ -1242,9 +1242,9 @@
   "fr": "{dev} sera sauvegardé dans : {dest}"
  },
  "Sichern": {
-  "en": "Back up",
-  "it": "Salva",
-  "es": "Guardar",
+  "en": "Backup",
+  "it": "Backup",
+  "es": "Copia",
   "fr": "Sauvegarder"
  },
  "Der Download hat nicht begonnen.": {
@@ -1709,12 +1709,6 @@
   "es": "Nueva cuenta",
   "fr": "Nouveau compte"
  },
- "Kein Spielstand ausgewählt.": {
-  "en": "No save selected.",
-  "it": "Nessun salvataggio selezionato.",
-  "es": "Ninguna partida seleccionada.",
-  "fr": "Aucune sauvegarde sélectionnée."
- },
  "Spielstand wird geladen …": {
   "en": "Loading saves …",
   "it": "Caricamento salvataggi …",
@@ -1727,28 +1721,46 @@
   "es": "No se encontraron partidas.",
   "fr": "Aucune sauvegarde trouvée."
  },
- "Sichern": {
-  "en": "Backup",
-  "it": "Backup",
-  "es": "Copia",
-  "fr": "Sauvegarder"
+ "Ein vorhandener Spielstand mit gleichem Namen wird ersetzt. Das lässt sich nicht rückgängig machen.": {
+  "en": "An existing save game with the same name will be replaced. This cannot be undone.",
+  "it": "Un salvataggio esistente con lo stesso nome verrà sostituito. L'operazione non può essere annullata.",
+  "es": "Se sustituirá una partida guardada existente con el mismo nombre. Esto no se puede deshacer.",
+  "fr": "Une sauvegarde existante du même nom sera remplacée. Cette action est irréversible."
  },
- "Wiederherstellen": {
-  "en": "Restore",
-  "it": "Ripristina",
-  "es": "Restaurar",
-  "fr": "Restaurer"
+ "„{game}“ wird für den gewählten Benutzer neu signiert. Der Spielstand auf der PS5 wird dabei verändert – vorher am besten sichern.": {
+  "en": "“{game}” will be re-signed for the selected user. This changes the save game on the PS5 – best back it up first.",
+  "it": "«{game}» verrà firmato di nuovo per l'utente selezionato. Il salvataggio sulla PS5 viene modificato – meglio fare prima un backup.",
+  "es": "«{game}» se volverá a firmar para el usuario seleccionado. Esto modifica la partida en la PS5 – es mejor hacer antes una copia.",
+  "fr": "« {game} » sera re-signée pour l'utilisateur choisi. La sauvegarde sur la PS5 est modifiée – mieux vaut la sauvegarder d'abord."
  },
- "Neusignierung läuft …": {
-  "en": "Re-signing …",
-  "it": "Firma in corso …",
-  "es": "Refirmando …",
-  "fr": "Re-signature en cours …"
+ "Keine Konten gefunden.": {
+  "en": "No accounts found.",
+  "it": "Nessun account trovato.",
+  "es": "No se encontraron cuentas.",
+  "fr": "Aucun compte trouvé."
  },
- "Neusigniert!": {
-  "en": "Re-signed!",
-  "it": "Rifirmato!",
-  "es": "¡Refirmado!",
-  "fr": "Re-signé !"
+ "Spielstand neusigniert": {
+  "en": "Save game re-signed",
+  "it": "Salvataggio firmato di nuovo",
+  "es": "Partida refirmada",
+  "fr": "Sauvegarde re-signée"
+ },
+ "Spielstand wiederhergestellt": {
+  "en": "Save game restored",
+  "it": "Salvataggio ripristinato",
+  "es": "Partida restaurada",
+  "fr": "Sauvegarde restaurée"
+ },
+ "Neusignieren fehlgeschlagen": {
+  "en": "Re-signing failed",
+  "it": "Firma non riuscita",
+  "es": "Error al refirmar",
+  "fr": "Échec de la re-signature"
+ },
+ "Spielstand neusignieren": {
+  "en": "Re-sign save game",
+  "it": "Rifirma salvataggio",
+  "es": "Refirmar partida",
+  "fr": "Re-signer la sauvegarde"
  }
 }

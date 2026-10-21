@@ -19,6 +19,7 @@ import tkinter as tk
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from tkinter import filedialog, ttk
 
 import i18n
@@ -234,32 +235,56 @@ class Api:
     def get(self, path, timeout=8):
         return self._call(path, timeout=timeout)
 
-    def download_save(self, idx):
-        """Spielstand-ZIP herunterladen; gibt rohe Bytes zurück"""
-        url = f"{self.base}/api/saves/download?idx={idx}&lang={i18n.lang()}"
+    def download_save(self, key, path):
+        """Spielstand-ZIP nach path laden (in einem Zug auf die Platte, erst nach vollständigem Empfang umbenannt und
+        geprüft). Liefert die Größe."""
+        url = f"{self.base}/api/saves/download?key={urllib.parse.quote(key, safe='')}&lang={i18n.lang()}"
+        part = path + ".part"
+        n = 0
         try:
-            with _OPENER.open(url, timeout=120) as r:
-                return r.read()
+            with _OPENER.open(url, timeout=300) as r, open(part, "wb") as f:
+                while True:
+                    b = r.read(1 << 20)
+                    if not b:
+                        break
+                    f.write(b)
+                    n += len(b)
+            try:
+                with zipfile.ZipFile(part) as z:
+                    bad = z.testzip()
+            except zipfile.BadZipFile:
+                bad = "?"
+            if bad:
+                raise ApiError(_("Die heruntergeladene ZIP-Datei ist beschädigt."))
+            os.replace(part, path)
         except urllib.error.HTTPError as e:
             raise self._http_error(e) from None
         except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
             raise ConnectionError(str(e) or type(e).__name__) from None
+        finally:
+            try:
+                os.remove(part)
+            except OSError:
+                pass
+        return n
 
-    def restore_save(self, data):
-        """Spielstand aus ZIP wiederherstellen; data: rohe ZIP-Bytes"""
-        url = f"{self.base}/api/saves/restore/upload?lang={i18n.lang()}"
-        req = urllib.request.Request(url, data=data, method="POST",
-                                     headers={"Content-Type": "application/zip",
-                                              "Content-Length": str(len(data))})
-        try:
-            with _OPENER.open(req, timeout=60) as r:
-                r.read()
-        except urllib.error.HTTPError as e:
-            raise self._http_error(e) from None
+    def restore_save(self, path):
+        """Spielstand-ZIP hochladen; die PS5 schreibt ihn zurück (Auftrag "save_restore", Antwort erst am Ende)"""
+        with open(path, "rb") as f:
+            req = urllib.request.Request(f"{self.base}/api/saves/restore/upload?lang={i18n.lang()}", data=f,
+                                         method="POST", headers={"Content-Type": "application/zip",
+                                                                 "Content-Length": str(os.path.getsize(path))})
+            try:
+                with _OPENER.open(req, timeout=600) as r:
+                    r.read()
+            except urllib.error.HTTPError as e:
+                raise self._http_error(e) from None
+            except (urllib.error.URLError, http.client.HTTPException) as e:
+                raise ConnectionError(str(getattr(e, "reason", e)) or type(e).__name__) from None
 
-    def resign_save(self, idx, account_id):
-        """Spielstand neusignieren"""
-        return self._call("/api/saves/resign", {"idx": idx, "account_id": account_id})
+    def resign_save(self, key, uid):
+        """Spielstand für den lokalen Benutzer uid neu signieren (Auftrag "save_resign")"""
+        return self._call("/api/saves/resign", {"key": key, "uid": uid})
 
 
 def send_payload(host, path):
@@ -652,12 +677,14 @@ class App(tk.Tk):
         sf.grid(row=3, column=0, sticky="nsew", pady=(px(6), 0))
         sf.columnconfigure(0, weight=1)
         sf.rowconfigure(0, weight=1)
-        self.saves_tree = ttk.Treeview(sf, columns=("user", "dir"), show="headings", height=6,
+        self.saves_tree = ttk.Treeview(sf, columns=("user", "size"), show="tree headings", height=6,
                                        selectmode="browse", style="Games.Treeview")
+        self.saves_tree.heading("#0", text=_("Spiel"), anchor="w")
         self.saves_tree.heading("user", text=_("Benutzer"), anchor="w")
-        self.saves_tree.heading("dir", text=_("Ordner"), anchor="w")
-        self.saves_tree.column("user", width=px(130), minwidth=80, anchor="w", stretch=False)
-        self.saves_tree.column("dir", width=px(130), minwidth=80, anchor="w", stretch=False)
+        self.saves_tree.heading("size", text=_("Größe"), anchor="w")
+        self.saves_tree.column("#0", width=px(210), minwidth=120, anchor="w", stretch=True)
+        self.saves_tree.column("user", width=px(100), minwidth=70, anchor="w", stretch=False)
+        self.saves_tree.column("size", width=px(80), minwidth=60, anchor="w", stretch=False)
         self.saves_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
         self.saves_tree.grid(row=0, column=0, sticky="nsew")
         ssb = ttk.Scrollbar(sf, orient="vertical", command=self.saves_tree.yview)
@@ -675,7 +702,7 @@ class App(tk.Tk):
         self.saves_rest_btn.pack(side="left", padx=(px(8), 0))
         self.saves_resign_btn = ttk.Button(sa, text=_("Neusignieren …"), command=self._saves_resign)
         self.saves_resign_btn.pack(side="left", padx=(px(8), 0))
-        self._saves_data = []      # [{idx, title_id, title_name, save_dir, uid, username}]
+        self._saves_data = []      # [{key, title_id, title_name, save_dir, uid, username, size}]
         self._saves_users = []     # [{uid, username, account_id}]
 
         # ---- Fortschritt (der Bereich "frei" hat seinen eigenen)
@@ -952,122 +979,139 @@ class App(tk.Tk):
         """Spielstand-Liste und Benutzerfilter füllen"""
         self._saves_data = saves_data.get("saves", [])
         self._saves_users = users_data.get("users", [])
-        # Benutzerfilter
-        names = [_("Alle Benutzer")] + [u.get("username") or u["uid"] for u in self._saves_users]
-        uids = [""] + [u["uid"] for u in self._saves_users]
-        self.saves_user_cb["values"] = names
-        cur = self.saves_user_var.get()
-        if cur not in uids:
-            self.saves_user_var.set("")
+        cur = self.saves_user_cb.current()
+        keep = self._saves_users[cur - 1]["uid"] if 0 < cur <= len(self._saves_users) else ""
+        self.saves_user_cb["values"] = [_("Alle Benutzer")] + [u.get("username") or u["uid"] for u in self._saves_users]
+        pos = next((i + 1 for i, u in enumerate(self._saves_users) if u["uid"] == keep), 0)
+        self.saves_user_cb.current(pos)
         self._render_saves_tree()
-        self.saves_hint.configure(text="" if self._saves_data else _("Keine Spielstände gefunden."))
 
     def _saves_filter_changed(self):
         self._render_saves_tree()
 
     def _render_saves_tree(self):
-        uid_filter = ""
-        idx = self.saves_user_cb.current()
-        if idx > 0 and idx <= len(self._saves_users):
-            uid_filter = self._saves_users[idx - 1]["uid"]
+        i = self.saves_user_cb.current()
+        uid_filter = self._saves_users[i - 1]["uid"] if 0 < i <= len(self._saves_users) else ""
         tree = self.saves_tree
+        sel = tree.selection()
+        keep = sel[0] if sel else None
         tree.delete(*tree.get_children())
-        filtered = [s for s in self._saves_data if not uid_filter or s.get("uid") == uid_filter]
-        for i, s in enumerate(filtered):
-            tag = "odd" if i % 2 else ""
-            name = s.get("title_name") or s.get("title_id", "")
-            tree.insert("", "end", iid=str(s["idx"]),
-                        values=(s.get("username") or s.get("uid", ""), s.get("save_dir", "")),
-                        text=name, tags=(tag,) if tag else ())
+        shown = [x for x in self._saves_data if not uid_filter or x.get("uid") == uid_filter]
+        for n, x in enumerate(shown):
+            tree.insert("", "end", iid=x["key"], text=x.get("title_name") or x.get("title_id", ""),
+                        values=(x.get("username") or x.get("uid", ""), fmt_size(x["size"]) if x.get("size") else ""),
+                        tags=("odd",) if n % 2 else ())
+        if keep and tree.exists(keep):
+            tree.selection_set(keep)
+        self.saves_hint.configure(text="" if shown else _("Keine Spielstände gefunden."))
         self._update()
 
     def _saves_selected(self):
         sel = self.saves_tree.selection()
-        if not sel:
-            return None
-        idx = int(sel[0])
-        return next((s for s in self._saves_data if s["idx"] == idx), None)
+        return next((x for x in self._saves_data if x["key"] == sel[0]), None) if sel else None
 
     def _saves_download(self):
-        """Spielstand als ZIP herunterladen"""
+        """Spielstand als ZIP auf den PC laden"""
         save = self._saves_selected()
-        if not save or not self.api:
+        if self.busy or not save or not self.api:
             return
-        from tkinter import filedialog
         path = filedialog.asksaveasfilename(
-            parent=self, defaultextension=".zip",
+            parent=self, title=_("Spielstand sichern"), defaultextension=".zip",
             filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
+            initialdir=self.settings.get("image_dir") or os.path.expanduser("~"),
             initialfile=f"{save['title_id']}_{save['save_dir']}.zip")
         if not path:
             return
         api = self.api
+        self.status_var.set(_("Spielstand wird geladen …"))
 
         def work():
             try:
-                data = api.download_save(save["idx"])
-                with open(path, "wb") as f:
-                    f.write(data)
-                self.q.put(("saves_msg", True, _("Spielstand gesichert.")))
+                n = api.download_save(save["key"], path)
+                self.q.put(("saves_msg", True, _("Spielstand gesichert.") + " " + fmt_size(n)))
             except (ConnectionError, ApiError, OSError) as e:
-                self.q.put(("saves_msg", False, str(e)))
+                self.q.put(("saves_msg", False, str(e) or type(e).__name__))
 
         self._run(work)
 
     def _saves_restore(self):
-        """Spielstand aus ZIP wiederherstellen"""
-        if not self.api:
+        """Spielstand aus einer ZIP-Sicherung zurückschreiben (die ZIP wird auf die PS5 hochgeladen)"""
+        if self.busy or not self.api:
             return
-        from tkinter import filedialog
         path = filedialog.askopenfilename(
-            parent=self,
-            filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")])
+            parent=self, title=_("Spielstand wiederherstellen"),
+            filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
+            initialdir=self.settings.get("image_dir") or os.path.expanduser("~"))
         if not path:
             return
         if not messagebox.askokcancel(
                 _("Spielstand wiederherstellen"),
-                _("Alle Daten werden überschrieben"),
-                icon="warning", parent=self):
+                _("Ein vorhandener Spielstand mit gleichem Namen wird ersetzt. Das lässt sich nicht rückgängig machen.")
+                + "\n\n" + _("Laufende Spiele vorher beenden."),
+                icon="warning", default="cancel", parent=self):
             return
         api = self.api
+        state = {}
+
+        def done(ok, msg, result):
+            (messagebox.showinfo if ok else messagebox.showerror)(_("Spielstand wiederherstellen"), msg, parent=self)
+            self._load_saves()
+
+        def upload():
+            try:
+                api.restore_save(path)
+            except (ConnectionError, ApiError, OSError) as e:
+                state["error"] = str(e) or type(e).__name__
 
         def work():
             try:
-                with open(path, "rb") as f:
-                    data = f.read()
-                api.restore_save(data)
-                self.q.put(("saves_msg", True, _("Spielstand wiederhergestellt.")))
-            except (ConnectionError, ApiError, OSError) as e:
-                self.q.put(("saves_msg", False, str(e)))
+                seq = api.status().get("job") or 0
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Wiederherstellen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            t = threading.Thread(target=upload, daemon=True)
+            self.transfer = t
+            t.start()
+            if not self._wait_claim(api, seq, lambda: "error" in state):
+                t.join(5)
+                self.q.put(("error", state.get("error") or _("Das Hochladen hat nicht begonnen.")))
+                return
+            self._follow(api, foreign=False, done_title=_("Spielstand wiederhergestellt."), after=done)
 
+        self.pbar["value"] = 0
         self._run(work)
 
     def _saves_resign(self):
-        """Spielstand mit anderem Account neusignieren"""
+        """Spielstand für einen anderen Benutzer dieser PS5 neu signieren"""
         save = self._saves_selected()
-        if not save or not self.api:
+        if self.busy or not save or not self.api:
             return
-        if not self._saves_users:
+        targets = [u for u in self._saves_users if u.get("account_id")]
+        if not targets:
             messagebox.showinfo(self.title(), _("Keine Konten gefunden."), parent=self)
             return
-        choices_data = [(u["account_id"], (u.get("username") or u["uid"]) + " – " + u["account_id"])
-                        for u in self._saves_users if u.get("account_id")]
-        if not choices_data:
-            messagebox.showinfo(self.title(), _("Keine Account-IDs aus der Registry gefunden."), parent=self)
+        pick = ask_choice(self, _("Neusignieren"),
+                          _("„{game}“ wird für diesen Benutzer neu signiert. Der Spielstand auf der PS5 wird dabei "
+                            "verändert – vorher am besten sichern.", game=save.get("title_name") or save["title_id"]),
+                          [(u.get("username") or u["uid"]) + " – " + u["account_id"] for u in targets], _("Neusignieren"))
+        if pick is None:
             return
-        idx = ask_choice(self, _("Neues Konto auswählen"), _("Neues Konto"),
-                         [c[1] for c in choices_data], _("Neusignieren"))
-        if idx is None:
-            return
-        aid = choices_data[idx][0]
+        uid = targets[pick]["uid"]
         api = self.api
+
+        def done(ok, msg, result):
+            (messagebox.showinfo if ok else messagebox.showerror)(_("Neusignieren"), msg, parent=self)
+            self._load_saves()
 
         def work():
             try:
-                api.resign_save(save["idx"], aid)
-                self.q.put(("saves_msg", True, _("Neusigniert!")))
+                api.resign_save(save["key"], uid)
             except (ConnectionError, ApiError) as e:
-                self.q.put(("saves_msg", False, str(e)))
+                self.q.put(("error", _("Neusignieren konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Spielstand neusigniert."), after=done)
 
+        self.pbar["value"] = 0
         self._run(work)
 
     def _fs_picked(self, key):
@@ -2411,9 +2455,8 @@ class App(tk.Tk):
             self.busy = False
             if msg[1]:
                 self.status_var.set(msg[2])
-                if self.api:
-                    self._load_saves()
             else:
+                self.status_var.set("")
                 messagebox.showerror(_("Spielstände"), msg[2], parent=self)
             self._update()
         elif kind == "devices_quiet":

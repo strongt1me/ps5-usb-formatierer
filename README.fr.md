@@ -109,6 +109,9 @@ Contrôle du numéro de série : si une autre clé du même modèle est branché
 ### 💾 Sauvegarder et restaurer des images
 Sauvegarde un lecteur entier en <code>.img.zst</code> – seulement les zones occupées, compressées avec zstd, avec un <code>.sha256</code>. Sur la PS5 vers le stockage interne, un autre lecteur USB ou en téléchargement ; sur le PC dans n'importe quel dossier, même depuis des clés et cartes SD verrouillées en écriture. Réécriture avec vérification ensuite – aussi par envoi depuis un téléphone ou un PC. <code>zstd -d</code> en fait une image ordinaire.
 
+### 🎮 Sauvegardes : copier, restaurer et re-signer
+Affiche chaque sauvegarde PS5 avec le nom du jeu et l'utilisateur, la télécharge en ZIP sur le PC ou le téléphone (le conteneur chiffré reste inchangé), la réécrit et la re-signe pour un autre utilisateur de la console. Les sommes de contrôle sont vérifiées, un jeu en cours bloque les modifications. Jeux PS5 ; les sauvegardes PS4 suivront.
+
 </td>
 </tr>
 <tr>

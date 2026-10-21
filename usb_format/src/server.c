@@ -198,7 +198,7 @@ static const char *size_text(uint64_t b, char *buf, size_t n) {
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static struct {
     int  busy, done, ok;
-    char kind[12];        /* format, speed, check, label */
+    char kind[16];        /* format, speed, check, label */
     char device[16];
     char step[128];   /* übersetzte Schrittnamen sind teils länger als 64 Bytes (Französisch) */
     int  percent;
@@ -237,9 +237,9 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESIGN };
+       JOB_SAVE_RESIGN, JOB_SAVE_RESTORE };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_resign"};
+                                       "tile", "verify", "save_resign", "save_restore"};
 
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
@@ -268,8 +268,8 @@ typedef struct {
     FILE    *img;
     ib_reader_t *rd;
     /* Spielstand neusignieren */
-    int      saves_idx;
-    char     saves_account_id[17];
+    char     saves_key[320];
+    char     saves_uid[16];
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
 } job_t;
@@ -2777,17 +2777,32 @@ out:
 
 /* ── Spielstand-API ─────────────────────────────────────────────────── */
 
+/* Läuft ein Spiel oder eine App, kann es den Spielstand gerade benutzen: dann nichts daran ändern */
+static int saves_game_check(int c) {
+    char gid[16], err[320];
+    if (!game_running(gid, sizeof(gid))) return 0;
+    snprintf(err, sizeof(err),
+             T("Es läuft gerade ein Spiel oder eine App (%s) – bitte zuerst beenden, sonst kann der Spielstand beschädigt werden."),
+             gid);
+    respond_error(c, 409, err);
+    return 1;
+}
+
 /* GET /api/saves/users  → {"users":[{"uid","username","account_id"},…]} */
 static void api_saves_users(int c) {
-    save_user_t *users = NULL; int nu = 0;
+    save_user_t *users = NULL;
+    int nu = 0;
     saves_scan_users(&users, &nu);
     sbuf_t b = {0};
     sb_add(&b, "{\"users\":[");
     for (int i = 0; i < nu; i++) {
         if (i) sb_add(&b, ",");
-        sb_add(&b, "{\"uid\":"); sb_str(&b, users[i].uid);
-        sb_add(&b, ",\"username\":"); sb_str(&b, users[i].username);
-        sb_add(&b, ",\"account_id\":"); sb_str(&b, users[i].account_id);
+        sb_add(&b, "{\"uid\":");
+        sb_str(&b, users[i].uid);
+        sb_add(&b, ",\"username\":");
+        sb_str(&b, users[i].username);
+        sb_add(&b, ",\"account_id\":");
+        sb_str(&b, users[i].account_id);
         sb_add(&b, "}");
     }
     sb_add(&b, "]}");
@@ -2796,21 +2811,28 @@ static void api_saves_users(int c) {
     free(b.p);
 }
 
-/* GET /api/saves  → {"saves":[{"idx","title_id","title_name","save_dir","uid","username"},…]} */
+/* GET /api/saves  → {"saves":[{"key","title_id","title_name","save_dir","uid","username","size"},…]} */
 static void api_saves(int c) {
-    save_info_t *saves = NULL; int ns = 0;
+    save_info_t *saves = NULL;
+    int ns = 0;
     saves_scan(&saves, &ns);
     sbuf_t b = {0};
     sb_add(&b, "{\"saves\":[");
     for (int i = 0; i < ns; i++) {
         if (i) sb_add(&b, ",");
-        sb_add(&b, "{\"idx\":%d", i);
-        sb_add(&b, ",\"title_id\":"); sb_str(&b, saves[i].title_id);
-        sb_add(&b, ",\"title_name\":"); sb_str(&b, saves[i].title_name);
-        sb_add(&b, ",\"save_dir\":"); sb_str(&b, saves[i].save_dir);
-        sb_add(&b, ",\"uid\":"); sb_str(&b, saves[i].uid);
-        sb_add(&b, ",\"username\":"); sb_str(&b, saves[i].username);
-        sb_add(&b, "}");
+        sb_add(&b, "{\"key\":");
+        sb_str(&b, saves[i].key);
+        sb_add(&b, ",\"title_id\":");
+        sb_str(&b, saves[i].title_id);
+        sb_add(&b, ",\"title_name\":");
+        sb_str(&b, saves[i].title_name);
+        sb_add(&b, ",\"save_dir\":");
+        sb_str(&b, saves[i].save_dir);
+        sb_add(&b, ",\"uid\":");
+        sb_str(&b, saves[i].uid);
+        sb_add(&b, ",\"username\":");
+        sb_str(&b, saves[i].username);
+        sb_add(&b, ",\"size\":%llu}", (unsigned long long)saves[i].size);
     }
     sb_add(&b, "]}");
     free(saves);
@@ -2818,59 +2840,157 @@ static void api_saves(int c) {
     free(b.p);
 }
 
-/* GET /api/saves/download?idx=N  → ZIP-Download */
+/* GET /api/saves/download?key=<uid>/<title_id>/<save_dir>  → ZIP. Bricht der Strom mittendrin ab, endet er ohne
+ * Abschluss-Chunk (der Aufrufer schließt die Verbindung) - so merkt der Empfänger den Fehler */
 static void api_saves_download(int c, const char *q) {
-    const char *idxs = q ? strstr(q, "idx=") : NULL;
-    if (!idxs) { respond_error(c, 400, "idx fehlt"); return; }
-    int idx = atoi(idxs + 4);
-    save_info_t *saves = NULL; int ns = 0;
-    saves_scan(&saves, &ns);
-    if (idx < 0 || idx >= ns) { free(saves); respond_error(c, 404, "Spielstand nicht gefunden"); return; }
-    char fname[256];
-    snprintf(fname, sizeof(fname), "%s_%s.zip", saves[idx].title_id, saves[idx].save_dir);
-    saves_download(c, &saves[idx], fname);
-    free(saves);
+    char key[320];
+    save_info_t s;
+    if (!q || query_get(q, "key", key, sizeof(key))) { respond_error(c, 400, "key fehlt"); return; }
+    if (saves_find(key, &s)) { respond_error(c, 404, "Spielstand nicht gefunden"); return; }
+    char err[256] = "";
+    if (saves_download(c, &s, err, sizeof(err)) == -1) respond_error(c, 500, err[0] ? err : "Sichern fehlgeschlagen");
 }
 
 /* Worker für JOB_SAVE_RESIGN */
 static void *resign_worker(void *arg) {
     job_t *j = arg;
+    i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0};
-    save_info_t *saves = NULL; int ns = 0;
-    saves_scan(&saves, &ns);
+    save_info_t s;
     int ok = 0;
-    if (j->saves_idx < 0 || j->saves_idx >= ns) {
+    on_progress("Spielstand wird neu signiert …", 10);
+    if (saves_find(j->saves_key, &s)) {
         sb_add(&msg, "%s", T("Spielstand nicht gefunden"));
     } else {
         char err[256] = "";
-        if (saves_resign(&saves[j->saves_idx], j->saves_account_id, err, sizeof(err)) == 0) {
+        if (saves_resign(&s, j->saves_uid, err, sizeof(err)) == 0) {
             ok = 1;
             sb_tr(&msg, "Spielstand erfolgreich neusigniert.");
         } else {
             sb_add(&msg, "%s", err[0] ? err : T("Neusignierung fehlgeschlagen"));
         }
     }
-    free(saves);
     job_done(j, ok, &msg, &res, 0);
     return NULL;
 }
 
-/* POST /api/saves/resign  {"idx":N,"account_id":"0123456789abcdef"} */
+/* POST /api/saves/resign  {"key":"<uid>/<title_id>/<save_dir>","uid":"<Zielbenutzer>"} */
 static void api_saves_resign(int c, const char *body) {
-    const char *ip = strstr(body, "\"idx\"");
-    const char *ap = strstr(body, "\"account_id\"");
-    if (!ip || !ap) { respond_error(c, 400, "idx und account_id erforderlich"); return; }
-    ip = ws(ip + 5); if (*ip == ':') ip = ws(ip + 1);
-    int idx = atoi(ip);
-    ap = ws(ap + 12); if (*ap == ':') ap = ws(ap + 1);
-    char aid[17] = "";
-    if (*ap == '"') { ap++; size_t n = 0; while (*ap && *ap != '"' && n < 16) aid[n++] = *ap++; aid[n] = 0; }
-    if (!aid[0]) { respond_error(c, 400, "account_id fehlt oder leer"); return; }
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    const char *key = n > 0 ? kv_get(kv, n, "key") : NULL, *uid = n > 0 ? kv_get(kv, n, "uid") : NULL;
+    if (!key || !key[0] || !uid || !uid[0] || strlen(key) >= sizeof(((job_t *)0)->saves_key) ||
+        !saves_name_ok(uid, sizeof(((job_t *)0)->saves_uid))) {
+        respond_error(c, 400, "key und uid erforderlich");
+        return;
+    }
+    if (saves_game_check(c)) return;
     job_t *j = new_job(c, JOB_SAVE_RESIGN);
     if (!j) return;
-    j->saves_idx = idx;
-    snprintf(j->saves_account_id, sizeof(j->saves_account_id), "%s", aid);
+    snprintf(j->saves_key, sizeof(j->saves_key), "%.319s", key);
+    snprintf(j->saves_uid, sizeof(j->saves_uid), "%.15s", uid);
     start_job(c, j, resign_worker);
+}
+
+/* POST /api/saves/restore/upload  Körper = ZIP: auf die Platte schreiben (nicht in den Speicher: Spielstände sind
+ * mehrere zig MB groß) und zurückschreiben. Läuft in dieser Verbindung, wie das Hochladen eines Images. */
+#define SAVES_UPLOAD_MAX (4ULL << 30)
+
+/* Antwort steht schon (Fehler vor dem Lesen des Körpers): den Rest des Hochladens verwerfen, solange er flott kommt.
+ * Schließt der Server mit ungelesenen Daten, setzt das TCP die Verbindung zurück und der Browser sieht statt der
+ * Meldung nur "Verbindung abgebrochen". */
+static void drain_body(int c, unsigned long long left) {
+    struct timeval tv = {2, 0};
+    setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    char *buf = malloc(65536);
+    const time_t end = time(NULL) + 8;
+    while (buf && left && time(NULL) < end) {
+        ssize_t r = recv(c, buf, left < 65536 ? (size_t)left : 65536, 0);
+        if (r <= 0) break;
+        left -= (unsigned long long)r;
+    }
+    free(buf);
+}
+
+static void api_saves_restore(int c, const char *pre, size_t have, unsigned long long clen) {
+    const unsigned long long rest = clen > have ? clen - have : 0;
+    if (clen < 22 || clen > SAVES_UPLOAD_MAX) {
+        respond_error(c, 413, "Content-Length fehlt oder zu groß (max 4 GiB)");
+        if (clen <= SAVES_UPLOAD_MAX) drain_body(c, rest);
+        return;
+    }
+    if (saves_game_check(c)) { drain_body(c, rest); return; }
+    job_t *j = new_job(c, JOB_SAVE_RESTORE);
+    if (!j) { drain_body(c, rest); return; }
+    if (claim_job(c, j)) { drain_body(c, rest); return; }
+    char zip[400], err[256] = "";
+    sbuf_t msg = {0}, res = {0};
+    int ok = 0, fd = -1, bad = 0;
+    unsigned long long got = 0;
+    char *buf = NULL;
+    snprintf(zip, sizeof(zip), "%s/upload.zip", saves_workdir());
+    struct statvfs sv;
+    if (statvfs(saves_workdir(), &sv) == 0 && (unsigned long long)sv.f_bavail * sv.f_frsize < clen + (1ULL << 20)) {
+        sb_add(&msg, "%s", T("Nicht genug freier Speicher auf der PS5"));
+        goto fail;
+    }
+    unlink(zip);
+    fd = open(zip, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0) {
+        sb_add(&msg, T("Zwischendatei konnte nicht angelegt werden: %s"), strerror(errno));
+        goto fail;
+    }
+    struct timeval tv = {60, 0};
+    setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    on_progress("Spielstand wird hochgeladen …", 0);
+    buf = malloc(65536);
+    if (!buf) { sb_add(&msg, "%s", T("Kein Speicher")); goto fail; }
+    while (got < clen && !bad) {
+        size_t n;
+        if (have) {
+            n = have < clen ? have : (size_t)clen;
+            memcpy(buf, pre, n < 65536 ? n : 65536);
+            if (n > 65536) n = 65536;
+            pre += n;
+            have -= n;
+        } else {
+            size_t want = clen - got < 65536 ? (size_t)(clen - got) : 65536;
+            ssize_t r;
+            do r = recv(c, buf, want, 0); while (r < 0 && errno == EINTR);
+            if (r <= 0) { bad = 1; break; }
+            n = (size_t)r;
+        }
+        for (size_t o = 0; o < n && !bad;) {
+            ssize_t w = write(fd, buf + o, n - o);
+            if (w > 0) o += (size_t)w;
+            else if (w == 0 || errno != EINTR) bad = 1;
+        }
+        got += n;
+        if (!bad && (got & 0xFFFFF) < n) on_progress("Spielstand wird hochgeladen …", (int)(got * 90 / clen));
+    }
+    if (bad || close(fd) != 0) {
+        fd = -1;
+        sb_add(&msg, "%s", T("Das Hochladen wurde unterbrochen"));
+        goto fail;
+    }
+    fd = -1;
+    on_progress("Spielstand wird zurückgeschrieben …", 92);
+    if (saves_restore_file(zip, err, sizeof(err)) == 0) {
+        ok = 1;
+        sb_tr(&msg, "Spielstand wiederhergestellt.");
+    } else {
+        sb_add(&msg, "%s", err[0] ? err : T("Wiederherstellen fehlgeschlagen"));
+    }
+fail:
+    free(buf);
+    if (fd >= 0) close(fd);
+    unlink(zip);
+    char m[512];
+    snprintf(m, sizeof(m), "%s", msg.p ? msg.p : "");
+    job_done(j, ok, &msg, &res, 0);
+    if (ok) respond_ok(c, 200);
+    else respond_error(c, 500, m);
+    if (!bad && got < clen) drain_body(c, clen - got);
 }
 
 static void api_tile(int c, int is_post) {
@@ -2996,27 +3116,16 @@ static void handle(int c) {
         respond_error(c, 403, "Ungültiger Host. Bitte die PS5 über ihre IP-Adresse aufrufen.");
         goto out;
     }
-    /* Spielstand-ZIP hochladen: bis zu 16 MiB, vollständig in den Speicher lesen */
-    if (!strncmp(method, "POST", 5) && strcmp(path, "/api/saves/restore/upload") == 0) {
+    /* Spielstand-ZIP hochladen: Körper beliebig groß, wird beim Lesen gleich geschrieben */
+    if (!strncmp(method, "POST", 5) && !strncmp(path, "/api/saves/restore/upload", 25) && (!path[25] || path[25] == '?')) {
         unsigned long long up = header(req, "Content-Length", tmp, sizeof(tmp)) ? strtoull(tmp, NULL, 10) : 0;
-        if (!origin_ok(req, host)) { respond_error(c, 403, "Fremder Ursprung abgelehnt"); goto out; }
-        if (!up || up > 16ULL * 1024 * 1024) { respond_error(c, 413, "Content-Length fehlt oder zu groß (max 16 MiB)"); goto out; }
-        char *zbuf = malloc((size_t)up + 1);
-        if (!zbuf) { respond_error(c, 500, "Kein Speicher"); goto out; }
-        size_t got = len - (size_t)(body - req);
-        if (got > (size_t)up) got = (size_t)up;
-        memcpy(zbuf, body, got);
-        while (got < (size_t)up) {
-            if (time(NULL) > deadline) { free(zbuf); goto out; }
-            ssize_t n = recv(c, zbuf + got, (size_t)up - got, 0);
-            if (n <= 0) { free(zbuf); goto out; }
-            got += (size_t)n;
+        const size_t have = len - (size_t)(body - req);
+        if (!origin_ok(req, host)) {
+            respond_error(c, 403, "Fremder Ursprung abgelehnt");
+            drain_body(c, up > have ? up - have : 0);
+        } else {
+            api_saves_restore(c, body, have, up);
         }
-        zbuf[up] = 0;
-        char zerr[256] = "";
-        if (saves_restore(zbuf, (size_t)up, zerr, sizeof(zerr)) == 0) respond_ok(c, 200);
-        else respond_error(c, 500, zerr[0] ? zerr : "Wiederherstellen fehlgeschlagen");
-        free(zbuf);
         goto out;
     }
     /* Image hochladen: Körper beliebig groß, wird beim Lesen gleich geschrieben */
