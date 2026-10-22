@@ -13,6 +13,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import zipfile
 
@@ -197,6 +198,111 @@ try:
     st, j = jreq("GET", "/api/saves")
     check("neuer Spielstand erscheint in der Liste", any(s["key"] == "3a5b7c9d/PPSA55555/NEUER_STAND" for s in j["saves"]))
     shutil.rmtree(os.path.join(HOME, "3a5b7c9d", "savedata_prospero", "PPSA55555"))
+
+    # ------------------------------------------------------------------ Titelname, Auswahl, Sicherungsordner
+    print("== Spielname aus param.json ==")
+    st, j = jreq("GET", "/api/saves")
+    s9 = next(s for s in j["saves"] if s["title_id"] == "PPSA09999")
+    check("Spielname aus param.json (\\u-Maskierung, Ersatzpaar, defaultLanguage)", s9["title_name"] == 'Café 🎮 "Quest"', s9["title_name"])
+
+    print("== Mehrere Spielstände in einer ZIP ==")
+    KA = "1c3f8a0e/PPSA07890/sdimg_SAVEDATA00"
+    sel = [K1, KA, K2]
+    q = ",".join(k.replace("/", "%2F") for k in sel)
+    st, hd, bundle = req("GET", "/api/saves/download?keys=" + q)
+    zb = zipfile.ZipFile(io.BytesIO(bundle)) if st == 200 else None
+    check("Sammel-ZIP 200, intakt", st == 200 and zb.testzip() is None, str(st))
+    nm = zb.namelist() if zb else []
+    check("je Spielstand Ordner mit metadata.json und Container", len(nm) == 6 and all("/" in n for n in nm), str(nm))
+    imgs_ok = zb and all(hashlib.sha256(zb.read(n)).hexdigest() == sums[k] for k in sel for n in nm
+                         if n.endswith(".img") and n.split("/")[0] == k.split("/")[0] + "_" + k.split("/")[1] + "_" + k.split("/")[2])
+    check("Container in der Sammel-ZIP unverändert", imgs_ok)
+    check("unbekannter Schlüssel in der Auswahl 404", req("GET", "/api/saves/download?keys=" + q + ",nope")[0] == 404)
+    many = ",".join(["x%d" % i for i in range(70)])
+    check("mehr als 64 Schlüssel abgelehnt", req("GET", "/api/saves/download?keys=" + many)[0] in (400, 404))
+    paths = {k: os.path.join(HOME, *k.split("/")[:1], "savedata_prospero", *k.split("/")[1:]) for k in sel}
+    for p in paths.values():
+        open(p, "wb").write(b"\x02" + bytes(5000))
+    st, hd, rb = req("POST", "/api/saves/restore/upload?lang=en", bundle, {"Content-Type": "application/zip"})
+    res = wait_job()
+    check("Sammel-ZIP wiederhergestellt: alle drei, Meldung nennt 3", st == 200 and res and res["ok"] and "restored: 3" in res["message"], str(res and res["message"]))
+    check("alle drei Container wieder wie vorher", all(file_sha(*k.split("/")[:1], *k.split("/")[1:]) == sums[k] for k in sel))
+    # Sammel-ZIP mit einem fehlerhaften Spielstand: nichts wird geschrieben
+    bad = bytearray(bundle)
+    off = bad.find(zb.read([n for n in nm if n.endswith(".img")][2])[200:232])
+    bad[off + 3] ^= 0xFF
+    for p in paths.values():
+        open(p, "wb").write(b"\x02" + bytes(5000))
+    snap = {p: open(p, "rb").read() for p in paths.values()}
+    st, hd, rb = req("POST", "/api/saves/restore/upload?lang=en", bytes(bad), {"Content-Type": "application/zip"})
+    res = wait_job()
+    check("Sammel-ZIP mit Prüfsummenfehler im dritten: Fehler, die ersten zwei sind geschrieben, Meldung nennt es",
+          st == 500 and res and not res["ok"] and "2 of 3" in res["message"], str(res and res["message"]))
+    sizes = {K1: 2 << 20, KA: 1 << 20, K2: 3 << 20}
+    for k in sel:   # für die Folgetests wieder die Originale
+        u, ti, na = k.split("/")
+        open(paths[k], "wb").write(fx.container(u + ti + na, sizes[k], uid=u, title=ti, name=na))
+
+    print("== Sicherungsordner (Orte, Sichern, Auflisten, Wiederherstellen) ==")
+    st, j = jreq("GET", "/api/saves/locations")
+    loc = j["locations"][0] if st == 200 and j.get("locations") else {}
+    check("Orte: intern mit Ordner game_saves", loc.get("dir", "").endswith("/game_saves") and loc.get("free", 0) > 0, str(j))
+    dest = loc["dir"]
+    st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": "\n".join([K1, KA]), "dest": dest})
+    res = wait_job()
+    check("Sichern nach game_saves: Auftrag save_backup ok, 2 Spielstände", st == 202 and res and res["ok"] and res["kind"] == "save_backup"
+          and "backed up: 2" in res["message"] and dest in res["message"], "%s %s" % (st, res))
+    z1 = os.path.join(dest, "Alex_1c3f8a0e", "PPSA01234_sdimg_SAVEDATA00.zip")
+    check("Sicherung liegt in <Benutzer>_<uid>/<Titel>_<Name>.zip und ist eine gültige ZIP",
+          os.path.exists(z1) and zipfile.ZipFile(z1).testzip() is None and zipfile.ZipFile(z1).namelist() == ["metadata.json", "PPSA01234_sdimg_SAVEDATA00.img"])
+    check("Container in der Sicherung unverändert", hashlib.sha256(zipfile.ZipFile(z1).read("PPSA01234_sdimg_SAVEDATA00.img")).hexdigest() == sums[K1])
+    check("keine Zwischendateien", not [p for p in tree() if p.endswith(".tmp")] and not [f for d, _, fs in os.walk(dest) for f in fs if f.endswith(".tmp")])
+    st, j = jreq("GET", "/api/saves/backups")
+    bk = j.get("backups", [])
+    check("Sicherungen aufgelistet mit Benutzer, Spielname, Größe", len(bk) == 2 and bk[0]["username"] == "Alex" and bk[0]["title_name"] and bk[0]["size"] > 1000
+          and any(b["path"] == z1 and b["title_id"] == "PPSA01234" for b in bk), str(bk)[:300])
+    # Original verändern, aus der Sicherung zurückschreiben (nur ein Pfad, dann zwei)
+    open(paths[K1], "wb").write(b"\x02" + bytes(5000))
+    open(paths[KA], "wb").write(b"\x02" + bytes(5000))
+    st, j = jreq("POST", "/api/saves/restore?lang=en", {"paths": z1})
+    res = wait_job()
+    check("Wiederherstellen aus der Sicherung (ein Pfad)", st == 202 and res and res["ok"] and "restored: 1" in res["message"], str(res and res["message"]))
+    check("... Container wieder wie vorher", file_sha("1c3f8a0e", "PPSA01234", "sdimg_SAVEDATA00") == sums[K1])
+    st, j = jreq("POST", "/api/saves/restore?lang=en", {"paths": "\n".join(b["path"] for b in bk)})
+    res = wait_job()
+    check("Wiederherstellen aus der Sicherung (zwei Pfade)", st == 202 and res and res["ok"] and "restored: 2" in res["message"]
+          and file_sha("1c3f8a0e", "PPSA07890", "sdimg_SAVEDATA00") == sums[KA], str(res and res["message"]))
+    snap = tree()
+    for name, body in (("Pfad außerhalb der Orte", {"paths": "/etc/passwd"}), ("Pfad mit ..", {"paths": dest + "/../data/x.zip"}),
+                       ("keine ZIP", {"paths": os.path.join(dest, "Alex_1c3f8a0e", "gibtsnicht.zip")}),
+                       ("ZIP direkt im Ordner (falsche Tiefe)", {"paths": z1.replace("/Alex_1c3f8a0e", "")}),
+                       ("leer", {"paths": ""}), ("fehlt", {}), ("ein gültiger, ein ungültiger", {"paths": z1 + "\n/etc/passwd"})):
+        st, j = jreq("POST", "/api/saves/restore", body)
+        check("Wiederherstellen aus Pfad abgelehnt: " + name, st == 400, "%s %s" % (st, j))
+    st, j = jreq("POST", "/api/saves/backup", {"keys": K1, "dest": "/etc"})
+    check("Sichern in fremden Ordner abgelehnt", st == 400, "%s %s" % (st, j))
+    st, j = jreq("POST", "/api/saves/backup", {"keys": "", "dest": dest})
+    check("Sichern ohne Auswahl abgelehnt", st == 400, "%s %s" % (st, j))
+    st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": "9/9/9", "dest": dest})
+    res = wait_job()
+    check("Sichern unbekannter Spielstand: Auftrag meldet Fehler", st == 202 and res and not res["ok"] and "not found" in res["message"], str(res and res["message"]))
+    check("abgelehnte Anfragen ändern nichts", tree() == snap)
+    os.makedirs(os.path.join(SAND, "PPSA11111_000"))
+    st, j = jreq("POST", "/api/saves/restore", {"paths": z1})
+    check("Wiederherstellen aus Sicherung bei laufendem Spiel 409", st == 409, "%s %s" % (st, j))
+    st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": K1, "dest": dest})
+    res = wait_job()
+    check("Sichern bei laufendem Spiel erlaubt (nur lesen)", st == 202 and res and res["ok"], str(res and res["message"]))
+    shutil.rmtree(os.path.join(SAND, "PPSA11111_000"))
+    # zwei gleichzeitige Downloads derselben Datei dürfen sich nicht stören (Browser fragen doppelt an)
+    r2 = []
+    def dl2():
+        s2, h2, d2 = req("GET", "/api/saves/download?key=" + K2.replace("/", "%2F"))
+        r2.append((s2, len(d2)))
+    ts = [threading.Thread(target=dl2) for _ in range(4)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    check("vier gleichzeitige Downloads: alle 200", all(s2 == 200 and n > 1000 for s2, n in r2), str(r2))
 
     # ------------------------------------------------------------------ böse und kaputte ZIPs
     print("== abgelehnte ZIPs (nichts darf sich ändern) ==")

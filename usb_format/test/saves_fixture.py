@@ -88,6 +88,12 @@ def main(root):
     for title, name in TITLES.items():
         d = os.path.join(root, "appmeta", title)
         os.makedirs(d, exist_ok=True)
+        if title == "PPSA09999":   # neuere Firmware: param.json (Name mit \u-Maskierung und Ersatzpaar)
+            bs = chr(92)   # Rückstrich: die JSON-Maskierungen é, 🎮 und \" schreibt der Test absichtlich als Text
+            with open(os.path.join(d, "param.json"), "w", encoding="ascii") as f:
+                f.write('{"ageLevel":{"DE":6},"localizedParameters":{"defaultLanguage":"de-DE","en-US":{"titleName":"Wrong"},'
+                        f'"de-DE":{{"titleName":"Caf{bs}u00e9 {bs}ud83c{bs}udfae {bs}"Quest{bs}""}}}},"titleId":"PPSA09999"}}')
+            continue
         with open(os.path.join(d, "param.sfo"), "wb") as f:
             f.write(sfo([("TITLE_ID", title.encode() + b"\0"), ("TITLE", name.encode() + b"\0")]))
     print(json.dumps(sums))

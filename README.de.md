@@ -110,7 +110,7 @@ Seriennummer-Abgleich: Steckt inzwischen ein baugleicher anderer Stick, wird nic
 Ganzes Laufwerk als <code>.img.zst</code> sichern – nur belegte Bereiche, gepackt mit zstd, mit <code>.sha256</code>. An der PS5 nach intern, auf ein anderes USB-Laufwerk oder als Download; am PC in jeden Ordner, auch von Sticks und SD-Karten mit eingeschaltetem Schreibschutz. Zurückschreiben mit Prüfung danach – auch per Hochladen vom Handy oder PC. Die Datei lässt sich mit <code>zstd -d</code> zu einem gewöhnlichen Image entpacken.
 
 ### 🎮 Spielstände sichern & wiederherstellen
-Einzelne PS5-Spielstände mit Spielname und Benutzer anzeigen, als ZIP auf den PC oder das Handy laden (der verschlüsselte Container bleibt unverändert) und zurückschreiben. Prüfsummen werden kontrolliert, ein laufendes Spiel verhindert Änderungen. PS5-Spiele; PS4-Spielstände folgen.
+PS5-Spielstände mit Spielname und Benutzer anzeigen, mehrere markieren und sichern – als ZIP-Download oder auf der PS5 selbst (intern <code>/data/game_saves</code> oder USB-Laufwerk <code>game_saves</code>). Der verschlüsselte Container bleibt unverändert. Beim Wiederherstellen zeigt der Formatierer die gefundenen Sicherungen nach Benutzer zum Markieren (oder eine ZIP vom Gerät). Prüfsummen werden kontrolliert, ein laufendes Spiel verhindert Änderungen. PS5-Spiele; PS4-Spielstände folgen.
 
 </td>
 </tr>

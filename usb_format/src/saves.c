@@ -37,15 +37,21 @@
 #define MSG_NOSIGNAL 0
 #endif
 
-static pthread_mutex_t g_op = PTHREAD_MUTEX_INITIALIZER;
+static pthread_rwlock_t g_op = PTHREAD_RWLOCK_INITIALIZER;
 
-/* ein Vorgang zur Zeit: Sichern und Wiederherstellen würden sich an derselben Datei in die Quere kommen */
-static int op_enter(char *err, size_t errsz) {
-    if (pthread_mutex_trylock(&g_op) == 0) return 0;
+/* Lesen (Sichern, Herunterladen) darf gleichzeitig laufen - Browser fragen eine Datei gern doppelt an -, Zurückschreiben
+ * nur allein und nie neben einem Lesen derselben Dateien */
+static int op_read(char *err, size_t errsz) {
+    if (pthread_rwlock_tryrdlock(&g_op) == 0) return 0;
     snprintf(err, errsz, "%s", T("Es läuft bereits ein Spielstand-Vorgang"));
     return -1;
 }
-static void op_leave(void) { pthread_mutex_unlock(&g_op); }
+static int op_enter(char *err, size_t errsz) {
+    if (pthread_rwlock_trywrlock(&g_op) == 0) return 0;
+    snprintf(err, errsz, "%s", T("Es läuft bereits ein Spielstand-Vorgang"));
+    return -1;
+}
+static void op_leave(void) { pthread_rwlock_unlock(&g_op); }
 
 /* ── Hilfen ──────────────────────────────────────────────────────────── */
 
@@ -133,6 +139,18 @@ const char *saves_workdir(void) {
     return dir;
 }
 
+static void mkdirs(const char *path) {
+    char p[1300];
+    scpy(p, sizeof(p), path);
+    for (char *c = p + 1; *c; c++) {
+        if (*c != '/') continue;
+        *c = 0;
+        mkdir(p, 0777);
+        *c = '/';
+    }
+    mkdir(p, 0777);
+}
+
 /* freier Platz im Ordner path ≥ need? */
 static int space_ok(const char *path, uint64_t need) {
     struct statvfs sv;
@@ -192,7 +210,82 @@ int saves_scan_users(save_user_t **out, int *count) {
 
 /* ── Spielstände auflisten ───────────────────────────────────────────── */
 
-/* Spielname aus der param.sfo des installierten Titels: <Ordner über /user/home>/appmeta (PS5: /user/appmeta) */
+static int utf8_enc(unsigned cp, char u[4]) {
+    if (cp < 0x80) { u[0] = (char)cp; return 1; }
+    if (cp < 0x800) { u[0] = (char)(0xC0 | cp >> 6); u[1] = (char)(0x80 | (cp & 0x3F)); return 2; }
+    if (cp < 0x10000) {
+        u[0] = (char)(0xE0 | cp >> 12); u[1] = (char)(0x80 | ((cp >> 6) & 0x3F)); u[2] = (char)(0x80 | (cp & 0x3F));
+        return 3;
+    }
+    u[0] = (char)(0xF0 | cp >> 18); u[1] = (char)(0x80 | ((cp >> 12) & 0x3F));
+    u[2] = (char)(0x80 | ((cp >> 6) & 0x3F)); u[3] = (char)(0x80 | (cp & 0x3F));
+    return 4;
+}
+
+/* JSON-Zeichenkette ab dem Zeichen nach dem öffnenden " lesen (\" \\ \/ \n \t \uXXXX, auch Ersatzpaare) -> UTF-8 */
+static int json_str_utf8(const char *p, char *out, size_t n) {
+    size_t i = 0;
+    while (*p && *p != '"') {
+        unsigned cp;
+        if (*p == '\\' && p[1]) {
+            p++;
+            if (*p == 'u' && isxdigit((unsigned char)p[1]) && isxdigit((unsigned char)p[2]) && isxdigit((unsigned char)p[3]) &&
+                isxdigit((unsigned char)p[4])) {
+                char h[5] = {p[1], p[2], p[3], p[4], 0};
+                cp = (unsigned)strtoul(h, NULL, 16);
+                p += 5;
+                if (cp >= 0xD800 && cp < 0xDC00 && p[0] == '\\' && p[1] == 'u') {   /* Ersatzpaar */
+                    char l[5] = {p[2], p[3], p[4], p[5], 0};
+                    unsigned lo = (unsigned)strtoul(l, NULL, 16);
+                    if (lo >= 0xDC00 && lo < 0xE000) { cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00); p += 6; }
+                }
+            } else {
+                cp = *p == 'n' ? '\n' : *p == 't' ? '\t' : (unsigned char)*p;
+                p++;
+            }
+        } else {
+            cp = (unsigned char)*p++;
+            if (cp >= 0x80) {   /* UTF-8 unverändert durchreichen */
+                if (i + 1 < n) out[i++] = (char)cp;
+                continue;
+            }
+        }
+        char u[4];
+        int ul = utf8_enc(cp, u);
+        if (i + (size_t)ul >= n) break;
+        memcpy(out + i, u, (size_t)ul);
+        i += (size_t)ul;
+    }
+    out[i] = 0;
+    return i ? 0 : -1;
+}
+
+/* Spielname aus param.json: localizedParameters -> <defaultLanguage> -> titleName (sonst der erste titleName) */
+static int title_from_json(const char *j, char *out, size_t n) {
+    const char *lp = strstr(j, "\"localizedParameters\""), *q = NULL;
+    if (lp) {
+        const char *dl = strstr(lp, "\"defaultLanguage\"");
+        if (dl && (dl = strchr(dl + 17, ':')) && (dl = strchr(dl, '"'))) {
+            char lang[24];
+            const char *e = strchr(dl + 1, '"');
+            if (e && (size_t)(e - dl - 1) < sizeof(lang)) {
+                memcpy(lang, dl + 1, (size_t)(e - dl - 1));
+                lang[e - dl - 1] = 0;
+                char key[40];
+                snprintf(key, sizeof(key), "\"%s\"", lang);
+                const char *k = strstr(e, key);
+                if (k) q = strstr(k, "\"titleName\"");
+            }
+        }
+        if (!q) q = strstr(lp, "\"titleName\"");
+    }
+    if (!q) q = strstr(j, "\"titleName\"");
+    if (!q || !(q = strchr(q + 11, ':')) || !(q = strchr(q, '"'))) return -1;
+    return json_str_utf8(q + 1, out, n);
+}
+
+/* Spielname des installierten Titels: <Ordner über /user/home>/appmeta/<id>/param.json (neuere Firmware) oder param.sfo
+ * (PS5: /user/appmeta), sonst /system_data/priv/appmeta */
 static void title_name_of(const char *home, const char *title_id, char *name, size_t n) {
     char meta[700], sys[] = "/system_data/priv/appmeta";
     scpy(meta, sizeof(meta) - 8, home);
@@ -205,14 +298,25 @@ static void title_name_of(const char *home, const char *title_id, char *name, si
     name[0] = 0;
     for (int i = 0; i < 2; i++) {
         char p[900];
-        if (path_fmt(p, sizeof(p), "%s/%s/param.sfo", dirs[i], title_id)) continue;
-        int fd = open(p, O_RDONLY);
-        if (fd < 0) continue;
-        uint8_t buf[16384];
-        ssize_t r = read(fd, buf, sizeof(buf));
-        close(fd);
-        char tid[32] = "";
-        if (r > 0 && lib_parse_param_sfo(buf, (size_t)r, tid, sizeof(tid), name, n) == 0 && name[0]) return;
+        uint8_t *buf = malloc(65537);
+        if (!buf) return;
+        if (!path_fmt(p, sizeof(p), "%s/%s/param.json", dirs[i], title_id)) {
+            int fd = open(p, O_RDONLY);
+            ssize_t r = fd >= 0 ? read(fd, buf, 65536) : -1;
+            if (fd >= 0) close(fd);
+            if (r > 0) {
+                buf[r] = 0;
+                if (title_from_json((const char *)buf, name, n) == 0) { free(buf); return; }
+            }
+        }
+        if (!path_fmt(p, sizeof(p), "%s/%s/param.sfo", dirs[i], title_id)) {
+            int fd = open(p, O_RDONLY);
+            ssize_t r = fd >= 0 ? read(fd, buf, 16384) : -1;
+            if (fd >= 0) close(fd);
+            char tid[32] = "";
+            if (r > 0 && lib_parse_param_sfo(buf, (size_t)r, tid, sizeof(tid), name, n) == 0 && name[0]) { free(buf); return; }
+        }
+        free(buf);
         name[0] = 0;
     }
 }
@@ -297,14 +401,17 @@ int saves_find(const char *key, save_info_t *out) {
     return found;
 }
 
-/* ── ZIP schreiben (gespeichert, ohne Deflate), Strom als chunked HTTP ─ */
+/* ── ZIP schreiben (gespeichert, ohne Deflate): als chunked HTTP an einen Socket oder in eine Datei ─ */
+
+typedef struct { char name[400]; uint32_t crc, size, off; uint16_t flags; } zcd_t;
 
 typedef struct {
-    int      sock, broken, started;
+    int      sock, fd;   /* fd >= 0: in diese Datei schreiben, sonst als chunked HTTP an sock */
+    int      broken, started;
     char     head[768];
     uint64_t off;
-    struct { char name[300]; uint32_t crc, size, off; uint16_t flags; } cd[2];
-    int      cd_n;
+    zcd_t   *cd;
+    int      cd_n, cd_cap;
 } zs_t;
 
 static int sock_send(int sock, const void *buf, size_t n) {
@@ -318,9 +425,13 @@ static int sock_send(int sock, const void *buf, size_t n) {
     return 0;
 }
 
-/* ein HTTP-Chunk; eine Länge 0 würde den Strom beenden und wird nie gesendet */
+/* ein Stück Ausgabe; bei HTTP ein Chunk (Länge 0 würde den Strom beenden und wird nie gesendet) */
 static void zs_chunk(zs_t *z, const void *buf, size_t len) {
     if (z->broken || !len) return;
+    if (z->fd >= 0) {
+        if (write_full(z->fd, buf, len)) z->broken = 1;
+        return;
+    }
     char hdr[24];
     int hl = snprintf(hdr, sizeof(hdr), "%zx\r\n", len);
     if (!z->started) {
@@ -336,10 +447,16 @@ static void zs_data(zs_t *z, const void *buf, size_t len) {
     z->off += len;
 }
 
-/* flags: 0x0800 UTF-8, 0x0008 = Größen/CRC folgen hinter den Daten */
-static void zs_local(zs_t *z, const char *name, uint16_t flags, uint32_t crc, uint32_t size) {
-    uint8_t h[30 + 300];
+/* flags: 0x0800 UTF-8, 0x0008 = Größen/CRC folgen hinter den Daten. Liefert den Eintrag im Zentralverzeichnis. */
+static zcd_t *zs_local(zs_t *z, const char *name, uint16_t flags, uint32_t crc, uint32_t size) {
+    uint8_t h[30 + 400];
     size_t nl = strlen(name);
+    if (z->cd_n == z->cd_cap) {
+        zcd_t *p = realloc(z->cd, (size_t)(z->cd_cap = z->cd_cap ? z->cd_cap * 2 : 16) * sizeof(*p));
+        if (!p) { z->broken = 1; return NULL; }
+        z->cd = p;
+    }
+    if (nl >= sizeof(z->cd[0].name)) { z->broken = 1; return NULL; }
     memset(h, 0, 30);
     wr32(h, 0x04034b50);
     wr16(h + 4, 20);
@@ -351,18 +468,21 @@ static void zs_local(zs_t *z, const char *name, uint16_t flags, uint32_t crc, ui
     wr32(h + 22, size);
     wr16(h + 26, (uint32_t)nl);
     memcpy(h + 30, name, nl);
-    z->cd[z->cd_n].crc = crc;
-    z->cd[z->cd_n].size = size;
-    z->cd[z->cd_n].off = (uint32_t)z->off;
-    z->cd[z->cd_n].flags = flags;
-    scpy(z->cd[z->cd_n].name, sizeof(z->cd[0].name), name);
-    z->cd_n++;
+    zcd_t *e = &z->cd[z->cd_n++];
+    e->crc = crc;
+    e->size = size;
+    e->off = (uint32_t)z->off;
+    e->flags = flags;
+    scpy(e->name, sizeof(e->name), name);
     zs_data(z, h, 30 + nl);
+    return e;
 }
 
 static void zs_finish(zs_t *z) {
-    uint8_t buf[2 * (46 + 300) + 22];
-    size_t pos = 0;
+    size_t cap = 22, pos = 0;
+    for (int i = 0; i < z->cd_n; i++) cap += 46 + strlen(z->cd[i].name);
+    uint8_t *buf = malloc(cap);
+    if (!buf) { z->broken = 1; return; }
     uint32_t cd_off = (uint32_t)z->off;
     for (int i = 0; i < z->cd_n; i++) {
         size_t nl = strlen(z->cd[i].name);
@@ -390,7 +510,8 @@ static void zs_finish(zs_t *z) {
     wr32(e + 12, (uint32_t)pos);
     wr32(e + 16, cd_off);
     zs_chunk(z, buf, pos + 22);
-    if (!z->broken && z->started && sock_send(z->sock, "0\r\n\r\n", 5)) z->broken = 1;
+    free(buf);
+    if (z->fd < 0 && !z->broken && z->started && sock_send(z->sock, "0\r\n\r\n", 5)) z->broken = 1;
 }
 
 /* Text für JSON: " \ und Steuerzeichen maskieren, übrige Bytes (UTF-8) bleiben */
@@ -406,11 +527,13 @@ static size_t json_put(char *out, size_t n, const char *s) {
     return i;
 }
 
-int saves_download(int sock, const save_info_t *s, char *err, size_t errsz) {
-    if (op_enter(err, errsz)) return -1;
-    int rc = -1;
-    int fd = open(s->path, O_RDONLY);
+/* Spielstand als zwei Einträge in den ZIP-Strom: <prefix>metadata.json und <prefix><Titel>_<Name>.img (Container in einem
+ * Durchgang, CRC und Größe hinter den Daten). 0 = ok; -1 = Fehler vor dem ersten Byte dieses Spielstands (err gefüllt);
+ * -2 = Fehler im Strom */
+static int zs_save(zs_t *z, const save_info_t *s, const char *prefix, char *err, size_t errsz) {
+    int fd = open(s->path, O_RDONLY), rc = -1;
     struct stat st;
+    uint8_t *buf = NULL;
     if (fd < 0 || fstat(fd, &st) != 0) {
         snprintf(err, errsz, T("Spielstand konnte nicht geöffnet werden: %s"), strerror(errno));
         goto done;
@@ -420,8 +543,7 @@ int saves_download(int sock, const save_info_t *s, char *err, size_t errsz) {
         goto done;
     }
     uint32_t imgsz = (uint32_t)st.st_size;
-
-    char tid[96], sdir[800], uid[64], user[256], tname[1100], meta[2600];
+    char tid[96], sdir[800], uid[64], user[256], tname[1100], meta[2600], mname[420], iname[420];
     json_put(tid, sizeof(tid), s->title_id);
     json_put(sdir, sizeof(sdir), s->save_dir);
     json_put(uid, sizeof(uid), s->uid);
@@ -431,65 +553,165 @@ int saves_download(int sock, const save_info_t *s, char *err, size_t errsz) {
                       "{\"format\":1,\"title_id\":\"%s\",\"title_name\":\"%s\",\"save_dir\":\"%s\",\"uid\":\"%s\","
                       "\"username\":\"%s\",\"size\":%u,\"timestamp\":%lld}",
                       tid, tname, sdir, uid, user, imgsz, (long long)time(NULL));
-    if (ml <= 0 || ml >= (int)sizeof(meta)) {
+    if (ml <= 0 || ml >= (int)sizeof(meta) ||
+        path_fmt(mname, sizeof(mname), "%smetadata.json", prefix) ||
+        path_fmt(iname, sizeof(iname), "%s%s_%s.img", prefix, s->title_id, s->save_dir)) {
         snprintf(err, errsz, "%s", T("Der Spielstand hat eine ungültige Größe"));
         goto done;
     }
-    char imgname[320];
-    path_fmt(imgname, sizeof(imgname), "%s_%s.img", s->title_id, s->save_dir);
-
-    zs_t z;
-    memset(&z, 0, sizeof(z));
-    z.sock = sock;
-    snprintf(z.head, sizeof(z.head),
-             "HTTP/1.1 200 OK\r\nContent-Type: application/zip\r\n"
-             "Content-Disposition: attachment; filename=\"%s_%s.zip\"\r\nTransfer-Encoding: chunked\r\n"
-             "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n",
-             s->title_id, s->save_dir);
-    struct timeval tv = {60, 0};
-    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-
-    zs_local(&z, "metadata.json", 0x0800, crc32_update(0, meta, (size_t)ml), (uint32_t)ml);
-    zs_data(&z, meta, (size_t)ml);
-    zs_local(&z, imgname, 0x0808, 0, 0);   /* CRC und Größe stehen hinter den Daten (ein Durchgang) */
-    z.cd[1].size = imgsz;
-    uint32_t crc = 0;
-    uint8_t *buf = malloc(CHUNK);
+    buf = malloc(CHUNK);
     if (!buf) { snprintf(err, errsz, "%s", T("Kein Speicher")); goto done; }
-    int readerr = 0;
-    for (uint64_t pos = 0; pos < imgsz && !z.broken;) {
+
+    if (!zs_local(z, mname, 0x0800, crc32_update(0, meta, (size_t)ml), (uint32_t)ml)) goto stream;
+    zs_data(z, meta, (size_t)ml);
+    zcd_t *ie = zs_local(z, iname, 0x0808, 0, 0);   /* CRC und Größe stehen hinter den Daten */
+    if (!ie) goto stream;
+    size_t idx = (size_t)(ie - z->cd);
+    z->cd[idx].size = imgsz;
+    uint32_t crc = 0;
+    for (uint64_t pos = 0; pos < imgsz && !z->broken;) {
         size_t want = imgsz - pos < CHUNK ? (size_t)(imgsz - pos) : CHUNK;
-        if (pread_full(fd, buf, want, (off_t)pos)) { readerr = 1; break; }
+        if (pread_full(fd, buf, want, (off_t)pos)) goto stream;
         crc = crc32_update(crc, buf, want);
-        zs_data(&z, buf, want);
+        zs_data(z, buf, want);
         pos += want;
     }
-    free(buf);
-    if (readerr || z.broken) { rc = z.started ? -2 : -1; if (rc == -1) snprintf(err, errsz, "%s", T("Spielstand konnte nicht gelesen werden")); goto done; }
-    z.cd[1].crc = crc;
+    z->cd[idx].crc = crc;
     uint8_t dd[16];
     wr32(dd, 0x08074b50);
     wr32(dd + 4, crc);
     wr32(dd + 8, imgsz);
     wr32(dd + 12, imgsz);
-    zs_data(&z, dd, sizeof(dd));
+    zs_data(z, dd, sizeof(dd));
+    rc = z->broken ? -2 : 0;
+    goto done;
+stream:
+    rc = -2;
+done:
+    free(buf);
+    if (fd >= 0) close(fd);
+    return rc;
+}
+
+static void zs_free(zs_t *z) { free(z->cd); z->cd = NULL; }
+
+/* Dateiname für Ordner: Buchstaben, Ziffern, "_" und "-"; alles andere "_" */
+static void safe_name(char *dst, size_t n, const char *src) {
+    size_t i = 0;
+    for (; *src && i + 1 < n; src++) {
+        unsigned char c = (unsigned char)*src;
+        dst[i++] = (isalnum(c) && c < 0x80) || c == '_' || c == '-' ? (char)c : '_';
+    }
+    dst[i] = 0;
+    if (!i) scpy(dst, n, "Benutzer");
+}
+
+int saves_download(int sock, const save_info_t *list, int n, char *err, size_t errsz) {
+    if (n < 1) { snprintf(err, errsz, "%s", T("Kein Spielstand ausgewählt")); return -1; }
+    if (op_read(err, errsz)) return -1;
+    int rc = -1;
+    uint64_t total = 0;
+    zs_t z;
+    memset(&z, 0, sizeof(z));
+    z.sock = sock;
+    z.fd = -1;
+    for (int i = 0; i < n; i++) total += list[i].size + 1024;
+    if (total > IMG_MAX) {
+        snprintf(err, errsz, "%s", T("Zusammen zu groß für eine ZIP-Datei (höchstens 3,7 GB) – weniger Spielstände wählen"));
+        goto done;
+    }
+    if (n == 1)
+        snprintf(z.head, sizeof(z.head),
+                 "HTTP/1.1 200 OK\r\nContent-Type: application/zip\r\n"
+                 "Content-Disposition: attachment; filename=\"%s_%s.zip\"\r\nTransfer-Encoding: chunked\r\n"
+                 "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n",
+                 list[0].title_id, list[0].save_dir);
+    else
+        snprintf(z.head, sizeof(z.head),
+                 "HTTP/1.1 200 OK\r\nContent-Type: application/zip\r\n"
+                 "Content-Disposition: attachment; filename=\"Spielstaende_%d.zip\"\r\nTransfer-Encoding: chunked\r\n"
+                 "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n", n);
+    struct timeval tv = {60, 0};
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    for (int i = 0; i < n; i++) {
+        char prefix[400] = "", e2[256] = "";
+        if (n > 1 && path_fmt(prefix, sizeof(prefix), "%s_%s_%s/", list[i].uid, list[i].title_id, list[i].save_dir)) {
+            snprintf(err, errsz, "%s", T("Pfad zu lang"));
+            goto done;
+        }
+        int r = zs_save(&z, &list[i], prefix, e2, sizeof(e2));
+        if (r == -1) {   /* nichts davon gesendet: bei einem noch nicht begonnenen Strom darf der Aufrufer antworten */
+            if (!z.started) { snprintf(err, errsz, "%s", e2); rc = -1; }
+            else rc = -2;
+            goto done;
+        }
+        if (r < 0) { rc = z.started ? -2 : -1; if (rc == -1) snprintf(err, errsz, "%s", T("Spielstand konnte nicht gelesen werden")); goto done; }
+    }
     zs_finish(&z);
     rc = z.broken ? -2 : 0;
 done:
+    zs_free(&z);
+    op_leave();
+    return rc;
+}
+
+int saves_backup_file(const save_info_t *s, const char *root, char *out, size_t outsz, char *err, size_t errsz) {
+    if (op_read(err, errsz)) return -1;
+    int rc = -1, fd = -1;
+    char user[64], dir[1000], tmp[1300], final_path[1300], e2[256] = "";
+    zs_t z;
+    memset(&z, 0, sizeof(z));
+    z.fd = -1;
+    safe_name(user, 40, s->username[0] ? s->username : s->uid);
+    if (path_fmt(dir, sizeof(dir), "%s/%s_%s", root, user, s->uid) ||
+        path_fmt(final_path, sizeof(final_path), "%s/%s_%s.zip", dir, s->title_id, s->save_dir) ||
+        path_fmt(tmp, sizeof(tmp), "%s/.%s_%s.zip.tmp", dir, s->title_id, s->save_dir)) {
+        snprintf(err, errsz, "%s", T("Pfad zu lang"));
+        goto done;
+    }
+    if (!space_ok(root, s->size + 4096)) {
+        snprintf(err, errsz, "%s", T("Am Ziel ist nicht mehr genug Platz frei."));
+        goto done;
+    }
+    mkdirs(root);
+    mkdirs(dir);
+    fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        snprintf(err, errsz, T("Zieldatei konnte nicht angelegt werden: %s"), strerror(errno));
+        goto done;
+    }
+    z.fd = fd;
+    if (zs_save(&z, s, "", e2, sizeof(e2)) != 0 || (zs_finish(&z), z.broken) || fsync(fd) != 0) {
+        snprintf(err, errsz, "%s", e2[0] ? e2 : T("Schreibfehler: Datenträger voll oder nicht beschreibbar"));
+        goto done;
+    }
+    if (close(fd) != 0) { fd = -1; snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno)); goto done; }
+    fd = -1;
+    if (rename(tmp, final_path) != 0) {
+        snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
+        goto done;
+    }
+    tmp[0] = 0;
+    scpy(out, outsz, final_path);
+    rc = 0;
+done:
     if (fd >= 0) close(fd);
+    if (tmp[0]) unlink(tmp);
+    zs_free(&z);
     op_leave();
     return rc;
 }
 
 /* ── ZIP lesen ───────────────────────────────────────────────────────── */
 
-typedef struct { char name[300]; uint32_t crc, size; uint64_t data; } zent_t;
+typedef struct { char name[400]; uint32_t crc, size; uint64_t data; } zent_t;
 
-#define ZIP_MAXENT 16
+#define ZIP_MAXENT 160   /* bis zu 64 Spielstände (je zwei Einträge) in einer ZIP */
+#define ZIP_MAXSAVES 64
 
 /* Zentralverzeichnis lesen und jeden Eintrag prüfen: gespeichert (ohne Kompression), keine Verschlüsselung, kein
  * ZIP64, Daten innerhalb der Datei */
-static int zip_dir(int fd, uint64_t fsz, zent_t *ents, int *n, char *err, size_t errsz) {
+static int zip_dir_n(int fd, uint64_t fsz, zent_t *ents, int cap, int *n, char *err, size_t errsz) {
     *n = 0;
     if (fsz < 22) goto bad;
     size_t tail = fsz < 22 + 65535 ? (size_t)fsz : 22 + 65535;
@@ -504,7 +726,7 @@ static int zip_dir(int fd, uint64_t fsz, zent_t *ents, int *n, char *err, size_t
     uint32_t cd_size = rd32(t + e + 12), cd_off = rd32(t + e + 16);
     uint64_t eocd_pos = fsz - tail + (uint64_t)e;
     free(t);
-    if (disk || cdisk || n1 != n2 || !n1 || n1 > ZIP_MAXENT || cd_size > 16384 || (uint64_t)cd_off + cd_size > eocd_pos)
+    if (disk || cdisk || n1 != n2 || !n1 || n1 > (uint32_t)cap || cd_size > 65536 || (uint64_t)cd_off + cd_size > eocd_pos)
         goto bad;
     uint8_t *cd = malloc(cd_size ? cd_size : 1);
     if (!cd) { snprintf(err, errsz, "%s", T("Kein Speicher")); return -1; }
@@ -586,106 +808,115 @@ static int meta_get(const char *j, const char *key, char *out, size_t n) {
     }
 }
 
-int saves_restore_file(const char *zip_path, char *err, size_t errsz) {
-    if (op_enter(err, errsz)) return -1;
-    int rc = -1, zfd = open(zip_path, O_RDONLY), dfd = -1;
-    char tmp[1300] = "";
-    struct stat st;
-    zent_t ents[ZIP_MAXENT];
-    int ne = 0;
-    if (zfd < 0 || fstat(zfd, &st) != 0) {
-        snprintf(err, errsz, T("Datei konnte nicht geöffnet werden: %s"), strerror(errno));
-        goto done;
-    }
-    if (zip_dir(zfd, (uint64_t)st.st_size, ents, &ne, err, errsz)) goto done;
+/* ein zu schreibender Spielstand aus der ZIP (geprüft) */
+typedef struct {
+    char   tid[32], sdir[256], uid[16];
+    zent_t *img;
+    char   dest[1300], tdir[900], d2[1300], tmp[1300];
+} rjob_t;
 
-    zent_t *me = zip_get(ents, ne, "metadata.json");
-    if (!me || !me->size || me->size > META_MAX) {
+/* Eintrag "<prefix>metadata.json" prüfen und den Zielpfad bestimmen. 0 = ok */
+static int rplan(int zfd, zent_t *ents, int ne, zent_t *me, rjob_t *r, char *err, size_t errsz) {
+    char prefix[400], meta[META_MAX + 1], imgname[800];
+    size_t pl = strlen(me->name) - strlen("metadata.json");
+    memcpy(prefix, me->name, pl);
+    prefix[pl] = 0;
+    if (!me->size || me->size > META_MAX || strstr(prefix, "..") || prefix[0] == '/' || strchr(prefix, '\\')) {
         snprintf(err, errsz, "%s", T("metadata.json fehlt im ZIP oder ist ungültig"));
-        goto done;
+        return -1;
     }
-    char meta[META_MAX + 1];
     if (pread_full(zfd, meta, me->size, (off_t)me->data) || crc32_update(0, meta, me->size) != me->crc) {
         snprintf(err, errsz, "%s", T("metadata.json fehlt im ZIP oder ist ungültig"));
-        goto done;
+        return -1;
     }
     meta[me->size] = 0;
-    char tid[32] = "", sdir[256] = "", uid[16] = "";
-    if (meta_get(meta, "title_id", tid, sizeof(tid)) || meta_get(meta, "save_dir", sdir, sizeof(sdir)) ||
-        meta_get(meta, "uid", uid, sizeof(uid)) || !saves_name_ok(tid, sizeof(tid)) ||
-        !saves_name_ok(sdir, sizeof(sdir)) || !saves_name_ok(uid, sizeof(uid))) {
+    if (meta_get(meta, "title_id", r->tid, sizeof(r->tid)) || meta_get(meta, "save_dir", r->sdir, sizeof(r->sdir)) ||
+        meta_get(meta, "uid", r->uid, sizeof(r->uid)) || !saves_name_ok(r->tid, sizeof(r->tid)) ||
+        !saves_name_ok(r->sdir, sizeof(r->sdir)) || !saves_name_ok(r->uid, sizeof(r->uid))) {
         snprintf(err, errsz, "%s", T("Die Angaben in metadata.json sind unvollständig oder ungültig"));
-        goto done;
+        return -1;
     }
-    char imgname[320];
-    path_fmt(imgname, sizeof(imgname), "%s_%s.img", tid, sdir);
-    zent_t *ie = zip_get(ents, ne, imgname);
-    if (!ie) {
+    if (path_fmt(imgname, sizeof(imgname), "%s%s_%s.img", prefix, r->tid, r->sdir)) {
+        snprintf(err, errsz, "%s", T("Pfad zu lang"));
+        return -1;
+    }
+    r->img = zip_get(ents, ne, imgname);
+    if (!r->img) {
         snprintf(err, errsz, T("Container (%s) fehlt im ZIP"), imgname);
-        goto done;
+        return -1;
     }
-    if (ie->size < IMG_MIN || ie->size > IMG_MAX) {
+    if (r->img->size < IMG_MIN || r->img->size > IMG_MAX) {
         snprintf(err, errsz, "%s", T("Der Spielstand hat eine ungültige Größe"));
-        goto done;
+        return -1;
     }
     uint8_t first;
-    if (pread_full(zfd, &first, 1, (off_t)ie->data)) goto done;
+    if (pread_full(zfd, &first, 1, (off_t)r->img->data)) {
+        snprintf(err, errsz, "%s", T("Keine gültige Spielstand-ZIP-Datei"));
+        return -1;
+    }
     if (first == 0x01) {
         snprintf(err, errsz, "%s", T("PS4-Spielstände werden noch nicht unterstützt"));
-        goto done;
+        return -1;
     }
-
     const char *home = plat_saves_dir();
-    char udir[700], tdir[900], dest[1300], d2[1300];
-    if (!home || path_fmt(udir, sizeof(udir), "%s/%s", home, uid) || stat(udir, &st) != 0 || !S_ISDIR(st.st_mode)) {
-        snprintf(err, errsz, T("Der Benutzer %s ist auf dieser PS5 nicht vorhanden"), uid);
-        goto done;
+    char udir[700];
+    struct stat st;
+    if (!home || path_fmt(udir, sizeof(udir), "%s/%s", home, r->uid) || stat(udir, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        snprintf(err, errsz, T("Der Benutzer %s ist auf dieser PS5 nicht vorhanden"), r->uid);
+        return -1;
     }
-    if (path_fmt(d2, sizeof(d2), "%s/" SAVE_SUBDIR, udir) || path_fmt(tdir, sizeof(tdir), "%s/%s", d2, tid) ||
-        path_fmt(dest, sizeof(dest), "%s/%s", tdir, sdir) || path_fmt(tmp, sizeof(tmp), "%s/.%s.restore.tmp", tdir, sdir)) {
+    if (path_fmt(r->d2, sizeof(r->d2), "%s/" SAVE_SUBDIR, udir) || path_fmt(r->tdir, sizeof(r->tdir), "%s/%s", r->d2, r->tid) ||
+        path_fmt(r->dest, sizeof(r->dest), "%s/%s", r->tdir, r->sdir) ||
+        path_fmt(r->tmp, sizeof(r->tmp), "%s/.%s.restore.tmp", r->tdir, r->sdir)) {
         snprintf(err, errsz, "%s", T("Pfad zu lang"));
-        goto done;
+        return -1;
     }
-    if (!space_ok(udir, ie->size)) {
+    if (!space_ok(udir, r->img->size)) {
         snprintf(err, errsz, "%s", T("Nicht genug freier Speicher auf der PS5"));
-        goto done;
+        return -1;
     }
-    mkdir(d2, 0777);
-    mkdir(tdir, 0777);
+    return 0;
+}
+
+/* Spielstand schreiben: erst daneben, nach der Prüfsumme umbenennen. 0 = ok */
+static int rexec(int zfd, rjob_t *r, char *err, size_t errsz) {
+    struct stat st;
     mode_t mode = 0644;
     uid_t own_u = (uid_t)-1;
     gid_t own_g = (gid_t)-1;
-    if (stat(dest, &st) == 0) {
+    int rc = -1, dfd = -1;
+    uint8_t *buf = NULL;
+    mkdir(r->d2, 0777);
+    mkdir(r->tdir, 0777);
+    if (stat(r->dest, &st) == 0) {
         if (!S_ISREG(st.st_mode)) {
             snprintf(err, errsz, "%s", T("Ziel ist keine Datei"));
-            goto done;
+            return -1;
         }
         mode = st.st_mode & 0777;
         own_u = st.st_uid;
         own_g = st.st_gid;
     }
-    unlink(tmp);
-    dfd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, 0644);
+    unlink(r->tmp);
+    dfd = open(r->tmp, O_WRONLY | O_CREAT | O_EXCL, 0644);
     if (dfd < 0) {
         snprintf(err, errsz, T("Zieldatei konnte nicht angelegt werden: %s"), strerror(errno));
-        tmp[0] = 0;
-        goto done;
+        return -1;
     }
-    uint8_t *buf = malloc(CHUNK);
+    buf = malloc(CHUNK);
     if (!buf) { snprintf(err, errsz, "%s", T("Kein Speicher")); goto done; }
     uint32_t crc = 0;
     int bad = 0;
-    for (uint64_t pos = 0; pos < ie->size && !bad;) {
-        size_t want = ie->size - pos < CHUNK ? (size_t)(ie->size - pos) : CHUNK;
-        if (pread_full(zfd, buf, want, (off_t)(ie->data + pos)) || write_full(dfd, buf, want)) bad = 1;
+    for (uint64_t pos = 0; pos < r->img->size && !bad;) {
+        size_t want = r->img->size - pos < CHUNK ? (size_t)(r->img->size - pos) : CHUNK;
+        if (pread_full(zfd, buf, want, (off_t)(r->img->data + pos)) || write_full(dfd, buf, want)) bad = 1;
         else { crc = crc32_update(crc, buf, want); pos += want; }
     }
-    free(buf);
     if (bad) {
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
         goto done;
     }
-    if (crc != ie->crc) {
+    if (crc != r->img->crc) {
         snprintf(err, errsz, "%s", T("Prüfsumme des Spielstands stimmt nicht – die ZIP-Datei ist beschädigt"));
         goto done;
     }
@@ -697,16 +928,143 @@ int saves_restore_file(const char *zip_path, char *err, size_t errsz) {
         goto done;
     }
     dfd = -1;
-    if (rename(tmp, dest) != 0) {
+    if (rename(r->tmp, r->dest) != 0) {
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
         goto done;
     }
-    tmp[0] = 0;
+    r->tmp[0] = 0;
     rc = 0;
 done:
+    free(buf);
     if (dfd >= 0) close(dfd);
-    if (tmp[0]) unlink(tmp);
+    if (r->tmp[0]) unlink(r->tmp);
+    return rc;
+}
+
+int saves_restore_file(const char *zip_path, int *count, char *err, size_t errsz) {
+    if (count) *count = 0;
+    if (op_enter(err, errsz)) return -1;
+    int rc = -1, zfd = open(zip_path, O_RDONLY), ne = 0, nj = 0;
+    struct stat st;
+    zent_t *ents = malloc(ZIP_MAXENT * sizeof(*ents));
+    rjob_t *jobs = calloc(ZIP_MAXSAVES, sizeof(*jobs));
+    if (!ents || !jobs) { snprintf(err, errsz, "%s", T("Kein Speicher")); goto done; }
+    if (zfd < 0 || fstat(zfd, &st) != 0) {
+        snprintf(err, errsz, T("Datei konnte nicht geöffnet werden: %s"), strerror(errno));
+        goto done;
+    }
+    if (zip_dir_n(zfd, (uint64_t)st.st_size, ents, ZIP_MAXENT, &ne, err, errsz)) goto done;
+    /* erst alle Spielstände der ZIP prüfen, dann schreiben: eine fehlerhafte ZIP ändert nichts */
+    for (int i = 0; i < ne; i++) {
+        size_t l = strlen(ents[i].name), m = strlen("metadata.json");
+        if (l < m || strcmp(ents[i].name + l - m, "metadata.json") != 0 || (l > m && ents[i].name[l - m - 1] != '/')) continue;
+        if (nj == ZIP_MAXSAVES) {
+            snprintf(err, errsz, "%s", T("Zu viele Spielstände in einer ZIP-Datei (höchstens 64)"));
+            goto done;
+        }
+        for (int k = 0; k < nj; k++) {   /* zweimal derselbe Spielstand in einer ZIP: Mehrdeutigkeit abweisen */
+            (void)k;
+        }
+        if (rplan(zfd, ents, ne, &ents[i], &jobs[nj], err, errsz)) goto done;
+        for (int k = 0; k < nj; k++)
+            if (!strcmp(jobs[k].dest, jobs[nj].dest)) {
+                snprintf(err, errsz, "%s", T("Keine gültige Spielstand-ZIP-Datei"));
+                goto done;
+            }
+        nj++;
+    }
+    if (!nj) {
+        snprintf(err, errsz, "%s", T("metadata.json fehlt im ZIP oder ist ungültig"));
+        goto done;
+    }
+    for (int i = 0; i < nj; i++) {
+        if (rexec(zfd, &jobs[i], err, errsz)) {
+            if (i) {   /* schon zurückgeschriebene sind fertig - dem Anwender sagen, wie viele */
+                char first[256];
+                scpy(first, sizeof(first), err);
+                snprintf(err, errsz, T("%d von %d Spielständen wiederhergestellt, dann Fehler: %s"), i, nj, first);
+            }
+            if (count) *count = i;
+            goto done;
+        }
+    }
+    if (count) *count = nj;
+    rc = 0;
+done:
     if (zfd >= 0) close(zfd);
+    free(ents);
+    free(jobs);
     op_leave();
     return rc;
+}
+
+/* ── Sicherungen auf der PS5 (<root>/<Benutzer>_<uid>/<Titel>_<Name>.zip) auflisten ── */
+
+static int cmp_backups(const void *a, const void *b) {
+    const save_backup_t *x = a, *y = b;
+    int c = strcmp(x->username, y->username);
+    if (c) return c;
+    c = strcmp(x->title_name, y->title_name);
+    return c ? c : strcmp(x->save_dir, y->save_dir);
+}
+
+int saves_list_backups(const char *root, save_backup_t **out, int *count) {
+    *out = NULL;
+    *count = 0;
+    DIR *rd = opendir(root);
+    if (!rd) return -1;
+    save_backup_t *arr = NULL;
+    int n = 0, cap = 0;
+    struct dirent *ue;
+    while ((ue = readdir(rd))) {
+        char ud[1000];
+        if (ue->d_name[0] == '.' || path_fmt(ud, sizeof(ud), "%s/%s", root, ue->d_name)) continue;
+        DIR *dd = opendir(ud);
+        struct dirent *fe;
+        while (dd && (fe = readdir(dd))) {
+            size_t l = strlen(fe->d_name);
+            char fp[1300];
+            struct stat st;
+            if (fe->d_name[0] == '.' || l < 5 || strcmp(fe->d_name + l - 4, ".zip") != 0 ||
+                path_fmt(fp, sizeof(fp), "%s/%s", ud, fe->d_name) || stat(fp, &st) != 0 || !S_ISREG(st.st_mode)) continue;
+            int fd = open(fp, O_RDONLY);
+            zent_t ents[8];
+            int ne = 0;
+            char e2[100], meta[META_MAX + 1];
+            if (fd < 0) continue;
+            zent_t *me = NULL;
+            if (zip_dir_n(fd, (uint64_t)st.st_size, ents, 8, &ne, e2, sizeof(e2)) == 0) me = zip_get(ents, ne, "metadata.json");
+            if (me && me->size && me->size <= META_MAX && pread_full(fd, meta, me->size, (off_t)me->data) == 0 &&
+                crc32_update(0, meta, me->size) == me->crc) {
+                meta[me->size] = 0;
+                if (n == cap) {
+                    save_backup_t *p = realloc(arr, (size_t)(cap = cap ? cap * 2 : 32) * sizeof(*p));
+                    if (!p) { free(arr); close(fd); closedir(dd); closedir(rd); return -1; }
+                    arr = p;
+                }
+                save_backup_t *b = &arr[n];
+                memset(b, 0, sizeof(*b));
+                if (meta_get(meta, "title_id", b->title_id, sizeof(b->title_id)) == 0 &&
+                    meta_get(meta, "save_dir", b->save_dir, sizeof(b->save_dir)) == 0 &&
+                    meta_get(meta, "uid", b->uid, sizeof(b->uid)) == 0 && saves_name_ok(b->title_id, sizeof(b->title_id)) &&
+                    saves_name_ok(b->save_dir, sizeof(b->save_dir)) && saves_name_ok(b->uid, sizeof(b->uid)) &&
+                    !path_fmt(b->path, sizeof(b->path), "%s", fp)) {
+                    meta_get(meta, "username", b->username, sizeof(b->username));
+                    if (meta_get(meta, "title_name", b->title_name, sizeof(b->title_name)) || !b->title_name[0])
+                        scpy(b->title_name, sizeof(b->title_name), b->title_id);
+                    b->size = (uint64_t)st.st_size;
+                    b->mtime = st.st_mtime;
+                    n++;
+                }
+            }
+            close(fd);
+            if (n >= SAVES_MAX) break;
+        }
+        if (dd) closedir(dd);
+    }
+    closedir(rd);
+    if (n > 1) qsort(arr, (size_t)n, sizeof(*arr), cmp_backups);
+    *out = arr;
+    *count = n;
+    return 0;
 }

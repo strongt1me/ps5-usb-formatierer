@@ -68,8 +68,8 @@
 #include "server.h"
 #include "vollabel.h"
 
-#define REQ_MAX   16384
-#define BODY_MAX  4096
+#define REQ_MAX   65536
+#define BODY_MAX  32768   /* Spielstand-Auswahl: bis zu 64 Schlüssel/Pfade in einer Anfrage */
 #define JOB_STACK (4 * 1024 * 1024)   /* Threads haben auf der PS5 nur 64 KiB - fsck.exfat braucht mehr */
 #define MIB       (1024ull * 1024ull)
 
@@ -237,9 +237,9 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESTORE };
+       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore"};
+                                       "tile", "verify", "save_restore", "save_backup"};
 
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
@@ -267,6 +267,8 @@ typedef struct {
     char     path[512];
     FILE    *img;
     ib_reader_t *rd;
+    char    *saves_list; /* Spielstände: Schlüssel bzw. Pfade, getrennt durch Zeilenumbruch */
+    char     saves_dest[300];
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
 } job_t;
@@ -274,6 +276,7 @@ typedef struct {
 static void job_free(job_t *j) {
     if (!j) return;
     free(j->items);
+    free(j->saves_list);
     ib_close(j->rd);
     if (j->img) fclose(j->img);
     free(j);
@@ -2835,15 +2838,296 @@ static void api_saves(int c) {
     free(b.p);
 }
 
-/* GET /api/saves/download?key=<uid>/<title_id>/<save_dir>  → ZIP. Bricht der Strom mittendrin ab, endet er ohne
- * Abschluss-Chunk (der Aufrufer schließt die Verbindung) - so merkt der Empfänger den Fehler */
+/* Spielstände-Ordner der Orte (wie die Image-Sicherung: intern /data und jedes eingebundene USB-Laufwerk) */
+#define SAVES_DIR "game_saves"
+
+/* Text eines JSON-Schlüssels der obersten Ebene, \" \\ \/ \n \t aufgelöst; malloc oder NULL */
+static char *json_text(const char *body, const char *key) {
+    char pat[40];
+    snprintf(pat, sizeof(pat), "\"%s\"", key);
+    const char *p = strstr(body, pat);
+    if (!p) return NULL;
+    p = ws(p + strlen(pat));
+    if (*p != ':') return NULL;
+    p = ws(p + 1);
+    if (*p != '"') return NULL;
+    size_t cap = strlen(p) + 1, n = 0;
+    char *out = malloc(cap);
+    if (!out) return NULL;
+    for (p++; *p && *p != '"'; p++) {
+        char c = *p;
+        if (c == '\\' && p[1]) {
+            c = *++p;
+            c = c == 'n' ? '\n' : c == 't' ? '\t' : c;
+        }
+        out[n++] = c;
+    }
+    out[n] = 0;
+    return out;
+}
+
+/* "a\nb\nc" -> Schlüssel in Teilen; liefert die Anzahl, -1 bei mehr als max; schneidet s an den Zeilenenden ab */
+static int split_lines(char *s, char **part, int max) {
+    int n = 0;
+    for (char *t = strtok(s, "\n"); t; t = strtok(NULL, "\n")) {
+        if (!*t) continue;
+        if (n == max) return -1;   /* zu viele */
+        part[n++] = t;
+    }
+    return n;
+}
+
+#define SAVES_SELMAX 64
+
+/* GET /api/saves/download?keys=<Schlüssel>,<Schlüssel>,... (oder key=<Schlüssel>) → ZIP. Bricht der Strom mittendrin
+ * ab, endet er ohne Abschluss-Chunk (der Aufrufer schließt die Verbindung) - so merkt der Empfänger den Fehler */
 static void api_saves_download(int c, const char *q) {
-    char key[320];
-    save_info_t s;
-    if (!q || query_get(q, "key", key, sizeof(key))) { respond_error(c, 400, "key fehlt"); return; }
-    if (saves_find(key, &s)) { respond_error(c, 404, "Spielstand nicht gefunden"); return; }
+    char *keys = malloc(SAVES_SELMAX * 330 + 1);
+    save_info_t *sel = calloc(SAVES_SELMAX, sizeof(*sel));
+    if (!keys || !sel) { free(keys); free(sel); respond_error(c, 500, "Kein Speicher"); return; }
+    keys[0] = 0;
+    if (!q || (query_get(q, "keys", keys, SAVES_SELMAX * 330) && query_get(q, "key", keys, 330))) {
+        respond_error(c, 400, "key fehlt");
+        goto out;
+    }
+    for (char *t = keys; *t; t++)
+        if (*t == ',') *t = '\n';
+    char *part[SAVES_SELMAX];
+    int np = split_lines(keys, part, SAVES_SELMAX), ns = 0;
+    save_info_t *all = NULL;
+    int na = 0;
+    if (np < 1 || saves_scan(&all, &na) < 0) { free(all); respond_error(c, 404, "Spielstand nicht gefunden"); goto out; }
+    for (int i = 0; i < np; i++) {
+        int hit = 0;
+        for (int k = 0; k < na && !hit; k++)
+            if (!strcmp(all[k].key, part[i])) { sel[ns++] = all[k]; hit = 1; }
+        if (!hit) { free(all); respond_error(c, 404, "Spielstand nicht gefunden"); goto out; }
+    }
+    free(all);
     char err[256] = "";
-    if (saves_download(c, &s, err, sizeof(err)) == -1) respond_error(c, 500, err[0] ? err : "Sichern fehlgeschlagen");
+    if (saves_download(c, sel, ns, err, sizeof(err)) == -1) respond_error(c, 500, err[0] ? err : "Sichern fehlgeschlagen");
+out:
+    free(keys);
+    free(sel);
+}
+
+static void saves_loc_json(sbuf_t *b, const imgloc_t *l, int first) {
+    struct statvfs vs;
+    char dir[300];
+    snprintf(dir, sizeof(dir), "%s/" SAVES_DIR, l->root);
+    sb_add(b, "%s{\"dir\":", first ? "" : ",");
+    sb_str(b, dir);
+    sb_add(b, ",\"root\":");
+    sb_str(b, l->root);
+    sb_add(b, ",\"device\":");
+    sb_str(b, l->device);
+    sb_add(b, ",\"fs\":");
+    sb_str(b, l->fs);
+    sb_add(b, ",\"label\":");
+    sb_str(b, l->label);
+    if (statvfs(l->root, &vs) == 0)
+        sb_add(b, ",\"free\":%llu,\"total\":%llu", (unsigned long long)vs.f_bavail * vs.f_frsize,
+               (unsigned long long)vs.f_blocks * vs.f_frsize);
+    sb_add(b, "}");
+}
+
+/* GET /api/saves/locations  → {"locations":[{"dir","root","device","fs","label","free","total"},…]} */
+static void api_saves_locations(int c) {
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    if (!loc) { respond_error(c, 500, "Kein Speicher"); return; }
+    int nl = img_locations(loc, MAX_LOCS);
+    sbuf_t b = {0};
+    sb_add(&b, "{\"locations\":[");
+    for (int i = 0; i < nl; i++) saves_loc_json(&b, &loc[i], !i);
+    sb_add(&b, "]}");
+    free(loc);
+    respond_json(c, 200, &b);
+    free(b.p);
+}
+
+/* GET /api/saves/backups  → {"locations":[…],"backups":[{"path","dir","uid","username","title_id","title_name","save_dir",
+ * "size","time"},…]}: Sicherungen in <Ort>/game_saves/<Benutzer>_<uid>/<Datei>.zip */
+static void api_saves_backups(int c) {
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    if (!loc) { respond_error(c, 500, "Kein Speicher"); return; }
+    int nl = img_locations(loc, MAX_LOCS);
+    sbuf_t b = {0};
+    sb_add(&b, "{\"locations\":[");
+    for (int i = 0; i < nl; i++) saves_loc_json(&b, &loc[i], !i);
+    sb_add(&b, "],\"backups\":[");
+    int first = 1;
+    for (int i = 0; i < nl; i++) {
+        char dir[300];
+        save_backup_t *bk = NULL;
+        int nb = 0;
+        snprintf(dir, sizeof(dir), "%s/" SAVES_DIR, loc[i].root);
+        if (saves_list_backups(dir, &bk, &nb) < 0) continue;
+        for (int k = 0; k < nb; k++) {
+            sb_add(&b, "%s{\"path\":", first ? "" : ",");
+            first = 0;
+            sb_str(&b, bk[k].path);
+            sb_add(&b, ",\"dir\":");
+            sb_str(&b, dir);
+            sb_add(&b, ",\"uid\":");
+            sb_str(&b, bk[k].uid);
+            sb_add(&b, ",\"username\":");
+            sb_str(&b, bk[k].username);
+            sb_add(&b, ",\"title_id\":");
+            sb_str(&b, bk[k].title_id);
+            sb_add(&b, ",\"title_name\":");
+            sb_str(&b, bk[k].title_name);
+            sb_add(&b, ",\"save_dir\":");
+            sb_str(&b, bk[k].save_dir);
+            sb_add(&b, ",\"size\":%llu,\"time\":%lld}", (unsigned long long)bk[k].size, (long long)bk[k].mtime);
+        }
+        free(bk);
+    }
+    sb_add(&b, "]}");
+    free(loc);
+    respond_json(c, 200, &b);
+    free(b.p);
+}
+
+/* Läuft ein Spiel oder eine App, kann es den Spielstand gerade benutzen: dann nichts daran ändern */
+/* (saves_game_check steht weiter oben) */
+
+/* Worker: Spielstände (Schlüssel in saves_list) nach saves_dest sichern */
+static void *save_backup_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0};
+    char *part[SAVES_SELMAX], err[256] = "", out[1300] = "";
+    int np = split_lines(j->saves_list, part, SAVES_SELMAX), done = 0, ok = 0;
+    save_info_t *all = NULL;
+    int na = 0;
+    if (np < 1 || saves_scan(&all, &na) < 0) {
+        sb_add(&msg, "%s", T("Spielstand nicht gefunden"));
+        goto fin;
+    }
+    for (int i = 0; i < np; i++) {
+        int hit = -1;
+        for (int k = 0; k < na && hit < 0; k++)
+            if (!strcmp(all[k].key, part[i])) hit = k;
+        if (hit < 0) { sb_add(&msg, "%s", T("Spielstand nicht gefunden")); goto fin; }
+        on_progress("Spielstände werden gesichert …", i * 100 / np);
+        if (saves_backup_file(&all[hit], j->saves_dest, out, sizeof(out), err, sizeof(err)) != 0) {
+            if (done) sb_tr(&msg, "%d von %d Spielständen gesichert, dann Fehler: ", done, np);
+            sb_add(&msg, "%s", err[0] ? err : T("Sichern fehlgeschlagen"));
+            goto fin;
+        }
+        done++;
+    }
+    ok = 1;
+    sb_tr(&msg, "Spielstände gesichert: %d (nach: %s)", done, j->saves_dest);
+    sb_add(&res, "{\"count\":%d,\"dir\":", done);
+    sb_str(&res, j->saves_dest);
+    sb_add(&res, "}");
+fin:
+    free(all);
+    job_done(j, ok, &msg, &res, 0);
+    return NULL;
+}
+
+/* Ort per Pfad suchen: <root>/game_saves muss genau einer der Orte sein */
+static const imgloc_t *saves_loc_by_dir(const char *dir, const imgloc_t *loc, int n) {
+    for (int i = 0; i < n; i++) {
+        char d[300];
+        snprintf(d, sizeof(d), "%s/" SAVES_DIR, loc[i].root);
+        if (!strcmp(d, dir)) return &loc[i];
+    }
+    return NULL;
+}
+
+/* POST /api/saves/backup  {"keys":"<Schlüssel>\n<Schlüssel>…","dest":"<Ort>/game_saves"} */
+static void api_saves_backup(int c, const char *body) {
+    char *keys = json_text(body, "keys"), *dest = json_text(body, "dest");
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    int nl = loc ? img_locations(loc, MAX_LOCS) : 0;
+    if (!keys || !dest || !keys[0] || !loc || !saves_loc_by_dir(dest, loc, nl)) {
+        respond_error(c, 400, "keys und dest erforderlich");
+        goto out;
+    }
+    job_t *j = new_job(c, JOB_SAVE_BACKUP);
+    if (!j) goto out;
+    j->saves_list = keys;
+    keys = NULL;
+    snprintf(j->saves_dest, sizeof(j->saves_dest), "%.299s", dest);
+    start_job(c, j, save_backup_worker);
+out:
+    free(keys);
+    free(dest);
+    free(loc);
+}
+
+/* Worker: Sicherungen (Pfade in saves_list) zurückschreiben */
+static void *save_restore_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0};
+    char *part[SAVES_SELMAX], err[256] = "";
+    int np = split_lines(j->saves_list, part, SAVES_SELMAX), total = 0, ok = 0;
+    for (int i = 0; i < np; i++) {
+        int cnt = 0;
+        on_progress("Spielstände werden zurückgeschrieben …", i * 100 / np);
+        if (saves_restore_file(part[i], &cnt, err, sizeof(err)) != 0) {
+            total += cnt;
+            if (total && np > 1) sb_tr(&msg, "Spielstände wiederhergestellt: %d, dann Fehler: ", total);
+            sb_add(&msg, "%s", err[0] ? err : T("Wiederherstellen fehlgeschlagen"));
+            goto fin;
+        }
+        total += cnt;
+    }
+    ok = 1;
+    sb_tr(&msg, "Spielstände wiederhergestellt: %d.", total);
+fin:
+    job_done(j, ok, &msg, &res, 0);
+    return NULL;
+}
+
+/* Sicherung direkt in <Ort>/game_saves/<Benutzer>_<uid>/<Datei>.zip (keine Verknüpfung hinaus)? */
+static int saves_path_ok(const char *path, const imgloc_t *loc, int n) {
+    size_t l = strlen(path);
+    if (l < 5 || strcmp(path + l - 4, ".zip") != 0 || strstr(path, "/../") || strrchr(path, '/')[1] == '.') return 0;
+    char *rp = realpath(path, NULL);
+    int hit = 0;
+    struct stat sb;
+    for (int i = 0; rp && i < n && !hit; i++) {
+        char d[300];
+        snprintf(d, sizeof(d), "%s/" SAVES_DIR, loc[i].root);
+        char *rd = realpath(d, NULL);
+        size_t dl = rd ? strlen(rd) : 0;
+        if (rd && !strncmp(rp, rd, dl) && rp[dl] == '/') {
+            const char *rest = rp + dl + 1, *sl = strchr(rest, '/');
+            hit = sl && !strchr(sl + 1, '/') && !stat(rp, &sb) && S_ISREG(sb.st_mode);
+        }
+        free(rd);
+    }
+    free(rp);
+    return hit;
+}
+
+/* POST /api/saves/restore  {"paths":"<Sicherung>\n<Sicherung>…"}: Sicherungen auf der PS5 zurückschreiben */
+static void api_saves_restore_paths(int c, const char *body) {
+    char *paths = json_text(body, "paths");
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    int nl = loc ? img_locations(loc, MAX_LOCS) : 0;
+    if (!paths || !paths[0] || !loc) { respond_error(c, 400, "paths erforderlich"); goto out; }
+    {
+        char *copy = strdup(paths), *part[SAVES_SELMAX];
+        int np = copy ? split_lines(copy, part, SAVES_SELMAX) : 0, good = np > 0;
+        for (int i = 0; i < np && good; i++) good = saves_path_ok(part[i], loc, nl);
+        free(copy);
+        if (!good) { respond_error(c, 400, "Ungültige Sicherung"); goto out; }
+    }
+    if (saves_game_check(c)) goto out;
+    job_t *j = new_job(c, JOB_SAVE_RESTORE);
+    if (!j) goto out;
+    j->saves_list = paths;
+    paths = NULL;
+    start_job(c, j, save_restore_worker);
+out:
+    free(paths);
+    free(loc);
 }
 
 /* POST /api/saves/restore/upload  Körper = ZIP: auf die Platte schreiben (nicht in den Speicher: Spielstände sind
@@ -2929,9 +3213,11 @@ static void api_saves_restore(int c, const char *pre, size_t have, unsigned long
     }
     fd = -1;
     on_progress("Spielstand wird zurückgeschrieben …", 92);
-    if (saves_restore_file(zip, err, sizeof(err)) == 0) {
+    int cnt = 0;
+    if (saves_restore_file(zip, &cnt, err, sizeof(err)) == 0) {
         ok = 1;
-        sb_tr(&msg, "Spielstand wiederhergestellt.");
+        if (cnt > 1) sb_tr(&msg, "Spielstände wiederhergestellt: %d.", cnt);
+        else sb_tr(&msg, "Spielstand wiederhergestellt.");
     } else {
         sb_add(&msg, "%s", err[0] ? err : T("Wiederherstellen fehlgeschlagen"));
     }
@@ -3180,6 +3466,14 @@ static void handle(int c) {
         api_saves_users(c);
     else if (strcmp(path, "/api/saves/download") == 0 && is_get)
         api_saves_download(c, q);
+    else if (strcmp(path, "/api/saves/locations") == 0 && is_get)
+        api_saves_locations(c);
+    else if (strcmp(path, "/api/saves/backups") == 0 && is_get)
+        api_saves_backups(c);
+    else if (strcmp(path, "/api/saves/backup") == 0 && is_post)
+        api_saves_backup(c, body);
+    else if (strcmp(path, "/api/saves/restore") == 0 && is_post)
+        api_saves_restore_paths(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {
         /* Warten auf Abziehen/Einstecken, Prüfen und Beschreiben brechen ab; das Formatieren selbst nicht */
         __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);

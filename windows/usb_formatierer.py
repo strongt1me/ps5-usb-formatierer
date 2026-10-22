@@ -235,10 +235,11 @@ class Api:
     def get(self, path, timeout=8):
         return self._call(path, timeout=timeout)
 
-    def download_save(self, key, path):
-        """Spielstand-ZIP nach path laden (in einem Zug auf die Platte, erst nach vollständigem Empfang umbenannt und
-        geprüft). Liefert die Größe."""
-        url = f"{self.base}/api/saves/download?key={urllib.parse.quote(key, safe='')}&lang={i18n.lang()}"
+    def download_save(self, keys, path):
+        """ZIP mit den Spielständen keys (Schlüsselliste) nach path laden (in einem Zug auf die Platte, erst nach
+        vollständigem Empfang geprüft und umbenannt). Liefert die Größe."""
+        enc = ",".join(urllib.parse.quote(k, safe="") for k in keys)
+        url = f"{self.base}/api/saves/download?keys={enc}&lang={i18n.lang()}"
         part = path + ".part"
         n = 0
         try:
@@ -267,6 +268,22 @@ class Api:
             except OSError:
                 pass
         return n
+
+    def saves_locations(self):
+        """Orte für Spielstand-Sicherungen auf der PS5 (intern /data/game_saves, USB <Laufwerk>/game_saves)"""
+        return self._call("/api/saves/locations", timeout=15).get("locations") or []
+
+    def saves_backups(self):
+        """Auf der PS5 gefundene Sicherungen (Liste von Einträgen mit path, username, title_name, ...)"""
+        return self._call("/api/saves/backups", timeout=30).get("backups") or []
+
+    def backup_saves(self, keys, dest):
+        """Spielstände auf der PS5 sichern (Auftrag "save_backup")"""
+        return self._call("/api/saves/backup", {"keys": "\n".join(keys), "dest": dest})
+
+    def restore_saves(self, paths):
+        """Sicherungen auf der PS5 zurückschreiben (Auftrag "save_restore")"""
+        return self._call("/api/saves/restore", {"paths": "\n".join(paths)})
 
     def restore_save(self, path):
         """Spielstand-ZIP hochladen; die PS5 schreibt ihn zurück (Auftrag "save_restore", Antwort erst am Ende)"""
@@ -314,6 +331,98 @@ def port_open(host, port, timeout=1.0):
         return True
     except OSError:
         return False
+
+
+def ask_backups(root, backups):
+    """Gefundene Sicherungen (nach Benutzer gruppiert, mehrere markierbar). Liefert ("paths", [Pfade]), ("file", None)
+    für "Datei vom PC wählen …" oder None (abgebrochen)."""
+    px = ui_theme.px
+    win = tk.Toplevel(root)
+    win.withdraw()
+    win.title(_("Spielstand wiederherstellen"))
+    win.transient(root)
+    frm = ttk.Frame(win, padding=(18, 14, 18, 14))
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text=_("Gefundene Sicherungen auf der PS5 – markieren, was zurückgeschrieben werden soll. Ein "
+                          "vorhandener Spielstand mit gleichem Namen wird ersetzt.") if backups
+              else _("Keine Sicherungen auf der PS5 gefunden."), wraplength=560, justify="left").pack(anchor="w")
+    imgs = check_images(win)
+    checked = set()
+    result = {"v": None}
+    users = {}
+    for b in backups:
+        users.setdefault(b.get("username") or b.get("uid", ""), []).append(b)
+    if backups:
+        box = ttk.Frame(frm)
+        box.pack(fill="both", expand=True, pady=(10, 0))
+        box.columnconfigure(0, weight=1)
+        tree = ttk.Treeview(box, columns=("meta",), show="tree", height=min(12, len(backups) + len(users)),
+                            selectmode="none", style="Games.Treeview")
+        tree.column("#0", width=px(380), minwidth=160, stretch=True)
+        tree.column("meta", width=px(200), minwidth=120, anchor="e", stretch=False)
+        tree.grid(row=0, column=0, sticky="nsew")
+        sb = ttk.Scrollbar(box, orient="vertical", command=tree.yview)
+        sb.grid(row=0, column=1, sticky="ns", padx=(px(4), 0))
+        tree.configure(yscrollcommand=sb.set)
+        for ui, (who, items) in enumerate(users.items()):
+            tree.insert("", "end", iid=f"u{ui}", text=who, open=True)
+            for b in items:
+                when = time.strftime("%x %H:%M", time.localtime(b.get("time") or 0))
+                tree.insert(f"u{ui}", "end", iid=b["path"], text=b.get("title_name") or b.get("title_id", ""),
+                            values=(" · ".join(x for x in (fmt_size(b.get("size", 0)), when, b.get("save_dir", "")) if x),),
+                            image=imgs[False])
+
+    ok_btn = ttk.Button(frm, text=_("Wiederherstellen"), style="Accent.TButton")
+
+    def sync():
+        ok_btn.state(["!disabled"] if checked else ["disabled"])
+
+    def toggle(iid):
+        if not iid or not tree.exists(iid):
+            return
+        kids = tree.get_children(iid)
+        if kids:   # Benutzerzeile: alle seine Sicherungen
+            on = not all(k in checked for k in kids)
+            for k in kids:
+                (checked.add if on else checked.discard)(k)
+                tree.item(k, image=imgs[on])
+        else:
+            (checked.discard if iid in checked else checked.add)(iid)
+            tree.item(iid, image=imgs[iid in checked])
+        sync()
+
+    if backups:
+        def click(e):
+            if tree.identify_region(e.x, e.y) in ("tree", "cell"):
+                toggle(tree.identify_row(e.y))
+            return "break"
+
+        tree.bind("<Button-1>", click)
+        tree.bind("<space>", lambda e: toggle(tree.focus()))
+
+    def done(v):
+        result["v"] = v
+        win.destroy()
+
+    btns = ttk.Frame(frm)
+    btns.pack(fill="x", pady=(16, 0))
+    ttk.Button(btns, text=_("Datei vom PC wählen …"), command=lambda: done(("file", None))).pack(side="left")
+    ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(None)).pack(side="right")
+    ok_btn.configure(command=lambda: done(("paths", [b["path"] for ub in users.values() for b in ub if b["path"] in checked])))
+    ok_btn.pack(in_=btns, side="right", padx=(0, 6))
+    sync()
+    win.bind("<Escape>", lambda e: done(None))
+    win.protocol("WM_DELETE_WINDOW", lambda: done(None))
+    win.update_idletasks()
+    top = root.winfo_toplevel()
+    x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
+    y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(pc_common._inside(win, top, x, y))
+    win.deiconify()
+    ui_theme.dark_titlebar(win)
+    pc_common.grab(win)
+    root.wait_window(win)
+    return result["v"]
 
 
 class App(tk.Tk):
@@ -672,9 +781,13 @@ class App(tk.Tk):
         sf = ttk.Frame(sc)
         sf.grid(row=3, column=0, sticky="nsew", pady=(px(6), 0))
         sf.columnconfigure(0, weight=1)
-        sf.rowconfigure(0, weight=1)
+        sf.rowconfigure(1, weight=1)
+        self.saves_all_var = tk.BooleanVar(value=False)
+        self.saves_all_chk = ttk.Checkbutton(sf, text=_("Alle auswählen"), variable=self.saves_all_var,
+                                             command=self._saves_all_toggle)
+        self.saves_all_chk.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, px(4)))
         self.saves_tree = ttk.Treeview(sf, columns=("user", "size"), show="tree headings", height=6,
-                                       selectmode="browse", style="Games.Treeview")
+                                       selectmode="none", style="Games.Treeview")
         self.saves_tree.heading("#0", text=_("Spiel"), anchor="w")
         self.saves_tree.heading("user", text=_("Benutzer"), anchor="w")
         self.saves_tree.heading("size", text=_("Größe"), anchor="w")
@@ -682,16 +795,18 @@ class App(tk.Tk):
         self.saves_tree.column("user", width=px(100), minwidth=70, anchor="w", stretch=False)
         self.saves_tree.column("size", width=px(80), minwidth=60, anchor="w", stretch=False)
         self.saves_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
-        self.saves_tree.grid(row=0, column=0, sticky="nsew")
+        self.saves_tree.grid(row=1, column=0, sticky="nsew")
         ssb = ttk.Scrollbar(sf, orient="vertical", command=self.saves_tree.yview)
-        ssb.grid(row=0, column=1, sticky="ns", padx=(px(4), 0))
+        ssb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
         self.saves_tree.configure(yscrollcommand=ssb.set)
-        self.saves_tree.bind("<<TreeviewSelect>>", lambda e: self._update())
+        self.saves_tree.bind("<Button-1>", self._save_click)
+        self.saves_tree.bind("<space>", lambda e: self._save_toggle(self.saves_tree.focus()))
+        self.saves_checked = set()
         self.saves_hint = ttk.Label(sc, style="Hint.TLabel", wraplength=px(440), justify="left")
         self.saves_hint.grid(row=4, column=0, sticky="w", pady=(px(4), 0))
         sa = ttk.Frame(sc)
         sa.grid(row=5, column=0, sticky="e", pady=(px(8), 0))
-        self.saves_down_btn = ttk.Button(sa, text=_("Sichern"), command=self._saves_download,
+        self.saves_down_btn = ttk.Button(sa, text=_("Sichern …"), command=self._saves_download,
                                          style="Accent.TButton")
         self.saves_down_btn.pack(side="left")
         self.saves_rest_btn = ttk.Button(sa, text=_("Wiederherstellen …"), command=self._saves_restore)
@@ -987,69 +1102,168 @@ class App(tk.Tk):
         i = self.saves_user_cb.current()
         uid_filter = self._saves_users[i - 1]["uid"] if 0 < i <= len(self._saves_users) else ""
         tree = self.saves_tree
-        sel = tree.selection()
-        keep = sel[0] if sel else None
         tree.delete(*tree.get_children())
+        self.saves_checked &= {x["key"] for x in self._saves_data}   # nicht mehr vorhandene sind nicht mehr angehakt
         shown = [x for x in self._saves_data if not uid_filter or x.get("uid") == uid_filter]
         for n, x in enumerate(shown):
             tree.insert("", "end", iid=x["key"], text=x.get("title_name") or x.get("title_id", ""),
                         values=(x.get("username") or x.get("uid", ""), fmt_size(x["size"]) if x.get("size") else ""),
-                        tags=("odd",) if n % 2 else ())
-        if keep and tree.exists(keep):
-            tree.selection_set(keep)
+                        image=self.check_imgs[x["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
         self.saves_hint.configure(text="" if shown else _("Keine Spielstände gefunden."))
+        self._saves_sum()
         self._update()
 
-    def _saves_selected(self):
-        sel = self.saves_tree.selection()
-        return next((x for x in self._saves_data if x["key"] == sel[0]), None) if sel else None
+    def _saves_shown(self):
+        return list(self.saves_tree.get_children())
+
+    def _saves_sum(self):
+        shown = self._saves_shown()
+        self.saves_all_var.set(bool(shown) and all(k in self.saves_checked for k in shown))
+        n = len(self.saves_checked)
+        self.saves_all_chk.configure(text=_("{n} ausgewählt", n=n) if n else _("Alle auswählen"))
+
+    def _save_click(self, e):
+        if self.saves_tree.identify_region(e.x, e.y) in ("tree", "cell"):
+            self._save_toggle(self.saves_tree.identify_row(e.y))
+        return "break"
+
+    def _save_toggle(self, iid):
+        if not iid or not self.saves_tree.exists(iid) or self.busy:
+            return
+        self.saves_tree.focus(iid)
+        if iid in self.saves_checked:
+            self.saves_checked.discard(iid)
+        else:
+            self.saves_checked.add(iid)
+        self.saves_tree.item(iid, image=self.check_imgs[iid in self.saves_checked])
+        self._saves_sum()
+        self._update()
+
+    def _saves_all_toggle(self):
+        if self.busy:
+            self.saves_all_var.set(not self.saves_all_var.get())
+            return
+        on = self.saves_all_var.get()
+        for k in self._saves_shown():
+            (self.saves_checked.add if on else self.saves_checked.discard)(k)
+            self.saves_tree.item(k, image=self.check_imgs[k in self.saves_checked])
+        self._saves_sum()
+        self._update()
+
+    def _saves_picked(self):
+        return [x for x in self._saves_data if x["key"] in self.saves_checked]
+
+    @staticmethod
+    def _saves_loc_text(loc):
+        if not loc.get("device"):
+            where = _("intern auf der PS5")
+        else:
+            where = loc["device"] + (" " + quote(loc["label"]) if loc.get("label") else "")
+        free = " · " + _("{size} frei", size=fmt_size(loc["free"])) if loc.get("free") is not None else ""
+        return f"{where} · {loc['dir']}{free}"
 
     def _saves_download(self):
-        """Spielstand als ZIP auf den PC laden"""
-        save = self._saves_selected()
-        if self.busy or not save or not self.api:
-            return
-        path = filedialog.asksaveasfilename(
-            parent=self, title=_("Spielstand sichern"), defaultextension=".zip",
-            filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
-            initialdir=self.settings.get("image_dir") or os.path.expanduser("~"),
-            initialfile=f"{save['title_id']}_{save['save_dir']}.zip")
-        if not path:
+        """Markierte Spielstände sichern: auf den PC (ZIP) oder auf die PS5 (intern / USB, Ordner game_saves)"""
+        picked = self._saves_picked()
+        if self.busy or not picked or not self.api:
             return
         api = self.api
+        try:
+            locs = api.saves_locations()
+        except (ConnectionError, ApiError) as e:
+            messagebox.showerror(_("Spielstände sichern"), str(e), parent=self)
+            return
+        total = fmt_size(sum(x.get("size", 0) for x in picked))
+        pick = ask_choice(self, _("Spielstände sichern"),
+                          _("Zu sichern: {n} ({size}). Die Spielstände bleiben unverändert und verschlüsselt.",
+                            n=len(picked), size=total),
+                          [_("Auf diesen PC (ZIP-Datei speichern …)")] + [self._saves_loc_text(l) for l in locs],
+                          _("Sichern"))
+        if pick is None:
+            return
+        keys = [x["key"] for x in picked]
+        if pick > 0:
+            dest = locs[pick - 1]["dir"]
+
+            def done(ok, msg, result):
+                (messagebox.showinfo if ok else messagebox.showerror)(_("Spielstände sichern"), msg, parent=self)
+                self._load_saves()
+
+            def work():
+                try:
+                    api.backup_saves(keys, dest)
+                except (ConnectionError, ApiError) as e:
+                    self.q.put(("error", _("Sichern konnte nicht gestartet werden: {e}", e=e)))
+                    return
+                self._follow(api, foreign=False, done_title=_("Spielstände gesichert."), after=done)
+
+            self.pbar["value"] = 0
+            self._run(work)
+            return
+        name = f"{picked[0]['title_id']}_{picked[0]['save_dir']}.zip" if len(picked) == 1 else "Spielstaende.zip"
+        path = filedialog.asksaveasfilename(
+            parent=self, title=_("Spielstände sichern"), defaultextension=".zip",
+            filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
+            initialdir=self.settings.get("image_dir") or os.path.expanduser("~"), initialfile=name)
+        if not path:
+            return
         self.status_var.set(_("Spielstand wird geladen …"))
 
-        def work():
+        def work_pc():
             try:
-                n = api.download_save(save["key"], path)
-                self.q.put(("saves_msg", True, _("Spielstand gesichert.") + " " + fmt_size(n)))
+                n = api.download_save(keys, path)
+                self.q.put(("saves_msg", True, _("Spielstände gesichert.") + " " + fmt_size(n)))
             except (ConnectionError, ApiError, OSError) as e:
                 self.q.put(("saves_msg", False, str(e) or type(e).__name__))
 
-        self._run(work)
+        self._run(work_pc)
 
     def _saves_restore(self):
-        """Spielstand aus einer ZIP-Sicherung zurückschreiben (die ZIP wird auf die PS5 hochgeladen)"""
+        """Wiederherstellen: gefundene Sicherungen auf der PS5 zum Markieren, oder eine ZIP-Datei vom PC"""
         if self.busy or not self.api:
             return
-        path = filedialog.askopenfilename(
-            parent=self, title=_("Spielstand wiederherstellen"),
-            filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
-            initialdir=self.settings.get("image_dir") or os.path.expanduser("~"))
-        if not path:
+        api = self.api
+        try:
+            backups = api.saves_backups()
+        except (ConnectionError, ApiError) as e:
+            messagebox.showerror(_("Spielstand wiederherstellen"), str(e), parent=self)
             return
+        res = ask_backups(self, backups)
+        if not res:
+            return
+        kind, paths = res
+        path = None
+        if kind == "file":
+            path = filedialog.askopenfilename(
+                parent=self, title=_("Spielstand wiederherstellen"),
+                filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
+                initialdir=self.settings.get("image_dir") or os.path.expanduser("~"))
+            if not path:
+                return
         if not messagebox.askokcancel(
                 _("Spielstand wiederherstellen"),
                 _("Ein vorhandener Spielstand mit gleichem Namen wird ersetzt. Das lässt sich nicht rückgängig machen.")
                 + "\n\n" + _("Laufende Spiele vorher beenden."),
                 icon="warning", default="cancel", parent=self):
             return
-        api = self.api
         state = {}
 
         def done(ok, msg, result):
             (messagebox.showinfo if ok else messagebox.showerror)(_("Spielstand wiederherstellen"), msg, parent=self)
             self._load_saves()
+
+        if kind == "paths":
+            def work_ps5():
+                try:
+                    api.restore_saves(paths)
+                except (ConnectionError, ApiError) as e:
+                    self.q.put(("error", _("Wiederherstellen konnte nicht gestartet werden: {e}", e=e)))
+                    return
+                self._follow(api, foreign=False, done_title=_("Spielstand wiederhergestellt."), after=done)
+
+            self.pbar["value"] = 0
+            self._run(work_ps5)
+            return
 
         def upload():
             try:
@@ -1196,8 +1410,9 @@ class App(tk.Tk):
         for w in (self.img_verify_btn, self.img_del_btn):
             enable(w, idle and not pc and self.api and has_img)
         enable(self.img_reload_btn, idle and self.api)
-        has_save = bool(self.saves_tree.selection())
+        has_save = bool(self.saves_checked)
         enable(self.saves_down_btn, idle and not pc and self.api and has_save)
+        enable(self.saves_all_chk, idle and not pc and self.api)
         enable(self.saves_rest_btn, idle and not pc and self.api)
         enable(self.saves_reload_btn, idle and self.api)
         enable(self.uninstall_chk, idle)

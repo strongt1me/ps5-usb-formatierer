@@ -110,7 +110,7 @@ Contrôle du numéro de série : si une autre clé du même modèle est branché
 Sauvegarde un lecteur entier en <code>.img.zst</code> – seulement les zones occupées, compressées avec zstd, avec un <code>.sha256</code>. Sur la PS5 vers le stockage interne, un autre lecteur USB ou en téléchargement ; sur le PC dans n'importe quel dossier, même depuis des clés et cartes SD verrouillées en écriture. Réécriture avec vérification ensuite – aussi par envoi depuis un téléphone ou un PC. <code>zstd -d</code> en fait une image ordinaire.
 
 ### 🎮 Sauvegardes : copier et restaurer
-Affiche chaque sauvegarde PS5 avec le nom du jeu et l'utilisateur, la télécharge en ZIP sur le PC ou le téléphone (le conteneur chiffré reste inchangé) et la réécrit. Les sommes de contrôle sont vérifiées, un jeu en cours bloque les modifications. Jeux PS5 ; les sauvegardes PS4 suivront.
+Affiche les sauvegardes PS5 avec le nom du jeu et l'utilisateur, permet d'en cocher plusieurs et de les sauvegarder – en téléchargement ZIP ou sur la PS5 elle-même (interne <code>/data/game_saves</code> ou <code>game_saves</code> d'un lecteur USB). Le conteneur chiffré reste inchangé. Pour restaurer, le formateur liste les sauvegardes trouvées par utilisateur (ou on utilise un ZIP de l'appareil). Les sommes de contrôle sont vérifiées, un jeu en cours bloque les modifications. Jeux PS5 ; les sauvegardes PS4 suivront.
 
 </td>
 </tr>

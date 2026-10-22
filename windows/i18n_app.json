@@ -2657,12 +2657,6 @@
   "es": "Todos los usuarios",
   "fr": "Tous les utilisateurs"
  },
- "Spielstand gesichert.": {
-  "en": "Save game backed up.",
-  "it": "Salvataggio completato.",
-  "es": "Partida copiada.",
-  "fr": "Sauvegarde effectuée."
- },
  "Spielstand wiederhergestellt.": {
   "en": "Save game restored.",
   "it": "Salvataggio ripristinato.",
@@ -2680,12 +2674,6 @@
   "it": "Backup ZIP",
   "es": "Copia ZIP",
   "fr": "Sauvegarde ZIP"
- },
- "Spielstand sichern": {
-  "en": "Back up save game",
-  "it": "Esegui backup del salvataggio",
-  "es": "Copiar partida",
-  "fr": "Sauvegarder la sauvegarde"
  },
  "Ein vorhandener Spielstand mit gleichem Namen wird ersetzt. Das lässt sich nicht rückgängig machen.": {
   "en": "An existing save game with the same name will be replaced. This cannot be undone.",
@@ -2716,5 +2704,59 @@
   "it": "Backup e ripristino dei salvataggi PS5.",
   "es": "Copiar y restaurar partidas guardadas de PS5.",
   "fr": "Sauvegarder et restaurer les sauvegardes PS5."
+ },
+ "{n} ausgewählt": {
+  "en": "{n} selected",
+  "it": "{n} selezionati",
+  "es": "{n} seleccionados",
+  "fr": "{n} sélectionnés"
+ },
+ "Spielstände sichern": {
+  "en": "Back up save games",
+  "it": "Backup dei salvataggi",
+  "es": "Copiar partidas guardadas",
+  "fr": "Sauvegarder les sauvegardes"
+ },
+ "Zu sichern: {n} ({size}). Die Spielstände bleiben unverändert und verschlüsselt.": {
+  "en": "To back up: {n} ({size}). The save games stay unchanged and encrypted.",
+  "it": "Da salvare: {n} ({size}). I salvataggi restano invariati e cifrati.",
+  "es": "A copiar: {n} ({size}). Las partidas siguen sin cambios y cifradas.",
+  "fr": "À sauvegarder : {n} ({size}). Les sauvegardes restent inchangées et chiffrées."
+ },
+ "Auf diesen PC (ZIP-Datei speichern …)": {
+  "en": "To this PC (save ZIP file …)",
+  "it": "Su questo PC (salva file ZIP …)",
+  "es": "En este PC (guardar archivo ZIP …)",
+  "fr": "Sur ce PC (enregistrer un fichier ZIP …)"
+ },
+ "Spielstände gesichert.": {
+  "en": "Save games backed up.",
+  "it": "Salvataggi salvati.",
+  "es": "Partidas copiadas.",
+  "fr": "Sauvegardes enregistrées."
+ },
+ "Gefundene Sicherungen auf der PS5 – markieren, was zurückgeschrieben werden soll. Ein vorhandener Spielstand mit gleichem Namen wird ersetzt.": {
+  "en": "Backups found on the PS5 – tick what should be written back. An existing save game with the same name will be replaced.",
+  "it": "Backup trovati sulla PS5 – seleziona cosa riscrivere. Un salvataggio esistente con lo stesso nome verrà sostituito.",
+  "es": "Copias encontradas en la PS5 – marca lo que se debe volver a escribir. Se sustituirá una partida existente con el mismo nombre.",
+  "fr": "Sauvegardes trouvées sur la PS5 – cochez ce qui doit être réécrit. Une sauvegarde existante du même nom sera remplacée."
+ },
+ "Keine Sicherungen auf der PS5 gefunden.": {
+  "en": "No backups found on the PS5.",
+  "it": "Nessun backup trovato sulla PS5.",
+  "es": "No se encontraron copias en la PS5.",
+  "fr": "Aucune sauvegarde trouvée sur la PS5."
+ },
+ "Datei vom PC wählen …": {
+  "en": "Choose file from PC …",
+  "it": "Scegli file dal PC …",
+  "es": "Elegir archivo del PC …",
+  "fr": "Choisir un fichier du PC …"
+ },
+ "Alle auswählen": {
+  "en": "Select all",
+  "it": "Seleziona tutto",
+  "es": "Seleccionar todo",
+  "fr": "Tout sélectionner"
  }
 }

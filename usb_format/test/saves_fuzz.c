@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
         fwrite(m, 1, (size_t)len, f);
         fclose(f);
         char err[300] = "";
-        if (saves_restore_file(path, err, sizeof(err)) == 0) ok++;
+        if (saves_restore_file(path, NULL, err, sizeof(err)) == 0) ok++;
         else rej++;
     }
     long n1 = 0;

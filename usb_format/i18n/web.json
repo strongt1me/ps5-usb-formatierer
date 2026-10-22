@@ -1714,5 +1714,77 @@
   "it": "Salvataggio ripristinato",
   "es": "Partida restaurada",
   "fr": "Sauvegarde restaurée"
+ },
+ "Spielstände gesichert": {
+  "en": "Save games backed up",
+  "it": "Salvataggi salvati",
+  "es": "Partidas copiadas",
+  "fr": "Sauvegardes enregistrées"
+ },
+ "Spielstände sichern": {
+  "en": "Back up save games",
+  "it": "Backup dei salvataggi",
+  "es": "Copiar partidas guardadas",
+  "fr": "Sauvegarder les sauvegardes"
+ },
+ "Alle auswählen": {
+  "en": "Select all",
+  "it": "Seleziona tutto",
+  "es": "Seleccionar todo",
+  "fr": "Tout sélectionner"
+ },
+ "intern auf der PS5": {
+  "en": "internal on the PS5",
+  "it": "interno sulla PS5",
+  "es": "interno en la PS5",
+  "fr": "interne sur la PS5"
+ },
+ "Der Download beginnt im Browser – die Datei ist groß, das dauert.": {
+  "en": "The download starts in the browser – the file is large, this takes a while.",
+  "it": "Il download inizia nel browser – il file è grande, ci vorrà un po'.",
+  "es": "La descarga empieza en el navegador – el archivo es grande, tardará.",
+  "fr": "Le téléchargement démarre dans le navigateur – le fichier est volumineux, cela prend du temps."
+ },
+ "Speichern nach": {
+  "en": "Save to",
+  "it": "Salva in",
+  "es": "Guardar en",
+  "fr": "Enregistrer dans"
+ },
+ "In den Browser laden (Download)": {
+  "en": "Download to this browser",
+  "it": "Scarica in questo browser",
+  "es": "Descargar en este navegador",
+  "fr": "Télécharger dans ce navigateur"
+ },
+ "Keine Sicherungen gefunden in: {dirs}": {
+  "en": "No backups found in: {dirs}",
+  "it": "Nessun backup trovato in: {dirs}",
+  "es": "No se encontraron copias en: {dirs}",
+  "fr": "Aucune sauvegarde trouvée dans : {dirs}"
+ },
+ "Gefundene Sicherungen auf der PS5 – markieren, was zurückgeschrieben werden soll. Ein vorhandener Spielstand mit gleichem Namen wird ersetzt.": {
+  "en": "Backups found on the PS5 – tick what should be written back. An existing save game with the same name will be replaced.",
+  "it": "Backup trovati sulla PS5 – seleziona cosa riscrivere. Un salvataggio esistente con lo stesso nome verrà sostituito.",
+  "es": "Copias encontradas en la PS5 – marca lo que se debe volver a escribir. Se sustituirá una partida existente con el mismo nombre.",
+  "fr": "Sauvegardes trouvées sur la PS5 – cochez ce qui doit être réécrit. Une sauvegarde existante du même nom sera remplacée."
+ },
+ "Sichern …": {
+  "en": "Back up …",
+  "it": "Backup …",
+  "es": "Copiar …",
+  "fr": "Sauvegarder …"
+ },
+ "Zu sichern: {n} ({size}). Die Spielstände bleiben unverändert und verschlüsselt.": {
+  "en": "To back up: {n} ({size}). The save games stay unchanged and encrypted.",
+  "it": "Da salvare: {n} ({size}). I salvataggi restano invariati e cifrati.",
+  "es": "A copiar: {n} ({size}). Las partidas siguen sin cambios y cifradas.",
+  "fr": "À sauvegarder : {n} ({size}). Les sauvegardes restent inchangées et chiffrées."
+ },
+ "Spielstände geladen: {n}.": {
+  "en": "Save games downloaded: {n}.",
+  "it": "Salvataggi scaricati: {n}.",
+  "es": "Partidas descargadas: {n}.",
+  "fr": "Sauvegardes téléchargées : {n}."
  }
 }

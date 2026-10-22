@@ -2398,5 +2398,95 @@
   "it": "Il checksum del salvataggio non corrisponde – il file ZIP è danneggiato",
   "es": "La suma de comprobación de la partida no coincide – el archivo ZIP está dañado",
   "fr": "La somme de contrôle de la sauvegarde ne correspond pas – le fichier ZIP est endommagé"
+ },
+ "Spielstände werden gesichert …": {
+  "en": "Backing up save games …",
+  "it": "Backup dei salvataggi in corso …",
+  "es": "Copiando partidas guardadas …",
+  "fr": "Sauvegarde des sauvegardes …"
+ },
+ "Sichern fehlgeschlagen": {
+  "en": "Backup failed",
+  "it": "Backup non riuscito",
+  "es": "Error al copiar",
+  "fr": "Échec de la sauvegarde"
+ },
+ "Spielstände werden zurückgeschrieben …": {
+  "en": "Writing save games back …",
+  "it": "Scrittura dei salvataggi …",
+  "es": "Escribiendo las partidas …",
+  "fr": "Écriture des sauvegardes …"
+ },
+ "%d von %d Spielständen gesichert, dann Fehler: ": {
+  "en": "%d of %d save games backed up, then an error: ",
+  "it": "%d salvataggi su %d salvati, poi errore: ",
+  "es": "%d de %d partidas copiadas, luego un error: ",
+  "fr": "%d sauvegardes sur %d enregistrées, puis une erreur : "
+ },
+ "keys und dest erforderlich": {
+  "en": "keys and dest required",
+  "it": "keys e dest obbligatori",
+  "es": "Se requieren keys y dest",
+  "fr": "keys et dest requis"
+ },
+ "paths erforderlich": {
+  "en": "paths required",
+  "it": "paths obbligatorio",
+  "es": "Se requiere paths",
+  "fr": "paths requis"
+ },
+ "Ungültige Sicherung": {
+  "en": "Invalid backup",
+  "it": "Backup non valido",
+  "es": "Copia no válida",
+  "fr": "Sauvegarde invalide"
+ },
+ "Kein Spielstand ausgewählt": {
+  "en": "No save game selected",
+  "it": "Nessun salvataggio selezionato",
+  "es": "Ninguna partida seleccionada",
+  "fr": "Aucune sauvegarde sélectionnée"
+ },
+ "Zusammen zu groß für eine ZIP-Datei (höchstens 3,7 GB) – weniger Spielstände wählen": {
+  "en": "Too large together for one ZIP file (max 3.7 GB) – select fewer save games",
+  "it": "Troppo grandi insieme per un file ZIP (max 3,7 GB) – seleziona meno salvataggi",
+  "es": "Demasiado grandes juntas para un archivo ZIP (máx. 3,7 GB) – elige menos partidas",
+  "fr": "Trop volumineuses ensemble pour un fichier ZIP (max 3,7 Go) – choisissez moins de sauvegardes"
+ },
+ "Schreibfehler: Datenträger voll oder nicht beschreibbar": {
+  "en": "Write error: drive full or not writable",
+  "it": "Errore di scrittura: unità piena o non scrivibile",
+  "es": "Error de escritura: unidad llena o de solo lectura",
+  "fr": "Erreur d'écriture : support plein ou protégé en écriture"
+ },
+ "Zu viele Spielstände in einer ZIP-Datei (höchstens 64)": {
+  "en": "Too many save games in one ZIP file (max 64)",
+  "it": "Troppi salvataggi in un file ZIP (max 64)",
+  "es": "Demasiadas partidas en un archivo ZIP (máx. 64)",
+  "fr": "Trop de sauvegardes dans un fichier ZIP (max 64)"
+ },
+ "%d von %d Spielständen wiederhergestellt, dann Fehler: %s": {
+  "en": "%d of %d save games restored, then an error: %s",
+  "it": "%d salvataggi su %d ripristinati, poi errore: %s",
+  "es": "%d de %d partidas restauradas, luego un error: %s",
+  "fr": "%d sauvegardes sur %d restaurées, puis une erreur : %s"
+ },
+ "Spielstände gesichert: %d (nach: %s)": {
+  "en": "Save games backed up: %d (to: %s)",
+  "it": "Salvataggi salvati: %d (in: %s)",
+  "es": "Partidas copiadas: %d (en: %s)",
+  "fr": "Sauvegardes enregistrées : %d (dans : %s)"
+ },
+ "Spielstände wiederhergestellt: %d.": {
+  "en": "Save games restored: %d.",
+  "it": "Salvataggi ripristinati: %d.",
+  "es": "Partidas restauradas: %d.",
+  "fr": "Sauvegardes restaurées : %d."
+ },
+ "Spielstände wiederhergestellt: %d, dann Fehler: ": {
+  "en": "Save games restored: %d, then an error: ",
+  "it": "Salvataggi ripristinati: %d, poi errore: ",
+  "es": "Partidas restauradas: %d, luego un error: ",
+  "fr": "Sauvegardes restaurées : %d, puis une erreur : "
  }
 }
