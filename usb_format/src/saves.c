@@ -374,6 +374,12 @@ int saves_scan(save_info_t **out, int *count) {
                 scpy(s->username, sizeof(s->username), username);
                 snprintf(s->key, sizeof(s->key), "%s/%s/%s", s->uid, s->title_id, s->save_dir);
                 s->size = (uint64_t)st.st_size;
+                scpy(s->platform, sizeof(s->platform), "PS5");
+                {   /* Byte 0 des Containers: 1 = PS4-Format, 2 = PS5 (garlic-savemgr) */
+                    int pfd = open(fpath, O_RDONLY);
+                    uint8_t b0 = 0;
+                    if (pfd >= 0) { if (pread(pfd, &b0, 1, 0) == 1 && b0 == 0x01) scpy(s->platform, sizeof(s->platform), "PS4"); close(pfd); }
+                }
                 if (strcmp(last_tid, s->title_id) != 0) {
                     title_name_of(home, s->title_id, last_name, sizeof(last_name));
                     scpy(last_tid, sizeof(last_tid), s->title_id);
@@ -552,9 +558,9 @@ static int zs_save(zs_t *z, const save_info_t *s, const char *prefix, char *err,
     json_put(user, sizeof(user), s->username);
     json_put(tname, sizeof(tname), s->title_name);
     int ml = snprintf(meta, sizeof(meta),
-                      "{\"format\":1,\"title_id\":\"%s\",\"title_name\":\"%s\",\"save_dir\":\"%s\",\"uid\":\"%s\","
+                      "{\"format\":1,\"platform\":\"%s\",\"title_id\":\"%s\",\"title_name\":\"%s\",\"save_dir\":\"%s\",\"uid\":\"%s\","
                       "\"username\":\"%s\",\"size\":%u,\"timestamp\":%lld}",
-                      tid, tname, sdir, uid, user, imgsz, (long long)time(NULL));
+                      s->platform[0] ? s->platform : "PS5", tid, tname, sdir, uid, user, imgsz, (long long)time(NULL));
     if (ml <= 0 || ml >= (int)sizeof(meta) ||
         path_fmt(mname, sizeof(mname), "%smetadata.json", prefix) ||
         path_fmt(iname, sizeof(iname), "%s%s_%s.img", prefix, s->title_id, s->save_dir)) {
@@ -577,7 +583,11 @@ static int zs_save(zs_t *z, const save_info_t *s, const char *prefix, char *err,
         crc = crc32_update(crc, buf, want);
         zs_data(z, buf, want);
         pos += want;
-        if (z->prog) z->prog(z->pctx, pos, imgsz);
+        if (z->prog && z->prog(z->pctx, pos, imgsz)) {   /* abgebrochen: nichts davon bleibt liegen (Aufrufer löscht die .tmp) */
+            snprintf(err, errsz, "%s", T("Abgebrochen."));
+            rc = -1;
+            goto done;
+        }
     }
     z->cd[idx].crc = crc;
     uint8_t dd[16];
@@ -916,7 +926,11 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
     for (uint64_t pos = 0; pos < r->img->size && !bad;) {
         size_t want = r->img->size - pos < CHUNK ? (size_t)(r->img->size - pos) : CHUNK;
         if (pread_full(zfd, buf, want, (off_t)(r->img->data + pos)) || write_full(dfd, buf, want)) bad = 1;
-        else { crc = crc32_update(crc, buf, want); pos += want; if (prog) prog(pctx, base + pos, total); }
+        else {
+            crc = crc32_update(crc, buf, want);
+            pos += want;
+            if (prog && prog(pctx, base + pos, total)) { snprintf(err, errsz, "%s", T("Abgebrochen.")); goto done; }
+        }
     }
     if (bad) {
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
@@ -1059,6 +1073,8 @@ int saves_list_backups(const char *root, save_backup_t **out, int *count) {
                     saves_name_ok(b->save_dir, sizeof(b->save_dir)) && saves_name_ok(b->uid, sizeof(b->uid)) &&
                     !path_fmt(b->path, sizeof(b->path), "%s", fp)) {
                     meta_get(meta, "username", b->username, sizeof(b->username));
+                    if (meta_get(meta, "platform", b->platform, sizeof(b->platform)) || !b->platform[0])
+                        scpy(b->platform, sizeof(b->platform), "PS5");
                     if (meta_get(meta, "title_name", b->title_name, sizeof(b->title_name)) || !b->title_name[0])
                         scpy(b->title_name, sizeof(b->title_name), b->title_id);
                     b->size = (uint64_t)st.st_size;

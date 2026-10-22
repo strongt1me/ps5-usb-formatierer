@@ -19,6 +19,7 @@ typedef struct {
     char     title_name[256]; /* Spielname (param.sfo des Spiels); sonst die Titel-ID */
     char     uid[16];
     char     username[64];
+    char     platform[8];   /* "PS5" (savedata_prospero); "PS4" bei einem Container im PS4-Format */
     uint64_t size;
 } save_info_t;
 
@@ -35,7 +36,7 @@ int  saves_scan(save_info_t **out, int *count);
 int  saves_find(const char *key, save_info_t *out);
 
 /* Fortschritt: done von total Byte des Spielstands (bei einer ZIP mit mehreren: der ganzen ZIP) sind geschrieben */
-typedef void (*saves_prog_fn)(void *ctx, uint64_t done, uint64_t total);
+typedef int (*saves_prog_fn)(void *ctx, uint64_t done, uint64_t total);   /* Rückgabe != 0: abbrechen */
 
 /* ZIP (chunked HTTP) mit den Spielständen list[0..n-1] an den Socket streamen. Ein Spielstand: metadata.json und der
  * Container im Wurzelordner der ZIP; mehrere: je Spielstand der Ordner "<uid>_<Titel>_<Name>/". Der verschlüsselte
@@ -56,7 +57,7 @@ int  saves_restore_file(const char *zip_path, int *count, saves_prog_fn prog, vo
 /* Sicherungen unter <root>/<Ordner>/<Datei>.zip auflisten (nur gültige: metadata.json vorhanden) */
 typedef struct {
     char     path[600];
-    char     uid[16], username[64], title_id[32], title_name[256], save_dir[256];
+    char     uid[16], username[64], title_id[32], title_name[256], save_dir[256], platform[8];
     uint64_t size;
     time_t   mtime;
 } save_backup_t;

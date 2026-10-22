@@ -2264,6 +2264,14 @@ function renderSavesUsers() {
   savesFilter = sel.value;
 }
 
+/* Kennzeichen der Konsole (PS5, PS4) hinter dem Spielnamen */
+function platformTag(p) {
+  const t = el("span", "tag", "");
+  t.textContent = p || "PS5";
+  if (t.textContent !== "PS5") t.style.cssText = "color:var(--muted);border-color:var(--muted)";
+  return t;
+}
+
 function savesVisible() { return savesFilter ? savesList.filter(s => s.uid === savesFilter) : savesList; }
 
 function updateSavesButtons() {
@@ -2290,6 +2298,7 @@ function renderSavesList() {
     cb.addEventListener("change", () => { cb.checked ? savesChecked.add(s.key) : savesChecked.delete(s.key); updateSavesButtons(); });
     const txt = el("div", "", "");
     txt.textContent = s.title_name || s.title_id;
+    txt.appendChild(platformTag(s.platform));
     const sub = el("small", "", "");
     sub.textContent = [s.title_name && s.title_name !== s.title_id ? s.title_id : "", s.username || s.uid, s.size ? fmtSize(s.size) : "", s.save_dir].filter(Boolean).join(" · ");
     txt.appendChild(sub);
@@ -2435,6 +2444,7 @@ $("bsaverestore").addEventListener("click", async () => {
     checks.push({ cb, path: b.path });
     const t = el("div", "", "");
     t.textContent = b.title_name || b.title_id;
+    t.appendChild(platformTag(b.platform));
     const sub = el("small", "", "");
     sub.textContent = [b.title_name !== b.title_id ? b.title_id : "", fmtSize(b.size), new Date((b.time || 0) * 1000).toLocaleString(LOCALE[LANG], { dateStyle: "short", timeStyle: "short" }), b.save_dir].filter(Boolean).join(" · ");
     t.appendChild(sub);

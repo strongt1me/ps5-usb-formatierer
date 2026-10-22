@@ -2830,6 +2830,8 @@ static void api_saves(int c) {
         sb_str(&b, saves[i].uid);
         sb_add(&b, ",\"username\":");
         sb_str(&b, saves[i].username);
+        sb_add(&b, ",\"platform\":");
+        sb_str(&b, saves[i].platform);
         sb_add(&b, ",\"size\":%llu}", (unsigned long long)saves[i].size);
     }
     sb_add(&b, "]}");
@@ -2978,6 +2980,8 @@ static void api_saves_backups(int c) {
             sb_str(&b, bk[k].title_name);
             sb_add(&b, ",\"save_dir\":");
             sb_str(&b, bk[k].save_dir);
+            sb_add(&b, ",\"platform\":");
+            sb_str(&b, bk[k].platform);
             sb_add(&b, ",\"size\":%llu,\"time\":%lld}", (unsigned long long)bk[k].size, (long long)bk[k].mtime);
         }
         free(bk);
@@ -3001,18 +3005,20 @@ typedef struct {
     struct timespec t;
 } sprog_t;
 
-static void sprog_cb(void *ctx, uint64_t done, uint64_t total_file) {
+static int sprog_cb(void *ctx, uint64_t done, uint64_t total_file) {
     sprog_t *p = ctx;
     (void)total_file;
+    if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) return 1;
     int pct = p->total ? (int)((p->base + done) * 100 / p->total) : 0;
     if (pct < 1) pct = 1;
     if (pct > 99) pct = 99;
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    if (pct == p->last && (now.tv_sec - p->t.tv_sec) < 1) return;
+    if (pct == p->last && (now.tv_sec - p->t.tv_sec) < 1) return 0;
     p->last = pct;
     p->t = now;
     on_progress(p->step, pct);
+    return 0;
 }
 
 static void sprog_step(sprog_t *p, int idx, const char *what, const char *name) {
@@ -3038,6 +3044,7 @@ static void *save_backup_worker(void *arg) {
         goto fin;
     }
     sp.n = np;
+    set_flags(1, 0);   /* "Abbrechen" zeigen */
     for (int i = 0; i < np; i++)   /* Gesamtgröße für den Fortschritt */
         for (int k = 0; k < na; k++)
             if (!strcmp(all[k].key, part[i])) sp.total += all[k].size;
@@ -3050,6 +3057,10 @@ static void *save_backup_worker(void *arg) {
         snprintf(shown, sizeof(shown), "%s (%s)", all[hit].title_name, all[hit].username[0] ? all[hit].username : all[hit].uid);
         sprog_step(&sp, i, N_("Sichern"), shown);
         if (saves_backup_file(&all[hit], j->saves_dest, out, sizeof(out), sprog_cb, &sp, err, sizeof(err)) != 0) {
+            if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
+                sb_tr(&msg, "Abgebrochen – gesichert: %d von %d.", done, np);
+                goto fin;
+            }
             if (done) sb_tr(&msg, "%d von %d Spielständen gesichert, dann Fehler: ", done, np);
             sb_add(&msg, "%s", err[0] ? err : T("Sichern fehlgeschlagen"));
             goto fin;
@@ -3101,18 +3112,20 @@ out:
 
 typedef struct { int i, n; char step[300]; int last; struct timespec t; } rprog_t;
 
-static void rprog_cb(void *ctx, uint64_t done, uint64_t total) {
+static int rprog_cb(void *ctx, uint64_t done, uint64_t total) {
     rprog_t *p = ctx;
+    if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) return 1;
     int inner = total ? (int)(done * 100 / total) : 0;
     int pct = (p->i * 100 + inner) / p->n;
     if (pct < 1) pct = 1;
     if (pct > 99) pct = 99;
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    if (pct == p->last && (now.tv_sec - p->t.tv_sec) < 1) return;
+    if (pct == p->last && (now.tv_sec - p->t.tv_sec) < 1) return 0;
     p->last = pct;
     p->t = now;
     on_progress(p->step, pct);
+    return 0;
 }
 
 /* Worker: Sicherungen (Pfade in saves_list) zurückschreiben */
@@ -3125,6 +3138,7 @@ static void *save_restore_worker(void *arg) {
     rprog_t rp;
     memset(&rp, 0, sizeof(rp));
     rp.n = np > 0 ? np : 1;
+    set_flags(1, 0);
     for (int i = 0; i < np; i++) {
         int cnt = 0;
         const char *fn = strrchr(part[i], '/') ? strrchr(part[i], '/') + 1 : part[i];
@@ -3134,6 +3148,10 @@ static void *save_restore_worker(void *arg) {
         on_progress(rp.step, (i * 100) / rp.n > 0 ? (i * 100) / rp.n : 1);
         if (saves_restore_file(part[i], &cnt, rprog_cb, &rp, err, sizeof(err)) != 0) {
             total += cnt;
+            if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
+                sb_tr(&msg, "Abgebrochen – wiederhergestellt: %d.", total);
+                goto fin;
+            }
             if (total && np > 1) sb_tr(&msg, "Spielstände wiederhergestellt: %d, dann Fehler: ", total);
             sb_add(&msg, "%s", err[0] ? err : T("Wiederherstellen fehlgeschlagen"));
             goto fin;

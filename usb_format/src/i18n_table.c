@@ -49,6 +49,8 @@ const i18n_entry_t i18n_table[] = {
     {{"Abgebrochen – ShadowMountPlus meldet die Kachel beim nächsten Suchlauf selbst wieder an.", "Cancelled – ShadowMountPlus will re-register the tile on the next scan.", "Annullato – ShadowMountPlus registrerà di nuovo il riquadro alla prossima scansione.", "Cancelado – ShadowMountPlus volverá a registrar el mosaico en el siguiente análisis.", "Annulé – ShadowMountPlus réenregistrera la tuile lors du prochain scan."}},
     {{"Abgebrochen – der Datenträger ist nur teilweise beschrieben.", "Cancelled – the drive has only been partially written.", "Annullato – l'unità è stata scritta solo in parte.", "Cancelado – la unidad solo se ha escrito parcialmente.", "Annulé – le lecteur n'a été écrit que partiellement."}},
     {{"Abgebrochen – der Datenträger wurde nicht verändert.", "Cancelled – the drive was not changed.", "Annullato – l'unità non è stata modificata.", "Cancelado – la unidad no se ha modificado.", "Annulé – le lecteur n'a pas été modifié."}},
+    {{"Abgebrochen – gesichert: %d von %d.", "Cancelled – backed up: %d of %d.", "Annullato – salvati: %d di %d.", "Cancelado – copiadas: %d de %d.", "Annulé – enregistrées : %d sur %d."}},
+    {{"Abgebrochen – wiederhergestellt: %d.", "Cancelled – restored: %d.", "Annullato – ripristinati: %d.", "Cancelado – restauradas: %d.", "Annulé – restaurées : %d."}},
     {{"Abgebrochen.", "Cancelled.", "Annullato.", "Cancelado.", "Annulé."}},
     {{"Alte Partitionstabellen löschen", "Erasing old partition tables", "Cancellazione vecchie tabelle delle partizioni", "Borrando tablas de particiones antiguas", "Effacement des anciennes tables de partitions"}},
     {{"Am Ziel ist nicht mehr genug Platz frei.", "Not enough free space left at the destination.", "Spazio libero insufficiente nella destinazione.", "No queda suficiente espacio libre en el destino.", "Plus assez d'espace libre à la destination."}},
@@ -418,4 +420,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 415;
+const unsigned i18n_count = 417;

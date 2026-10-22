@@ -135,6 +135,7 @@ try:
     s1 = next(s for s in j["saves"] if s["key"] == K1)
     check("Spielname aus param.sfo des Spiels", s1["title_name"] == 'Beispiel-Spiel: Die "Rückkehr"', s1["title_name"])
     check("Benutzername und Größe", s1["username"] == "Alex" and s1["size"] == 2 << 20, str(s1))
+    check("Konsole: alle Einträge PS5", all(x["platform"] == "PS5" for x in j["saves"]), str([x["platform"] for x in j["saves"]]))
     st, j = jreq("GET", "/api/saves/users")
     users = {u["uid"]: u for u in j["users"]}
     check("3 Benutzer mit Namen", len(users) == 3 and users["2d4e9b1f"]["username"] == "Sam", str(j))
@@ -153,6 +154,7 @@ try:
     meta = json.loads(z.read("metadata.json"))
     check("Metadaten", meta["title_id"] == "PPSA01234" and meta["uid"] == "1c3f8a0e" and meta["username"] == "Alex"
           and meta["save_dir"] == "sdimg_SAVEDATA00" and meta["title_name"] == s1["title_name"] and meta["size"] == 2 << 20, str(meta))
+    check("metadata.json nennt die Konsole", meta.get("platform") == "PS5", str(meta))
     check("Container unverändert (SHA-256)", hashlib.sha256(z.read(names[1])).hexdigest() == sums[K1])
     check("Download ändert nichts", tree() == before)
     check("fehlender Schlüssel 400", req("GET", "/api/saves/download")[0] == 400)
@@ -255,10 +257,12 @@ try:
     z1 = os.path.join(dest, "Alex_1c3f8a0e", "PPSA01234_sdimg_SAVEDATA00.zip")
     check("Sicherung liegt in <Benutzer>_<uid>/<Titel>_<Name>.zip und ist eine gültige ZIP",
           os.path.exists(z1) and zipfile.ZipFile(z1).testzip() is None and zipfile.ZipFile(z1).namelist() == ["metadata.json", "PPSA01234_sdimg_SAVEDATA00.img"])
+    check("Sicherung: Konsole in metadata.json und in der Liste", json.loads(zipfile.ZipFile(z1).read("metadata.json"))["platform"] == "PS5", "")
     check("Container in der Sicherung unverändert", hashlib.sha256(zipfile.ZipFile(z1).read("PPSA01234_sdimg_SAVEDATA00.img")).hexdigest() == sums[K1])
     check("keine Zwischendateien", not [p for p in tree() if p.endswith(".tmp")] and not [f for d, _, fs in os.walk(dest) for f in fs if f.endswith(".tmp")])
     st, j = jreq("GET", "/api/saves/backups")
     bk = j.get("backups", [])
+    check("Sicherungsliste nennt die Konsole", all(b["platform"] == "PS5" for b in jreq("GET", "/api/saves/backups")[1]["backups"]), "")
     check("Sicherungen aufgelistet mit Benutzer, Spielname, Größe", len(bk) == 2 and bk[0]["username"] == "Alex" and bk[0]["title_name"] and bk[0]["size"] > 1000
           and any(b["path"] == z1 and b["title_id"] == "PPSA01234" for b in bk), str(bk)[:300])
     # Original verändern, aus der Sicherung zurückschreiben (nur ein Pfad, dann zwei)
@@ -323,6 +327,47 @@ try:
           any("save game 1 of 5" in (x[1] or "") for x in run) and any("save game 5 of 5" in (x[1] or "") for x in run) and any("Zweites Spiel" in (x[1] or "") for x in run),
           str(sorted(set(x[1] for x in run)))[:300])
     wait_job()
+
+    print("== Abbrechen ==")
+    cdest = os.path.join(W, "cancel_dest")
+    os.makedirs(cdest)
+    # die Orte kennt der Server selbst: ein eigener Ordner ist kein Ort -> der Abbruch-Test sichert nach game_saves
+    dest2 = jreq("GET", "/api/saves/locations")[1]["locations"][0]["dir"]
+    shutil.rmtree(dest2, ignore_errors=True)
+    st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": chr(10).join(all5), "dest": dest2})
+    seen_cancellable = False
+    t_end = time.time() + 20
+    while time.time() < t_end:
+        _, j = jreq("GET", "/api/status")
+        if j.get("busy") and j.get("percent", 0) >= 2:
+            seen_cancellable = bool(j.get("cancellable"))
+            break
+        time.sleep(0.02)
+    check("während der Sicherung ist Abbrechen angeboten", seen_cancellable, str(j))
+    st, _, _b = req("POST", "/api/cancel", b"{}", {"Content-Type": "application/json"})
+    res = wait_job()
+    check("Abbrechen: Auftrag endet mit Meldung 'Cancelled', cancelled=true", res and not res["ok"] and res.get("cancelled") and "Cancelled" in res["message"], str(res))
+    left = [os.path.join(d, f) for d, _, fs in os.walk(dest2) for f in fs]
+    check("Abbrechen: keine halbe Datei und keine .tmp bleibt", not [f for f in left if f.endswith(".tmp")] and all(zipfile.ZipFile(f).testzip() is None for f in left), str(left))
+    check("Abbrechen: weniger als alle fünf gesichert", len(left) < 5, str(len(left)))
+    # Wiederherstellen aus einer Sicherung abbrechen: Original bleibt unverändert
+    st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": K1, "dest": dest2})
+    wait_job()
+    bk1 = os.path.join(dest2, "Alex_1c3f8a0e", "PPSA01234_sdimg_SAVEDATA00.zip")
+    before_r = open(paths[K1], "rb").read()
+    st, j = jreq("POST", "/api/saves/restore?lang=en", {"paths": bk1})
+    t_end = time.time() + 20
+    while time.time() < t_end:
+        _, j = jreq("GET", "/api/status")
+        if j.get("busy") and j.get("percent", 0) >= 1 and j.get("kind") == "save_restore":
+            break
+        time.sleep(0.02)
+    req("POST", "/api/cancel", b"{}", {"Content-Type": "application/json"})
+    res = wait_job()
+    after_r = open(paths[K1], "rb").read()
+    check("Wiederherstellen abbrechen: entweder fertig oder 'Cancelled' mit unverändertem/ganzem Container und ohne .tmp",
+          res and (res["ok"] or "Cancelled" in res["message"]) and hashlib.sha256(after_r).hexdigest() in (hashlib.sha256(before_r).hexdigest(), sums[K1])
+          and not [p for p in tree() if p.endswith(".tmp")], str(res))
 
     # ------------------------------------------------------------------ böse und kaputte ZIPs
     print("== abgelehnte ZIPs (nichts darf sich ändern) ==")

@@ -2488,5 +2488,17 @@
   "it": "%s: backup %d di %d – %s",
   "es": "%s: copia %d de %d – %s",
   "fr": "%s : sauvegarde %d sur %d – %s"
+ },
+ "Abgebrochen – gesichert: %d von %d.": {
+  "en": "Cancelled – backed up: %d of %d.",
+  "it": "Annullato – salvati: %d di %d.",
+  "es": "Cancelado – copiadas: %d de %d.",
+  "fr": "Annulé – enregistrées : %d sur %d."
+ },
+ "Abgebrochen – wiederhergestellt: %d.": {
+  "en": "Cancelled – restored: %d.",
+  "it": "Annullato – ripristinati: %d.",
+  "es": "Cancelado – restauradas: %d.",
+  "fr": "Annulé – restaurées : %d."
  }
 }

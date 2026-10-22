@@ -369,7 +369,7 @@ def ask_backups(root, backups):
             for b in items:
                 when = time.strftime("%x %H:%M", time.localtime(b.get("time") or 0))
                 tree.insert(f"u{ui}", "end", iid=b["path"], text=b.get("title_name") or b.get("title_id", ""),
-                            values=(" · ".join(x for x in (fmt_size(b.get("size", 0)), when, b.get("save_dir", "")) if x),),
+                            values=(" · ".join(x for x in (b.get("platform") or "PS5", fmt_size(b.get("size", 0)), when, b.get("save_dir", "")) if x),),
                             image=imgs[False])
 
     ok_btn = ttk.Button(frm, text=_("Wiederherstellen"), style="Accent.TButton")
@@ -786,13 +786,15 @@ class App(tk.Tk):
         self.saves_all_chk = ttk.Checkbutton(sf, text=_("Alle auswählen"), variable=self.saves_all_var,
                                              command=self._saves_all_toggle)
         self.saves_all_chk.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, px(4)))
-        self.saves_tree = ttk.Treeview(sf, columns=("user", "size"), show="tree headings", height=6,
+        self.saves_tree = ttk.Treeview(sf, columns=("user", "console", "size"), show="tree headings", height=6,
                                        selectmode="none", style="Games.Treeview")
         self.saves_tree.heading("#0", text=_("Spiel"), anchor="w")
         self.saves_tree.heading("user", text=_("Benutzer"), anchor="w")
+        self.saves_tree.heading("console", text=_("Konsole"), anchor="w")
         self.saves_tree.heading("size", text=_("Größe"), anchor="w")
         self.saves_tree.column("#0", width=px(210), minwidth=120, anchor="w", stretch=True)
         self.saves_tree.column("user", width=px(100), minwidth=70, anchor="w", stretch=False)
+        self.saves_tree.column("console", width=px(60), minwidth=45, anchor="w", stretch=False)
         self.saves_tree.column("size", width=px(80), minwidth=60, anchor="w", stretch=False)
         self.saves_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
         self.saves_tree.grid(row=1, column=0, sticky="nsew")
@@ -1107,7 +1109,7 @@ class App(tk.Tk):
         shown = [x for x in self._saves_data if not uid_filter or x.get("uid") == uid_filter]
         for n, x in enumerate(shown):
             tree.insert("", "end", iid=x["key"], text=x.get("title_name") or x.get("title_id", ""),
-                        values=(x.get("username") or x.get("uid", ""), fmt_size(x["size"]) if x.get("size") else ""),
+                        values=(x.get("username") or x.get("uid", ""), x.get("platform") or "PS5", fmt_size(x["size"]) if x.get("size") else ""),
                         image=self.check_imgs[x["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
         self.saves_hint.configure(text="" if shown else _("Keine Spielstände gefunden."))
         self._saves_sum()

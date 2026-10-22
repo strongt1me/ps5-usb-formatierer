@@ -2758,5 +2758,11 @@
   "it": "Seleziona tutto",
   "es": "Seleccionar todo",
   "fr": "Tout sélectionner"
+ },
+ "Konsole": {
+  "en": "Console",
+  "it": "Console",
+  "es": "Consola",
+  "fr": "Console"
  }
 }
