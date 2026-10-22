@@ -412,6 +412,8 @@ typedef struct {
     uint64_t off;
     zcd_t   *cd;
     int      cd_n, cd_cap;
+    saves_prog_fn prog;   /* Fortschritt beim Schreiben des Containers */
+    void    *pctx;
 } zs_t;
 
 static int sock_send(int sock, const void *buf, size_t n) {
@@ -575,6 +577,7 @@ static int zs_save(zs_t *z, const save_info_t *s, const char *prefix, char *err,
         crc = crc32_update(crc, buf, want);
         zs_data(z, buf, want);
         pos += want;
+        if (z->prog) z->prog(z->pctx, pos, imgsz);
     }
     z->cd[idx].crc = crc;
     uint8_t dd[16];
@@ -655,13 +658,16 @@ done:
     return rc;
 }
 
-int saves_backup_file(const save_info_t *s, const char *root, char *out, size_t outsz, char *err, size_t errsz) {
+int saves_backup_file(const save_info_t *s, const char *root, char *out, size_t outsz, saves_prog_fn prog, void *pctx,
+                      char *err, size_t errsz) {
     if (op_read(err, errsz)) return -1;
     int rc = -1, fd = -1;
     char user[64], dir[1000], tmp[1300], final_path[1300], e2[256] = "";
     zs_t z;
     memset(&z, 0, sizeof(z));
     z.fd = -1;
+    z.prog = prog;
+    z.pctx = pctx;
     safe_name(user, 40, s->username[0] ? s->username : s->uid);
     if (path_fmt(dir, sizeof(dir), "%s/%s_%s", root, user, s->uid) ||
         path_fmt(final_path, sizeof(final_path), "%s/%s_%s.zip", dir, s->title_id, s->save_dir) ||
@@ -879,7 +885,7 @@ static int rplan(int zfd, zent_t *ents, int ne, zent_t *me, rjob_t *r, char *err
 }
 
 /* Spielstand schreiben: erst daneben, nach der Prüfsumme umbenennen. 0 = ok */
-static int rexec(int zfd, rjob_t *r, char *err, size_t errsz) {
+static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t base, uint64_t total, char *err, size_t errsz) {
     struct stat st;
     mode_t mode = 0644;
     uid_t own_u = (uid_t)-1;
@@ -910,7 +916,7 @@ static int rexec(int zfd, rjob_t *r, char *err, size_t errsz) {
     for (uint64_t pos = 0; pos < r->img->size && !bad;) {
         size_t want = r->img->size - pos < CHUNK ? (size_t)(r->img->size - pos) : CHUNK;
         if (pread_full(zfd, buf, want, (off_t)(r->img->data + pos)) || write_full(dfd, buf, want)) bad = 1;
-        else { crc = crc32_update(crc, buf, want); pos += want; }
+        else { crc = crc32_update(crc, buf, want); pos += want; if (prog) prog(pctx, base + pos, total); }
     }
     if (bad) {
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
@@ -941,7 +947,7 @@ done:
     return rc;
 }
 
-int saves_restore_file(const char *zip_path, int *count, char *err, size_t errsz) {
+int saves_restore_file(const char *zip_path, int *count, saves_prog_fn prog, void *pctx, char *err, size_t errsz) {
     if (count) *count = 0;
     if (op_enter(err, errsz)) return -1;
     int rc = -1, zfd = open(zip_path, O_RDONLY), ne = 0, nj = 0;
@@ -977,8 +983,10 @@ int saves_restore_file(const char *zip_path, int *count, char *err, size_t errsz
         snprintf(err, errsz, "%s", T("metadata.json fehlt im ZIP oder ist ungültig"));
         goto done;
     }
+    uint64_t total = 0, base = 0;
+    for (int i = 0; i < nj; i++) total += jobs[i].img->size;
     for (int i = 0; i < nj; i++) {
-        if (rexec(zfd, &jobs[i], err, errsz)) {
+        if (rexec(zfd, &jobs[i], prog, pctx, base, total, err, errsz)) {
             if (i) {   /* schon zurückgeschriebene sind fertig - dem Anwender sagen, wie viele */
                 char first[256];
                 scpy(first, sizeof(first), err);
@@ -987,6 +995,7 @@ int saves_restore_file(const char *zip_path, int *count, char *err, size_t errsz
             if (count) *count = i;
             goto done;
         }
+        base += jobs[i].img->size;
     }
     if (count) *count = nj;
     rc = 0;

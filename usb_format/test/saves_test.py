@@ -48,7 +48,7 @@ SAND = os.path.join(W, "sandbox")
 os.makedirs(DATA)
 os.makedirs(SAND)
 sums = json.loads(subprocess.check_output([sys.executable, os.path.join(HERE, "saves_fixture.py"), ROOT]))
-env = dict(os.environ, USBFMT_SAVES=HOME, USBFMT_DATA=DATA, USBFMT_IMAGES="", USBFMT_SANDBOX=SAND)
+env = dict(os.environ, USBFMT_SAVES=HOME, USBFMT_SLOW="1", USBFMT_DATA=DATA, USBFMT_IMAGES="", USBFMT_SANDBOX=SAND)
 srv = subprocess.Popen([BIN], env=env, stdout=open(os.path.join(W, "srv.log"), "w"), stderr=subprocess.STDOUT)
 
 
@@ -228,13 +228,13 @@ try:
     check("Sammel-ZIP wiederhergestellt: alle drei, Meldung nennt 3", st == 200 and res and res["ok"] and "restored: 3" in res["message"], str(res and res["message"]))
     check("alle drei Container wieder wie vorher", all(file_sha(*k.split("/")[:1], *k.split("/")[1:]) == sums[k] for k in sel))
     # Sammel-ZIP mit einem fehlerhaften Spielstand: nichts wird geschrieben
-    bad = bytearray(bundle)
-    off = bad.find(zb.read([n for n in nm if n.endswith(".img")][2])[200:232])
-    bad[off + 3] ^= 0xFF
+    badz = bytearray(bundle)
+    off = badz.find(zb.read([n for n in nm if n.endswith(".img")][2])[200:232])
+    badz[off + 3] ^= 0xFF
     for p in paths.values():
         open(p, "wb").write(b"\x02" + bytes(5000))
     snap = {p: open(p, "rb").read() for p in paths.values()}
-    st, hd, rb = req("POST", "/api/saves/restore/upload?lang=en", bytes(bad), {"Content-Type": "application/zip"})
+    st, hd, rb = req("POST", "/api/saves/restore/upload?lang=en", bytes(badz), {"Content-Type": "application/zip"})
     res = wait_job()
     check("Sammel-ZIP mit Prüfsummenfehler im dritten: Fehler, die ersten zwei sind geschrieben, Meldung nennt es",
           st == 500 and res and not res["ok"] and "2 of 3" in res["message"], str(res and res["message"]))
@@ -303,6 +303,26 @@ try:
     [t.start() for t in ts]
     [t.join() for t in ts]
     check("vier gleichzeitige Downloads: alle 200", all(s2 == 200 and n > 1000 for s2, n in r2), str(r2))
+
+    print("== Fortschritt beim Sichern ==")
+    all5 = [s["key"] for s in jreq("GET", "/api/saves")[1]["saves"]]
+    samples = []
+    st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": chr(10).join(all5), "dest": jreq("GET", "/api/saves/locations")[1]["locations"][0]["dir"]})
+    t_end = time.time() + 60
+    while time.time() < t_end:
+        _, j = jreq("GET", "/api/status")
+        samples.append((j.get("percent"), j.get("step"), j.get("busy")))
+        if not j.get("busy"):
+            break
+        time.sleep(0.03)
+    run = [x for x in samples if x[2] and x[1] not in ("Starting", "Startet")]
+    pcts = [x[0] for x in run]
+    check("Fortschritt: nie 0 % während des Sicherns (sonst nur ein laufender Balken)", run and all(p >= 1 for p in pcts), str(run[:5]))
+    check("Fortschritt: steigt, endet nicht vor 100 %", pcts == sorted(pcts) and pcts[-1] <= 99 and pcts[-1] > pcts[0], str(pcts[:3]) + "…" + str(pcts[-3:]))
+    check("Fortschritt: Schritt nennt Spielstand x von 5 und den Spielnamen",
+          any("save game 1 of 5" in (x[1] or "") for x in run) and any("save game 5 of 5" in (x[1] or "") for x in run) and any("Zweites Spiel" in (x[1] or "") for x in run),
+          str(sorted(set(x[1] for x in run)))[:300])
+    wait_job()
 
     # ------------------------------------------------------------------ böse und kaputte ZIPs
     print("== abgelehnte ZIPs (nichts darf sich ändern) ==")

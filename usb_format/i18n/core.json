@@ -2399,23 +2399,11 @@
   "es": "La suma de comprobación de la partida no coincide – el archivo ZIP está dañado",
   "fr": "La somme de contrôle de la sauvegarde ne correspond pas – le fichier ZIP est endommagé"
  },
- "Spielstände werden gesichert …": {
-  "en": "Backing up save games …",
-  "it": "Backup dei salvataggi in corso …",
-  "es": "Copiando partidas guardadas …",
-  "fr": "Sauvegarde des sauvegardes …"
- },
  "Sichern fehlgeschlagen": {
   "en": "Backup failed",
   "it": "Backup non riuscito",
   "es": "Error al copiar",
   "fr": "Échec de la sauvegarde"
- },
- "Spielstände werden zurückgeschrieben …": {
-  "en": "Writing save games back …",
-  "it": "Scrittura dei salvataggi …",
-  "es": "Escribiendo las partidas …",
-  "fr": "Écriture des sauvegardes …"
  },
  "%d von %d Spielständen gesichert, dann Fehler: ": {
   "en": "%d of %d save games backed up, then an error: ",
@@ -2488,5 +2476,17 @@
   "it": "Salvataggi ripristinati: %d, poi errore: ",
   "es": "Partidas restauradas: %d, luego un error: ",
   "fr": "Sauvegardes restaurées : %d, puis une erreur : "
+ },
+ "%s: Spielstand %d von %d – %s": {
+  "en": "%s: save game %d of %d – %s",
+  "it": "%s: salvataggio %d di %d – %s",
+  "es": "%s: partida %d de %d – %s",
+  "fr": "%s : sauvegarde %d sur %d – %s"
+ },
+ "%s: Sicherung %d von %d – %s": {
+  "en": "%s: backup %d of %d – %s",
+  "it": "%s: backup %d di %d – %s",
+  "es": "%s: copia %d de %d – %s",
+  "fr": "%s : sauvegarde %d sur %d – %s"
  }
 }

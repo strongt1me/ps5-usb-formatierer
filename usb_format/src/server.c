@@ -2991,6 +2991,37 @@ static void api_saves_backups(int c) {
 /* Läuft ein Spiel oder eine App, kann es den Spielstand gerade benutzen: dann nichts daran ändern */
 /* (saves_game_check steht weiter oben) */
 
+/* Fortschritt eines Spielstand-Auftrags: Byte-genau über alle Spielstände, Schrittname mit Nummer und Spielname.
+ * Mindestens 1 %, sobald es läuft (bei 0 % zeigen die Oberflächen nur einen laufenden Balken ohne Aussage). */
+typedef struct {
+    int      idx, n;       /* aktueller Spielstand (0-basiert) von n */
+    uint64_t base, total;  /* schon erledigte Byte, Gesamtbyte */
+    char     step[300];
+    int      last;
+    struct timespec t;
+} sprog_t;
+
+static void sprog_cb(void *ctx, uint64_t done, uint64_t total_file) {
+    sprog_t *p = ctx;
+    (void)total_file;
+    int pct = p->total ? (int)((p->base + done) * 100 / p->total) : 0;
+    if (pct < 1) pct = 1;
+    if (pct > 99) pct = 99;
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    if (pct == p->last && (now.tv_sec - p->t.tv_sec) < 1) return;
+    p->last = pct;
+    p->t = now;
+    on_progress(p->step, pct);
+}
+
+static void sprog_step(sprog_t *p, int idx, const char *what, const char *name) {
+    p->idx = idx;
+    snprintf(p->step, sizeof(p->step), T("%s: Spielstand %d von %d – %s"), T(what), idx + 1, p->n, name);
+    p->last = -1;
+    on_progress(p->step, p->total ? (int)(p->base * 100 / p->total) > 0 ? (int)(p->base * 100 / p->total) : 1 : 1);
+}
+
 /* Worker: Spielstände (Schlüssel in saves_list) nach saves_dest sichern */
 static void *save_backup_worker(void *arg) {
     job_t *j = arg;
@@ -3000,21 +3031,30 @@ static void *save_backup_worker(void *arg) {
     int np = split_lines(j->saves_list, part, SAVES_SELMAX), done = 0, ok = 0;
     save_info_t *all = NULL;
     int na = 0;
+    sprog_t sp;
+    memset(&sp, 0, sizeof(sp));
     if (np < 1 || saves_scan(&all, &na) < 0) {
         sb_add(&msg, "%s", T("Spielstand nicht gefunden"));
         goto fin;
     }
+    sp.n = np;
+    for (int i = 0; i < np; i++)   /* Gesamtgröße für den Fortschritt */
+        for (int k = 0; k < na; k++)
+            if (!strcmp(all[k].key, part[i])) sp.total += all[k].size;
     for (int i = 0; i < np; i++) {
         int hit = -1;
         for (int k = 0; k < na && hit < 0; k++)
             if (!strcmp(all[k].key, part[i])) hit = k;
         if (hit < 0) { sb_add(&msg, "%s", T("Spielstand nicht gefunden")); goto fin; }
-        on_progress("Spielstände werden gesichert …", i * 100 / np);
-        if (saves_backup_file(&all[hit], j->saves_dest, out, sizeof(out), err, sizeof(err)) != 0) {
+        char shown[330];
+        snprintf(shown, sizeof(shown), "%s (%s)", all[hit].title_name, all[hit].username[0] ? all[hit].username : all[hit].uid);
+        sprog_step(&sp, i, N_("Sichern"), shown);
+        if (saves_backup_file(&all[hit], j->saves_dest, out, sizeof(out), sprog_cb, &sp, err, sizeof(err)) != 0) {
             if (done) sb_tr(&msg, "%d von %d Spielständen gesichert, dann Fehler: ", done, np);
             sb_add(&msg, "%s", err[0] ? err : T("Sichern fehlgeschlagen"));
             goto fin;
         }
+        sp.base += all[hit].size;
         done++;
     }
     ok = 1;
@@ -3059,6 +3099,22 @@ out:
     free(loc);
 }
 
+typedef struct { int i, n; char step[300]; int last; struct timespec t; } rprog_t;
+
+static void rprog_cb(void *ctx, uint64_t done, uint64_t total) {
+    rprog_t *p = ctx;
+    int inner = total ? (int)(done * 100 / total) : 0;
+    int pct = (p->i * 100 + inner) / p->n;
+    if (pct < 1) pct = 1;
+    if (pct > 99) pct = 99;
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    if (pct == p->last && (now.tv_sec - p->t.tv_sec) < 1) return;
+    p->last = pct;
+    p->t = now;
+    on_progress(p->step, pct);
+}
+
 /* Worker: Sicherungen (Pfade in saves_list) zurückschreiben */
 static void *save_restore_worker(void *arg) {
     job_t *j = arg;
@@ -3066,10 +3122,17 @@ static void *save_restore_worker(void *arg) {
     sbuf_t msg = {0}, res = {0};
     char *part[SAVES_SELMAX], err[256] = "";
     int np = split_lines(j->saves_list, part, SAVES_SELMAX), total = 0, ok = 0;
+    rprog_t rp;
+    memset(&rp, 0, sizeof(rp));
+    rp.n = np > 0 ? np : 1;
     for (int i = 0; i < np; i++) {
         int cnt = 0;
-        on_progress("Spielstände werden zurückgeschrieben …", i * 100 / np);
-        if (saves_restore_file(part[i], &cnt, err, sizeof(err)) != 0) {
+        const char *fn = strrchr(part[i], '/') ? strrchr(part[i], '/') + 1 : part[i];
+        rp.i = i;
+        rp.last = -1;
+        snprintf(rp.step, sizeof(rp.step), T("%s: Sicherung %d von %d – %s"), T(N_("Wiederherstellen")), i + 1, np, fn);
+        on_progress(rp.step, (i * 100) / rp.n > 0 ? (i * 100) / rp.n : 1);
+        if (saves_restore_file(part[i], &cnt, rprog_cb, &rp, err, sizeof(err)) != 0) {
             total += cnt;
             if (total && np > 1) sb_tr(&msg, "Spielstände wiederhergestellt: %d, dann Fehler: ", total);
             sb_add(&msg, "%s", err[0] ? err : T("Wiederherstellen fehlgeschlagen"));
@@ -3214,7 +3277,7 @@ static void api_saves_restore(int c, const char *pre, size_t have, unsigned long
     fd = -1;
     on_progress("Spielstand wird zurückgeschrieben …", 92);
     int cnt = 0;
-    if (saves_restore_file(zip, &cnt, err, sizeof(err)) == 0) {
+    if (saves_restore_file(zip, &cnt, NULL, NULL, err, sizeof(err)) == 0) {
         ok = 1;
         if (cnt > 1) sb_tr(&msg, "Spielstände wiederhergestellt: %d.", cnt);
         else sb_tr(&msg, "Spielstand wiederhergestellt.");
