@@ -39,7 +39,7 @@
 
 static pthread_mutex_t g_op = PTHREAD_MUTEX_INITIALIZER;
 
-/* ein Vorgang zur Zeit: Sichern, Wiederherstellen und Neusignieren würden sich an derselben Datei in die Quere kommen */
+/* ein Vorgang zur Zeit: Sichern und Wiederherstellen würden sich an derselben Datei in die Quere kommen */
 static int op_enter(char *err, size_t errsz) {
     if (pthread_mutex_trylock(&g_op) == 0) return 0;
     snprintf(err, errsz, "%s", T("Es läuft bereits ein Spielstand-Vorgang"));

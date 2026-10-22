@@ -231,7 +231,7 @@ class Api:
         """Formatierer auf der PS5 beenden (lehnt ab, solange ein Auftrag läuft)"""
         return self._call("/api/quit", {})
 
-    # Spielstände: auflisten, sichern, wiederherstellen, neusignieren
+    # Spielstände: auflisten, sichern, wiederherstellen
     def get(self, path, timeout=8):
         return self._call(path, timeout=timeout)
 

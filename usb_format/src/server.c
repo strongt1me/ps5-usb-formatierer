@@ -267,7 +267,6 @@ typedef struct {
     char     path[512];
     FILE    *img;
     ib_reader_t *rd;
-    /* Spielstand neusignieren */
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
 } job_t;
