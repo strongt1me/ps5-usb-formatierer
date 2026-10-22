@@ -2645,12 +2645,6 @@
   "es": "No se encontraron partidas.",
   "fr": "Aucune sauvegarde trouvée."
  },
- "Spielstände sichern, wiederherstellen oder neu signieren (nur PS5-Spielstände).": {
-  "en": "Back up, restore or re-sign save games (PS5 saves only).",
-  "it": "Esegui backup, ripristina o rifirma i salvataggi (solo PS5).",
-  "es": "Haz copia, restaura o refirma partidas guardadas (solo PS5).",
-  "fr": "Sauvegardez, restaurez ou re-signez des sauvegardes (PS5 uniquement)."
- },
  "Benutzer": {
   "en": "User",
   "it": "Utente",
@@ -2662,18 +2656,6 @@
   "it": "Tutti gli utenti",
   "es": "Todos los usuarios",
   "fr": "Tous les utilisateurs"
- },
- "Neusignieren": {
-  "en": "Re-sign",
-  "it": "Rifirma",
-  "es": "Refirmar",
-  "fr": "Re-signer"
- },
- "Keine Konten gefunden.": {
-  "en": "No accounts found.",
-  "it": "Nessun account trovato.",
-  "es": "No se encontraron cuentas.",
-  "fr": "Aucun compte trouvé."
  },
  "Spielstand gesichert.": {
   "en": "Save game backed up.",
@@ -2692,12 +2674,6 @@
   "it": "Ripristina salvataggio",
   "es": "Restaurar partida",
   "fr": "Restaurer la sauvegarde"
- },
- "Neusignieren …": {
-  "en": "Re-sign …",
-  "it": "Rifirma …",
-  "es": "Refirmar …",
-  "fr": "Re-signer …"
  },
  "ZIP-Sicherung": {
   "en": "ZIP backup",
@@ -2723,18 +2699,6 @@
   "es": "Cierra antes los juegos en ejecución.",
   "fr": "Fermez d'abord les jeux en cours."
  },
- "Neusignieren konnte nicht gestartet werden: {e}": {
-  "en": "Re-signing could not be started: {e}",
-  "it": "Impossibile avviare la firma: {e}",
-  "es": "No se pudo iniciar el refirmado: {e}",
-  "fr": "La re-signature n'a pas pu être lancée : {e}"
- },
- "Spielstand neusigniert.": {
-  "en": "Save game re-signed.",
-  "it": "Salvataggio firmato di nuovo.",
-  "es": "Partida refirmada.",
-  "fr": "Sauvegarde re-signée."
- },
  "Die heruntergeladene ZIP-Datei ist beschädigt.": {
   "en": "The downloaded ZIP file is damaged.",
   "it": "Il file ZIP scaricato è danneggiato.",
@@ -2747,10 +2711,10 @@
   "es": "Juego",
   "fr": "Jeu"
  },
- "„{game}“ wird neu signiert. Beim Besitzer geschieht das am Ort (vorher am besten sichern); bei einem anderen Benutzer entsteht dort eine Kopie, das Original bleibt unverändert.": {
-  "en": "“{game}” will be re-signed. For the owner this happens in place (best back it up first); for another user a copy is created for them and the original stays unchanged.",
-  "it": "«{game}» verrà firmato di nuovo. Per il proprietario avviene sul posto (meglio fare prima un backup); per un altro utente viene creata una copia e l'originale resta invariato.",
-  "es": "«{game}» se volverá a firmar. Para el propietario se hace en el mismo sitio (mejor hacer antes una copia); para otro usuario se crea una copia y el original no cambia.",
-  "fr": "« {game} » sera re-signée. Pour le propriétaire, cela se fait sur place (mieux vaut sauvegarder d'abord) ; pour un autre utilisateur, une copie est créée et l'original reste inchangé."
+ "PS5-Spielstände sichern und wiederherstellen.": {
+  "en": "Back up and restore PS5 save games.",
+  "it": "Backup e ripristino dei salvataggi PS5.",
+  "es": "Copiar y restaurar partidas guardadas de PS5.",
+  "fr": "Sauvegarder et restaurer les sauvegardes PS5."
  }
 }

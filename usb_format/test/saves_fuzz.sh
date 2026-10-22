@@ -7,9 +7,8 @@ N=${1:-20000}
 SEED=${2:-1}
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
-gcc -O1 -w -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_WAL -c third_party/sqlite/sqlite3.c -o "$W/sqlite3.o"
 gcc -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -Wall -Wextra -Werror -Wno-format-truncation \
-    -isystem third_party/sqlite -o "$W/fuzz" test/saves_fuzz.c src/saves.c src/i18n.c src/i18n_table.c "$W/sqlite3.o" -lpthread -ldl
+    -o "$W/fuzz" test/saves_fuzz.c src/saves.c src/i18n.c src/i18n_table.c -lpthread
 python3 test/saves_fixture.py "$W/fx" >/dev/null
 python3 - "$W" <<'PY'
 import io, json, sys, zipfile, os

@@ -21,12 +21,7 @@ int lib_parse_param_sfo(const uint8_t *b, size_t l, char *id, size_t idn, char *
 
 static const char *g_home, *g_data;
 const char *plat_saves_dir(void) { return g_home; }
-const char *plat_savedb_dir(void) { return NULL; }
 const char *plat_data_dir(void) { return g_data; }
-void *plat_dynsym(const char *m, const char *s) { (void)m; (void)s; return NULL; }
-void plat_creds_elevate(plat_creds_t *o) { o->valid = 0; }
-void plat_creds_restore(const plat_creds_t *o) { (void)o; }
-int plat_pfs_decrypt(const uint8_t s[0x60], uint8_t k[0x20]) { (void)s; (void)k; return -1; }
 
 static uint64_t rng = 88172645463325252ull;
 static uint32_t rnd(void) {

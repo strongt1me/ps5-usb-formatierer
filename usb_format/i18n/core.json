@@ -2237,41 +2237,17 @@
   "es": "No se puede eliminar el archivo %s: %s",
   "fr": "Le fichier %s ne peut pas être supprimé : %s"
  },
- "Spielstand erfolgreich neusigniert.": {
-  "en": "Save game re-signed successfully.",
-  "it": "Salvataggio rifirmato con successo.",
-  "es": "Partida guardada refirmada correctamente.",
-  "fr": "Sauvegarde re-signée avec succès."
- },
  "Spielstand nicht gefunden": {
   "en": "Save game not found",
   "it": "Salvataggio non trovato",
   "es": "Partida guardada no encontrada",
   "fr": "Sauvegarde introuvable"
  },
- "Neusignierung fehlgeschlagen": {
-  "en": "Re-signing failed",
-  "it": "Firma non riuscita",
-  "es": "Error al refirmar",
-  "fr": "Nouvelle signature échouée"
- },
- "libSceFsInternalForVsh.sprx nicht gefunden": {
-  "en": "libSceFsInternalForVsh.sprx not found",
-  "it": "libSceFsInternalForVsh.sprx non trovato",
-  "es": "libSceFsInternalForVsh.sprx no encontrado",
-  "fr": "libSceFsInternalForVsh.sprx introuvable"
- },
  "Es läuft gerade ein Spiel oder eine App (%s) – bitte zuerst beenden, sonst kann der Spielstand beschädigt werden.": {
   "en": "A game or app is running (%s) – please close it first, otherwise the save game may be damaged.",
   "it": "È in esecuzione un gioco o un'app (%s) – chiudilo prima, altrimenti il salvataggio può danneggiarsi.",
   "es": "Hay un juego o una app en ejecución (%s) – ciérralo primero, de lo contrario la partida guardada puede dañarse.",
   "fr": "Un jeu ou une app est en cours d'exécution (%s) – fermez-le d'abord, sinon la sauvegarde peut être endommagée."
- },
- "Spielstand wird neu signiert …": {
-  "en": "Re-signing save game …",
-  "it": "Firma del salvataggio in corso …",
-  "es": "Refirmando la partida …",
-  "fr": "Re-signature de la sauvegarde …"
  },
  "Nicht genug freier Speicher auf der PS5": {
   "en": "Not enough free space on the PS5",
@@ -2320,12 +2296,6 @@
   "it": "key mancante",
   "es": "Falta key",
   "fr": "key manquant"
- },
- "key und uid erforderlich": {
-  "en": "key and uid required",
-  "it": "key e uid obbligatori",
-  "es": "Se requieren key y uid",
-  "fr": "key et uid requis"
  },
  "Content-Length fehlt oder zu groß (max 4 GiB)": {
   "en": "Content-Length missing or too large (max 4 GiB)",
@@ -2428,83 +2398,5 @@
   "it": "Il checksum del salvataggio non corrisponde – il file ZIP è danneggiato",
   "es": "La suma de comprobación de la partida no coincide – el archivo ZIP está dañado",
   "fr": "La somme de contrôle de la sauvegarde ne correspond pas – le fichier ZIP est endommagé"
- },
- "param.sfo des Spielstands konnte nicht geöffnet werden": {
-  "en": "The save game's param.sfo could not be opened",
-  "it": "Impossibile aprire param.sfo del salvataggio",
-  "es": "No se pudo abrir param.sfo de la partida",
-  "fr": "Le param.sfo de la sauvegarde n'a pas pu être ouvert"
- },
- "param.sfo konnte nicht geändert werden (ACCOUNT_ID nicht gefunden)": {
-  "en": "param.sfo could not be changed (ACCOUNT_ID not found)",
-  "it": "Impossibile modificare param.sfo (ACCOUNT_ID non trovato)",
-  "es": "No se pudo modificar param.sfo (ACCOUNT_ID no encontrado)",
-  "fr": "param.sfo n'a pas pu être modifié (ACCOUNT_ID introuvable)"
- },
- "Der Zielbenutzer ist auf dieser PS5 nicht vorhanden": {
-  "en": "The target user does not exist on this PS5",
-  "it": "L'utente di destinazione non esiste su questa PS5",
-  "es": "El usuario de destino no existe en esta PS5",
-  "fr": "L'utilisateur cible n'existe pas sur cette PS5"
- },
- "Für den Benutzer %s wurde keine Account-ID in der Registry gefunden": {
-  "en": "No account ID was found in the registry for user %s",
-  "it": "Nessun ID account trovato nel registro per l'utente %s",
-  "es": "No se encontró ningún ID de cuenta en el registro para el usuario %s",
-  "fr": "Aucun identifiant de compte trouvé dans le registre pour l'utilisateur %s"
- },
- "Arbeitskopie konnte nicht erstellt werden": {
-  "en": "Working copy could not be created",
-  "it": "Impossibile creare la copia di lavoro",
-  "es": "No se pudo crear la copia de trabajo",
-  "fr": "La copie de travail n'a pas pu être créée"
- },
- "Sealed Key konnte nicht gelesen werden": {
-  "en": "Sealed key could not be read",
-  "it": "Impossibile leggere la sealed key",
-  "es": "No se pudo leer la sealed key",
-  "fr": "La sealed key n'a pas pu être lue"
- },
- "Schlüssel konnte nicht entschlüsselt werden (pfsmgr)": {
-  "en": "Key could not be decrypted (pfsmgr)",
-  "it": "Impossibile decifrare la chiave (pfsmgr)",
-  "es": "No se pudo descifrar la clave (pfsmgr)",
-  "fr": "La clé n'a pas pu être déchiffrée (pfsmgr)"
- },
- "Einhängen fehlgeschlagen (0x%08x)": {
-  "en": "Mounting failed (0x%08x)",
-  "it": "Montaggio non riuscito (0x%08x)",
-  "es": "Error al montar (0x%08x)",
-  "fr": "Échec du montage (0x%08x)"
- },
- "Zurückkopieren fehlgeschlagen": {
-  "en": "Copying back failed",
-  "it": "Copia di ritorno non riuscita",
-  "es": "Error al copiar de vuelta",
-  "fr": "Échec de la copie de retour"
- },
- "Spielstand beim Zielbenutzer als Kopie angelegt und neu signiert. Das Original bleibt unverändert.": {
-  "en": "Save game created as a copy for the target user and re-signed. The original is unchanged.",
-  "it": "Salvataggio creato come copia per l'utente di destinazione e firmato di nuovo. L'originale resta invariato.",
-  "es": "Partida creada como copia para el usuario de destino y refirmada. El original no cambia.",
-  "fr": "Sauvegarde créée en copie pour l'utilisateur cible et re-signée. L'original reste inchangé."
- },
- "Sicherungskopie der Spielstand-Datenbank fehlgeschlagen": {
-  "en": "Backup copy of the save game database failed",
-  "it": "Copia di sicurezza del database dei salvataggi non riuscita",
-  "es": "Error al hacer la copia de seguridad de la base de datos de partidas",
-  "fr": "Échec de la copie de sauvegarde de la base de données des sauvegardes"
- },
- "Die Spielstand-Datenbank des Zielbenutzers konnte nicht aktualisiert werden: %s": {
-  "en": "The target user's save game database could not be updated: %s",
-  "it": "Impossibile aggiornare il database dei salvataggi dell'utente di destinazione: %s",
-  "es": "No se pudo actualizar la base de datos de partidas del usuario de destino: %s",
-  "fr": "La base de données des sauvegardes de l'utilisateur cible n'a pas pu être mise à jour : %s"
- },
- "Beim Zielbenutzer existiert bereits ein Spielstand gleichen Namens": {
-  "en": "The target user already has a save game with the same name",
-  "it": "L'utente di destinazione ha già un salvataggio con lo stesso nome",
-  "es": "El usuario de destino ya tiene una partida con el mismo nombre",
-  "fr": "L'utilisateur cible a déjà une sauvegarde du même nom"
  }
 }

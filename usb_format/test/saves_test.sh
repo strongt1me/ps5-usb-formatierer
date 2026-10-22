@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Spielstand-API (Liste, ZIP-Sicherung, Wiederherstellen, Neusignieren, Schutzregeln) gegen den Host-Formatierer mit Attrappe.
+# Spielstand-API (Liste, ZIP-Sicherung, Wiederherstellen, Schutzregeln) gegen den Host-Formatierer.
 # Aufruf: test/saves_test.sh   (baut selbst, Port 18115)
 set -u
 cd "$(dirname "$0")/.."

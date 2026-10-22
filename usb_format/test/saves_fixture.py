@@ -7,7 +7,6 @@ Aufruf: saves_fixture.py <ordner>   - gibt die Container-Prüfsummen als JSON au
 import hashlib
 import json
 import os
-import sqlite3
 import struct
 import sys
 
@@ -25,14 +24,9 @@ def sfo(entries):
     return b"\0PSF" + struct.pack("<IIII", 0x101, kt, kt + len(keys), len(entries)) + idx + keys + data
 
 
-SFO_OFF = 0x2000   # dort liegt im Pseudo-Container die param.sfo (die Attrappe in platform_host.c "hängt" sie ein)
+SFO_OFF = 0x2000   # Pseudo-Container: param.sfo bei 0x2000, Symbolbild bei 0x3000 (für Inhaltsprüfungen)
 ICON_OFF = 0x3000  # und das Symbolbild (icon0.png, ICON_LEN Byte)
 ICON_LEN = 0x400
-SCHEMA = ("CREATE TABLE savedata (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, title_id NOT NULL, dir_name NOT NULL,"
-          "main_title NOT NULL, sub_title, detail, tmp_dir_name, is_broken, user_param, blocks, free_blocks, size_kib,"
-          "mtime NOT NULL, fake_broken, account_id, user_id, faked_owner, cloud_icon_url, cloud_revision,"
-          "game_title_id NOT NULL, system_blocks)")
-
 
 def user_hmac(uid):
     """PARAMS-HMAC (+8, 32 Byte): hier je Benutzer verschieden, damit die Übernahme beim Kopieren prüfbar ist"""
@@ -96,21 +90,6 @@ def main(root):
         os.makedirs(d, exist_ok=True)
         with open(os.path.join(d, "param.sfo"), "wb") as f:
             f.write(sfo([("TITLE_ID", title.encode() + b"\0"), ("TITLE", name.encode() + b"\0")]))
-    # Spielstand-Datenbanken (PS5: /system_data/savedata_prospero/<uid>/db/user/savedata.db) für Alex und Sam; Jo hat keine
-    for uid in ("1c3f8a0e", "2d4e9b1f"):
-        d = os.path.join(root, "savedb", uid, "db", "user")
-        os.makedirs(d, exist_ok=True)
-        db = sqlite3.connect(os.path.join(d, "savedata.db"))
-        db.execute(SCHEMA)
-        for u, title, name, size in SAVES:
-            if u == uid:
-                db.execute("INSERT INTO savedata (title_id, dir_name, main_title, sub_title, detail, is_broken, user_param, "
-                           "blocks, free_blocks, size_kib, mtime, fake_broken, account_id, user_id, faked_owner, cloud_revision, "
-                           "game_title_id, system_blocks) VALUES (?,?,?,?,?,0,7,96,96,6144,'2026-01-01T00:00:00.00Z',0,?,?,0,0,?,2)",
-                           (title, name[6:] if name.startswith("sdimg_") else name, TITLES[title], "Kapitel 3", "Details",
-                            0x1122334455667788, int(uid, 16), title))
-        db.commit()
-        db.close()
     print(json.dumps(sums))
 
 

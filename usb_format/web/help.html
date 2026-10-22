@@ -416,21 +416,17 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="de-saves">
-  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Spielstände sichern, wiederherstellen &amp; neu signieren</h2>
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Spielstände sichern &amp; wiederherstellen</h2>
   <p>Der Formatierer kann die Spielstände der PS5 (PS5-Spiele, <code>/user/home/…/savedata_prospero</code>) einzeln als ZIP auf den PC
-    oder das Handy laden, wieder zurückschreiben und für einen anderen Benutzer der Konsole neu signieren.
+    oder das Handy laden und wieder zurückschreiben.
     Im Bereich „Spielstände“ steht jeder Spielstand mit Spielname, Benutzer und Größe; der Filter oben zeigt nur einen Benutzer.</p>
   <ul class="check">
     <li><b>Sichern:</b> lädt eine ZIP mit <code>metadata.json</code> (Spiel, Benutzer, Ordner) und dem unveränderten, weiter verschlüsselten
       Container. Es wird nichts entschlüsselt oder verändert; die ZIP lässt sich mit jedem ZIP-Programm öffnen.</li>
     <li><b>Wiederherstellen:</b> lädt die ZIP auf die PS5 und ersetzt den gleichnamigen Spielstand desselben Benutzers. Der Benutzer
       muss auf dieser PS5 existieren. Die Prüfsumme wird kontrolliert; bei einem Fehler bleibt der alte Spielstand erhalten.</li>
-    <li><b>Neusignieren:</b> hängt den Container kurz ein und trägt Konto-ID und Benutzer-ID des gewählten Benutzers ein. Beim Besitzer geschieht das am Ort;
-      bei einem anderen Benutzer entsteht dort eine Kopie (mit Symbolbild und Eintrag in dessen Spielstand-Datenbank, die vorher gesichert wird), das Original
-      bleibt unverändert. Die Konten stammen aus der Registry der PS5. Spielstände einer anderen Konsole übernehmen dabei den Konsolen-HMAC eines lokalen Spielstands.</li>
   </ul>
-  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Vorher beachten:</b> Laufende Spiele und Apps vorher beenden – der Formatierer lehnt sonst ab. Neusignieren verändert
-    die Datei auf der PS5: vorher sichern. Spielstände von PS4-Spielen werden noch nicht unterstützt.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Vorher beachten:</b> Laufende Spiele und Apps vorher beenden – der Formatierer lehnt sonst ab. Spielstände von PS4-Spielen werden noch nicht unterstützt.</div></div>
 </section>
 
 <section id="de-extras">
@@ -692,21 +688,17 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="en-saves">
-  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Back up, restore &amp; re-sign save games</h2>
-  <p>The formatter can copy individual PS5 save games (PS5 titles, <code>/user/home/…/savedata_prospero</code>) to your PC or phone as a ZIP,
-    write them back, and re-sign them for another user of the console. The “Save games” area lists every save with its game name, user and size;
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Back up &amp; restore save games</h2>
+  <p>The formatter can copy individual PS5 save games (PS5 titles, <code>/user/home/…/savedata_prospero</code>) to your PC or phone as a ZIP
+    and write them back. The “Save games” area lists every save with its game name, user and size;
     the filter at the top shows one user only.</p>
   <ul class="check">
     <li><b>Back up:</b> downloads a ZIP with <code>metadata.json</code> (game, user, folder) and the unchanged, still encrypted container.
       Nothing is decrypted or modified; any ZIP program can open the file.</li>
     <li><b>Restore:</b> uploads the ZIP to the PS5 and replaces the save of the same name for the same user. That user must exist on this PS5.
       The checksum is verified; on an error the old save stays untouched.</li>
-    <li><b>Re-sign:</b> briefly mounts the container and writes the account ID and user ID of the chosen user into it. For the owner this happens in place;
-      for another user a copy is created for them (with icon and an entry in their save game database, which is backed up first) and the original stays
-      unchanged. The accounts come from the PS5 registry. Saves from another console take over the console HMAC of a local save.</li>
   </ul>
-  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Before you start:</b> close running games and apps – the formatter refuses otherwise. Re-signing changes the file on the PS5:
-    back it up first. Saves of PS4 games are not supported yet.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Before you start:</b> close running games and apps – the formatter refuses otherwise. Saves of PS4 games are not supported yet.</div></div>
 </section>
 
 <section id="en-extras">
@@ -968,20 +960,17 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="it-saves">
-  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Salvataggi: backup, ripristino e nuova firma</h2>
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Salvataggi: backup e ripristino</h2>
   <p>Il formattatore può scaricare i singoli salvataggi della PS5 (giochi PS5, <code>/user/home/…/savedata_prospero</code>) come ZIP sul PC o
-    sul telefono, riscriverli e firmarli di nuovo per un altro utente della console. Nell'area «Salvataggi» ogni salvataggio compare con nome del gioco,
+    sul telefono e riscriverli. Nell'area «Salvataggi» ogni salvataggio compare con nome del gioco,
     utente e dimensione; il filtro in alto mostra un solo utente.</p>
   <ul class="check">
     <li><b>Backup:</b> scarica uno ZIP con <code>metadata.json</code> (gioco, utente, cartella) e il contenitore invariato e ancora cifrato.
       Nulla viene decifrato o modificato; qualsiasi programma ZIP può aprire il file.</li>
     <li><b>Ripristino:</b> carica lo ZIP sulla PS5 e sostituisce il salvataggio con lo stesso nome dello stesso utente. L'utente deve esistere su questa
       PS5. Il checksum viene verificato; in caso di errore il vecchio salvataggio resta intatto.</li>
-    <li><b>Nuova firma:</b> monta brevemente il contenitore e vi scrive l'ID account dell'utente scelto. Così si può usare un salvataggio di un altro
-      account o di un'altra PS5. Gli account provengono dal registro della PS5. Per il proprietario avviene sul posto; per un altro utente viene creata una copia (con icona e voce nel suo database dei salvataggi, di cui prima si fa una copia di sicurezza) e l'originale resta invariato. Un salvataggio di un'altra console riceve l'HMAC della console da un salvataggio locale.</li>
   </ul>
-  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Prima di iniziare:</b> chiudi giochi e app in esecuzione – altrimenti il formattatore rifiuta. La nuova firma modifica il file
-    sulla PS5: fai prima un backup. I salvataggi dei giochi PS4 non sono ancora supportati.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Prima di iniziare:</b> chiudi giochi e app in esecuzione – altrimenti il formattatore rifiuta. I salvataggi dei giochi PS4 non sono ancora supportati.</div></div>
 </section>
 
 <section id="it-extras">
@@ -1243,20 +1232,17 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="es-saves">
-  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Partidas guardadas: copiar, restaurar y refirmar</h2>
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Partidas guardadas: copiar y restaurar</h2>
   <p>El formateador puede descargar partidas guardadas individuales de la PS5 (juegos de PS5, <code>/user/home/…/savedata_prospero</code>) como ZIP al PC o
-    al móvil, volver a escribirlas y refirmarlas para otro usuario de la consola. En el área «Partidas guardadas» cada partida aparece con el nombre del
+    al móvil y volver a escribirlas. En el área «Partidas guardadas» cada partida aparece con el nombre del
     juego, el usuario y el tamaño; el filtro de arriba muestra un solo usuario.</p>
   <ul class="check">
     <li><b>Copiar:</b> descarga un ZIP con <code>metadata.json</code> (juego, usuario, carpeta) y el contenedor sin cambios y aún cifrado.
       No se descifra ni modifica nada; cualquier programa ZIP puede abrir el archivo.</li>
     <li><b>Restaurar:</b> sube el ZIP a la PS5 y sustituye la partida del mismo nombre del mismo usuario. Ese usuario debe existir en esta PS5.
       Se comprueba la suma de verificación; si hay un error, la partida anterior queda intacta.</li>
-    <li><b>Refirmar:</b> monta brevemente el contenedor y escribe en él el ID de cuenta del usuario elegido. Así se puede usar una partida de otra
-      cuenta u otra PS5. Las cuentas proceden del registro de la PS5. Para el propietario se hace en el mismo sitio; para otro usuario se crea una copia (con icono y entrada en su base de datos de partidas, de la que antes se hace una copia de seguridad) y el original no cambia. Una partida de otra consola recibe el HMAC de la consola de una partida local.</li>
   </ul>
-  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Antes de empezar:</b> cierra los juegos y apps en ejecución; si no, el formateador lo rechaza. Refirmar modifica el archivo
-    en la PS5: haz antes una copia. Las partidas de juegos de PS4 aún no son compatibles.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Antes de empezar:</b> cierra los juegos y apps en ejecución; si no, el formateador lo rechaza. Las partidas de juegos de PS4 aún no son compatibles.</div></div>
 </section>
 
 <section id="es-extras">
@@ -1518,20 +1504,17 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="fr-saves">
-  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Sauvegardes : copier, restaurer et re-signer</h2>
+  <h2><span class="ic"><svg class="i"><use href="#i-disk" xlink:href="#i-disk"/></svg></span>Sauvegardes : copier et restaurer</h2>
   <p>Le formateur peut télécharger les sauvegardes de la PS5 une par une (jeux PS5, <code>/user/home/…/savedata_prospero</code>) en ZIP sur le PC ou le
-    téléphone, les réécrire et les re-signer pour un autre utilisateur de la console. Dans la zone « Sauvegardes », chaque sauvegarde apparaît avec le nom du
+    téléphone et les réécrire. Dans la zone « Sauvegardes », chaque sauvegarde apparaît avec le nom du
     jeu, l'utilisateur et la taille ; le filtre en haut n'affiche qu'un utilisateur.</p>
   <ul class="check">
     <li><b>Sauvegarder :</b> télécharge un ZIP avec <code>metadata.json</code> (jeu, utilisateur, dossier) et le conteneur inchangé, toujours chiffré.
       Rien n'est déchiffré ni modifié ; n'importe quel programme ZIP peut ouvrir le fichier.</li>
     <li><b>Restaurer :</b> envoie le ZIP à la PS5 et remplace la sauvegarde du même nom du même utilisateur. Cet utilisateur doit exister sur cette PS5.
       La somme de contrôle est vérifiée ; en cas d'erreur, l'ancienne sauvegarde reste intacte.</li>
-    <li><b>Re-signer :</b> monte brièvement le conteneur et y inscrit l'identifiant de compte de l'utilisateur choisi. On peut ainsi utiliser une sauvegarde
-      d'un autre compte ou d'une autre PS5. Les comptes proviennent du registre de la PS5. Pour le propriétaire, cela se fait sur place ; pour un autre utilisateur, une copie est créée (avec icône et entrée dans sa base de données des sauvegardes, d'abord sauvegardée) et l'original reste inchangé. Une sauvegarde d'une autre console reprend le HMAC de la console d'une sauvegarde locale.</li>
   </ul>
-  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Avant de commencer :</b> fermez les jeux et apps en cours – sinon le formateur refuse. Re-signer modifie le fichier sur la PS5 :
-    faites d'abord une sauvegarde. Les sauvegardes des jeux PS4 ne sont pas encore prises en charge.</div></div>
+  <div class="note warn"><svg class="i"><use href="#i-warn" xlink:href="#i-warn"/></svg><div><b class="t">Avant de commencer :</b> fermez les jeux et apps en cours – sinon le formateur refuse. Les sauvegardes des jeux PS4 ne sont pas encore prises en charge.</div></div>
 </section>
 
 <section id="fr-extras">

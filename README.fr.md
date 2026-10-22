@@ -7,7 +7,7 @@
 **Formatez clés et disques USB – directement sur la PS5 ou sur le PC.**<br>
 Avec test d'authenticité et de vitesse, sauvegarde image, gestion des jeux, tous les systèmes de fichiers courants et vos propres partitions.
 
-[![Version](https://img.shields.io/badge/Version-2.6.4-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.6.5-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plateforme](https://img.shields.io/badge/Plateforme-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-téléchargement)
 [![Langues](https://img.shields.io/badge/Langues-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-fonctions)
@@ -109,8 +109,8 @@ Contrôle du numéro de série : si une autre clé du même modèle est branché
 ### 💾 Sauvegarder et restaurer des images
 Sauvegarde un lecteur entier en <code>.img.zst</code> – seulement les zones occupées, compressées avec zstd, avec un <code>.sha256</code>. Sur la PS5 vers le stockage interne, un autre lecteur USB ou en téléchargement ; sur le PC dans n'importe quel dossier, même depuis des clés et cartes SD verrouillées en écriture. Réécriture avec vérification ensuite – aussi par envoi depuis un téléphone ou un PC. <code>zstd -d</code> en fait une image ordinaire.
 
-### 🎮 Sauvegardes : copier, restaurer et re-signer
-Affiche chaque sauvegarde PS5 avec le nom du jeu et l'utilisateur, la télécharge en ZIP sur le PC ou le téléphone (le conteneur chiffré reste inchangé), la réécrit et la re-signe pour un autre utilisateur de la console. Les sommes de contrôle sont vérifiées, un jeu en cours bloque les modifications. Jeux PS5 ; les sauvegardes PS4 suivront.
+### 🎮 Sauvegardes : copier et restaurer
+Affiche chaque sauvegarde PS5 avec le nom du jeu et l'utilisateur, la télécharge en ZIP sur le PC ou le téléphone (le conteneur chiffré reste inchangé) et la réécrit. Les sommes de contrôle sont vérifiées, un jeu en cours bloque les modifications. Jeux PS5 ; les sauvegardes PS4 suivront.
 
 </td>
 </tr>

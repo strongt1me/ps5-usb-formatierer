@@ -7,7 +7,7 @@
 **Formatta chiavette e dischi USB – direttamente sulla PS5 o sul PC.**<br>
 Con test di autenticità e velocità, backup immagine, gestione dei giochi, tutti i file system più diffusi e partizioni personalizzate.
 
-[![Versione](https://img.shields.io/badge/Versione-2.6.4-185fa5?style=for-the-badge)](../../releases/latest)
+[![Versione](https://img.shields.io/badge/Versione-2.6.5-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licenza](https://img.shields.io/badge/Licenza-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Piattaforma](https://img.shields.io/badge/Piattaforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Lingue](https://img.shields.io/badge/Lingue-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funzioni)
@@ -109,8 +109,8 @@ Controllo del numero di serie: se nel frattempo è inserita un'altra chiavetta d
 ### 💾 Salvare e ripristinare immagini
 Salva un'intera unità come <code>.img.zst</code> – solo le aree occupate, compresse con zstd, con <code>.sha256</code>. Sulla PS5 nella memoria interna, su un'altra unità USB o come download; sul PC in qualsiasi cartella, anche da chiavette e schede SD con la protezione da scrittura attiva. Riscrittura con verifica finale – anche caricando il file da telefono o PC. Con <code>zstd -d</code> il file diventa una normale immagine.
 
-### 🎮 Salvataggi: backup, ripristino e nuova firma
-Mostra i singoli salvataggi PS5 con nome del gioco e utente, li scarica come ZIP sul PC o sul telefono (il contenitore cifrato resta invariato), li riscrive e li firma di nuovo per un altro utente della console. I checksum vengono verificati, un gioco in esecuzione impedisce le modifiche. Giochi PS5; i salvataggi PS4 seguiranno.
+### 🎮 Salvataggi: backup e ripristino
+Mostra i singoli salvataggi PS5 con nome del gioco e utente, li scarica come ZIP sul PC o sul telefono (il contenitore cifrato resta invariato) e li riscrive. I checksum vengono verificati, un gioco in esecuzione impedisce le modifiche. Giochi PS5; i salvataggi PS4 seguiranno.
 
 </td>
 </tr>

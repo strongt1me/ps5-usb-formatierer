@@ -1,4 +1,4 @@
-/* PS5-Spielstand-Sicherung, Wiederherstellung und Neusignierung */
+/* PS5-Spielstand-Sicherung und Wiederherstellung */
 #ifndef SAVES_H
 #define SAVES_H
 
@@ -8,7 +8,6 @@
 typedef struct {
     char uid[16];           /* Ordnername unter /user/home, z. B. "1c3f8a0e" */
     char username[64];      /* Anzeigename aus <uid>/username.dat */
-    char account_id[17];    /* 16-stellige Hex-Account-ID aus der Registry ("" = nicht gefunden) */
 } save_user_t;
 
 typedef struct {
@@ -42,14 +41,6 @@ int  saves_download(int sock, const save_info_t *s, char *err, size_t errsz);
 /* Spielstand aus einer ZIP-Datei (Ergebnis von saves_download) zurückschreiben. 0 = ok, sonst Fehlertext in err */
 int  saves_restore_file(const char *zip_path, char *err, size_t errsz);
 
-/* Spielstand für den lokalen Benutzer target_uid neu signieren: Account-ID und Benutzer-ID in sce_sys/param.sfo des
- * Containers ändern. Ist target_uid der Besitzer, geschieht das am Ort (0). Sonst entsteht beim Zielbenutzer eine Kopie
- * (Container, Symbolbild, Eintrag in dessen Spielstand-Datenbank; PARAMS-HMAC eines dortigen Spielstands) und das
- * Original bleibt unverändert (1). -1 = Fehler, Text in err */
-int  saves_resign(const save_info_t *s, const char *target_uid, char *err, size_t errsz);
-
-/* param.sfo: ACCOUNT_ID (8 Byte) die Benutzer-ID in PARAMS (+4) und - wenn hmac != NULL - den PARAMS-HMAC (+8, 32 Byte) ändern (Test: ohne PS5 prüfbar) */
-int  saves_sfo_patch(const char *path, const uint8_t aid[8], uint32_t user_id, const uint8_t *hmac, char *err, size_t errsz);
 
 /* Arbeitsordner für temporäre Container-Kopien (PS5: /data/usb_format/save_tmp) */
 const char *saves_workdir(void);

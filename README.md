@@ -7,7 +7,7 @@
 **Format USB sticks and drives – directly on the PS5 or on your PC.**<br>
 With authenticity and speed tests, image backup, game management, all common file systems and custom partitions.
 
-[![Version](https://img.shields.io/badge/Version-2.6.4-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.6.5-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Languages](https://img.shields.io/badge/Languages-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-features)
@@ -109,8 +109,8 @@ Serial number check: if a different stick of the same model is plugged in meanwh
 ### 💾 Back up & restore images
 Back up a whole drive as <code>.img.zst</code> – only used areas, compressed with zstd, with a <code>.sha256</code>. On the PS5 to internal storage, another USB drive or as a download; on the PC to any folder, even from sticks and SD cards with the write-protect switch on. Write it back with a check afterwards – also by uploading from a phone or PC. <code>zstd -d</code> turns the file into an ordinary image.
 
-### 🎮 Back up, restore & re-sign save games
-Lists individual PS5 save games with game name and user, downloads them as a ZIP to your PC or phone (the encrypted container stays unchanged), writes them back and re-signs them for another user of the console. Checksums are verified, a running game blocks changes. PS5 games; PS4 saves will follow.
+### 🎮 Back up & restore save games
+Lists individual PS5 save games with game name and user, downloads them as a ZIP to your PC or phone (the encrypted container stays unchanged) and writes them back. Checksums are verified, a running game blocks changes. PS5 games; PS4 saves will follow.
 
 </td>
 </tr>

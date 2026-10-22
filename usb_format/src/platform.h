@@ -72,23 +72,7 @@ const char *plat_sandbox_dir(void);
 /* Öffnet den PS5-Browser mit url. 0 = ok, sonst Fehlertext in err. */
 int  plat_open_browser(const char *url, char *err, size_t errlen);
 
-/* Laufzeit-Symbol aus einer Sony-Bibliothek (PS5); auf dem Host immer NULL. */
-void *plat_dynsym(const char *module, const char *symbol);
-
 /* Ordner mit den Benutzern und ihren Spielständen (PS5: /user/home); NULL = keiner (Host ohne USBFMT_SAVES) */
 const char *plat_saves_dir(void);
-
-/* Ordner mit den Spielstand-Datenbanken (PS5: /system_data/savedata_prospero, darin <uid>/db/user/savedata.db); NULL = keiner */
-const char *plat_savedb_dir(void);
-
-/* Rechte für das Einhängen eines Spielstand-Containers (Kernel-Rechte des Prozesses); plat_creds_restore stellt
- * den vorherigen Stand wieder her. Auf dem Host ohne Wirkung. */
-typedef struct { uint64_t authid; uint8_t caps[16]; int valid; } plat_creds_t;
-
-/* Sealed Key (0x60 Byte) eines Spielstand-Containers über /dev/pfsmgr in den Schlüssel (0x20 Byte) entschlüsseln.
- * 0 = ok */
-int  plat_pfs_decrypt(const uint8_t sealed[0x60], uint8_t key[0x20]);
-void plat_creds_elevate(plat_creds_t *old);
-void plat_creds_restore(const plat_creds_t *old);
 
 #endif

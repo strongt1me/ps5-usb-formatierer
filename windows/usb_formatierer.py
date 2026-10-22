@@ -282,10 +282,6 @@ class Api:
             except (urllib.error.URLError, http.client.HTTPException) as e:
                 raise ConnectionError(str(getattr(e, "reason", e)) or type(e).__name__) from None
 
-    def resign_save(self, key, uid):
-        """Spielstand für den lokalen Benutzer uid neu signieren (Auftrag "save_resign")"""
-        return self._call("/api/saves/resign", {"key": key, "uid": uid})
-
 
 def send_payload(host, path):
     with open(path, "rb") as f:
@@ -653,7 +649,7 @@ class App(tk.Tk):
         sc = self.saves_card = ui_theme.card(right)
         sc.grid(row=0, column=0, sticky="nsew")
         sc.columnconfigure(0, weight=1)
-        ttk.Label(sc, text=_("Spielstände sichern, wiederherstellen oder neu signieren (nur PS5-Spielstände)."),
+        ttk.Label(sc, text=_("PS5-Spielstände sichern und wiederherstellen."),
                   style="Bold.TLabel", wraplength=px(440), justify="left").grid(row=0, column=0, sticky="w")
         sh = ttk.Frame(sc)
         sh.grid(row=1, column=0, sticky="ew", pady=(px(10), 0))
@@ -700,10 +696,8 @@ class App(tk.Tk):
         self.saves_down_btn.pack(side="left")
         self.saves_rest_btn = ttk.Button(sa, text=_("Wiederherstellen …"), command=self._saves_restore)
         self.saves_rest_btn.pack(side="left", padx=(px(8), 0))
-        self.saves_resign_btn = ttk.Button(sa, text=_("Neusignieren …"), command=self._saves_resign)
-        self.saves_resign_btn.pack(side="left", padx=(px(8), 0))
         self._saves_data = []      # [{key, title_id, title_name, save_dir, uid, username, size}]
-        self._saves_users = []     # [{uid, username, account_id}]
+        self._saves_users = []     # [{uid, username}]
 
         # ---- Fortschritt (der Bereich "frei" hat seinen eigenen)
         st = self.status_card = ui_theme.card(main, padding=(16, 10))
@@ -1081,40 +1075,6 @@ class App(tk.Tk):
         self.pbar["value"] = 0
         self._run(work)
 
-    def _saves_resign(self):
-        """Spielstand für einen anderen Benutzer dieser PS5 neu signieren"""
-        save = self._saves_selected()
-        if self.busy or not save or not self.api:
-            return
-        targets = [u for u in self._saves_users if u.get("account_id")]
-        if not targets:
-            messagebox.showinfo(self.title(), _("Keine Konten gefunden."), parent=self)
-            return
-        pick = ask_choice(self, _("Neusignieren"),
-                          _("„{game}“ wird neu signiert. Beim Besitzer geschieht das am Ort (vorher am besten sichern); "
-                            "bei einem anderen Benutzer entsteht dort eine Kopie, das Original bleibt unverändert.",
-                            game=save.get("title_name") or save["title_id"]),
-                          [(u.get("username") or u["uid"]) + " – " + u["account_id"] for u in targets], _("Neusignieren"))
-        if pick is None:
-            return
-        uid = targets[pick]["uid"]
-        api = self.api
-
-        def done(ok, msg, result):
-            (messagebox.showinfo if ok else messagebox.showerror)(_("Neusignieren"), msg, parent=self)
-            self._load_saves()
-
-        def work():
-            try:
-                api.resign_save(save["key"], uid)
-            except (ConnectionError, ApiError) as e:
-                self.q.put(("error", _("Neusignieren konnte nicht gestartet werden: {e}", e=e)))
-                return
-            self._follow(api, foreign=False, done_title=_("Spielstand neusigniert."), after=done)
-
-        self.pbar["value"] = 0
-        self._run(work)
-
     def _fs_picked(self, key):
         self.fs_var.set(key)
         self._update()
@@ -1239,7 +1199,6 @@ class App(tk.Tk):
         has_save = bool(self.saves_tree.selection())
         enable(self.saves_down_btn, idle and not pc and self.api and has_save)
         enable(self.saves_rest_btn, idle and not pc and self.api)
-        enable(self.saves_resign_btn, idle and not pc and self.api and has_save)
         enable(self.saves_reload_btn, idle and self.api)
         enable(self.uninstall_chk, idle)
         # nur bei genau einem Laufwerk auf dem Datenträger: der Helfer nimmt nicht unbedingt das angezeigte

@@ -7,7 +7,7 @@
 **USB-Sticks und -Festplatten formatieren – direkt an der PS5 oder am PC.**<br>
 Mit Echtheits- und Tempotest, Image-Sicherung, Spieleverwaltung, allen gängigen Dateisystemen und eigenen Partitionen.
 
-[![Version](https://img.shields.io/badge/Version-2.6.4-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.6.5-185fa5?style=for-the-badge)](../../releases/latest)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plattform](https://img.shields.io/badge/Plattform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funktionen)
@@ -109,8 +109,8 @@ Seriennummer-Abgleich: Steckt inzwischen ein baugleicher anderer Stick, wird nic
 ### 💾 Image sichern & wiederherstellen
 Ganzes Laufwerk als <code>.img.zst</code> sichern – nur belegte Bereiche, gepackt mit zstd, mit <code>.sha256</code>. An der PS5 nach intern, auf ein anderes USB-Laufwerk oder als Download; am PC in jeden Ordner, auch von Sticks und SD-Karten mit eingeschaltetem Schreibschutz. Zurückschreiben mit Prüfung danach – auch per Hochladen vom Handy oder PC. Die Datei lässt sich mit <code>zstd -d</code> zu einem gewöhnlichen Image entpacken.
 
-### 🎮 Spielstände sichern, wiederherstellen & neu signieren
-Einzelne PS5-Spielstände mit Spielname und Benutzer anzeigen, als ZIP auf den PC oder das Handy laden (der verschlüsselte Container bleibt unverändert), zurückschreiben und für einen anderen Benutzer der Konsole neu signieren. Prüfsummen werden kontrolliert, ein laufendes Spiel verhindert Änderungen. PS5-Spiele; PS4-Spielstände folgen.
+### 🎮 Spielstände sichern & wiederherstellen
+Einzelne PS5-Spielstände mit Spielname und Benutzer anzeigen, als ZIP auf den PC oder das Handy laden (der verschlüsselte Container bleibt unverändert) und zurückschreiben. Prüfsummen werden kontrolliert, ein laufendes Spiel verhindert Änderungen. PS5-Spiele; PS4-Spielstände folgen.
 
 </td>
 </tr>

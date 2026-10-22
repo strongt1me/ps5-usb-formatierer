@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Spielstand-API gegen den Host-Formatierer: Liste, ZIP-Sicherung, Wiederherstellen (auch mit bösartigen/kaputten ZIPs),
-Neusignieren (mit der Attrappe aus platform_host.c), Schutzregeln.
+Schutzregeln.
 Aufruf: saves_test.py <host-binary> [port]   (das Binary mit -DSERVER_PORT=<port> gebaut, Standard 18115)"""
 import hashlib
 import http.client
@@ -9,7 +9,6 @@ import json
 import os
 import shutil
 import signal
-import sqlite3
 import struct
 import subprocess
 import sys
@@ -48,8 +47,7 @@ SAND = os.path.join(W, "sandbox")
 os.makedirs(DATA)
 os.makedirs(SAND)
 sums = json.loads(subprocess.check_output([sys.executable, os.path.join(HERE, "saves_fixture.py"), ROOT]))
-env = dict(os.environ, USBFMT_SAVES=HOME, USBFMT_SAVEDB=os.path.join(ROOT, "savedb"), USBFMT_DATA=DATA, USBFMT_IMAGES="", USBFMT_SANDBOX=SAND,
-           USBFMT_SAVES_MOCK="Alex=0123456789abcdef,Sam=fedcba9876543210")
+env = dict(os.environ, USBFMT_SAVES=HOME, USBFMT_DATA=DATA, USBFMT_IMAGES="", USBFMT_SANDBOX=SAND)
 srv = subprocess.Popen([BIN], env=env, stdout=open(os.path.join(W, "srv.log"), "w"), stderr=subprocess.STDOUT)
 
 
@@ -138,8 +136,7 @@ try:
     check("Benutzername und Größe", s1["username"] == "Alex" and s1["size"] == 2 << 20, str(s1))
     st, j = jreq("GET", "/api/saves/users")
     users = {u["uid"]: u for u in j["users"]}
-    check("3 Benutzer mit Namen, Konten aus der Registry", len(users) == 3 and users["2d4e9b1f"]["account_id"] == "fedcba9876543210"
-          and users["3a5b7c9d"]["account_id"] == "", str(j))
+    check("3 Benutzer mit Namen", len(users) == 3 and users["2d4e9b1f"]["username"] == "Sam", str(j))
 
     # ------------------------------------------------------------------ Sichern
     print("== Sichern (ZIP) ==")
@@ -280,153 +277,12 @@ try:
         st = 403
     check("Upload mit falschem Host abgelehnt (403)", st == 403)
 
-    # ------------------------------------------------------------------ Neusignieren
-    def sfo_pos(blob):
-        sfo = blob[fx.SFO_OFF:fx.SFO_OFF + 0x1000]
-        kt, dt, n = struct.unpack("<III", sfo[8:20])
-        pos = {}
-        for k in range(n):
-            ko, fmt, ln, mx, do = struct.unpack("<HHIII", sfo[20 + 16 * k:36 + 16 * k])
-            pos[sfo[kt + ko:sfo.index(b"\0", kt + ko)].decode()] = fx.SFO_OFF + dt + do
-        return pos
-
-    def db_rows(uid):
-        c = sqlite3.connect(os.path.join(ROOT, "savedb", uid, "db", "user", "savedata.db"))
-        c.row_factory = sqlite3.Row
-        rows = {(r["title_id"], r["dir_name"]): dict(r) for r in c.execute("SELECT * FROM savedata")}
-        c.close()
-        return rows
-
-    def dbfile(uid):
-        return os.path.join(ROOT, "savedb", uid, "db", "user", "savedata.db")
-
-    def signed(v):
-        return v - (1 << 64) if v >= 1 << 63 else v
-
-    print("== Neusignieren am Ort (Besitzer = Zielbenutzer) ==")
-    before = open(path1, "rb").read()
-    pos = sfo_pos(before)
-    os.chmod(path1, 0o600)
-    alex_db = open(dbfile("1c3f8a0e"), "rb").read()
-    st, j = jreq("POST", "/api/saves/resign?lang=en", {"key": K1, "uid": "1c3f8a0e"})
-    res = wait_job()
-    check("Neusignieren angenommen", st == 202, str(j))
-    check("Auftrag save_resign ok, Meldung ohne Kopie", res and res["ok"] and res["kind"] == "save_resign" and "re-signed" in res["message"]
-          and "copy" not in res["message"], str(res))
-    after = open(path1, "rb").read()
-    diff = [i for i in range(len(before)) if before[i] != after[i]]
-    exp = set(range(pos["ACCOUNT_ID"], pos["ACCOUNT_ID"] + 8))
-    check("nur ACCOUNT_ID geändert", diff and set(diff) <= exp, "geänderte Stellen: %s" % diff[:20])
-    check("ACCOUNT_ID little-endian des Kontos", after[pos["ACCOUNT_ID"]:pos["ACCOUNT_ID"] + 8] == bytes.fromhex("0123456789abcdef")[::-1])
-    check("Rechte bleiben", os.stat(path1).st_mode & 0o777 == 0o600)
-    rows = db_rows("1c3f8a0e")
-    r = rows[("PPSA01234", "SAVEDATA00")]
-    check("Datenbank: Zeile bekommt die Account-ID", r["account_id"] == 0x0123456789abcdef and r["user_id"] == 0x1c3f8a0e, str(r))
-    check("Datenbank: Sicherungskopie davor", open(dbfile("1c3f8a0e") + ".usbfmt.bak", "rb").read() == alex_db)
-    check("keine Zwischendateien übrig", not [p for p in tree() if p.endswith(".tmp") or "/save_tmp/resign_" in p],
-          str([p for p in tree() if "save_tmp" in p or p.endswith(".tmp")]))
-
-    print("== Kopie für einen anderen Benutzer ==")
-    K3 = "1c3f8a0e/PPSA07890/sdimg_SAVEDATA00"
-    src = os.path.join(HOME, "1c3f8a0e", "savedata_prospero", "PPSA07890", "sdimg_SAVEDATA00")
-    orig = open(src, "rb").read()
-    os.chmod(src, 0o640)
-    sam_db = open(dbfile("2d4e9b1f"), "rb").read()
-    alex_db = open(dbfile("1c3f8a0e"), "rb").read()
-    st, j = jreq("POST", "/api/saves/resign?lang=en", {"key": K3, "uid": "2d4e9b1f"})
-    res = wait_job()
-    check("Kopie angenommen und ok, Meldung nennt die Kopie", st == 202 and res and res["ok"] and "copy" in res["message"], str(res))
-    check("Original unverändert", open(src, "rb").read() == orig)
-    dest = os.path.join(HOME, "2d4e9b1f", "savedata_prospero", "PPSA07890", "sdimg_SAVEDATA00")
-    check("Kopie liegt beim Zielbenutzer", os.path.exists(dest) and len(open(dest, "rb").read()) == len(orig))
-    cp = open(dest, "rb").read() if os.path.exists(dest) else b""
-    pos = sfo_pos(orig)
-    diff = [i for i in range(len(orig)) if i < len(cp) and orig[i] != cp[i]]
-    exp = set(range(pos["ACCOUNT_ID"], pos["ACCOUNT_ID"] + 8)) | set(range(pos["PARAMS"] + 4, pos["PARAMS"] + 40))
-    check("Kopie unterscheidet sich nur in ACCOUNT_ID, Benutzer-ID und HMAC", diff and set(diff) <= exp, str(diff[:20]))
-    check("ACCOUNT_ID des Zielkontos", cp[pos["ACCOUNT_ID"]:pos["ACCOUNT_ID"] + 8] == bytes.fromhex("fedcba9876543210")[::-1])
-    check("Benutzer-ID des Zielbenutzers", struct.unpack("<I", cp[pos["PARAMS"] + 4:pos["PARAMS"] + 8])[0] == 0x2d4e9b1f)
-    check("PARAMS-HMAC aus einem Spielstand des Zielbenutzers", cp[pos["PARAMS"] + 8:pos["PARAMS"] + 40] == fx.user_hmac("2d4e9b1f"))
-    check("Rechte wie beim Original", os.path.exists(dest) and os.stat(dest).st_mode & 0o777 == 0o640)
-    icon = os.path.join(HOME, "2d4e9b1f", "savedata_prospero_meta", "user", "PPSA07890", "SAVEDATA00_icon0.png")
-    check("Symbolbild beim Zielbenutzer", os.path.exists(icon) and open(icon, "rb").read() == orig[fx.ICON_OFF:fx.ICON_OFF + fx.ICON_LEN])
-    rows = db_rows("2d4e9b1f")
-    r = rows.get(("PPSA07890", "SAVEDATA00"), {})
-    check("Datenbank des Zielbenutzers: neue Zeile", r and signed(0xfedcba9876543210) == r["account_id"] and r["user_id"] == 0x2d4e9b1f
-          and r["main_title"] == "Zweites Spiel" and r["sub_title"] == "Kapitel 3" and r["blocks"] == 96 and r["size_kib"] == 96 * 64
-          and r["system_blocks"] == 2 and r["game_title_id"] == "PPSA07890" and r["user_param"] == 7, str(r))
-    check("Datenbank: übrige Zeilen bleiben, 3 Zeilen", len(rows) == 3 and ("PPSA01234", "SAVEDATA00") in rows)
-    check("Datenbank: Sicherungskopie des Zielbenutzers", open(dbfile("2d4e9b1f") + ".usbfmt.bak", "rb").read() == sam_db)
-    check("Datenbank des Besitzers unberührt", open(dbfile("1c3f8a0e"), "rb").read() == alex_db)
-    st, j = jreq("GET", "/api/saves")
-    check("Kopie erscheint in der Liste", any(s["key"] == "2d4e9b1f/PPSA07890/sdimg_SAVEDATA00" for s in j["saves"]))
-    check("keine Zwischendateien übrig", not [p for p in tree() if p.endswith(".tmp") or "/save_tmp/resign_" in p])
-
-    print("== Kopie abgelehnt / zurückgenommen ==")
-    snap = tree()
-    snap_bytes = {p: open(p, "rb").read() for p in snap if p.endswith(".db")}
-    st, j = jreq("POST", "/api/saves/resign?lang=en", {"key": K1, "uid": "2d4e9b1f"})
-    r = wait_job()
-    check("Zielbenutzer hat schon einen Spielstand gleichen Namens", st == 400 or (r and not r["ok"] and "already has" in r["message"]),
-          "%s %s %s" % (st, j, r and r["message"]))
-    check("... nichts verändert", tree() == snap)
-    # Datenbank des Zielbenutzers kaputt: die Kopie darf nicht stehen bleiben
-    K4 = "1c3f8a0e/PPSA09999/sdimg_EXTRA"
-    good = open(dbfile("2d4e9b1f"), "rb").read()
-    open(dbfile("2d4e9b1f"), "wb").write(b"kein sqlite " * 200)
-    st, j = jreq("POST", "/api/saves/resign?lang=en", {"key": K4, "uid": "2d4e9b1f"})
-    r = wait_job()
-    check("kaputte Datenbank: Fehler gemeldet", r and not r["ok"] and "database" in r["message"].lower(), str(r and r["message"]))
-    check("kaputte Datenbank: Kopie und Symbolbild zurückgenommen",
-          not os.path.exists(os.path.join(HOME, "2d4e9b1f", "savedata_prospero", "PPSA09999", "sdimg_EXTRA"))
-          and not os.path.exists(os.path.join(HOME, "2d4e9b1f", "savedata_prospero_meta", "user", "PPSA09999", "EXTRA_icon0.png")))
-    check("kaputte Datenbank: Original unverändert", open(os.path.join(HOME, "1c3f8a0e", "savedata_prospero", "PPSA09999", "sdimg_EXTRA"), "rb").read()
-          == fx.container("1c3f8a0e" + "PPSA09999" + "sdimg_EXTRA", 1 << 20, uid="1c3f8a0e", title="PPSA09999", name="sdimg_EXTRA"))
-    open(dbfile("2d4e9b1f"), "wb").write(good)
-    os.remove(dbfile("2d4e9b1f") + ".usbfmt.bak")
-
-    # Fehlerfälle
-    def resign_fail(name, body, want):
-        lang = body.pop("lang", "de") if isinstance(body, dict) else "de"
-        st, j = jreq("POST", "/api/saves/resign?lang=" + lang, body)
-        if st == 202:
-            r = wait_job()
-            check(name, r and not r["ok"] and want in r["message"], str(r and r["message"]))
-        else:
-            check(name, st == want if isinstance(want, int) else False, "%s %s" % (st, j))
-    snap = tree()
-    resign_fail("Zielbenutzer ohne Konto (Jo)", {"key": K1, "uid": "3a5b7c9d", "lang": "en"}, "No account ID")
-    resign_fail("Zielbenutzer existiert nicht", {"key": K1, "uid": "ffffffff", "lang": "en"}, "does not exist")
-    resign_fail("unbekannter Spielstand", {"key": "1c3f8a0e/PPSA00000/x", "uid": "2d4e9b1f", "lang": "en"}, "not found")
-    resign_fail("uid mit Schrägstrich", {"key": K1, "uid": "../x"}, 400)
-    resign_fail("uid fehlt", {"key": K1}, 400)
-    resign_fail("key fehlt", {"uid": "2d4e9b1f"}, 400)
-    resign_fail("kein JSON (Content-Type fehlt)", None, 415)
-    resign_fail("Schlüssel zu lang", {"key": "a" * 400, "uid": "2d4e9b1f"}, 400)
-    check("Fehlerfälle ändern nichts", tree() == snap)
-    # PS4-Container
-    ps4 = os.path.join(HOME, "2d4e9b1f", "savedata_prospero", "PPSA07890", "sdimg_SAVEDATA01")
-    d = open(ps4, "rb").read()
-    open(ps4, "wb").write(b"\x01" + d[1:])
-    resign_fail("PS4-Container", {"key": K2, "uid": "2d4e9b1f", "lang": "en"}, "PS4")
-    open(ps4, "wb").write(d)
-    # Container ohne ACCOUNT_ID in der param.sfo
-    d2 = bytearray(d)
-    d2[fx.SFO_OFF:fx.SFO_OFF + 0x1000] = fx.sfo([("TITLE_ID", b"PPSA07890\0")]).ljust(0x1000, b"\0")
-    open(ps4, "wb").write(bytes(d2))
-    snap = open(ps4, "rb").read()
-    resign_fail("param.sfo ohne ACCOUNT_ID", {"key": K2, "uid": "2d4e9b1f", "lang": "en"}, "ACCOUNT_ID")
-    check("... Container danach unverändert", open(ps4, "rb").read() == snap)
-    open(ps4, "wb").write(d)
-
     # ------------------------------------------------------------------ laufendes Spiel
     print("== Schutz bei laufendem Spiel ==")
     os.makedirs(os.path.join(SAND, "PPSA11111_000"))
     snap = tree()
-    st, j = jreq("POST", "/api/saves/resign", {"key": K1, "uid": "2d4e9b1f"})
-    check("Neusignieren bei laufendem Spiel 409", st == 409 and "PPSA11111" in j.get("error", ""), "%s %s" % (st, j))
     st, hd, rb = req("POST", "/api/saves/restore/upload", data, {"Content-Type": "application/zip"})
-    check("Wiederherstellen bei laufendem Spiel 409", st == 409, str(st))
+    check("Wiederherstellen bei laufendem Spiel 409", st == 409 and b"PPSA11111" in rb, "%s %s" % (st, rb[:100]))
     check("Sichern bei laufendem Spiel erlaubt (nur lesen)", req("GET", "/api/saves/download?key=" + K2.replace("/", "%2F"))[0] == 200)
     check("nichts verändert", tree() == snap)
     shutil.rmtree(os.path.join(SAND, "PPSA11111_000"))
@@ -435,13 +291,11 @@ try:
     print("== Verlauf ==")
     st, j = jreq("GET", "/api/history")
     kinds = [e["kind"] for e in j["entries"]]
-    check("Verlauf enthält save_resign und save_restore", "save_resign" in kinds and "save_restore" in kinds, str(kinds))
-    st, j = jreq("POST", "/api/saves/resign?lang=de", {"key": K1, "uid": "ffffffff"})
-    r = wait_job()
-    check("deutsche Fehlermeldung", r and "nicht vorhanden" in r["message"], str(r and r["message"]))
-    st, j = jreq("POST", "/api/saves/resign?lang=fr", {"key": K1, "uid": "ffffffff"})
-    r = wait_job()
-    check("französische Fehlermeldung", r and "n'existe pas" in r["message"], str(r and r["message"]))
+    check("Verlauf enthält save_restore", "save_restore" in kinds, str(kinds))
+    for lang, want in (("de", "Keine gültige Spielstand-ZIP-Datei"), ("fr", "n'est pas un fichier ZIP")):
+        st, hd, rb = req("POST", "/api/saves/restore/upload?lang=" + lang, b"kein zip" * 10, {"Content-Type": "application/zip"})
+        wait_job()
+        check("Fehlermeldung in " + lang, want in rb.decode(), rb.decode()[:150])
 finally:
     # Sanitizer-Meldungen des Servers (Läufe mit HOST_CFLAGS="-fsanitize=address,undefined") zählen als Fehler
     srv.send_signal(signal.SIGTERM)

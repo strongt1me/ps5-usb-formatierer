@@ -1691,24 +1691,6 @@
   "es": "Restaurar partida",
   "fr": "Restaurer la partie"
  },
- "Neusignieren": {
-  "en": "Re-sign",
-  "it": "Rifirma",
-  "es": "Refirmar",
-  "fr": "Re-signer"
- },
- "Neusignieren …": {
-  "en": "Re-sign …",
-  "it": "Rifirma …",
-  "es": "Refirmar …",
-  "fr": "Re-signer …"
- },
- "Neues Konto": {
-  "en": "New account",
-  "it": "Nuovo account",
-  "es": "Nueva cuenta",
-  "fr": "Nouveau compte"
- },
  "Spielstand wird geladen …": {
   "en": "Loading saves …",
   "it": "Caricamento salvataggi …",
@@ -1727,40 +1709,10 @@
   "es": "Se sustituirá una partida guardada existente con el mismo nombre. Esto no se puede deshacer.",
   "fr": "Une sauvegarde existante du même nom sera remplacée. Cette action est irréversible."
  },
- "Keine Konten gefunden.": {
-  "en": "No accounts found.",
-  "it": "Nessun account trovato.",
-  "es": "No se encontraron cuentas.",
-  "fr": "Aucun compte trouvé."
- },
- "Spielstand neusigniert": {
-  "en": "Save game re-signed",
-  "it": "Salvataggio firmato di nuovo",
-  "es": "Partida refirmada",
-  "fr": "Sauvegarde re-signée"
- },
  "Spielstand wiederhergestellt": {
   "en": "Save game restored",
   "it": "Salvataggio ripristinato",
   "es": "Partida restaurada",
   "fr": "Sauvegarde restaurée"
- },
- "Neusignieren fehlgeschlagen": {
-  "en": "Re-signing failed",
-  "it": "Firma non riuscita",
-  "es": "Error al refirmar",
-  "fr": "Échec de la re-signature"
- },
- "Spielstand neusignieren": {
-  "en": "Re-sign save game",
-  "it": "Rifirma salvataggio",
-  "es": "Refirmar partida",
-  "fr": "Re-signer la sauvegarde"
- },
- "„{game}“ wird neu signiert. Beim Besitzer geschieht das am Ort (vorher am besten sichern); bei einem anderen Benutzer entsteht dort eine Kopie, das Original bleibt unverändert.": {
-  "en": "“{game}” will be re-signed. For the owner this happens in place (best back it up first); for another user a copy is created for them and the original stays unchanged.",
-  "it": "«{game}» verrà firmato di nuovo. Per il proprietario avviene sul posto (meglio fare prima un backup); per un altro utente viene creata una copia e l'originale resta invariato.",
-  "es": "«{game}» se volverá a firmar. Para el propietario se hace en el mismo sitio (mejor hacer antes una copia); para otro usuario se crea una copia y el original no cambia.",
-  "fr": "« {game} » sera re-signée. Pour le propriétaire, cela se fait sur place (mieux vaut sauvegarder d'abord) ; pour un autre utilisateur, une copie est créée et l'original reste inchangé."
  }
 }

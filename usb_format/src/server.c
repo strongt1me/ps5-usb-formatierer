@@ -237,9 +237,9 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESIGN, JOB_SAVE_RESTORE };
+       JOB_SAVE_RESTORE };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_resign", "save_restore"};
+                                       "tile", "verify", "save_restore"};
 
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
@@ -268,8 +268,6 @@ typedef struct {
     FILE    *img;
     ib_reader_t *rd;
     /* Spielstand neusignieren */
-    char     saves_key[320];
-    char     saves_uid[16];
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
 } job_t;
@@ -2788,7 +2786,7 @@ static int saves_game_check(int c) {
     return 1;
 }
 
-/* GET /api/saves/users  → {"users":[{"uid","username","account_id"},…]} */
+/* GET /api/saves/users  → {"users":[{"uid","username"},…]} */
 static void api_saves_users(int c) {
     save_user_t *users = NULL;
     int nu = 0;
@@ -2801,8 +2799,6 @@ static void api_saves_users(int c) {
         sb_str(&b, users[i].uid);
         sb_add(&b, ",\"username\":");
         sb_str(&b, users[i].username);
-        sb_add(&b, ",\"account_id\":");
-        sb_str(&b, users[i].account_id);
         sb_add(&b, "}");
     }
     sb_add(&b, "]}");
@@ -2849,49 +2845,6 @@ static void api_saves_download(int c, const char *q) {
     if (saves_find(key, &s)) { respond_error(c, 404, "Spielstand nicht gefunden"); return; }
     char err[256] = "";
     if (saves_download(c, &s, err, sizeof(err)) == -1) respond_error(c, 500, err[0] ? err : "Sichern fehlgeschlagen");
-}
-
-/* Worker für JOB_SAVE_RESIGN */
-static void *resign_worker(void *arg) {
-    job_t *j = arg;
-    i18n_set(j->lang);
-    sbuf_t msg = {0}, res = {0};
-    save_info_t s;
-    int ok = 0;
-    on_progress("Spielstand wird neu signiert …", 10);
-    if (saves_find(j->saves_key, &s)) {
-        sb_add(&msg, "%s", T("Spielstand nicht gefunden"));
-    } else {
-        char err[256] = "";
-        int rr = saves_resign(&s, j->saves_uid, err, sizeof(err));
-        if (rr >= 0) {
-            ok = 1;
-            if (rr == 1) sb_tr(&msg, "Spielstand beim Zielbenutzer als Kopie angelegt und neu signiert. Das Original bleibt unverändert.");
-            else sb_tr(&msg, "Spielstand erfolgreich neusigniert.");
-        } else {
-            sb_add(&msg, "%s", err[0] ? err : T("Neusignierung fehlgeschlagen"));
-        }
-    }
-    job_done(j, ok, &msg, &res, 0);
-    return NULL;
-}
-
-/* POST /api/saves/resign  {"key":"<uid>/<title_id>/<save_dir>","uid":"<Zielbenutzer>"} */
-static void api_saves_resign(int c, const char *body) {
-    kv_t kv[KV_MAX];
-    int n = json_parse(body, kv, KV_MAX);
-    const char *key = n > 0 ? kv_get(kv, n, "key") : NULL, *uid = n > 0 ? kv_get(kv, n, "uid") : NULL;
-    if (!key || !key[0] || !uid || !uid[0] || strlen(key) >= sizeof(((job_t *)0)->saves_key) ||
-        !saves_name_ok(uid, sizeof(((job_t *)0)->saves_uid))) {
-        respond_error(c, 400, "key und uid erforderlich");
-        return;
-    }
-    if (saves_game_check(c)) return;
-    job_t *j = new_job(c, JOB_SAVE_RESIGN);
-    if (!j) return;
-    snprintf(j->saves_key, sizeof(j->saves_key), "%.319s", key);
-    snprintf(j->saves_uid, sizeof(j->saves_uid), "%.15s", uid);
-    start_job(c, j, resign_worker);
 }
 
 /* POST /api/saves/restore/upload  Körper = ZIP: auf die Platte schreiben (nicht in den Speicher: Spielstände sind
@@ -3228,8 +3181,6 @@ static void handle(int c) {
         api_saves_users(c);
     else if (strcmp(path, "/api/saves/download") == 0 && is_get)
         api_saves_download(c, q);
-    else if (strcmp(path, "/api/saves/resign") == 0 && is_post)
-        api_saves_resign(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {
         /* Warten auf Abziehen/Einstecken, Prüfen und Beschreiben brechen ab; das Formatieren selbst nicht */
         __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
