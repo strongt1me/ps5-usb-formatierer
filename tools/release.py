@@ -222,9 +222,9 @@ def publish(version, title, notes, message):
         step("Einchecken, Tag, Push")
         run(["git", "add", "-A"])
         if message:
-            run(["git", "commit", "-q", "-F", message])
+            run(["git", "commit", "-q", "--allow-empty", "-F", message])
         else:
-            run(["git", "commit", "-q", "-m", f"{version}: {title}"])
+            run(["git", "commit", "-q", "--allow-empty", "-m", f"{version}: {title}"])
         run(["git", "tag", tag])
         run(["git", "push", "-q", "origin", "main"])
         run(["git", "push", "-q", "origin", tag])
