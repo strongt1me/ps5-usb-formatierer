@@ -110,7 +110,7 @@ Comprobación del número de serie: si mientras tanto hay otro pendrive del mism
 Guarda una unidad entera como <code>.img.zst</code> – solo las áreas ocupadas, comprimidas con zstd, con <code>.sha256</code>. En la PS5 en el almacenamiento interno, en otra unidad USB o como descarga; en el PC en cualquier carpeta, también desde memorias y tarjetas SD con el interruptor de protección activado. Vuelve a escribirla con comprobación posterior – también subiéndola desde el móvil o el PC. Con <code>zstd -d</code> el archivo se convierte en una imagen normal.
 
 ### 🎮 Partidas guardadas: copiar y restaurar
-Muestra las partidas guardadas de PS5 con nombre del juego y usuario, permite marcar varias y copiarlas – como descarga ZIP o en la propia PS5 (interna <code>/data/game_saves</code> o <code>game_saves</code> de una unidad USB). El contenedor cifrado no cambia. Para restaurar, el formateador lista las copias encontradas por usuario (o se usa un ZIP del dispositivo). Se comprueban las sumas de verificación y un juego en ejecución impide los cambios. Juegos de PS5; las partidas de PS4 llegarán después.
+Muestra las partidas guardadas de PS5 con nombre del juego y usuario, permite marcar varias y copiarlas – como descarga ZIP o en la propia PS5 (interna <code>/data/game_saves</code> o <code>game_saves</code> de una unidad USB). El contenedor cifrado no cambia. Para restaurar, el formateador lista las copias encontradas por usuario (o se usa un ZIP del dispositivo). Se comprueban las sumas de verificación y un juego en ejecución impide los cambios. Partidas de PS5 y PS4 (PS4 con su archivo de clave), las copias del sistema (sce_bu) están ocultas al principio; copiar y restaurar se pueden cancelar.
 
 </td>
 </tr>

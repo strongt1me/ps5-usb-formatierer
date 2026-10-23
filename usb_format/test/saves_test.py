@@ -130,12 +130,14 @@ try:
     print("== Liste ==")
     st, j = jreq("GET", "/api/saves")
     keys = [s["key"] for s in j.get("saves", [])]
-    check("5 Spielstände, sortiert, ohne .bin/zu kleine/leere Ordner", st == 200 and keys == sorted(keys) and len(keys) == 5,
+    check("7 Spielstände (5 PS5, 2 PS4), sortiert, ohne .bin/zu kleine/leere Ordner/PS4 ohne Schlüssel", st == 200 and keys == sorted(keys) and len(keys) == 7,
           str(keys))
     s1 = next(s for s in j["saves"] if s["key"] == K1)
     check("Spielname aus param.sfo des Spiels", s1["title_name"] == 'Beispiel-Spiel: Die "Rückkehr"', s1["title_name"])
     check("Benutzername und Größe", s1["username"] == "Alex" and s1["size"] == 2 << 20, str(s1))
-    check("Konsole: alle Einträge PS5", all(x["platform"] == "PS5" for x in j["saves"]), str([x["platform"] for x in j["saves"]]))
+    check("Konsole: 5 mal PS5, 2 mal PS4 (mit Schlüsseldatei)", sorted(x["platform"] for x in j["saves"]) == ["PS4", "PS4"] + ["PS5"] * 5, str([x["platform"] for x in j["saves"]]))
+    check("PS4-Eintrag: Schlüssel mit #PS4, Spielname aus param.sfo", any(x["key"] == "1c3f8a0e/CUSA00001/sdimg_PS4DATA#PS4" and x["title_name"] == "PS4-Beispiel" for x in j["saves"]), "")
+    check("Systemkopie als copy markiert", [x["copy"] for x in j["saves"] if "sce_bu_" in x["save_dir"]] == [True], "")
     st, j = jreq("GET", "/api/saves/users")
     users = {u["uid"]: u for u in j["users"]}
     check("3 Benutzer mit Namen", len(users) == 3 and users["2d4e9b1f"]["username"] == "Sam", str(j))
@@ -310,6 +312,7 @@ try:
 
     print("== Fortschritt beim Sichern ==")
     all5 = [s["key"] for s in jreq("GET", "/api/saves")[1]["saves"]]
+    NALL = len(all5)
     samples = []
     st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": chr(10).join(all5), "dest": jreq("GET", "/api/saves/locations")[1]["locations"][0]["dir"]})
     t_end = time.time() + 60
@@ -324,7 +327,7 @@ try:
     check("Fortschritt: nie 0 % während des Sicherns (sonst nur ein laufender Balken)", run and all(p >= 1 for p in pcts), str(run[:5]))
     check("Fortschritt: steigt, endet nicht vor 100 %", pcts == sorted(pcts) and pcts[-1] <= 99 and pcts[-1] > pcts[0], str(pcts[:3]) + "…" + str(pcts[-3:]))
     check("Fortschritt: Schritt nennt Spielstand x von 5 und den Spielnamen",
-          any("save game 1 of 5" in (x[1] or "") for x in run) and any("save game 5 of 5" in (x[1] or "") for x in run) and any("Zweites Spiel" in (x[1] or "") for x in run),
+          any("save game 1 of %d" % NALL in (x[1] or "") for x in run) and any("save game %d of %d" % (NALL, NALL) in (x[1] or "") for x in run) and any("Zweites Spiel" in (x[1] or "") for x in run),
           str(sorted(set(x[1] for x in run)))[:300])
     wait_job()
 
@@ -349,7 +352,7 @@ try:
     check("Abbrechen: Auftrag endet mit Meldung 'Cancelled', cancelled=true", res and not res["ok"] and res.get("cancelled") and "Cancelled" in res["message"], str(res))
     left = [os.path.join(d, f) for d, _, fs in os.walk(dest2) for f in fs]
     check("Abbrechen: keine halbe Datei und keine .tmp bleibt", not [f for f in left if f.endswith(".tmp")] and all(zipfile.ZipFile(f).testzip() is None for f in left), str(left))
-    check("Abbrechen: weniger als alle fünf gesichert", len(left) < 5, str(len(left)))
+    check("Abbrechen: weniger als alle gesichert", len(left) < NALL, str(len(left)))
     # Wiederherstellen aus einer Sicherung abbrechen: Original bleibt unverändert
     st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": K1, "dest": dest2})
     wait_job()
@@ -368,6 +371,54 @@ try:
     check("Wiederherstellen abbrechen: entweder fertig oder 'Cancelled' mit unverändertem/ganzem Container und ohne .tmp",
           res and (res["ok"] or "Cancelled" in res["message"]) and hashlib.sha256(after_r).hexdigest() in (hashlib.sha256(before_r).hexdigest(), sums[K1])
           and not [p for p in tree() if p.endswith(".tmp")], str(res))
+
+    print("== PS4-Spielstände ==")
+    KP = "1c3f8a0e/CUSA00001/sdimg_PS4DATA#PS4"
+    pdir = os.path.join(HOME, "1c3f8a0e", "savedata", "CUSA00001")
+    enc = lambda k: k.replace("/", "%2F").replace("#", "%23")
+    st, hd, zdata = req("GET", "/api/saves/download?key=" + enc(KP))
+    zp = zipfile.ZipFile(io.BytesIO(zdata)) if st == 200 else None
+    check("PS4-Sicherung: metadata.json, Container, Schlüsseldatei", zp and zp.namelist() == ["metadata.json", "CUSA00001_sdimg_PS4DATA.img", "CUSA00001_sdimg_PS4DATA.bin"], str(zp and zp.namelist()))
+    check("PS4-Sicherung: Inhalte unverändert, metadata nennt PS4", zp and hashlib.sha256(zp.read("CUSA00001_sdimg_PS4DATA.img")).hexdigest() == sums[KP]
+          and hashlib.sha256(zp.read("CUSA00001_sdimg_PS4DATA.bin")).hexdigest() == sums[KP + ".bin"] and json.loads(zp.read("metadata.json"))["platform"] == "PS4")
+    open(os.path.join(pdir, "sdimg_PS4DATA"), "wb").write(b"\x01" + bytes(5000))
+    open(os.path.join(pdir, "PS4DATA.bin"), "wb").write(bytes(96))
+    os.chmod(os.path.join(pdir, "PS4DATA.bin"), 0o640)
+    st, hd, rb = req("POST", "/api/saves/restore/upload?lang=en", zdata, {"Content-Type": "application/zip"})
+    res = wait_job()
+    check("PS4 wiederhergestellt (Container und Schlüssel)", st == 200 and res and res["ok"], str(res and res["message"]))
+    check("PS4: Container und .bin wie vorher", hashlib.sha256(open(os.path.join(pdir, "sdimg_PS4DATA"), "rb").read()).hexdigest() == sums[KP]
+          and hashlib.sha256(open(os.path.join(pdir, "PS4DATA.bin"), "rb").read()).hexdigest() == sums[KP + ".bin"])
+    check("PS4: Rechte der vorhandenen .bin bleiben", os.stat(os.path.join(pdir, "PS4DATA.bin")).st_mode & 0o777 == 0o640)
+    check("PS4: keine Zwischendateien", not [p for p in tree() if p.endswith(".tmp")])
+    # PS4 und PS5 gemeinsam in einer Sammel-ZIP, danach beide beschädigt und zurückgeholt
+    st, hd, mixed = req("GET", "/api/saves/download?keys=" + ",".join(enc(k) for k in (K1, KP)))
+    open(os.path.join(pdir, "sdimg_PS4DATA"), "wb").write(b"\x01" + bytes(5000))
+    open(paths[K1], "wb").write(b"\x02" + bytes(5000))
+    st, hd, rb = req("POST", "/api/saves/restore/upload?lang=en", mixed, {"Content-Type": "application/zip"})
+    res = wait_job()
+    check("Sammel-ZIP mit PS5 und PS4: beide zurück", st == 200 and res and res["ok"] and "restored: 2" in res["message"]
+          and hashlib.sha256(open(os.path.join(pdir, "sdimg_PS4DATA"), "rb").read()).hexdigest() == sums[KP] and file_sha("1c3f8a0e", "PPSA01234", "sdimg_SAVEDATA00") == sums[K1], str(res and res["message"]))
+    # Abweisungen: Konsolenangabe passt nicht zum Container, Schlüssel fehlt oder hat falsche Größe
+    def mk(meta, entries):
+        b = io.BytesIO()
+        with zipfile.ZipFile(b, "w", zipfile.ZIP_STORED) as zz:
+            zz.writestr("metadata.json", json.dumps(meta))
+            for n, d in entries:
+                zz.writestr(n, d)
+        return b.getvalue()
+    ps4img = fx.container("p", 1 << 20, ps4=True, uid="1c3f8a0e", title="CUSA00001", name="sdimg_PS4DATA")
+    snap = tree()
+    base_meta = {"title_id": "CUSA00001", "save_dir": "sdimg_PS4DATA", "uid": "1c3f8a0e", "platform": "PS4"}
+    for name, body in (("PS4-Angabe, aber PS5-Container", mk(base_meta, [("CUSA00001_sdimg_PS4DATA.img", fx.container("p", 1 << 20)), ("CUSA00001_sdimg_PS4DATA.bin", bytes(96))])),
+                       ("PS5-Angabe, aber PS4-Container", mk({**base_meta, "platform": "PS5"}, [("CUSA00001_sdimg_PS4DATA.img", ps4img)])),
+                       ("PS4 ohne Schlüsseldatei", mk(base_meta, [("CUSA00001_sdimg_PS4DATA.img", ps4img)])),
+                       ("PS4 mit falsch großer Schlüsseldatei", mk(base_meta, [("CUSA00001_sdimg_PS4DATA.img", ps4img), ("CUSA00001_sdimg_PS4DATA.bin", bytes(95))])),
+                       ("PS4 mit Namen ohne sdimg_", mk({**base_meta, "save_dir": "evil"}, [("CUSA00001_evil.img", ps4img), ("CUSA00001_evil.bin", bytes(96))]))):
+        st, hd, rb = req("POST", "/api/saves/restore/upload", body, {"Content-Type": "application/zip"})
+        wait_job()
+        check("abgelehnt: " + name, st == 500, "%s %s" % (st, rb[:100]))
+    check("... nichts verändert", tree() == snap)
 
     # ------------------------------------------------------------------ böse und kaputte ZIPs
     print("== abgelehnte ZIPs (nichts darf sich ändern) ==")

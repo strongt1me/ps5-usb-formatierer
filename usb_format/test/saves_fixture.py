@@ -63,7 +63,7 @@ SAVES = [  # uid, Titel, Name, Größe
     ("2d4e9b1f", "PPSA07890", "sdimg_SAVEDATA01", 1 << 20),
     ("1c3f8a0e", "PPSA09999", "sdimg_EXTRA", 1 << 20),
 ]
-TITLES = {"PPSA01234": "Beispiel-Spiel: Die \"Rückkehr\"", "PPSA07890": "Zweites Spiel", "PPSA09999": "Drittes Spiel"}
+TITLES = {"PPSA01234": "Beispiel-Spiel: Die \"Rückkehr\"", "PPSA07890": "Zweites Spiel", "PPSA09999": "Drittes Spiel", "CUSA00001": "PS4-Beispiel"}
 
 
 def main(root):
@@ -79,12 +79,27 @@ def main(root):
         with open(os.path.join(d, name), "wb") as f:
             f.write(data)
         sums[f"{uid}/{title}/{name}"] = hashlib.sha256(data).hexdigest()
+    # PS4-Spielstände (<uid>/savedata/<CUSA>/sdimg_<Name> + <Name>.bin, 96 Byte) samt Systemkopie sce_bu_
+    for name in ("PS4DATA", "sce_bu_PS4DATA"):
+        d = os.path.join(root, "home", "1c3f8a0e", "savedata", "CUSA00001")
+        os.makedirs(d, exist_ok=True)
+        data = container("ps4" + name, 1 << 20, ps4=True, uid="1c3f8a0e", title="CUSA00001", name="sdimg_" + name)
+        keyb = hashlib.sha256(("key" + name).encode()).digest() * 3
+        with open(os.path.join(d, "sdimg_" + name), "wb") as f:
+            f.write(data)
+        with open(os.path.join(d, name + ".bin"), "wb") as f:
+            f.write(keyb)
+        sums["1c3f8a0e/CUSA00001/sdimg_%s#PS4" % name] = hashlib.sha256(data).hexdigest()
+        sums["1c3f8a0e/CUSA00001/sdimg_%s#PS4.bin" % name] = hashlib.sha256(keyb).hexdigest()
+    os.makedirs(os.path.join(root, "home", "1c3f8a0e", "savedata", "sce_backup"), exist_ok=True)   # leerer Ordner wie auf der PS5
     # Begleiter und Fremdes, das nicht als Spielstand erscheinen darf
     with open(os.path.join(root, "home", "1c3f8a0e", "savedata_prospero", "PPSA01234", "SAVEDATA00.bin"), "wb") as f:
         f.write(b"\1" * 0x2000)
     with open(os.path.join(root, "home", "1c3f8a0e", "savedata_prospero", "PPSA01234", "klein"), "wb") as f:
         f.write(b"x" * 100)
     os.makedirs(os.path.join(root, "home", "3a5b7c9d", "savedata_prospero", "PPSA00001"), exist_ok=True)   # leer
+    with open(os.path.join(root, "home", "1c3f8a0e", "savedata", "CUSA00001", "sdimg_ohneschluessel"), "wb") as f:   # PS4 ohne .bin: nicht zeigen
+        f.write(container("x", 1 << 20, ps4=True))
     for title, name in TITLES.items():
         d = os.path.join(root, "appmeta", title)
         os.makedirs(d, exist_ok=True)

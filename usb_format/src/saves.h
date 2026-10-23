@@ -19,7 +19,8 @@ typedef struct {
     char     title_name[256]; /* Spielname (param.sfo des Spiels); sonst die Titel-ID */
     char     uid[16];
     char     username[64];
-    char     platform[8];   /* "PS5" (savedata_prospero); "PS4" bei einem Container im PS4-Format */
+    char     platform[8];   /* "PS5" (savedata_prospero) oder "PS4" (savedata: Container sdimg_<Name> + <Name>.bin) */
+    char     key_path[512]; /* PS4: die Schlüsseldatei <Name>.bin (96 Byte, verschlüsselter Schlüssel), sonst leer */
     uint64_t size;
 } save_info_t;
 

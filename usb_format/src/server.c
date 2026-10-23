@@ -2832,6 +2832,7 @@ static void api_saves(int c) {
         sb_str(&b, saves[i].username);
         sb_add(&b, ",\"platform\":");
         sb_str(&b, saves[i].platform);
+        sb_add(&b, ",\"copy\":%s", !strncmp(saves[i].save_dir, "sdimg_sce_bu_", 13) ? "true" : "false");
         sb_add(&b, ",\"size\":%llu}", (unsigned long long)saves[i].size);
     }
     sb_add(&b, "]}");

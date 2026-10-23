@@ -26,6 +26,7 @@
 #include "saves.h"
 
 #define SAVE_SUBDIR     "savedata_prospero"
+#define SAVE_SUBDIR_PS4 "savedata"
 #define IMG_MIN         0x1000ull
 #define IMG_MAX         0xF0000000ull   /* ZIP ohne ZIP64: Größen passen in 32 Bit */
 #define META_MAX        4096
@@ -339,7 +340,9 @@ int saves_scan(save_info_t **out, int *count) {
         if (!saves_name_ok(ue->d_name, sizeof(arr->uid))) continue;
         char username[64] = "", pdir[640];
         read_username(home, ue->d_name, username, sizeof(username));
-        if (path_fmt(pdir, sizeof(pdir), "%s/%s/" SAVE_SUBDIR, home, ue->d_name)) continue;
+        for (int pass = 0; pass < 2 && !full; pass++) {   /* 0: PS5 (savedata_prospero), 1: PS4 (savedata) */
+        const int ps4 = pass == 1;
+        if (path_fmt(pdir, sizeof(pdir), "%s/%s/%s", home, ue->d_name, ps4 ? SAVE_SUBDIR_PS4 : SAVE_SUBDIR)) continue;
         DIR *pd = opendir(pdir);
         if (!pd) continue;
         struct dirent *te;
@@ -356,6 +359,13 @@ int saves_scan(save_info_t **out, int *count) {
                 struct stat st;
                 if (!saves_name_ok(se->d_name, sizeof(arr->save_dir))) continue;
                 if (nl > 4 && !strcmp(se->d_name + nl - 4, ".bin")) continue;   /* Schlüssel-Begleiter (PS4) */
+                char kpath[1200] = "";
+                if (ps4) {   /* PS4: nur sdimg_<Name> mit <Name>.bin (96 Byte) daneben - ohne den Schlüssel taugt der Container nichts */
+                    struct stat ks;
+                    if (strncmp(se->d_name, "sdimg_", 6) || nl <= 6 || path_fmt(kpath, sizeof(kpath), "%s/%s.bin", tdir, se->d_name + 6) ||
+                        stat(kpath, &ks) != 0 || !S_ISREG(ks.st_mode) || ks.st_size != 96)
+                        continue;
+                }
                 if (path_fmt(fpath, sizeof(fpath), "%s/%s", tdir, se->d_name) || stat(fpath, &st) != 0 ||
                     !S_ISREG(st.st_mode) || (uint64_t)st.st_size < IMG_MIN)
                     continue;
@@ -372,14 +382,10 @@ int saves_scan(save_info_t **out, int *count) {
                 scpy(s->save_dir, sizeof(s->save_dir), se->d_name);
                 scpy(s->uid, sizeof(s->uid), ue->d_name);
                 scpy(s->username, sizeof(s->username), username);
-                snprintf(s->key, sizeof(s->key), "%s/%s/%s", s->uid, s->title_id, s->save_dir);
+                snprintf(s->key, sizeof(s->key), "%s/%s/%s%s", s->uid, s->title_id, s->save_dir, ps4 ? "#PS4" : "");
                 s->size = (uint64_t)st.st_size;
-                scpy(s->platform, sizeof(s->platform), "PS5");
-                {   /* Byte 0 des Containers: 1 = PS4-Format, 2 = PS5 (garlic-savemgr) */
-                    int pfd = open(fpath, O_RDONLY);
-                    uint8_t b0 = 0;
-                    if (pfd >= 0) { if (pread(pfd, &b0, 1, 0) == 1 && b0 == 0x01) scpy(s->platform, sizeof(s->platform), "PS4"); close(pfd); }
-                }
+                scpy(s->platform, sizeof(s->platform), ps4 ? "PS4" : "PS5");
+                if (ps4) scpy(s->key_path, sizeof(s->key_path), kpath);
                 if (strcmp(last_tid, s->title_id) != 0) {
                     title_name_of(home, s->title_id, last_name, sizeof(last_name));
                     scpy(last_tid, sizeof(last_tid), s->title_id);
@@ -389,6 +395,7 @@ int saves_scan(save_info_t **out, int *count) {
             closedir(sd);
         }
         closedir(pd);
+        }   /* pass */
     }
     closedir(hd);
     if (n > 1) qsort(arr, (size_t)n, sizeof(*arr), cmp_saves);
@@ -561,8 +568,21 @@ static int zs_save(zs_t *z, const save_info_t *s, const char *prefix, char *err,
                       "{\"format\":1,\"platform\":\"%s\",\"title_id\":\"%s\",\"title_name\":\"%s\",\"save_dir\":\"%s\",\"uid\":\"%s\","
                       "\"username\":\"%s\",\"size\":%u,\"timestamp\":%lld}",
                       s->platform[0] ? s->platform : "PS5", tid, tname, sdir, uid, user, imgsz, (long long)time(NULL));
+    char kname[420];
+    uint8_t keybuf[96];
+    int ps4 = s->key_path[0] != 0;
+    if (ps4) {   /* PS4: der verschlüsselte Schlüssel (<Name>.bin, genau 96 Byte) gehört zum Container */
+        int kfd = open(s->key_path, O_RDONLY);
+        int kok = kfd >= 0 && pread_full(kfd, keybuf, sizeof(keybuf), 0) == 0;
+        if (kfd >= 0) close(kfd);
+        if (!kok) {
+            snprintf(err, errsz, "%s", T("Die Schlüsseldatei des PS4-Spielstands konnte nicht gelesen werden"));
+            goto done;
+        }
+    }
     if (ml <= 0 || ml >= (int)sizeof(meta) ||
         path_fmt(mname, sizeof(mname), "%smetadata.json", prefix) ||
+        path_fmt(kname, sizeof(kname), "%s%s_%s.bin", prefix, s->title_id, s->save_dir) ||
         path_fmt(iname, sizeof(iname), "%s%s_%s.img", prefix, s->title_id, s->save_dir)) {
         snprintf(err, errsz, "%s", T("Der Spielstand hat eine ungültige Größe"));
         goto done;
@@ -596,6 +616,10 @@ static int zs_save(zs_t *z, const save_info_t *s, const char *prefix, char *err,
     wr32(dd + 8, imgsz);
     wr32(dd + 12, imgsz);
     zs_data(z, dd, sizeof(dd));
+    if (ps4) {
+        if (!zs_local(z, kname, 0x0800, crc32_update(0, keybuf, sizeof(keybuf)), sizeof(keybuf))) goto stream;
+        zs_data(z, keybuf, sizeof(keybuf));
+    }
     rc = z->broken ? -2 : 0;
     goto done;
 stream:
@@ -722,7 +746,7 @@ done:
 
 typedef struct { char name[400]; uint32_t crc, size; uint64_t data; } zent_t;
 
-#define ZIP_MAXENT 160   /* bis zu 64 Spielstände (je zwei Einträge) in einer ZIP */
+#define ZIP_MAXENT 200   /* bis zu 64 Spielstände (je zwei bis drei Einträge) in einer ZIP */
 #define ZIP_MAXSAVES 64
 
 /* Zentralverzeichnis lesen und jeden Eintrag prüfen: gespeichert (ohne Kompression), keine Verschlüsselung, kein
@@ -827,8 +851,10 @@ static int meta_get(const char *j, const char *key, char *out, size_t n) {
 /* ein zu schreibender Spielstand aus der ZIP (geprüft) */
 typedef struct {
     char   tid[32], sdir[256], uid[16];
-    zent_t *img;
+    int    ps4;                    /* PS4: zusätzlich die Schlüsseldatei key (96 Byte) nach kdest */
+    zent_t *img, *key;
     char   dest[1300], tdir[900], d2[1300], tmp[1300];
+    char   kdest[1300], ktmp[1300];
 } rjob_t;
 
 /* Eintrag "<prefix>metadata.json" prüfen und den Zielpfad bestimmen. 0 = ok */
@@ -856,6 +882,10 @@ static int rplan(int zfd, zent_t *ents, int ne, zent_t *me, rjob_t *r, char *err
         snprintf(err, errsz, "%s", T("Pfad zu lang"));
         return -1;
     }
+    char plat[8] = "PS5";
+    if (meta_get(meta, "platform", plat, sizeof(plat)) || (strcmp(plat, "PS5") && strcmp(plat, "PS4"))) scpy(plat, sizeof(plat), "PS5");
+    r->ps4 = !strcmp(plat, "PS4");
+    r->key = NULL;
     r->img = zip_get(ents, ne, imgname);
     if (!r->img) {
         snprintf(err, errsz, T("Container (%s) fehlt im ZIP"), imgname);
@@ -870,9 +900,17 @@ static int rplan(int zfd, zent_t *ents, int ne, zent_t *me, rjob_t *r, char *err
         snprintf(err, errsz, "%s", T("Keine gültige Spielstand-ZIP-Datei"));
         return -1;
     }
-    if (first == 0x01) {
-        snprintf(err, errsz, "%s", T("PS4-Spielstände werden noch nicht unterstützt"));
+    if ((first == 0x01) != r->ps4) {   /* Byte 0 des Containers: 1 = PS4, sonst PS5 - die Angabe in metadata.json muss dazu passen */
+        snprintf(err, errsz, "%s", T("Konsole in metadata.json und Container passen nicht zusammen"));
         return -1;
+    }
+    if (r->ps4) {
+        char kname[800];
+        if (path_fmt(kname, sizeof(kname), "%s%s_%s.bin", prefix, r->tid, r->sdir) || strncmp(r->sdir, "sdimg_", 6) ||
+            !(r->key = zip_get(ents, ne, kname)) || r->key->size != 96) {
+            snprintf(err, errsz, "%s", T("Die Schlüsseldatei des PS4-Spielstands fehlt im ZIP"));
+            return -1;
+        }
     }
     const char *home = plat_saves_dir();
     char udir[700];
@@ -881,9 +919,14 @@ static int rplan(int zfd, zent_t *ents, int ne, zent_t *me, rjob_t *r, char *err
         snprintf(err, errsz, T("Der Benutzer %s ist auf dieser PS5 nicht vorhanden"), r->uid);
         return -1;
     }
-    if (path_fmt(r->d2, sizeof(r->d2), "%s/" SAVE_SUBDIR, udir) || path_fmt(r->tdir, sizeof(r->tdir), "%s/%s", r->d2, r->tid) ||
+    if (path_fmt(r->d2, sizeof(r->d2), "%s/%s", udir, r->ps4 ? SAVE_SUBDIR_PS4 : SAVE_SUBDIR) || path_fmt(r->tdir, sizeof(r->tdir), "%s/%s", r->d2, r->tid) ||
         path_fmt(r->dest, sizeof(r->dest), "%s/%s", r->tdir, r->sdir) ||
         path_fmt(r->tmp, sizeof(r->tmp), "%s/.%s.restore.tmp", r->tdir, r->sdir)) {
+        snprintf(err, errsz, "%s", T("Pfad zu lang"));
+        return -1;
+    }
+    if (r->ps4 && (path_fmt(r->kdest, sizeof(r->kdest), "%s/%s.bin", r->tdir, r->sdir + 6) ||
+                   path_fmt(r->ktmp, sizeof(r->ktmp), "%s/.%s.bin.restore.tmp", r->tdir, r->sdir + 6))) {
         snprintf(err, errsz, "%s", T("Pfad zu lang"));
         return -1;
     }
@@ -948,6 +991,29 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
         goto done;
     }
     dfd = -1;
+    if (r->ps4) {   /* Schlüssel daneben schreiben und prüfen, dann beide umbenennen (Schlüssel zuerst: er ist 96 Byte klein) */
+        uint8_t kb[96];
+        int kfd = -1;
+        mode_t kmode = mode;
+        uid_t ku = own_u;
+        gid_t kg = own_g;
+        struct stat ks;
+        if (stat(r->kdest, &ks) == 0 && S_ISREG(ks.st_mode)) { kmode = ks.st_mode & 0777; ku = ks.st_uid; kg = ks.st_gid; }
+        unlink(r->ktmp);
+        if (pread_full(zfd, kb, sizeof(kb), (off_t)r->key->data) || crc32_update(0, kb, sizeof(kb)) != r->key->crc ||
+            (kfd = open(r->ktmp, O_WRONLY | O_CREAT | O_EXCL, 0644)) < 0 || write_full(kfd, kb, sizeof(kb)) ||
+            (ku != (uid_t)-1 && fchown(kfd, ku, kg) != 0 && 0) || fchmod(kfd, kmode) != 0 || fsync(kfd) != 0 || close(kfd) != 0) {
+            if (kfd >= 0) close(kfd);
+            unlink(r->ktmp);
+            snprintf(err, errsz, "%s", T("Die Schlüsseldatei des PS4-Spielstands konnte nicht geschrieben werden"));
+            goto done;
+        }
+        if (rename(r->ktmp, r->kdest) != 0) {
+            unlink(r->ktmp);
+            snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
+            goto done;
+        }
+    }
     if (rename(r->tmp, r->dest) != 0) {
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
         goto done;

@@ -2357,12 +2357,6 @@
   "es": "Falta el contenedor (%s) en el ZIP",
   "fr": "Le conteneur (%s) est absent du ZIP"
  },
- "PS4-Spielstände werden noch nicht unterstützt": {
-  "en": "PS4 save games are not supported yet",
-  "it": "I salvataggi PS4 non sono ancora supportati",
-  "es": "Las partidas de PS4 aún no son compatibles",
-  "fr": "Les sauvegardes PS4 ne sont pas encore prises en charge"
- },
  "Der Benutzer %s ist auf dieser PS5 nicht vorhanden": {
   "en": "User %s does not exist on this PS5",
   "it": "L'utente %s non esiste su questa PS5",
@@ -2500,5 +2494,29 @@
   "it": "Annullato – ripristinati: %d.",
   "es": "Cancelado – restauradas: %d.",
   "fr": "Annulé – restaurées : %d."
+ },
+ "Die Schlüsseldatei des PS4-Spielstands konnte nicht gelesen werden": {
+  "en": "The PS4 save game's key file could not be read",
+  "it": "Impossibile leggere il file chiave del salvataggio PS4",
+  "es": "No se pudo leer el archivo de clave de la partida de PS4",
+  "fr": "Le fichier de clé de la sauvegarde PS4 n'a pas pu être lu"
+ },
+ "Konsole in metadata.json und Container passen nicht zusammen": {
+  "en": "The console in metadata.json does not match the container",
+  "it": "La console in metadata.json non corrisponde al contenitore",
+  "es": "La consola de metadata.json no coincide con el contenedor",
+  "fr": "La console dans metadata.json ne correspond pas au conteneur"
+ },
+ "Die Schlüsseldatei des PS4-Spielstands fehlt im ZIP": {
+  "en": "The PS4 save game's key file is missing from the ZIP",
+  "it": "Il file chiave del salvataggio PS4 manca nello ZIP",
+  "es": "Falta el archivo de clave de la partida de PS4 en el ZIP",
+  "fr": "Le fichier de clé de la sauvegarde PS4 est absent du ZIP"
+ },
+ "Die Schlüsseldatei des PS4-Spielstands konnte nicht geschrieben werden": {
+  "en": "The PS4 save game's key file could not be written",
+  "it": "Impossibile scrivere il file chiave del salvataggio PS4",
+  "es": "No se pudo escribir el archivo de clave de la partida de PS4",
+  "fr": "Le fichier de clé de la sauvegarde PS4 n'a pas pu être écrit"
  }
 }
