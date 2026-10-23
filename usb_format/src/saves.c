@@ -1185,6 +1185,20 @@ int saves_list_backups(const char *root, save_backup_t **out, int *count) {
     return 0;
 }
 
+/* Zeit über einen geöffneten Deskriptor setzen (utimensat mit Pfad liefert auf der PS5 ENOENT) */
+static int set_file_time(const char *path, time_t t) {
+    struct timespec ts[2];
+    ts[0].tv_nsec = ts[1].tv_nsec = 0;
+    ts[0].tv_sec = ts[1].tv_sec = t;
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return -1;
+    int rc = futimens(fd, ts);
+    int e = errno;
+    close(fd);
+    errno = e;
+    return rc;
+}
+
 int saves_set_times(const char *key, int64_t mtime, int64_t mtime_key, char *err, size_t errsz) {
     save_info_t s;
     if (mtime < 946684800 || mtime > 4102444800LL || mtime_key > 4102444800LL) {   /* 2000 .. 2100 */
@@ -1197,19 +1211,13 @@ int saves_set_times(const char *key, int64_t mtime, int64_t mtime_key, char *err
     }
     if (op_enter(err, errsz)) return -1;
     int rc = -1;
-    struct timespec ts[2];
-    ts[0].tv_nsec = ts[1].tv_nsec = 0;
-    ts[0].tv_sec = ts[1].tv_sec = (time_t)mtime;
-    if (utimensat(AT_FDCWD, s.path, ts, 0) != 0) {
+    if (set_file_time(s.path, (time_t)mtime) != 0) {
         snprintf(err, errsz, T("Zeitstempel konnte nicht gesetzt werden: %s"), strerror(errno));
         goto done;
     }
-    if (mtime_key >= 0 && s.key_path[0]) {
-        ts[0].tv_sec = ts[1].tv_sec = (time_t)mtime_key;
-        if (utimensat(AT_FDCWD, s.key_path, ts, 0) != 0) {
-            snprintf(err, errsz, T("Zeitstempel konnte nicht gesetzt werden: %s"), strerror(errno));
-            goto done;
-        }
+    if (mtime_key >= 0 && s.key_path[0] && set_file_time(s.key_path, (time_t)mtime_key) != 0) {
+        snprintf(err, errsz, T("Zeitstempel konnte nicht gesetzt werden: %s"), strerror(errno));
+        goto done;
     }
     rc = 0;
 done:
