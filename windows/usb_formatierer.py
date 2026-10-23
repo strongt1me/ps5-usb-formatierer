@@ -1127,7 +1127,7 @@ class App(tk.Tk):
                             image=self.check_imgs[first["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
             else:
                 gid = f"g:{uid}/{tid}/{plat}"
-                tree.insert("", "end", iid=gid, text=name, open=True,
+                tree.insert("", "end", iid=gid, text=name, open=False,
                             values=(who, plat or "PS5", fmt_size(sum(x.get("size", 0) for x in items))),
                             image=self.check_imgs[all(x["key"] in self.saves_checked for x in items)],
                             tags=("odd",) if n % 2 else ())

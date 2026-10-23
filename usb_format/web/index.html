@@ -227,6 +227,7 @@ button.format { background: linear-gradient(#d4e6fc, #a9cbf3); border: 2px solid
 .chk input { margin: 2px 10px 0 0; }
 .chk small { display: block; color: var(--muted); font-size: 12.5px; }
 .chk.off { opacity: .5; }
+.chev { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 8px 0 0; }
 .tag { font-size: 11px; color: var(--ok); border: 1px solid var(--ok); border-radius: 10px; padding: 0 6px; margin-left: 6px; }
 .warnbox { margin-top: 8px; padding: 10px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
 .inline { display: flex; margin-top: 10px; }
@@ -2289,6 +2290,14 @@ const saveDirName = d => d.replace(/^sdimg_/, "");
 
 /* Liste nach Spiel gruppiert: ein Spiel mit mehreren Containern (z. B. Spielstand, PS2-Speicherkarte) erscheint einmal als
    Kopfzeile, ihr Kästchen wählt alle seine Container; darunter die einzelnen Container */
+const savesOpen = new Set();   /* aufgeklappte Spiele (nach Gruppenschlüssel) */
+function chevron(open, onclick) {
+  const b = el("button", "chev", open ? "▾" : "▸");
+  b.type = "button";
+  b.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); onclick(b); });
+  return b;
+}
+
 function renderSavesList() {
   const box = $("saveslist");
   box.textContent = "";
@@ -2335,8 +2344,10 @@ function renderSavesList() {
     const hs = el("small", "", "");
     hs.textContent = [first.title_name && first.title_name !== first.title_id ? first.title_id : "", first.username || first.uid, tr("{n} Spielstände", { n: keys.length }), fmtSize(total)].filter(Boolean).join(" · ");
     ht.appendChild(hs);
-    head.append(hc, ht);
+    const open = savesOpen.has(g.k);
+    head.append(chevron(open, () => { open ? savesOpen.delete(g.k) : savesOpen.add(g.k); renderSavesList(); }), hc, ht);
     box.appendChild(head);
+    if (!open) continue;
     for (const s of g.items) {
       const row = el("label", "chk", "");
       row.style.cssText = "margin-left:28px;border-top:0;padding:4px 0";
@@ -2482,7 +2493,7 @@ $("bsaverestore").addEventListener("click", async () => {
     const l = (data.locations || []).find(x => x.dir === b.dir);
     return l && l.device ? (l.label ? q(l.label) + " (" + l.device + ")" : l.device) : tr("intern auf der PS5");
   };
-  const add = (b, indent) => {
+  const add = (b, indent, into) => {
     const row = el("label", "chk", "");
     if (indent) row.style.cssText = "margin-left:28px;border-top:0;padding:4px 0";
     const cb = el("input");
@@ -2496,7 +2507,7 @@ $("bsaverestore").addEventListener("click", async () => {
     sub.textContent = (indent ? [fmtSize(b.size), when(b), whereOf(b)] : [b.title_name !== b.title_id ? b.title_id : "", fmtSize(b.size), when(b), saveDirName(b.save_dir), whereOf(b)]).filter(Boolean).join(" · ");
     t.appendChild(sub);
     row.append(cb, t);
-    extra.appendChild(row);
+    (into || extra).appendChild(row);
     return cb;
   };
   const byUser = new Map();
@@ -2524,9 +2535,12 @@ $("bsaverestore").addEventListener("click", async () => {
       const hs = el("small", "", "");
       hs.textContent = [first.title_name !== first.title_id ? first.title_id : "", tr("{n} Spielstände", { n: items.length }), fmtSize(items.reduce((a, x) => a + x.size, 0))].filter(Boolean).join(" · ");
       ht.appendChild(hs);
-      head.append(hc, ht);
+      const sub = el("div", "", "");
+      sub.hidden = true;
+      head.append(chevron(false, b => { sub.hidden = !sub.hidden; b.textContent = sub.hidden ? "▸" : "▾"; }), hc, ht);
       extra.appendChild(head);
-      const kids = items.map(b => add(b, true));
+      extra.appendChild(sub);
+      const kids = items.map(b => add(b, true, sub));
       const sync = () => { const n = kids.filter(k => k.checked).length; hc.checked = n === kids.length; hc.indeterminate = n > 0 && n < kids.length; };
       kids.forEach(k => { k.onchg = sync; });
       hc.addEventListener("change", () => { kids.forEach(k => { k.checked = hc.checked; }); refresh(); sync(); });
