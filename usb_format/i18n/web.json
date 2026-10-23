@@ -1786,23 +1786,5 @@
   "it": "Salvataggi scaricati: {n}.",
   "es": "Partidas descargadas: {n}.",
   "fr": "Sauvegardes téléchargées : {n}."
- },
- "Systemkopien anzeigen": {
-  "en": "Show system copies",
-  "it": "Mostra copie di sistema",
-  "es": "Mostrar copias del sistema",
-  "fr": "Afficher les copies système"
- },
- "Die PS5 legt zu jedem Spielstand automatisch eine zweite Kopie an (sce_bu). Zum Sichern genügt meist der Spielstand selbst.": {
-  "en": "The PS5 automatically keeps a second copy of every save game (sce_bu). For a backup the save game itself is usually enough.",
-  "it": "La PS5 crea automaticamente una seconda copia di ogni salvataggio (sce_bu). Per il backup di solito basta il salvataggio stesso.",
-  "es": "La PS5 crea automáticamente una segunda copia de cada partida (sce_bu). Para copiar suele bastar la propia partida.",
-  "fr": "La PS5 crée automatiquement une seconde copie de chaque sauvegarde (sce_bu). Pour sauvegarder, la sauvegarde elle-même suffit en général."
- },
- "Systemkopie": {
-  "en": "System copy",
-  "it": "Copia di sistema",
-  "es": "Copia del sistema",
-  "fr": "Copie système"
  }
 }

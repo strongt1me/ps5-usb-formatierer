@@ -359,6 +359,7 @@ int saves_scan(save_info_t **out, int *count) {
                 struct stat st;
                 if (!saves_name_ok(se->d_name, sizeof(arr->save_dir))) continue;
                 if (nl > 4 && !strcmp(se->d_name + nl - 4, ".bin")) continue;   /* Schlüssel-Begleiter (PS4) */
+                if (!strncmp(se->d_name, "sdimg_sce_bu_", 13)) continue;         /* zweite Systemkopie, die die PS5 selbst anlegt */
                 char kpath[1200] = "";
                 if (ps4) {   /* PS4: nur sdimg_<Name> mit <Name>.bin (96 Byte) daneben - ohne den Schlüssel taugt der Container nichts */
                     struct stat ks;

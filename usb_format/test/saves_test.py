@@ -130,14 +130,14 @@ try:
     print("== Liste ==")
     st, j = jreq("GET", "/api/saves")
     keys = [s["key"] for s in j.get("saves", [])]
-    check("7 Spielstände (5 PS5, 2 PS4), sortiert, ohne .bin/zu kleine/leere Ordner/PS4 ohne Schlüssel", st == 200 and keys == sorted(keys) and len(keys) == 7,
+    check("6 Spielstände (5 PS5, 1 PS4), sortiert, ohne .bin/Systemkopien (sce_bu)/zu kleine/leere Ordner/PS4 ohne Schlüssel", st == 200 and keys == sorted(keys) and len(keys) == 6,
           str(keys))
     s1 = next(s for s in j["saves"] if s["key"] == K1)
     check("Spielname aus param.sfo des Spiels", s1["title_name"] == 'Beispiel-Spiel: Die "Rückkehr"', s1["title_name"])
     check("Benutzername und Größe", s1["username"] == "Alex" and s1["size"] == 2 << 20, str(s1))
-    check("Konsole: 5 mal PS5, 2 mal PS4 (mit Schlüsseldatei)", sorted(x["platform"] for x in j["saves"]) == ["PS4", "PS4"] + ["PS5"] * 5, str([x["platform"] for x in j["saves"]]))
+    check("Konsole: 5 mal PS5, 1 mal PS4 (mit Schlüsseldatei)", sorted(x["platform"] for x in j["saves"]) == ["PS4"] + ["PS5"] * 5, str([x["platform"] for x in j["saves"]]))
     check("PS4-Eintrag: Schlüssel mit #PS4, Spielname aus param.sfo", any(x["key"] == "1c3f8a0e/CUSA00001/sdimg_PS4DATA#PS4" and x["title_name"] == "PS4-Beispiel" for x in j["saves"]), "")
-    check("Systemkopie als copy markiert", [x["copy"] for x in j["saves"] if "sce_bu_" in x["save_dir"]] == [True], "")
+    check("Systemkopien (sce_bu) werden nicht gelistet", not [x for x in j["saves"] if "sce_bu_" in x["save_dir"]], "")
     st, j = jreq("GET", "/api/saves/users")
     users = {u["uid"]: u for u in j["users"]}
     check("3 Benutzer mit Namen", len(users) == 3 and users["2d4e9b1f"]["username"] == "Sam", str(j))

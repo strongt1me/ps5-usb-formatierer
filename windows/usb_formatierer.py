@@ -777,10 +777,6 @@ class App(tk.Tk):
         self.saves_user_cb = ttk.Combobox(uf, textvariable=self.saves_user_var, state="readonly", width=30)
         self.saves_user_cb.grid(row=0, column=1, sticky="ew")
         self.saves_user_cb.bind("<<ComboboxSelected>>", lambda e: self._saves_filter_changed())
-        self.saves_copies_var = tk.BooleanVar(value=False)
-        cc = ttk.Checkbutton(uf, text=_("Systemkopien anzeigen"), variable=self.saves_copies_var, command=self._saves_filter_changed)
-        cc.grid(row=1, column=1, sticky="w", pady=(px(4), 0))
-        Tooltip(cc, lambda: _("Die PS5 legt zu jedem Spielstand automatisch eine zweite Kopie an (sce_bu). Zum Sichern genügt meist der Spielstand selbst."))
         sc.rowconfigure(3, weight=1)
         sf = ttk.Frame(sc)
         sf.grid(row=3, column=0, sticky="nsew", pady=(px(6), 0))
@@ -1110,11 +1106,9 @@ class App(tk.Tk):
         tree = self.saves_tree
         tree.delete(*tree.get_children())
         self.saves_checked &= {x["key"] for x in self._saves_data}   # nicht mehr vorhandene sind nicht mehr angehakt
-        copies = self.saves_copies_var.get()
-        shown = [x for x in self._saves_data if (not uid_filter or x.get("uid") == uid_filter) and (copies or not x.get("copy"))]
-        self.saves_checked &= {x["key"] for x in shown}   # ausgeblendete bleiben nicht markiert
+        shown = [x for x in self._saves_data if not uid_filter or x.get("uid") == uid_filter]
         for n, x in enumerate(shown):
-            tree.insert("", "end", iid=x["key"], text=(x.get("title_name") or x.get("title_id", "")) + ("  [" + _("Systemkopie") + "]" if x.get("copy") else ""),
+            tree.insert("", "end", iid=x["key"], text=(x.get("title_name") or x.get("title_id", "")),
                         values=(x.get("username") or x.get("uid", ""), x.get("platform") or "PS5", fmt_size(x["size"]) if x.get("size") else ""),
                         image=self.check_imgs[x["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
         self.saves_hint.configure(text="" if shown else _("Keine Spielstände gefunden."))

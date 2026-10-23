@@ -110,7 +110,7 @@ Serial number check: if a different stick of the same model is plugged in meanwh
 Back up a whole drive as <code>.img.zst</code> – only used areas, compressed with zstd, with a <code>.sha256</code>. On the PS5 to internal storage, another USB drive or as a download; on the PC to any folder, even from sticks and SD cards with the write-protect switch on. Write it back with a check afterwards – also by uploading from a phone or PC. <code>zstd -d</code> turns the file into an ordinary image.
 
 ### 🎮 Back up & restore save games
-Lists PS5 save games with game name and user, lets you tick several and back them up – as a ZIP download or on the PS5 itself (internal <code>/data/game_saves</code> or a USB drive's <code>game_saves</code>). The encrypted container stays unchanged. To restore, the formatter lists the backups it finds by user (or take a ZIP from your device). Checksums are verified, a running game blocks changes. PS5 and PS4 saves (PS4 with its key file), system copies (sce_bu) are hidden at first; backup and restore can be cancelled.
+Lists PS5 save games with game name and user, lets you tick several and back them up – as a ZIP download or on the PS5 itself (internal <code>/data/game_saves</code> or a USB drive's <code>game_saves</code>). The encrypted container stays unchanged. To restore, the formatter lists the backups it finds by user (or take a ZIP from your device). Checksums are verified, a running game blocks changes. PS5 and PS4 saves (PS4 with its key file), the second system copy (sce_bu) is not listed; backup and restore can be cancelled.
 
 </td>
 </tr>

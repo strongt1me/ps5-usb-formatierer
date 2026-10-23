@@ -110,7 +110,7 @@ Controllo del numero di serie: se nel frattempo è inserita un'altra chiavetta d
 Salva un'intera unità come <code>.img.zst</code> – solo le aree occupate, compresse con zstd, con <code>.sha256</code>. Sulla PS5 nella memoria interna, su un'altra unità USB o come download; sul PC in qualsiasi cartella, anche da chiavette e schede SD con la protezione da scrittura attiva. Riscrittura con verifica finale – anche caricando il file da telefono o PC. Con <code>zstd -d</code> il file diventa una normale immagine.
 
 ### 🎮 Salvataggi: backup e ripristino
-Mostra i salvataggi PS5 con nome del gioco e utente, ne fa selezionare più di uno e li salva – come download ZIP o sulla PS5 stessa (interna <code>/data/game_saves</code> o <code>game_saves</code> di un'unità USB). Il contenitore cifrato resta invariato. Per il ripristino il formattatore elenca i backup trovati per utente (o si usa uno ZIP del dispositivo). I checksum vengono verificati, un gioco in esecuzione impedisce le modifiche. Salvataggi PS5 e PS4 (PS4 con il file chiave), le copie di sistema (sce_bu) sono inizialmente nascoste; backup e ripristino si possono annullare.
+Mostra i salvataggi PS5 con nome del gioco e utente, ne fa selezionare più di uno e li salva – come download ZIP o sulla PS5 stessa (interna <code>/data/game_saves</code> o <code>game_saves</code> di un'unità USB). Il contenitore cifrato resta invariato. Per il ripristino il formattatore elenca i backup trovati per utente (o si usa uno ZIP del dispositivo). I checksum vengono verificati, un gioco in esecuzione impedisce le modifiche. Salvataggi PS5 e PS4 (PS4 con il file chiave), la seconda copia di sistema (sce_bu) non viene elencata; backup e ripristino si possono annullare.
 
 </td>
 </tr>
