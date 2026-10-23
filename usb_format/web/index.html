@@ -1201,7 +1201,7 @@ function setProgress(st) {
   /* Abziehen/Einstecken: immer sagen, WELCHES Laufwerk - sonst zieht man womöglich die Spiele-SSD */
   const dev = devices.find(x => x.name === st.device);
   const who = wait && dev ? q(devTitle(dev)) + " (" + dev.name + "): " : "";
-  $("status").textContent = !st.step ? "" : wait || indet ? who + st.step + " …" : st.step + " … " + Math.round(st.percent) + " %";
+  $("status").textContent = !st.step ? "" : wait || indet ? who + st.step + " …" : st.step + " … " + Math.round(st.percent) + " %" + (st.detail ? " · " + st.detail : "");
   const canCancel = st.busy !== false && cancellable(st);
   if (canCancel && $("cancel").hidden) { $("cancel").disabled = false; $("cancel").textContent = tr("Abbrechen"); }
   $("cancel").hidden = !canCancel;

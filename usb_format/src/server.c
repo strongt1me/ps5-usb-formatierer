@@ -207,6 +207,11 @@ static struct {
     int  cancellable;     /* "Abbrechen" möglich (Warten aufs Umstecken, Prüfung, Tempomessung) */
     int  replug;          /* wartet auf Abziehen/Einstecken bzw. Software-Neuanmeldung des Sticks */
     int  cancelled;       /* Auftrag endete, weil "Abbrechen" gewählt wurde */
+    char detail[160];     /* Zeile unter dem Balken: "12,3 GB von 58,6 GB · noch etwa 4 Min." (leer, solange nichts zu schätzen ist) */
+    int  last_pct;        /* vorheriger Fortschrittswert (Rücksprung = neue Messung) */
+    double step_t0;       /* Start dieses Schritts (Sekunden, monoton) */
+    int  step_p0;         /* Fortschritt beim Start dieses Schritts */
+    const uint64_t *total_ptr;   /* Gesamtbytes des laufenden Schritts (Bezug des Prozentwerts), NULL = unbekannt */
 } st;
 
 static unsigned job_seq;   /* zählt angenommene Aufträge (unter lock) - Download/Hochladen starten erst mit der Verbindung */
@@ -219,11 +224,49 @@ static uint64_t fake_get(const usbdev_t *d);
 static void fake_put(const usbdev_t *d, uint64_t real);
 
 /* step: deutscher Schrittname oder schon übersetzt (mkfs/devtest übersetzen selbst) */
+static double mono_s(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+}
+
+/* Restzeit grob in Worten: "4 Min.", "1 Std. 5 Min." */
+static const char *eta_text(long secs, char *buf, size_t n) {
+    if (secs < 60) snprintf(buf, n, T("%ld Sek."), secs < 5 ? 5 : (secs + 4) / 5 * 5);
+    else if (secs < 3600) snprintf(buf, n, T("%ld Min."), (secs + 30) / 60);
+    else snprintf(buf, n, T("%ld Std. %ld Min."), secs / 3600, (secs % 3600 + 30) / 60);
+    return buf;
+}
+
+/* Zeile unter dem Balken (unter lock): bearbeitete Menge und geschätzte Restzeit aus dem bisherigen Tempo dieses Schritts */
+static void update_detail(int pct) {
+    const double now = mono_s();
+    if (!st.step_t0 || pct < st.step_p0 || pct < st.last_pct) {   /* Messung beginnt mit dem Auftrag und neu, wenn der Balken von vorn anfängt */
+        st.step_t0 = now;
+        st.step_p0 = pct;
+    }
+    st.last_pct = pct;
+    st.detail[0] = 0;
+    if (pct <= 0 || pct >= 100) return;
+    char a[32], b[32], eta[40], part[64] = "";
+    size_t at = 0;
+    if (st.total_ptr && *st.total_ptr)
+        at = (size_t)snprintf(st.detail, sizeof(st.detail), T("%s von %s"), size_text((uint64_t)((double)*st.total_ptr * pct / 100), a, sizeof(a)),
+                              size_text(*st.total_ptr, b, sizeof(b)));
+    const double el = now - st.step_t0;
+    const int dp = pct - st.step_p0;
+    if (dp >= 2 && el >= 8) {   /* erst nach einer brauchbaren Messung schätzen */
+        snprintf(part, sizeof(part), T("noch etwa %s"), eta_text((long)(el * (100 - pct) / dp), eta, sizeof(eta)));
+        snprintf(st.detail + at, sizeof(st.detail) - at, "%s%s", at ? " · " : "", part);
+    }
+}
+
 static void on_progress(const char *step, int pct) {
     step = T(step);
     pthread_mutex_lock(&lock);
     snprintf(st.step, sizeof(st.step), "%s", step);
     st.percent = pct;
+    update_detail(pct);
     pthread_mutex_unlock(&lock);
     plat_throttle();
 }
@@ -1426,6 +1469,8 @@ static void api_status(int c) {
     sb_str(&b, st.device);
     sb_add(&b, ",\"step\":");
     sb_str(&b, st.step);
+    sb_add(&b, ",\"detail\":");
+    sb_str(&b, st.detail);
     sb_add(&b, ",\"message\":");
     sb_str(&b, st.message);
     sb_add(&b, ",\"cancellable\":%s,\"replug\":%s,\"cancelled\":%s", st.cancellable ? "true" : "false",
@@ -1811,9 +1856,11 @@ static void *backup_worker(void *arg) {
     }
     setvbuf(o.f, NULL, _IOFBF, 1 << 20);
     set_flags(1, 0);
+    st.total_ptr = &info.used;   /* ib_backup setzt info.used nach der Belegungssuche */
     ib_result_t r;
     int rc = ib_backup(fd, j->dev.ss, j->dev.size, &info, file_out, &o, on_progress, &cancel_requested, &r, err,
                        sizeof(err));
+    st.total_ptr = NULL;
     set_flags(0, 0);
     job_release(fd);   /* die PS5 bindet den Stick gleich wieder ein */
     if (fflush(o.f) != 0 && !o.err) o.err = errno ? errno : EIO;
@@ -1918,9 +1965,11 @@ static void api_download(int c, const char *query) {
         return;
     }
     set_flags(1, 0);
+    st.total_ptr = &info.used;   /* ib_backup setzt info.used nach der Belegungssuche */
     ib_result_t r;
     int rc = ib_backup(fd, j->dev.ss, j->dev.size, &info, chunk_out, &k, on_progress, &cancel_requested, &r, err,
                        sizeof(err));
+    st.total_ptr = NULL;
     set_flags(0, 0);
     job_release(fd);
     if (!rc && !r.cancelled && send_ok(c, "0\r\n\r\n", 5)) k.broken = 1;

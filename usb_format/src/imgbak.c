@@ -413,6 +413,14 @@ static int compress_threads(void) {
     return n >= 4 ? 4 : n >= 2 ? (int)n - 1 : 0;
 }
 
+/* Fortschritt in Prozent aus verarbeiteten und gesamten Bytes: nie 0 (sonst zeigen die Oberflächen einen Lauf-Balken ohne Wert),
+ * nie 100 (das meldet der Auftrag erst, wenn er fertig ist) */
+static int ib_pct(uint64_t done, uint64_t total) {
+    if (!total) return 1;
+    uint64_t p = done >= total ? 99 : done * 100 / total;
+    return p < 1 ? 1 : p > 99 ? 99 : (int)p;
+}
+
 int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out, void *octx,
               ib_progress_fn progress, volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
@@ -474,7 +482,7 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
             if (emit_zero(&e, zl, cancel, &r->cancelled)) goto werr;
             if (r->cancelled) { rc = 0; goto out; }
             seg += zl;
-            progress(T("Sichern"), (int)(seg * 100 / size));
+            progress(T("Sichern"), ib_pct(r->used, info->used));
             continue;
         }
         const uint64_t end = data_end(&m, seg, size);
@@ -510,7 +518,7 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
                 if (ZSTD_isError(z)) { snprintf(err, errlen, "zstd: %s", ZSTD_getErrorName(z)); goto out; }
                 if (emit(&e, obuf, ob.pos)) goto werr;
             }
-            progress(T("Sichern"), (int)((pos + len) * 100 / size));
+            progress(T("Sichern"), ib_pct(r->used, info->used));
         }
         for (;;) {
             ZSTD_inBuffer in = {NULL, 0, 0};
@@ -710,7 +718,7 @@ static int skip_zero(ib_reader_t *rd, uint64_t *pos, uint64_t size, volatile int
     for (uint64_t left = len, n = 0; left; n++) {
         if (!(n & 0xFFFF)) {
             if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) return 1;
-            progress(step, (int)((*pos + len - left) * 100 / size));
+            (void)progress; (void)step;   /* der Fortschritt kommt aus der Hauptschleife (geschriebene Bytes), nicht aus der Position */
         }
         if (rd_exact(rd, blk, 4)) goto eof;
         const uint32_t hv = (uint32_t)blk[0] | (uint32_t)blk[1] << 8 | (uint32_t)blk[2] << 16;
@@ -719,7 +727,6 @@ static int skip_zero(ib_reader_t *rd, uint64_t *pos, uint64_t size, volatile int
         if ((hv >> 1 & 3) != 1 || blk[3] || b != want || (hv & 1) != !left) goto bad;
     }
     *pos += len;
-    progress(step, (int)(*pos * 100 / size));
     return 0;
 eof:   /* Ende der Datei bzw. Lesefehler (Hochladen abgebrochen) */
     snprintf(err, errlen, "%s", T("Die Image-Datei ist unvollständig."));
@@ -789,7 +796,10 @@ static int run_image(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t dev
                 if (write_page(rd, fd, page, pos, fill, &sw, &r->used, err, errlen)) goto out;
                 pos += fill;
                 fill = 0;
-                progress(step, (int)(pos * 100 / size));
+                {
+                    const int pw = rd->info.has_map ? ib_pct(r->used, rd->info.used) : ib_pct(pos, size);
+                    progress(step, verify ? pw : (pw + 1) / 2);   /* mit Nachlesen: erste Hälfte des Balkens */
+                }
             }
         }
     }
@@ -857,7 +867,7 @@ static int run_image(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t dev
         }
         sha256_update(&sv, page, run);
         checked += run;
-        progress(T("Geschriebenes prüfen"), r->used ? (int)(checked * 100 / r->used) : 100);
+        progress(T("Geschriebenes prüfen"), 50 + (ib_pct(checked, r->used) + 1) / 2);   /* zweite Hälfte */
     }
     sha256_final(&sv, got);
     if (memcmp(want, got, 32)) {

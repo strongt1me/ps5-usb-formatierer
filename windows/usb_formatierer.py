@@ -2388,7 +2388,7 @@ class App(tk.Tk):
                                                  "Ergebnis ist unbekannt. Bitte den Datenträger prüfen bzw. erneut "
                                                  "formatieren."), foreign, done_title, {}, after))
                 return
-            flags = {k: st[k] for k in ("replug", "cancellable") if k in st}
+            flags = {k: st[k] for k in ("replug", "cancellable", "detail") if k in st}
             self.q.put(("progress", int(st.get("percent") or 0), st.get("step") or "", flags))
             if not st.get("busy"):
                 try:   # erst die Liste, dann das Ergebnis - sonst überschreibt der Listenhinweis die Meldung
@@ -2706,7 +2706,8 @@ class App(tk.Tk):
                     self.pbar.stop()
                     self.pbar.configure(mode="determinate")
                 self.pbar["value"] = pct
-            self.status_var.set(f"{step} …" if moving else f"{step} … {pct} %")
+            detail = flags.get("detail") or ""
+            self.status_var.set(f"{step} …" if moving else f"{step} … {pct} %" + (f" · {detail}" if detail else ""))
             self.ps5_step = step   # für "Abbrechen" (Warten auf Abziehen, Prüfung, Messung)
             self.ps5_flags = flags
         elif kind == "finished":

@@ -2536,5 +2536,35 @@
   "it": "key e mtime obbligatori",
   "es": "Se requieren key y mtime",
   "fr": "key et mtime requis"
+ },
+ "%ld Sek.": {
+  "en": "%ld s",
+  "it": "%ld s",
+  "es": "%ld s",
+  "fr": "%ld s"
+ },
+ "%ld Min.": {
+  "en": "%ld min",
+  "it": "%ld min",
+  "es": "%ld min",
+  "fr": "%ld min"
+ },
+ "%ld Std. %ld Min.": {
+  "en": "%ld h %ld min",
+  "it": "%ld h %ld min",
+  "es": "%ld h %ld min",
+  "fr": "%ld h %ld min"
+ },
+ "%s von %s": {
+  "en": "%s of %s",
+  "it": "%s di %s",
+  "es": "%s de %s",
+  "fr": "%s sur %s"
+ },
+ "noch etwa %s": {
+  "en": "about %s left",
+  "it": "circa %s rimanenti",
+  "es": "unos %s restantes",
+  "fr": "environ %s restantes"
  }
 }

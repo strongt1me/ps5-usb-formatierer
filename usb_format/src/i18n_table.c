@@ -14,6 +14,9 @@ const i18n_entry_t i18n_table[] = {
     {{"%d Spiele gelöscht: %s.", "%d games deleted: %s.", "%d giochi eliminati: %s.", "%d juegos borrados: %s.", "%d jeux supprimés : %s."}},
     {{"%d von %d Spielständen gesichert, dann Fehler: ", "%d of %d save games backed up, then an error: ", "%d salvataggi su %d salvati, poi errore: ", "%d de %d partidas copiadas, luego un error: ", "%d sauvegardes sur %d enregistrées, puis une erreur : "}},
     {{"%d von %d Spielständen wiederhergestellt, dann Fehler: %s", "%d of %d save games restored, then an error: %s", "%d salvataggi su %d ripristinati, poi errore: %s", "%d de %d partidas restauradas, luego un error: %s", "%d sauvegardes sur %d restaurées, puis une erreur : %s"}},
+    {{"%ld Min.", "%ld min", "%ld min", "%ld min", "%ld min"}},
+    {{"%ld Sek.", "%ld s", "%ld s", "%ld s", "%ld s"}},
+    {{"%ld Std. %ld Min.", "%ld h %ld min", "%ld h %ld min", "%ld h %ld min", "%ld h %ld min"}},
     {{"%s antwortet seit einer Stunde nicht und läuft womöglich noch. Den Stick bitte nicht abziehen, sondern die PS5 neu starten.", "%s has not responded for an hour and may still be running. Please do not unplug the stick – restart the PS5 instead.", "%s non risponde da un'ora e potrebbe essere ancora in esecuzione. Non scollegare la chiavetta, riavvia invece la PS5.", "%s no responde desde hace una hora y quizá siga en marcha. No desconectes el pendrive; reinicia la PS5.", "%s ne répond plus depuis une heure et tourne peut-être encore. Ne débranchez pas la clé, redémarrez plutôt la PS5."}},
     {{"%s erfolgreich formatiert: %s", "%s formatted successfully: %s", "%s formattata correttamente: %s", "%s formateada correctamente: %s", "%s formaté avec succès : %s"}},
     {{"%s fehlt – bitte das Paket %s installieren.", "%s is missing – please install the package %s.", "%s manca – installa il pacchetto %s.", "Falta %s – instala el paquete %s.", "%s est absent – veuillez installer le paquet %s."}},
@@ -26,6 +29,7 @@ const i18n_entry_t i18n_table[] = {
     {{"%s ließ sich nicht starten", "Could not start %s", "Impossibile avviare %s", "No se pudo iniciar %s", "Impossible de démarrer %s"}},
     {{"%s meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben – %s, höchstens den echten Bereich nutzen.", "%s reports %s but has only about %s of real storage. Nothing has been formatted yet – but the previous data was already overwritten by the check – %s, use only the real area at most.", "%s dichiara %s ma ha solo circa %s di memoria reale. Non è stato ancora formattato nulla – ma i dati precedenti sono già stati sovrascritti dalla verifica – %s, usa al massimo l'area reale.", "%s indica %s pero solo tiene unos %s de almacenamiento real. Aún no se ha formateado nada – pero la comprobación ya sobrescribió los datos anteriores – %s, usa como mucho la zona real.", "%s annonce %s mais n'a qu'environ %s de mémoire réelle. Rien n'a encore été formaté – mais les données précédentes ont déjà été écrasées par la vérification – %s, n'utiliser au plus que la zone réelle."}},
     {{"%s meldete Erfolg, aber auf %s steht kein gültiges Dateisystem", "%s reported success, but %s has no valid file system", "%s ha segnalato successo, ma su %s non c'è un file system valido", "%s informó de éxito, pero %s no tiene un sistema de archivos válido", "%s a signalé une réussite, mais %s n'a pas de système de fichiers valide"}},
+    {{"%s von %s", "%s of %s", "%s di %s", "%s de %s", "%s sur %s"}},
     {{"%s – noch < 1 Min.", "%s – less than 1 min left", "%s – meno di 1 min rimanente", "%s – queda menos de 1 min", "%s – moins d'1 min restante"}},
     {{"%s – noch ca. %d Min.", "%s – about %d min left", "%s – circa %d min rimanenti", "%s – quedan unos %d min", "%s – environ %d min restantes"}},
     {{"%s – noch ca. %d Std. %d Min.", "%s – about %d h %d min left", "%s – circa %d h %d min rimanenti", "%s – quedan unas %d h %d min", "%s – environ %d h %d min restantes"}},
@@ -415,6 +419,7 @@ const i18n_entry_t i18n_table[] = {
     {{"mke2fs starten", "Starting mke2fs", "Avvio di mke2fs", "Iniciar mke2fs", "Lancement de mke2fs"}},
     {{"mke2fs.exe fehlt neben dem Helfer.", "mke2fs.exe is missing next to the helper.", "mke2fs.exe manca accanto all'helper.", "Falta mke2fs.exe junto al asistente.", "mke2fs.exe est absent à côté de l'assistant."}},
     {{"mke2fs.exe wurde verändert – aus Sicherheitsgründen nicht gestartet.", "mke2fs.exe has been modified – not started for security reasons.", "mke2fs.exe è stato modificato – non avviato per motivi di sicurezza.", "mke2fs.exe ha sido modificado – no se inició por motivos de seguridad.", "mke2fs.exe a été modifié – non lancé pour des raisons de sécurité."}},
+    {{"noch etwa %s", "about %s left", "circa %s rimanenti", "unos %s restantes", "environ %s restantes"}},
     {{"ohne Dateisystem", "no file system", "senza file system", "sin sistema de archivos", "sans système de fichiers"}},
     {{"path ist erforderlich", "path is required", "path è obbligatorio", "path es obligatorio", "path est obligatoire"}},
     {{"paths erforderlich", "paths required", "paths obbligatorio", "Se requiere paths", "paths requis"}},
@@ -426,4 +431,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 423;
+const unsigned i18n_count = 428;

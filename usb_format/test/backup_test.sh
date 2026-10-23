@@ -202,6 +202,13 @@ head -c 1000 /dev/urandom >"$W/data/usbfmt-backup/kaputt_rest.img.zst"
 code=$(post "{\"path\":\"$W/data/usbfmt-backup/kaputt_rest.img.zst\"}" images/delete)
 [ "$code" = 409 ] && [ -e "$W/data/usbfmt-backup/kaputt_rest.img.zst" ] && ok "Löschen während eines Auftrags abgelehnt" \
     || bad "Löschen während Auftrag ($code)" "$(cat "$W/body")"
+# Fortschritt: der Balken wächst nie rückwärts, steht nach Beginn des Sicherns nicht auf 0 und der Status trägt die Zeile "detail"
+prog=""
+for _ in $(seq 1 4); do prog="$prog $(curl -s "$U/api/status" | q 'str(d["percent"]) + ("" if "detail" in d else "!")')"; sleep 0.05; done
+python3 -c 'import sys
+v=sys.argv[1].split()
+bad="!" in sys.argv[1] or any(int(b.rstrip("!"))<int(a.rstrip("!")) for a,b in zip(v,v[1:]))
+sys.exit(1 if bad else 0)' "$prog" && ok "Fortschritt wächst gleichmäßig, Status mit detail ($prog )" || bad "Fortschritt rückwärts oder ohne detail" "$prog"
 curl -s -H "$J" -d '{}' "$U/api/cancel" >/dev/null
 wait_job
 [ "$(q 'str(d["ok"]) + str(d["cancelled"])' <"$W/st")" = FalseTrue ] && ok "Sichern abgebrochen" || bad "Abbrechen" "$(cat "$W/st")"
