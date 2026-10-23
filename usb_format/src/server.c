@@ -2428,6 +2428,8 @@ static void smp_error(const char *resp, size_t len, int http, char *out, size_t 
 
 /* Löschen über ShadowMountPlus: Auftrag starten und bis zum Ende verfolgen (es hält dabei Scanner und Startseite an
  * und gibt eingebundene Abbilder selbst frei). 0 = gelöscht. */
+static char del_step[320];   /* Schrittname des laufenden Löschens: "Spiele löschen: Name (2 von 5)" */
+
 static int smp_delete(const del_item_t *it, int base, int span, char *err, size_t n) {
     char body[96], resp_err[200];
     size_t len;
@@ -2464,7 +2466,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
         char state[24] = "";
         lib_json_str(r, len, "state", state, sizeof(state));
         if (lib_json_num(r, len, "progress_percent", &v) == 0 && v >= 0 && v <= 100)
-            on_progress("Spiele löschen", base + (int)(v * span / 100));
+            on_progress(del_step, base + (int)(v * span / 100));
         else v = -1;
         if (v != last_v || strcmp(state, last_state) != 0) {
             last_v = v;
@@ -2538,7 +2540,7 @@ static void rm_step(rm_prog_t *p, uint64_t w) {
     if (!p) return;
     p->done += w;
     int pct = p->base + (int)(p->total ? (p->done > p->total ? p->total : p->done) * (uint64_t)p->span / p->total : 0);
-    if (pct != p->last) { p->last = pct; on_progress("Spiele löschen", pct); }
+    if (pct != p->last) { p->last = pct; on_progress(del_step, pct); }
 }
 
 static int remove_tree(const char *path, int depth, rm_prog_t *p) {
@@ -2600,7 +2602,8 @@ static void *delete_worker(void *arg) {
     for (int i = 0; i < j->nitems; i++) {
         const del_item_t *it = &j->items[i];
         int base = i * 100 / j->nitems, span = 100 / j->nitems, managed = 0, rc;
-        on_progress("Spiele löschen", base);
+        snprintf(del_step, sizeof(del_step), T("%s: %s (%d von %d)"), T("Spiele löschen"), it->name, i + 1, j->nitems);
+        on_progress(del_step, base > 0 ? base : 1);
         /* Wer verwaltet welchen Pfad? Nur die Kopie, die ShadowMountPlus selbst nutzt, löscht es auch. Nach jedem
          * Löschen neu fragen: Bei doppelten Spielen bindet es danach evtl. die andere Kopie ein. */
         if (stale) {
@@ -2656,7 +2659,7 @@ static void *delete_worker(void *arg) {
                 rc = -1;
                 snprintf(err, sizeof(err), "%s", T("Pfad liegt nicht auf dem USB-Laufwerk"));
             } else {
-                on_progress("Spiele löschen: Dateien zählen", base);
+                on_progress(del_step, base > 0 ? base : 1);
                 rm_prog_t rp = {tree_weight(it->path, 0), 0, base, span, -1};
                 rc = remove_tree(it->path, 0, &rp);
             }

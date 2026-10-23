@@ -30,12 +30,10 @@ const i18n_entry_t i18n_table[] = {
     {{"%s meldet %s, hat aber nur etwa %s echten Speicher. Formatiert wurde noch nicht – die bisherigen Daten wurden bei der Prüfung aber schon überschrieben – %s, höchstens den echten Bereich nutzen.", "%s reports %s but has only about %s of real storage. Nothing has been formatted yet – but the previous data was already overwritten by the check – %s, use only the real area at most.", "%s dichiara %s ma ha solo circa %s di memoria reale. Non è stato ancora formattato nulla – ma i dati precedenti sono già stati sovrascritti dalla verifica – %s, usa al massimo l'area reale.", "%s indica %s pero solo tiene unos %s de almacenamiento real. Aún no se ha formateado nada – pero la comprobación ya sobrescribió los datos anteriores – %s, usa como mucho la zona real.", "%s annonce %s mais n'a qu'environ %s de mémoire réelle. Rien n'a encore été formaté – mais les données précédentes ont déjà été écrasées par la vérification – %s, n'utiliser au plus que la zone réelle."}},
     {{"%s meldete Erfolg, aber auf %s steht kein gültiges Dateisystem", "%s reported success, but %s has no valid file system", "%s ha segnalato successo, ma su %s non c'è un file system valido", "%s informó de éxito, pero %s no tiene un sistema de archivos válido", "%s a signalé une réussite, mais %s n'a pas de système de fichiers valide"}},
     {{"%s von %s", "%s of %s", "%s di %s", "%s de %s", "%s sur %s"}},
-    {{"%s – noch < 1 Min.", "%s – less than 1 min left", "%s – meno di 1 min rimanente", "%s – queda menos de 1 min", "%s – moins d'1 min restante"}},
-    {{"%s – noch ca. %d Min.", "%s – about %d min left", "%s – circa %d min rimanenti", "%s – quedan unos %d min", "%s – environ %d min restantes"}},
-    {{"%s – noch ca. %d Std. %d Min.", "%s – about %d h %d min left", "%s – circa %d h %d min rimanenti", "%s – quedan unas %d h %d min", "%s – environ %d h %d min restantes"}},
     {{"%s, %s Cluster", "%s, %s clusters", "%s, cluster da %s", "%s, clústeres de %s", "%s, clusters de %s"}},
     {{"%s, %u KB Blöcke", "%s, %u KB blocks", "%s, blocchi da %u KB", "%s, bloques de %u KB", "%s, blocs de %u Ko"}},
     {{"%s: %d Partitionen angelegt (%s):", "%s: %d partitions created (%s):", "%s: %d partizioni create (%s):", "%s: %d particiones creadas (%s):", "%s : %d partitions créées (%s) :"}},
+    {{"%s: %s (%d von %d)", "%s: %s (%d of %d)", "%s: %s (%d di %d)", "%s: %s (%d de %d)", "%s : %s (%d sur %d)"}},
     {{"%s: %s (Windows-Fehler %lu)", "%s: %s (Windows error %lu)", "%s: %s (errore Windows %lu)", "%s: %s (error de Windows %lu)", "%s : %s (erreur Windows %lu)"}},
     {{"%s: Sicherung %d von %d – %s", "%s: backup %d of %d – %s", "%s: backup %d di %d – %s", "%s: copia %d de %d – %s", "%s : sauvegarde %d sur %d – %s"}},
     {{"%s: Spielstand %d von %d – %s", "%s: save game %d of %d – %s", "%s: salvataggio %d di %d – %s", "%s: partida %d de %d – %s", "%s : sauvegarde %d sur %d – %s"}},
@@ -308,7 +306,6 @@ const i18n_entry_t i18n_table[] = {
     {{"Sichern fehlgeschlagen: %s", "Backup failed: %s", "Backup non riuscito: %s", "Error en la copia de seguridad: %s", "Échec de la sauvegarde : %s"}},
     {{"Spiel hat sich seit der Suche geändert – nichts gelöscht. Liste neu laden.", "The game has changed since the scan – nothing deleted. Reload the list.", "Il gioco è cambiato dalla ricerca – non è stato eliminato nulla. Ricarica l'elenco.", "El juego ha cambiado desde la búsqueda – no se ha eliminado nada. Recarga la lista.", "Le jeu a changé depuis la recherche – rien n'a été supprimé. Rechargez la liste."}},
     {{"Spiele löschen", "Deleting games", "Eliminazione giochi", "Borrando juegos", "Suppression des jeux"}},
-    {{"Spiele löschen: Dateien zählen", "Deleting games: counting files", "Eliminazione giochi: conteggio file", "Borrando juegos: contando archivos", "Suppression des jeux : comptage des fichiers"}},
     {{"Spiele nicht gefunden – Liste neu laden", "Games not found – reload the list", "Giochi non trovati – ricarica l'elenco", "Juegos no encontrados – recarga la lista", "Jeux introuvables – rechargez la liste"}},
     {{"Spielstand konnte nicht gelesen werden", "Save game could not be read", "Impossibile leggere il salvataggio", "No se pudo leer la partida", "La sauvegarde n'a pas pu être lue"}},
     {{"Spielstand konnte nicht geöffnet werden: %s", "Save game could not be opened: %s", "Impossibile aprire il salvataggio: %s", "No se pudo abrir la partida: %s", "La sauvegarde n'a pas pu être ouverte : %s"}},
@@ -431,4 +428,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 428;
+const unsigned i18n_count = 425;

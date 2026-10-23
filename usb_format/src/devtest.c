@@ -173,13 +173,22 @@ const char *dt_rating(double mbps) {
     return mbps >= 100 ? "schnell" : mbps >= 40 ? "ausreichend" : "langsam";
 }
 
-/* "noch ca. 12 Min." aus Restbytes und Tempo */
-static void eta_text(char *out, size_t n, const char *what, uint64_t left, double bps) {
-    if (bps <= 0) { snprintf(out, n, "%s", what); return; }
-    double s = (double)left / bps;
-    if (s < 60) snprintf(out, n, T("%s – noch < 1 Min."), what);
-    else if (s < 5400) snprintf(out, n, T("%s – noch ca. %d Min."), what, (int)(s / 60 + 0.5));
-    else snprintf(out, n, T("%s – noch ca. %d Std. %d Min."), what, (int)(s / 3600), (int)(s / 60) % 60);
+/* Ein durchgehender Balken über alle Schritte eines Auftrags: jeder Schritt bekommt einen festen Abschnitt (lo..hi) und meldet
+ * darin 0-100 %. Der Balken läuft nie rückwärts und steht nach dem Start nie auf 0 (sonst zeigen die Oberflächen einen
+ * Lauf-Balken ohne Wert). */
+static int ph_lo, ph_hi = 100, ph_last;
+
+static void phase(int lo, int hi) { ph_lo = lo; ph_hi = hi; }
+
+static void phase_reset(void) { ph_lo = 0; ph_hi = 100; ph_last = 0; }
+
+static void rep(progress_fn progress, const char *step, int pct) {
+    int all = ph_lo + pct * (ph_hi - ph_lo) / 100;
+    if (all < 1) all = 1;
+    if (all > 99) all = 99;
+    if (all < ph_last) all = ph_last;
+    ph_last = all;
+    progress(step, all);
 }
 
 /* Fortschritt einer Messung mit Mengen- und Zeitgrenze: der größere Anteil, höchstens 99 bis zum Ende */
@@ -191,6 +200,7 @@ static int time_pct(uint64_t done, uint64_t total, double elapsed, double limit)
 int dt_read_speed(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile int *cancel, devtest_t *r,
                   char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
+    phase_reset();
     uint8_t *buf = alloc_buf(CHUNK, err, errlen);
     if (!buf) return -1;
     uint64_t start = size / 4 / MIB * MIB, total = SPEED_BYTES;
@@ -210,7 +220,7 @@ int dt_read_speed(int fd, uint32_t ss, uint64_t size, progress_fn progress, vola
         }
         done += take;
         /* Ende nach Menge oder nach 8 s - was zuerst kommt; so läuft der Balken gleichmäßig bis zum Schluss */
-        progress(T("Lesetempo messen"), time_pct(done, total, now_s() - t0, 8));
+        rep(progress, T("Lesetempo messen"), time_pct(done, total, now_s() - t0, 8));
         if (now_s() - t0 > 8 && done >= 16ull * MIB) break;
     }
     double dt = now_s() - t0;
@@ -227,6 +237,7 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
     if (total > SPEED_BYTES) total = SPEED_BYTES;
     if (total < CHUNK || start + total > size) return 0;   /* zu klein zum Messen */
     double t0 = now_s();
+    phase(0, 12);
     while (done < total) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; return 0; }
         fill(a, CHUNK, nonce ^ (start + done));
@@ -236,7 +247,7 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
             return -1;
         }
         done += CHUNK;
-        progress(T("Schreibtempo messen"), time_pct(done, total, now_s() - t0, 15));
+        rep(progress, T("Schreibtempo messen"), time_pct(done, total, now_s() - t0, 15));
         if (now_s() - t0 > 15 && done >= 16ull * MIB) break;
     }
     dev_sync(fd);
@@ -246,6 +257,7 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
     uint64_t written = done;
     done = 0;
     t0 = now_s();
+    phase(12, 20);
     while (done < written) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; return 0; }
         if (io_all(fd, 0, b, CHUNK, start + done)) {
@@ -256,7 +268,7 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
         fill(a, CHUNK, nonce ^ (start + done));
         if (memcmp(a, b, CHUNK) != 0 && !r->bad) { r->bad = 1; r->bad_at = start + done; }
         done += CHUNK;
-        progress(T("Lesetempo messen"), (int)(done * 100 / written));
+        rep(progress, T("Lesetempo messen"), (int)(done * 100 / written));
     }
     dt = now_s() - t0;
     r->read_mbps = dt > 0 ? (double)written / dt / 1e6 : 0;
@@ -266,6 +278,7 @@ static int speed_rw(int fd, uint64_t size, progress_fn progress, volatile int *c
 int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile int *cancel, devtest_t *r,
               char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
+    phase_reset();
     io_failed = 0;
     io_wrote = 0;
     uint8_t *a = alloc_buf(CHUNK, err, errlen), *b = a ? alloc_buf(CHUNK, err, errlen) : NULL;
@@ -299,16 +312,16 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
     n = m;
 
     double t0 = now_s();
-    char step[64];
+    (void)t0;
+    phase(20, 60);   /* Stichproben schreiben, danach lesen: ein durchgehender Balken */
     for (uint32_t i = 0; i < n; i++) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         tagged(a, SAMPLE, nonce, pos[i]);
         if (io_all(fd, 1, a, SAMPLE, pos[i])) state[i] = 3;
-        double el = now_s() - t0;   /* Restzeit aus dem bisherigen Tempo je Stichprobe */
-        eta_text(step, sizeof(step), T("Echtheit prüfen"), (uint64_t)(n - i - 1), el > 0 ? (i + 1) / el : 0);
-        progress(step, (int)((uint64_t)(i + 1) * 100 / n));
+        rep(progress, T("Echtheit prüfen"), (int)((uint64_t)(i + 1) * 100 / n));
     }
     dev_sync(fd);
+    phase(60, 95);
     if (gone_error(fd, ss, pos[n - 1], err, errlen)) goto out;
 
     /* state: 1 gut, 2 überschrieben (eine spätere Stichprobe landete hier), 3 verloren (Fehler, Nullen, Müll) */
@@ -329,7 +342,7 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         }
         if (state[i] == 3 && !nlost++) first_lost = pos[i];
         if (state[i] == 1 && !nlost) last_good = pos[i] + SAMPLE;
-        if (i % 16 == 0) progress(T("Echtheit prüfen: lesen"), (int)((uint64_t)i * 100 / n));
+        if (i % 16 == 0) rep(progress, T("Echtheit prüfen: lesen"), (int)((uint64_t)i * 100 / n));
     }
     if (gone_error(fd, ss, first_lost, err, errlen)) goto out;
 
@@ -348,7 +361,8 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
                 uint64_t mid = (lo + (hi - lo) / 2) / MIB * MIB;
                 if (mid <= lo) mid = lo + MIB;
                 if (mid >= hi) break;
-                progress(T("Echtheit prüfen: Grenze suchen"), 100);
+                phase(95, 99);
+                rep(progress, T("Echtheit prüfen: Grenze suchen"), 50);
                 tagged(a, SAMPLE, nonce ^ step, mid);
                 int good = io_all(fd, 1, a, SAMPLE, mid) == 0;
                 dev_sync(fd);
@@ -371,7 +385,6 @@ int dt_verify(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile
         r->real_bytes = real / MIB * MIB;
         if (r->bad && r->bad_at >= r->real_bytes) r->bad = 0;   /* nur die Fälschung, keine defekten Bereiche */
     }
-    progress(T("Echtheit prüfen: lesen"), 100);
     rc = 0;
 out:
     free(a); free(b); free(pos); free(state);
@@ -414,9 +427,10 @@ static int tail_dead(int fd, uint64_t from, uint64_t size, uint64_t nonce, uint8
 int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile int *cancel, devtest_t *r,
             char *err, size_t errlen) {
     memset(r, 0, sizeof(*r));
+    phase_reset();
+    phase(0, 50);   /* Beschreiben: erste Hälfte, Prüfen: zweite Hälfte - ein durchgehender Balken */
     io_wrote = 0;
     uint8_t *a = alloc_buf(CHUNK, err, errlen), *b = a ? alloc_buf(CHUNK, err, errlen) : NULL;
-    char step[64];
     int rc = -1;
     if (!a || !b) goto out;
     uint64_t total = size / SAMPLE * SAMPLE;
@@ -447,8 +461,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
         done += take;
         double t = now_s();
         if (t - last >= 1 || done == total) {
-            eta_text(step, sizeof(step), T("Beschreiben"), total - done, (double)done / (t - t0));
-            progress(step, (int)(done * 100 / total));
+            rep(progress, T("Beschreiben"), (int)(done * 100 / total));
             last = t;
         }
     }
@@ -460,6 +473,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
     t0 = now_s();
     last = 0;
     done = 0;
+    phase(50, 99);
     while (done < total) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         size_t take = total - done < CHUNK ? (size_t)(total - done) : CHUNK;
@@ -481,8 +495,7 @@ int dt_full(int fd, uint32_t ss, uint64_t size, progress_fn progress, volatile i
         done += take;
         double t = now_s();
         if (t - last >= 1 || done == total) {
-            eta_text(step, sizeof(step), T("Prüfen"), total - done, (double)done / (t - t0));
-            progress(step, (int)(done * 100 / total));
+            rep(progress, T("Prüfen"), (int)(done * 100 / total));
             last = t;
         }
     }

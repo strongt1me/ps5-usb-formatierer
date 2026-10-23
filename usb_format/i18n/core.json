@@ -11,24 +11,6 @@
   "es": "Sin memoria",
   "fr": "Mémoire insuffisante"
  },
- "%s – noch < 1 Min.": {
-  "en": "%s – less than 1 min left",
-  "it": "%s – meno di 1 min rimanente",
-  "es": "%s – queda menos de 1 min",
-  "fr": "%s – moins d'1 min restante"
- },
- "%s – noch ca. %d Min.": {
-  "en": "%s – about %d min left",
-  "it": "%s – circa %d min rimanenti",
-  "es": "%s – quedan unos %d min",
-  "fr": "%s – environ %d min restantes"
- },
- "%s – noch ca. %d Std. %d Min.": {
-  "en": "%s – about %d h %d min left",
-  "it": "%s – circa %d h %d min rimanenti",
-  "es": "%s – quedan unas %d h %d min",
-  "fr": "%s – environ %d h %d min restantes"
- },
  "Lesefehler bei %llu MB: %s": {
   "en": "Read error at %llu MB: %s",
   "it": "Errore di lettura a %llu MB: %s",
@@ -592,12 +574,6 @@
   "it": "Eliminazione giochi",
   "es": "Borrando juegos",
   "fr": "Suppression des jeux"
- },
- "Spiele löschen: Dateien zählen": {
-  "en": "Deleting games: counting files",
-  "it": "Eliminazione giochi: conteggio file",
-  "es": "Borrando juegos: contando archivos",
-  "fr": "Suppression des jeux : comptage des fichiers"
  },
  "Interner Fehler: Eintrag über Sektorgrenze": {
   "en": "Internal error: entry crosses a sector boundary",
@@ -2566,5 +2542,11 @@
   "it": "circa %s rimanenti",
   "es": "unos %s restantes",
   "fr": "environ %s restantes"
+ },
+ "%s: %s (%d von %d)": {
+  "en": "%s: %s (%d of %d)",
+  "it": "%s: %s (%d di %d)",
+  "es": "%s: %s (%d de %d)",
+  "fr": "%s : %s (%d sur %d)"
  }
 }
