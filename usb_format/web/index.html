@@ -2478,6 +2478,10 @@ $("bsaverestore").addEventListener("click", async () => {
   /* nach Benutzer, darin nach Spiel gruppiert: mehrere Container eines Spiels unter einer Kopfzeile mit Sammel-Kästchen */
   const when = b => new Date((b.time || 0) * 1000).toLocaleString(LOCALE[LANG], { dateStyle: "short", timeStyle: "short" });
   const refresh = () => { yes.disabled = !checks.some(c => c.cb.checked); };
+  const whereOf = b => {   /* wo die Sicherung liegt: intern oder Laufwerk (Name) - dieselbe Sicherung kann an mehreren Orten liegen */
+    const l = (data.locations || []).find(x => x.dir === b.dir);
+    return l && l.device ? (l.label ? q(l.label) + " (" + l.device + ")" : l.device) : tr("intern auf der PS5");
+  };
   const add = (b, indent) => {
     const row = el("label", "chk", "");
     if (indent) row.style.cssText = "margin-left:28px;border-top:0;padding:4px 0";
@@ -2489,7 +2493,7 @@ $("bsaverestore").addEventListener("click", async () => {
     t.textContent = indent ? saveDirName(b.save_dir) : (b.title_name || b.title_id);
     if (!indent) t.appendChild(platformTag(b.platform));
     const sub = el("small", "", "");
-    sub.textContent = (indent ? [fmtSize(b.size), when(b)] : [b.title_name !== b.title_id ? b.title_id : "", fmtSize(b.size), when(b), saveDirName(b.save_dir)]).filter(Boolean).join(" · ");
+    sub.textContent = (indent ? [fmtSize(b.size), when(b), whereOf(b)] : [b.title_name !== b.title_id ? b.title_id : "", fmtSize(b.size), when(b), saveDirName(b.save_dir), whereOf(b)]).filter(Boolean).join(" · ");
     t.appendChild(sub);
     row.append(cb, t);
     extra.appendChild(row);

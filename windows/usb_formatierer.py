@@ -274,8 +274,9 @@ class Api:
         return self._call("/api/saves/locations", timeout=15).get("locations") or []
 
     def saves_backups(self):
-        """Auf der PS5 gefundene Sicherungen (Liste von Einträgen mit path, username, title_name, ...)"""
-        return self._call("/api/saves/backups", timeout=30).get("backups") or []
+        """Auf der PS5 gefundene Sicherungen: (Liste von Einträgen mit path, username, title_name, dir, ...), Orte"""
+        r = self._call("/api/saves/backups", timeout=30)
+        return r.get("backups") or [], r.get("locations") or []
 
     def backup_saves(self, keys, dest):
         """Spielstände auf der PS5 sichern (Auftrag "save_backup")"""
@@ -333,7 +334,7 @@ def port_open(host, port, timeout=1.0):
         return False
 
 
-def ask_backups(root, backups):
+def ask_backups(root, backups, locations=()):
     """Gefundene Sicherungen (nach Benutzer gruppiert, mehrere markierbar). Liefert ("paths", [Pfade]), ("file", None)
     für "Datei vom PC wählen …" oder None (abgebrochen)."""
     px = ui_theme.px
@@ -364,12 +365,16 @@ def ask_backups(root, backups):
         sb = ttk.Scrollbar(box, orient="vertical", command=tree.yview)
         sb.grid(row=0, column=1, sticky="ns", padx=(px(4), 0))
         tree.configure(yscrollcommand=sb.set)
+        def where_of(b):   # wo die Sicherung liegt (dieselbe kann an mehreren Orten liegen)
+            loc = next((x for x in locations if x.get("dir") == b.get("dir")), None)
+            return (loc.get("label") or loc.get("device")) if loc and loc.get("device") else _("intern auf der PS5")
+
         for ui, (who, items) in enumerate(users.items()):
             tree.insert("", "end", iid=f"u{ui}", text=who, open=True)
             for b in items:
                 when = time.strftime("%x %H:%M", time.localtime(b.get("time") or 0))
                 tree.insert(f"u{ui}", "end", iid=b["path"], text=b.get("title_name") or b.get("title_id", ""),
-                            values=(" · ".join(x for x in (b.get("platform") or "PS5", fmt_size(b.get("size", 0)), when, b.get("save_dir", "")) if x),),
+                            values=(" · ".join(x for x in (b.get("platform") or "PS5", fmt_size(b.get("size", 0)), when, b.get("save_dir", "").removeprefix("sdimg_"), where_of(b)) if x),),
                             image=imgs[False])
 
     ok_btn = ttk.Button(frm, text=_("Wiederherstellen"), style="Accent.TButton")
@@ -1263,11 +1268,11 @@ class App(tk.Tk):
             return
         api = self.api
         try:
-            backups = api.saves_backups()
+            backups, locations = api.saves_backups()
         except (ConnectionError, ApiError) as e:
             messagebox.showerror(_("Spielstand wiederherstellen"), str(e), parent=self)
             return
-        res = ask_backups(self, backups)
+        res = ask_backups(self, backups, locations)
         if not res:
             return
         kind, paths = res
