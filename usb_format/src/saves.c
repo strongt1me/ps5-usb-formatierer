@@ -417,6 +417,8 @@ int saves_find(const char *key, save_info_t *out) {
 
 /* ── ZIP schreiben (gespeichert, ohne Deflate): als chunked HTTP an einen Socket oder in eine Datei ─ */
 
+static int set_times_fd(int fd, const char *path, const struct timespec ts[2]);
+
 typedef struct { char name[400]; uint32_t crc, size, off; uint16_t flags; } zcd_t;
 
 typedef struct {
@@ -1008,7 +1010,7 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
     }
     fchmod(dfd, mode);
     if (own_u != (uid_t)-1) (void)!fchown(dfd, own_u, own_g);
-    if (have_ts) futimens(dfd, ts);
+    if (have_ts) set_times_fd(dfd, NULL, ts);
     if (fsync(dfd) != 0 || close(dfd) != 0) {
         dfd = -1;
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
@@ -1026,7 +1028,7 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
         unlink(r->ktmp);
         if (pread_full(zfd, kb, sizeof(kb), (off_t)r->key->data) || crc32_update(0, kb, sizeof(kb)) != r->key->crc ||
             (kfd = open(r->ktmp, O_WRONLY | O_CREAT | O_EXCL, 0644)) < 0 || write_full(kfd, kb, sizeof(kb)) ||
-            (ku != (uid_t)-1 && fchown(kfd, ku, kg) != 0 && 0) || fchmod(kfd, kmode) != 0 || (have_kts && futimens(kfd, kts) != 0 && 0) ||
+            (ku != (uid_t)-1 && fchown(kfd, ku, kg) != 0 && 0) || fchmod(kfd, kmode) != 0 || (have_kts && set_times_fd(kfd, NULL, kts) != 0 && 0) ||
             fsync(kfd) != 0 || close(kfd) != 0) {
             if (kfd >= 0) close(kfd);
             unlink(r->ktmp);
@@ -1185,16 +1187,26 @@ int saves_list_backups(const char *root, save_backup_t **out, int *count) {
     return 0;
 }
 
-/* Zeit über einen geöffneten Deskriptor setzen (utimensat mit Pfad liefert auf der PS5 ENOENT) */
+/* Zeit einer Datei setzen: erst futimens, dann (die PS5-libc meldet dort ENOENT) futimes und utimes, zuletzt utimensat */
+static int set_times_fd(int fd, const char *path, const struct timespec ts[2]) {
+    struct timeval tv[2];
+    tv[0].tv_sec = ts[0].tv_sec; tv[0].tv_usec = ts[0].tv_nsec / 1000;
+    tv[1].tv_sec = ts[1].tv_sec; tv[1].tv_usec = ts[1].tv_nsec / 1000;
+    if (fd >= 0 && futimens(fd, ts) == 0) return 0;
+    if (fd >= 0 && futimes(fd, tv) == 0) return 0;
+    if (path && utimes(path, tv) == 0) return 0;
+    if (path && utimensat(AT_FDCWD, path, ts, 0) == 0) return 0;
+    return -1;
+}
+
 static int set_file_time(const char *path, time_t t) {
     struct timespec ts[2];
     ts[0].tv_nsec = ts[1].tv_nsec = 0;
     ts[0].tv_sec = ts[1].tv_sec = t;
     int fd = open(path, O_RDONLY);
-    if (fd < 0) return -1;
-    int rc = futimens(fd, ts);
+    int rc = set_times_fd(fd, path, ts);
     int e = errno;
-    close(fd);
+    if (fd >= 0) close(fd);
     errno = e;
     return rc;
 }
