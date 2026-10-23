@@ -1786,5 +1786,11 @@
   "it": "Salvataggi scaricati: {n}.",
   "es": "Partidas descargadas: {n}.",
   "fr": "Sauvegardes téléchargées : {n}."
+ },
+ "{n} Spielstände": {
+  "en": "{n} save games",
+  "it": "{n} salvataggi",
+  "es": "{n} partidas",
+  "fr": "{n} sauvegardes"
  }
 }

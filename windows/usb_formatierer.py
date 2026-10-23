@@ -1107,16 +1107,48 @@ class App(tk.Tk):
         tree.delete(*tree.get_children())
         self.saves_checked &= {x["key"] for x in self._saves_data}   # nicht mehr vorhandene sind nicht mehr angehakt
         shown = [x for x in self._saves_data if not uid_filter or x.get("uid") == uid_filter]
-        for n, x in enumerate(shown):
-            tree.insert("", "end", iid=x["key"], text=(x.get("title_name") or x.get("title_id", "")),
-                        values=(x.get("username") or x.get("uid", ""), x.get("platform") or "PS5", fmt_size(x["size"]) if x.get("size") else ""),
-                        image=self.check_imgs[x["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
+        self._saves_keys = [x["key"] for x in shown]
+        groups = {}   # ein Spiel mit mehreren Containern: Kopfzeile mit den Containern darunter
+        for x in shown:
+            groups.setdefault((x.get("uid"), x.get("title_id"), x.get("platform")), []).append(x)
+        n = 0
+        for (uid, tid, plat), items in groups.items():
+            first = items[0]
+            name = first.get("title_name") or first.get("title_id", "")
+            who = first.get("username") or first.get("uid", "")
+            if len(items) == 1:
+                tree.insert("", "end", iid=first["key"], text=name,
+                            values=(who, plat or "PS5", fmt_size(first["size"]) if first.get("size") else ""),
+                            image=self.check_imgs[first["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
+            else:
+                gid = f"g:{uid}/{tid}/{plat}"
+                tree.insert("", "end", iid=gid, text=name, open=True,
+                            values=(who, plat or "PS5", fmt_size(sum(x.get("size", 0) for x in items))),
+                            image=self.check_imgs[all(x["key"] in self.saves_checked for x in items)],
+                            tags=("odd",) if n % 2 else ())
+                for x in items:
+                    tree.insert(gid, "end", iid=x["key"], text=x["save_dir"].removeprefix("sdimg_"),
+                                values=("", "", fmt_size(x["size"]) if x.get("size") else ""),
+                                image=self.check_imgs[x["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
+            n += 1
         self.saves_hint.configure(text="" if shown else _("Keine Spielstände gefunden."))
         self._saves_sum()
         self._update()
 
     def _saves_shown(self):
-        return list(self.saves_tree.get_children())
+        return list(getattr(self, "_saves_keys", []))
+
+    def _saves_refresh_images(self):
+        """Haken an allen Zeilen nachziehen (Kopfzeilen eines Spiels: angehakt, wenn alle Container angehakt sind)"""
+        tree = self.saves_tree
+        for iid in tree.get_children():
+            kids = tree.get_children(iid)
+            if kids:
+                for k in kids:
+                    tree.item(k, image=self.check_imgs[k in self.saves_checked])
+                tree.item(iid, image=self.check_imgs[all(k in self.saves_checked for k in kids)])
+            else:
+                tree.item(iid, image=self.check_imgs[iid in self.saves_checked])
 
     def _saves_sum(self):
         shown = self._saves_shown()
@@ -1133,11 +1165,16 @@ class App(tk.Tk):
         if not iid or not self.saves_tree.exists(iid) or self.busy:
             return
         self.saves_tree.focus(iid)
-        if iid in self.saves_checked:
+        kids = list(self.saves_tree.get_children(iid))
+        if kids:   # Kopfzeile: alle Container des Spiels an oder aus
+            on = not all(k in self.saves_checked for k in kids)
+            for k in kids:
+                (self.saves_checked.add if on else self.saves_checked.discard)(k)
+        elif iid in self.saves_checked:
             self.saves_checked.discard(iid)
         else:
             self.saves_checked.add(iid)
-        self.saves_tree.item(iid, image=self.check_imgs[iid in self.saves_checked])
+        self._saves_refresh_images()
         self._saves_sum()
         self._update()
 
@@ -1148,7 +1185,7 @@ class App(tk.Tk):
         on = self.saves_all_var.get()
         for k in self._saves_shown():
             (self.saves_checked.add if on else self.saves_checked.discard)(k)
-            self.saves_tree.item(k, image=self.check_imgs[k in self.saves_checked])
+        self._saves_refresh_images()
         self._saves_sum()
         self._update()
 
