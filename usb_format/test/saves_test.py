@@ -420,6 +420,54 @@ try:
         check("abgelehnt: " + name, st == 500, "%s %s" % (st, rb[:100]))
     check("... nichts verändert", tree() == snap)
 
+    print("== Zeitstempel ==")
+    KT = "1c3f8a0e/PPSA01234/sdimg_SAVEDATA00"
+    pt = paths[KT] if KT in paths else os.path.join(HOME, "1c3f8a0e", "savedata_prospero", "PPSA01234", "sdimg_SAVEDATA00")
+    st, hd, ztime = req("GET", "/api/saves/download?key=" + KT.replace("/", "%2F"))
+    check("Sicherung enthält die Änderungszeit des Containers", json.loads(zipfile.ZipFile(io.BytesIO(ztime)).read("metadata.json")).get("mtime", "").isdigit())
+    T_OLD = 1700000000
+    os.utime(pt, (T_OLD, T_OLD))
+    open(pt, "r+b").write(b"\x02" + bytes(5000))   # Inhalt ändern ...
+    os.utime(pt, (T_OLD, T_OLD))                   # ... Zeit zurück auf den alten Wert
+    st, hd, rb = req("POST", "/api/saves/restore/upload?lang=en", ztime, {"Content-Type": "application/zip"})
+    wait_job()
+    check("Wiederherstellen: Inhalt ersetzt, Änderungszeit der vorhandenen Datei bleibt", st == 200 and file_sha("1c3f8a0e", "PPSA01234", "sdimg_SAVEDATA00") == sums[KT]
+          and int(os.stat(pt).st_mtime) == T_OLD, str(int(os.stat(pt).st_mtime)))
+    # PS4: Container und Schlüsseldatei behalten ihre Zeiten, die .bin unabhängig vom Container
+    pbin = os.path.join(pdir, "PS4DATA.bin")
+    pcont = os.path.join(pdir, "sdimg_PS4DATA")
+    os.utime(pcont, (1650000000, 1650000000))
+    os.utime(pbin, (1640000000, 1640000000))
+    st, hd, rb = req("POST", "/api/saves/restore/upload?lang=en", zdata, {"Content-Type": "application/zip"})
+    wait_job()
+    check("PS4: Container- und Schlüsselzeit bleiben getrennt erhalten", st == 200 and int(os.stat(pcont).st_mtime) == 1650000000 and int(os.stat(pbin).st_mtime) == 1640000000,
+          "%s %s" % (os.stat(pcont).st_mtime, os.stat(pbin).st_mtime))
+    # Neu angelegter Spielstand bekommt die Zeit aus der Sicherung
+    newz = io.BytesIO()
+    with zipfile.ZipFile(newz, "w", zipfile.ZIP_STORED) as zz:
+        zz.writestr("metadata.json", json.dumps({"title_id": "PPSA66666", "save_dir": "sdimg_NEU", "uid": "3a5b7c9d", "mtime": "1690000000"}))
+        zz.writestr("PPSA66666_sdimg_NEU.img", fx.container("t", 1 << 20))
+    st, hd, rb = req("POST", "/api/saves/restore/upload", newz.getvalue(), {"Content-Type": "application/zip"})
+    wait_job()
+    pn = os.path.join(HOME, "3a5b7c9d", "savedata_prospero", "PPSA66666", "sdimg_NEU")
+    check("Neuer Spielstand: Zeit aus metadata.json", st == 200 and int(os.stat(pn).st_mtime) == 1690000000, str(os.path.exists(pn) and os.stat(pn).st_mtime))
+    shutil.rmtree(os.path.dirname(pn))
+    # Reparatur-Aufruf
+    st, j = jreq("POST", "/api/saves/times", {"key": KT, "mtime": 1600000000})
+    check("times: Zeit des Containers gesetzt", st == 200 and int(os.stat(pt).st_mtime) == 1600000000, "%s %s" % (st, j))
+    st, j = jreq("POST", "/api/saves/times", {"key": KP, "mtime": 1610000000, "key_mtime": 1620000000})
+    check("times (PS4): Container und Schlüssel getrennt", st == 200 and int(os.stat(pcont).st_mtime) == 1610000000 and int(os.stat(pbin).st_mtime) == 1620000000, "%s %s" % (st, j))
+    snap = tree()
+    for name, body in (("unbekannter Schlüssel", {"key": "9/9/9", "mtime": 1600000000}), ("Zeit fehlt", {"key": KT}),
+                       ("Zeit unsinnig (1970)", {"key": KT, "mtime": 5}), ("Zeit unsinnig (Zukunft)", {"key": KT, "mtime": 99999999999}),
+                       ("Zeit keine Zahl", {"key": KT, "mtime": "abc"}), ("Pfad-Ausbruch im Schlüssel", {"key": "../../../etc/passwd", "mtime": 1600000000})):
+        st, j = jreq("POST", "/api/saves/times", body)
+        check("times abgelehnt: " + name, st in (400, 500), "%s %s" % (st, j))
+    check("... nichts verändert (Zeiten wie vorher)", int(os.stat(pt).st_mtime) == 1600000000)
+    os.makedirs(os.path.join(SAND, "PPSA11111_000"))
+    check("times bei laufendem Spiel 409", jreq("POST", "/api/saves/times", {"key": KT, "mtime": 1600000001})[0] == 409)
+    shutil.rmtree(os.path.join(SAND, "PPSA11111_000"))
+
     # ------------------------------------------------------------------ böse und kaputte ZIPs
     print("== abgelehnte ZIPs (nichts darf sich ändern) ==")
     snap = tree()

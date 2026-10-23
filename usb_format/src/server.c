@@ -3187,6 +3187,23 @@ static int saves_path_ok(const char *path, const imgloc_t *loc, int n) {
     return hit;
 }
 
+/* POST /api/saves/times  {"key":"<Schlüssel>","mtime":<Sekunden seit 1970>,"key_mtime":<Sekunden>}: Zeitstempel eines Spielstands
+ * setzen (Reparatur: die PS5 führt die Änderungszeit in ihrer Datenbank mit, sie muss zur Datei passen) */
+static void api_saves_times(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    const char *key = n > 0 ? kv_get(kv, n, "key") : NULL, *mt = n > 0 ? kv_get(kv, n, "mtime") : NULL;
+    const char *kmt = n > 0 ? kv_get(kv, n, "key_mtime") : NULL;
+    if (!key || !mt || strspn(mt, "0123456789") != strlen(mt) || (kmt && strspn(kmt, "0123456789") != strlen(kmt))) {
+        respond_error(c, 400, "key und mtime erforderlich");
+        return;
+    }
+    if (saves_game_check(c)) return;
+    char err[256] = "";
+    if (saves_set_times(key, strtoll(mt, NULL, 10), kmt ? strtoll(kmt, NULL, 10) : -1, err, sizeof(err)) == 0) respond_ok(c, 200);
+    else respond_error(c, 500, err[0] ? err : "Zeitstempel konnte nicht gesetzt werden");
+}
+
 /* POST /api/saves/restore  {"paths":"<Sicherung>\n<Sicherung>…"}: Sicherungen auf der PS5 zurückschreiben */
 static void api_saves_restore_paths(int c, const char *body) {
     char *paths = json_text(body, "paths");
@@ -3553,6 +3570,8 @@ static void handle(int c) {
         api_saves_backups(c);
     else if (strcmp(path, "/api/saves/backup") == 0 && is_post)
         api_saves_backup(c, body);
+    else if (strcmp(path, "/api/saves/times") == 0 && is_post)
+        api_saves_times(c, body);
     else if (strcmp(path, "/api/saves/restore") == 0 && is_post)
         api_saves_restore_paths(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {

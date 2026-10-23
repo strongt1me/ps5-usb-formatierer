@@ -567,8 +567,9 @@ static int zs_save(zs_t *z, const save_info_t *s, const char *prefix, char *err,
     json_put(tname, sizeof(tname), s->title_name);
     int ml = snprintf(meta, sizeof(meta),
                       "{\"format\":1,\"platform\":\"%s\",\"title_id\":\"%s\",\"title_name\":\"%s\",\"save_dir\":\"%s\",\"uid\":\"%s\","
-                      "\"username\":\"%s\",\"size\":%u,\"timestamp\":%lld}",
-                      s->platform[0] ? s->platform : "PS5", tid, tname, sdir, uid, user, imgsz, (long long)time(NULL));
+                      "\"username\":\"%s\",\"size\":%u,\"timestamp\":%lld,\"mtime\":\"%lld\"}",
+                      s->platform[0] ? s->platform : "PS5", tid, tname, sdir, uid, user, imgsz, (long long)time(NULL),
+                      (long long)st.st_mtime);
     char kname[420];
     uint8_t keybuf[96];
     int ps4 = s->key_path[0] != 0;
@@ -856,6 +857,7 @@ typedef struct {
     zent_t *img, *key;
     char   dest[1300], tdir[900], d2[1300], tmp[1300];
     char   kdest[1300], ktmp[1300];
+    time_t mtime;                  /* Änderungszeit des gesicherten Containers (0 = unbekannt) */
 } rjob_t;
 
 /* Eintrag "<prefix>metadata.json" prüfen und den Zielpfad bestimmen. 0 = ok */
@@ -886,6 +888,10 @@ static int rplan(int zfd, zent_t *ents, int ne, zent_t *me, rjob_t *r, char *err
     char plat[8] = "PS5";
     if (meta_get(meta, "platform", plat, sizeof(plat)) || (strcmp(plat, "PS5") && strcmp(plat, "PS4"))) scpy(plat, sizeof(plat), "PS5");
     r->ps4 = !strcmp(plat, "PS4");
+    char mts[24] = "";
+    r->mtime = 0;
+    if (meta_get(meta, "mtime", mts, sizeof(mts)) == 0 && strlen(mts) > 0 && strlen(mts) < 12 && strspn(mts, "0123456789") == strlen(mts))
+        r->mtime = (time_t)strtoll(mts, NULL, 10);
     r->key = NULL;
     r->img = zip_get(ents, ne, imgname);
     if (!r->img) {
@@ -946,6 +952,10 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
     gid_t own_g = (gid_t)-1;
     int rc = -1, dfd = -1;
     uint8_t *buf = NULL;
+    /* Zeiten: die Datei behält ihre Änderungszeit (die Datenbank der PS5 führt sie mit); gibt es sie noch nicht, gilt die
+     * Zeit aus der Sicherung */
+    struct timespec ts[2], kts[2];
+    int have_ts = 0, have_kts = 0;
     mkdir(r->d2, 0777);
     mkdir(r->tdir, 0777);
     if (stat(r->dest, &st) == 0) {
@@ -956,6 +966,18 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
         mode = st.st_mode & 0777;
         own_u = st.st_uid;
         own_g = st.st_gid;
+        ts[0] = st.st_atim;
+        ts[1] = st.st_mtim;
+        have_ts = 1;
+    } else if (r->mtime > 0) {
+        ts[0].tv_sec = ts[1].tv_sec = r->mtime;
+        ts[0].tv_nsec = ts[1].tv_nsec = 0;
+        have_ts = 1;
+    }
+    if (r->ps4) {
+        struct stat ks0;
+        if (stat(r->kdest, &ks0) == 0 && S_ISREG(ks0.st_mode)) { kts[0] = ks0.st_atim; kts[1] = ks0.st_mtim; have_kts = 1; }
+        else if (have_ts) { kts[0] = ts[0]; kts[1] = ts[1]; have_kts = 1; }
     }
     unlink(r->tmp);
     dfd = open(r->tmp, O_WRONLY | O_CREAT | O_EXCL, 0644);
@@ -986,6 +1008,7 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
     }
     fchmod(dfd, mode);
     if (own_u != (uid_t)-1) (void)!fchown(dfd, own_u, own_g);
+    if (have_ts) futimens(dfd, ts);
     if (fsync(dfd) != 0 || close(dfd) != 0) {
         dfd = -1;
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
@@ -1003,7 +1026,8 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
         unlink(r->ktmp);
         if (pread_full(zfd, kb, sizeof(kb), (off_t)r->key->data) || crc32_update(0, kb, sizeof(kb)) != r->key->crc ||
             (kfd = open(r->ktmp, O_WRONLY | O_CREAT | O_EXCL, 0644)) < 0 || write_full(kfd, kb, sizeof(kb)) ||
-            (ku != (uid_t)-1 && fchown(kfd, ku, kg) != 0 && 0) || fchmod(kfd, kmode) != 0 || fsync(kfd) != 0 || close(kfd) != 0) {
+            (ku != (uid_t)-1 && fchown(kfd, ku, kg) != 0 && 0) || fchmod(kfd, kmode) != 0 || (have_kts && futimens(kfd, kts) != 0 && 0) ||
+            fsync(kfd) != 0 || close(kfd) != 0) {
             if (kfd >= 0) close(kfd);
             unlink(r->ktmp);
             snprintf(err, errsz, "%s", T("Die Schlüsseldatei des PS4-Spielstands konnte nicht geschrieben werden"));
@@ -1159,4 +1183,36 @@ int saves_list_backups(const char *root, save_backup_t **out, int *count) {
     *out = arr;
     *count = n;
     return 0;
+}
+
+int saves_set_times(const char *key, int64_t mtime, int64_t mtime_key, char *err, size_t errsz) {
+    save_info_t s;
+    if (mtime < 946684800 || mtime > 4102444800LL || mtime_key > 4102444800LL) {   /* 2000 .. 2100 */
+        snprintf(err, errsz, "%s", T("Ungültige Zeitangabe"));
+        return -1;
+    }
+    if (saves_find(key, &s)) {
+        snprintf(err, errsz, "%s", T("Spielstand nicht gefunden"));
+        return -1;
+    }
+    if (op_enter(err, errsz)) return -1;
+    int rc = -1;
+    struct timespec ts[2];
+    ts[0].tv_nsec = ts[1].tv_nsec = 0;
+    ts[0].tv_sec = ts[1].tv_sec = (time_t)mtime;
+    if (utimensat(AT_FDCWD, s.path, ts, 0) != 0) {
+        snprintf(err, errsz, T("Zeitstempel konnte nicht gesetzt werden: %s"), strerror(errno));
+        goto done;
+    }
+    if (mtime_key >= 0 && s.key_path[0]) {
+        ts[0].tv_sec = ts[1].tv_sec = (time_t)mtime_key;
+        if (utimensat(AT_FDCWD, s.key_path, ts, 0) != 0) {
+            snprintf(err, errsz, T("Zeitstempel konnte nicht gesetzt werden: %s"), strerror(errno));
+            goto done;
+        }
+    }
+    rc = 0;
+done:
+    op_leave();
+    return rc;
 }

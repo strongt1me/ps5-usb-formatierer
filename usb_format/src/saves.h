@@ -55,6 +55,11 @@ int  saves_backup_file(const save_info_t *s, const char *root, char *out, size_t
  * alle Spielstände der ZIP geprüft, dann geschrieben. *count = Zahl der geschriebenen. 0 = ok, sonst Fehlertext in err */
 int  saves_restore_file(const char *zip_path, int *count, saves_prog_fn prog, void *pctx, char *err, size_t errsz);
 
+/* Zeitstempel (Änderungszeit, Sekunden seit 1970) von Container und - bei PS4 - Schlüsseldatei eines Spielstands setzen.
+ * Die PS5 führt zu jedem Spielstand in ihrer Datenbank die Änderungszeit mit; sie muss zur Datei passen. mtime_key < 0:
+ * Schlüsseldatei nicht ändern. 0 = ok, sonst Fehlertext in err */
+int  saves_set_times(const char *key, int64_t mtime, int64_t mtime_key, char *err, size_t errsz);
+
 /* Sicherungen unter <root>/<Ordner>/<Datei>.zip auflisten (nur gültige: metadata.json vorhanden) */
 typedef struct {
     char     path[600];

@@ -2518,5 +2518,23 @@
   "it": "Impossibile scrivere il file chiave del salvataggio PS4",
   "es": "No se pudo escribir el archivo de clave de la partida de PS4",
   "fr": "Le fichier de clé de la sauvegarde PS4 n'a pas pu être écrit"
+ },
+ "Ungültige Zeitangabe": {
+  "en": "Invalid time",
+  "it": "Ora non valida",
+  "es": "Hora no válida",
+  "fr": "Heure invalide"
+ },
+ "Zeitstempel konnte nicht gesetzt werden: %s": {
+  "en": "Timestamp could not be set: %s",
+  "it": "Impossibile impostare l'orario: %s",
+  "es": "No se pudo establecer la marca de tiempo: %s",
+  "fr": "L'horodatage n'a pas pu être défini : %s"
+ },
+ "key und mtime erforderlich": {
+  "en": "key and mtime required",
+  "it": "key e mtime obbligatori",
+  "es": "Se requieren key y mtime",
+  "fr": "key et mtime requis"
  }
 }

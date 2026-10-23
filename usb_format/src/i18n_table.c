@@ -344,6 +344,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Ungültige Größe", "Invalid size", "Dimensione non valida", "Tamaño no válido", "Taille non valide"}},
     {{"Ungültige Partitionsangabe.", "Invalid partition specification.", "Indicazione della partizione non valida.", "Indicación de partición no válida.", "Indication de partition non valide."}},
     {{"Ungültige Sicherung", "Invalid backup", "Backup non valido", "Copia no válida", "Sauvegarde invalide"}},
+    {{"Ungültige Zeitangabe", "Invalid time", "Ora non valida", "Hora no válida", "Heure invalide"}},
     {{"Ungültige Zuordnungseinheit für FAT32 (%u Bytes)", "Invalid allocation unit for FAT32 (%u bytes)", "Unità di allocazione non valida per FAT32 (%u byte)", "Unidad de asignación no válida para FAT32 (%u bytes)", "Unité d'allocation non valide pour FAT32 (%u octets)"}},
     {{"Ungültige Zuordnungseinheit für exFAT (%u Bytes)", "Invalid allocation unit for exFAT (%u bytes)", "Unità di allocazione non valida per exFAT (%u byte)", "Unidad de asignación no válida para exFAT (%u bytes)", "Unité d'allocation non valide pour exFAT (%u octets)"}},
     {{"Ungültige Zuordnungseinheit.", "Invalid allocation unit.", "Unità di allocazione non valida.", "Unidad de asignación no válida.", "Unité d'allocation non valide."}},
@@ -368,6 +369,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Windows lehnt die Bezeichnung ab.", "Windows rejects the label.", "Windows rifiuta l'etichetta.", "Windows rechaza la etiqueta.", "Windows refuse le nom."}},
     {{"Windows meldet das neue Dateisystem nicht.", "Windows does not report the new file system.", "Windows non segnala il nuovo file system.", "Windows no informa del nuevo sistema de archivos.", "Windows ne signale pas le nouveau système de fichiers."}},
     {{"Wurzelverzeichnis anlegen", "Creating root directory", "Creazione directory principale", "Creando directorio raíz", "Création du répertoire racine"}},
+    {{"Zeitstempel konnte nicht gesetzt werden: %s", "Timestamp could not be set: %s", "Impossibile impostare l'orario: %s", "No se pudo establecer la marca de tiempo: %s", "L'horodatage n'a pas pu être défini : %s"}},
     {{"Ziel ist keine Datei", "Target is not a file", "La destinazione non è un file", "El destino no es un archivo", "La destination n'est pas un fichier"}},
     {{"Zieldatei konnte nicht angelegt werden: %s", "Target file could not be created: %s", "Impossibile creare il file di destinazione: %s", "No se pudo crear el archivo de destino: %s", "Le fichier de destination n'a pas pu être créé : %s"}},
     {{"Zu viele Cluster für exFAT – bitte eine größere Zuordnungseinheit wählen", "Too many clusters for exFAT – please choose a larger allocation unit", "Troppi cluster per exFAT – scegli un'unità di allocazione più grande", "Demasiados clústeres para exFAT – elige una unidad de asignación mayor", "Trop de clusters pour exFAT – veuillez choisir une unité d'allocation plus grande"}},
@@ -401,6 +403,7 @@ const i18n_entry_t i18n_table[] = {
     {{"für wichtige Daten nicht empfohlen", "not recommended for important data", "sconsigliata per dati importanti", "no recomendada para datos importantes", "déconseillé pour des données importantes"}},
     {{"keine Partition", "no partition", "nessuna partizione", "sin partición", "aucune partition"}},
     {{"key fehlt", "key missing", "key mancante", "Falta key", "key manquant"}},
+    {{"key und mtime erforderlich", "key and mtime required", "key e mtime obbligatori", "Se requieren key y mtime", "key et mtime requis"}},
     {{"keys ist erforderlich (höchstens 256 Spiele auf einmal)", "keys is required (at most 256 games at once)", "keys è obbligatorio (al massimo 256 giochi alla volta)", "keys es obligatorio (como máximo 256 juegos a la vez)", "keys est obligatoire (256 jeux au maximum à la fois)"}},
     {{"keys und dest erforderlich", "keys and dest required", "keys e dest obbligatori", "Se requieren keys y dest", "keys et dest requis"}},
     {{"label ist erforderlich", "label is required", "label è obbligatorio", "label es obligatorio", "label est obligatoire"}},
@@ -423,4 +426,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 420;
+const unsigned i18n_count = 423;
