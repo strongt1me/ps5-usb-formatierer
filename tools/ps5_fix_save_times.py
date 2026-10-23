@@ -103,6 +103,9 @@ def main():
         if abs(have - want) <= TOLERANCE:
             print(f"  ok {label}")
             continue
+        if have < want:   # Datei älter als die Datenbank: nicht durch ein Wiederherstellen entstanden, nicht anfassen
+            print(f"  ?  {label}: Datei ist älter als die Datenbank - nicht angefasst")
+            continue
         key_m = None
         if plat == "PS4":   # die .bin trägt (wie der Container) die Zeit des Wiederherstellens: auf die der Systemkopie setzen
             kpath = f"/user/home/{uid}/{sub}/{s['title_id']}/{name}.bin"
