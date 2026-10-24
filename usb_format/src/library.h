@@ -12,17 +12,29 @@ typedef struct {
     char     name[128];    /* Spielname (deutsch, sonst Standardsprache), sonst Dateiname */
     char     path[256];
     char     kind[8];      /* "Ordner", "exFAT", "UFS2", "PFS" */
+    char     ext[8];       /* Abbild: Dateiendung ohne Punkt ("exfat", "ffpkg", "ffpfs", "ffpfsc"), sonst leer */
     uint64_t size;         /* Abbild: Dateigröße; Ordner: 0 */
 } lib_title_t;
+
+/* .pkg-Datei (Installationspaket) */
+typedef struct {
+    char     path[256];
+    char     platform[4];  /* "PS4" (Kopf 7F 43 4E 54), "PS5" (7F 4C 49 48 bzw. 7F 46 49 48) oder "" */
+    uint64_t size;
+} lib_pkg_t;
 
 typedef struct {
     char         root[96];
     lib_title_t *titles;
     int          ntitles, cap;
-    int          pkgs;           /* .pkg-Dateien (Wurzel, pkg/, homebrew/) */
+    int          pkgs;           /* .pkg-Dateien (Wurzel, pkg/, homebrew/, Unterordner von ps4 und PS5-Updates) */
     uint64_t     pkg_bytes;
+    lib_pkg_t   *pkglist;        /* davon die ersten LIB_PKG_MAX */
+    int          npkglist;
     char         folders[512];   /* Ordner in der Wurzel, durch '/' getrennt, ohne Systemordner */
 } lib_root_t;
+
+#define LIB_PKG_MAX 512
 
 /* Titel-ID/Name zu einem Abbild-Pfad, wie ShadowMountPlus sie kennt. Für .ffpfs/.ffpfsc (verschlüsselt bzw.
  * komprimiert - liest nur der PS5-Kernel) die einzige Quelle; ergänzt auch fehlende Namen. */

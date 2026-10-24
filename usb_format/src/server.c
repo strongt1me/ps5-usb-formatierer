@@ -1318,9 +1318,29 @@ static void api_library(int c, int refresh) {
             sb_str(&b, t->kind);
             sb_add(&b, ",\"path\":");
             sb_str(&b, t->path);
+            sb_add(&b, ",\"ext\":");
+            sb_str(&b, t->ext);
             sb_add(&b, ",\"key\":\"%08x\",\"size\":%llu,\"root\":", path_key(t->path), (unsigned long long)t->size);
             sb_str(&b, lib_snap[i].r.root);
             sb_add(&b, ",\"device\":");
+            sb_str(&b, lib_snap[i].device);
+            sb_add(&b, "}");
+        }
+    /* .pkg-Dateien (Installationspakete) mit Plattform */
+    sb_add(&b, "],\"pkgfiles\":[");
+    first = 1;
+    for (int i = 0; i < lib_n; i++)
+        for (int k = 0; k < lib_snap[i].r.npkglist; k++) {
+            const lib_pkg_t *pk = &lib_snap[i].r.pkglist[k];
+            const char *nm = strrchr(pk->path, '/');
+            sb_add(&b, "%s{\"path\":", first ? "" : ",");
+            first = 0;
+            sb_str(&b, pk->path);
+            sb_add(&b, ",\"name\":");
+            sb_str(&b, nm ? nm + 1 : pk->path);
+            sb_add(&b, ",\"platform\":");
+            sb_str(&b, pk->platform);
+            sb_add(&b, ",\"size\":%llu,\"device\":", (unsigned long long)pk->size);
             sb_str(&b, lib_snap[i].device);
             sb_add(&b, "}");
         }

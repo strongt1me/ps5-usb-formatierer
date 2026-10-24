@@ -371,6 +371,10 @@ static void image_game(lib_root_t *r, const char *path, const char *fname, uint6
     if (!t) return;
     copy_str(t->path, sizeof(t->path), path);
     t->size = size;
+    {
+        const char *dot = strrchr(fname, '.');
+        copy_str(t->ext, sizeof(t->ext), dot ? dot + 1 : "");
+    }
     snprintf(t->kind, sizeof(t->kind), "%s", ends_with(fname, ".ffpfs") || ends_with(fname, ".ffpfsc") ? "PFS" : "?");
     int fd = open(path, O_RDONLY);
     fsr_t *f = fd >= 0 ? fsr_open(fd, 0) : NULL;
@@ -418,6 +422,23 @@ static void scan_dir(lib_root_t *r, const char *dir, int games, int pkgs, char *
             else if (pkgs && ends_with(e->d_name, ".pkg")) {
                 r->pkgs++;
                 r->pkg_bytes += (uint64_t)st.st_size;
+                if (r->npkglist < LIB_PKG_MAX) {
+                    lib_pkg_t *p = realloc(r->pkglist, (size_t)(r->npkglist + 1) * sizeof(*p));
+                    if (p) {
+                        r->pkglist = p;
+                        p = &r->pkglist[r->npkglist++];
+                        memset(p, 0, sizeof(*p));
+                        copy_str(p->path, sizeof(p->path), path);
+                        p->size = (uint64_t)st.st_size;
+                        uint8_t m[4];
+                        int fd = open(path, O_RDONLY);
+                        if (fd >= 0 && read(fd, m, 4) == 4) {
+                            if (m[0] == 0x7F && m[1] == 'C' && m[2] == 'N' && m[3] == 'T') copy_str(p->platform, sizeof(p->platform), "PS4");
+                            else if (m[0] == 0x7F && (m[1] == 'L' || m[1] == 'F') && m[2] == 'I' && m[3] == 'H') copy_str(p->platform, sizeof(p->platform), "PS5");
+                        }
+                        if (fd >= 0) close(fd);
+                    }
+                }
             }
         }
     }
@@ -457,6 +478,22 @@ int lib_scan(const char *root, int usb_root, lib_root_t *out) {
         scan_dir(out, sub, 1, 0, buf);
         snprintf(sub, sizeof(sub), "%s/pkg", out->root);
         scan_dir(out, sub, 0, 1, buf);
+        /* Pakete in Unterordnern je Titel: ps4/<CUSA…>/app.pkg, PS5-Updates/<Titel>/update.pkg */
+        static const char *const pkg_parents[] = {"ps4", "PS5-Updates", "pkg"};
+        for (size_t i = 0; i < sizeof(pkg_parents) / sizeof(*pkg_parents); i++) {
+            char parent[sizeof(out->root) + 32];
+            snprintf(parent, sizeof(parent), "%s/%s", out->root, pkg_parents[i]);
+            DIR *pd = opendir(parent);
+            struct dirent *pe;
+            while (pd && (pe = readdir(pd))) {
+                struct stat pst;
+                if (pe->d_name[0] == '.' || snprintf(sub, sizeof(sub), "%s/%s", parent, pe->d_name) >= (int)sizeof(sub) ||
+                    stat(sub, &pst) != 0 || !S_ISDIR(pst.st_mode))
+                    continue;
+                scan_dir(out, sub, 0, 1, buf);
+            }
+            if (pd) closedir(pd);
+        }
         root_folders(out);
     }
     free(buf);
@@ -465,6 +502,7 @@ int lib_scan(const char *root, int usb_root, lib_root_t *out) {
 
 void lib_free(lib_root_t *r) {
     free(r->titles);
+    free(r->pkglist);
     memset(r, 0, sizeof(*r));
 }
 

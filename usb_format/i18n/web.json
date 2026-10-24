@@ -329,12 +329,6 @@
   "es": "carpeta",
   "fr": "dossier"
  },
- "Abbild {kind}": {
-  "en": "image {kind}",
-  "it": "immagine {kind}",
-  "es": "imagen {kind}",
-  "fr": "image {kind}"
- },
  "Höchstens {n} Spiele auf einmal.": {
   "en": "At most {n} games at once.",
   "it": "Al massimo {n} giochi alla volta.",
@@ -982,12 +976,6 @@
   "it": "Ricerca dispositivi USB …",
   "es": "Buscando dispositivos USB …",
   "fr": "Recherche de périphériques USB …"
- },
- "Inhalt": {
-  "en": "Content",
-  "it": "Contenuto",
-  "es": "Contenido",
-  "fr": "Contenu"
  },
  "Tempo messen": {
   "en": "Measure speed",
@@ -1960,5 +1948,41 @@
   "it": "Gli originali restano per ora. Dopo la copia e la verifica ti verrà chiesto se eliminarli. Chiudi prima i giochi in esecuzione. Se ShadowMountPlus non conosce un gioco (ad es. alcuni giochi PS4), l'originale non può poi essere rimosso con la finestra di eliminazione – resta dov'è.",
   "es": "Los originales se conservan por ahora. Tras copiar y comprobar se te preguntará si quieres borrarlos. Cierra antes los juegos en ejecución. Si ShadowMountPlus no conoce un juego (p. ej. algunos juegos de PS4), el original no se puede quitar después con el diálogo de borrado – se queda donde está.",
   "fr": "Les originaux sont conservés pour l'instant. Après la copie et la vérification, il vous sera demandé de les supprimer. Fermez d'abord les jeux en cours. Si ShadowMountPlus ne connaît pas un jeu (p. ex. certains jeux PS4), l'original ne peut pas être supprimé ensuite via la boîte de suppression – il reste en place."
+ },
+ "Dump-Ordner": {
+  "en": "Dump folder",
+  "it": "Cartella dump",
+  "es": "Carpeta de volcado",
+  "fr": "Dossier de dump"
+ },
+ "Keine PKG-Dateien auf diesem Laufwerk.": {
+  "en": "No PKG files on this drive.",
+  "it": "Nessun file PKG su questa unità.",
+  "es": "No hay archivos PKG en esta unidad.",
+  "fr": "Aucun fichier PKG sur ce lecteur."
+ },
+ "Ob ein Paket ein fPKG oder ein offizielles PKG ist, lässt sich aus der Datei nicht sicher erkennen.": {
+  "en": "Whether a package is an fPKG or an official PKG cannot be told reliably from the file.",
+  "it": "Dal file non si può stabilire con certezza se un pacchetto sia un fPKG o un PKG ufficiale.",
+  "es": "Por el archivo no se puede saber con seguridad si un paquete es un fPKG o un PKG oficial.",
+  "fr": "Le fichier ne permet pas de savoir avec certitude si un paquet est un fPKG ou un PKG officiel."
+ },
+ "Erst ein Laufwerk wählen.": {
+  "en": "Choose a drive first.",
+  "it": "Scegli prima un'unità.",
+  "es": "Elige primero una unidad.",
+  "fr": "Choisissez d'abord un lecteur."
+ },
+ "Werkzeuge": {
+  "en": "Tools",
+  "it": "Strumenti",
+  "es": "Herramientas",
+  "fr": "Outils"
+ },
+ "Formatieren löscht alle Daten auf diesem Laufwerk.": {
+  "en": "Formatting erases all data on this drive.",
+  "it": "La formattazione cancella tutti i dati su questa unità.",
+  "es": "Formatear borra todos los datos de esta unidad.",
+  "fr": "Le formatage efface toutes les données de ce lecteur."
  }
 }

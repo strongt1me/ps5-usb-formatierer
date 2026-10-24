@@ -53,6 +53,15 @@ DEV2=$(q '[r["device"] for r in d["roots"] if r["device"] != "'"$DEV1"'"][0]' <"
 [ -n "$DEV1" ] && [ -n "$DEV2" ] && [ "$DEV1" != "$DEV2" ] && ok "zwei Laufwerke ($DEV1 -> $DEV2)" || bad "Laufwerke" "$DEV1 $DEV2 $(cat "$W/lib" | head -c 400)"
 K=$(key "$A/Astro")
 
+# Pakete: .pkg-Dateien im Stamm und in Unterordnern (ps4/<Titel>, PS5-Updates/<Titel>) mit Plattform aus dem Kopf
+mkdir -p "$W/mnt/usb0/ps4/CUSA00001" "$W/mnt/usb0/PS5-Updates/PPSA00002"
+printf 'CNT0000' >"$W/mnt/usb0/ps4/CUSA00001/app.pkg"
+printf 'LIH0000' >"$W/mnt/usb0/PS5-Updates/PPSA00002/update.pkg"
+printf 'XXXX0000' >"$W/mnt/usb0/fremd.pkg"
+library
+[ "$(q 'sorted((p["name"], p["platform"]) for p in d["pkgfiles"])' <"$W/lib")" = "[('app.pkg', 'PS4'), ('fremd.pkg', ''), ('update.pkg', 'PS5')]" ]     && ok "PKG-Liste: Plattform aus dem Kopf (PS4, PS5, unbekannt), auch in Unterordnern" || bad "PKG-Liste" "$(q 'd["pkgfiles"]' <"$W/lib")"
+[ "$(q 'all("ext" in t for t in d["titles"])' <"$W/lib")" = True ] && ok "Titel tragen das Feld ext" || bad "ext fehlt"
+
 # ---------------------------------------------------------------- Kopieren mit Prüfen
 code=$(post "{\"keys\":\"$K\",\"device\":\"$DEV2\",\"verify\":true}" move)
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["kind"] == "move"' <"$W/st")" = True ] \
