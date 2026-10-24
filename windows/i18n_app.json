@@ -2818,5 +2818,83 @@
   "it": "Backup",
   "es": "Copia",
   "fr": "Sauvegarde"
+ },
+ "Kein anderes eingebundenes Laufwerk als Ziel.": {
+  "en": "No other mounted drive as a target.",
+  "it": "Nessun'altra unità montata come destinazione.",
+  "es": "No hay otra unidad montada como destino.",
+  "fr": "Aucun autre lecteur monté comme destination."
+ },
+ "Kopie nach dem Schreiben prüfen (empfohlen)": {
+  "en": "Verify the copy after writing (recommended)",
+  "it": "Verifica la copia dopo la scrittura (consigliato)",
+  "es": "Comprobar la copia tras escribir (recomendado)",
+  "fr": "Vérifier la copie après l'écriture (recommandé)"
+ },
+ "Kopie fertig – Originale löschen?": {
+  "en": "Copy done – delete the originals?",
+  "it": "Copia terminata – eliminare gli originali?",
+  "es": "Copia terminada – ¿borrar los originales?",
+  "fr": "Copie terminée – supprimer les originaux ?"
+ },
+ "Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie gelöscht werden sollen. Laufende Spiele vorher beenden.": {
+  "en": "The originals are kept for now. After copying and checking you will be asked whether to delete them. Quit running games first.",
+  "it": "Gli originali restano per ora. Dopo la copia e la verifica ti verrà chiesto se eliminarli. Chiudi prima i giochi in esecuzione.",
+  "es": "Los originales se conservan por ahora. Tras copiar y comprobar se te preguntará si quieres borrarlos. Cierra antes los juegos en ejecución.",
+  "fr": "Les originaux sont conservés pour l'instant. Après la copie et la vérification, il vous sera demandé de les supprimer. Fermez d'abord les jeux en cours."
+ },
+ "Kopieren": {
+  "en": "Copy",
+  "it": "Copia",
+  "es": "Copiar",
+  "fr": "Copier"
+ },
+ "Angehakte Spiele verschieben …": {
+  "en": "Move ticked games …",
+  "it": "Sposta i giochi selezionati …",
+  "es": "Mover juegos marcados …",
+  "fr": "Déplacer les jeux cochés …"
+ },
+ "Die angehakten Spiele auf ein anderes Laufwerk kopieren": {
+  "en": "Copy the ticked games to another drive",
+  "it": "Copia i giochi selezionati su un'altra unità",
+  "es": "Copiar los juegos marcados a otra unidad",
+  "fr": "Copier les jeux cochés vers un autre lecteur"
+ },
+ "Spiele verschieben": {
+  "en": "Move games",
+  "it": "Sposta giochi",
+  "es": "Mover juegos",
+  "fr": "Déplacer des jeux"
+ },
+ "Dieses Spiel wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:": {
+  "en": "This game is copied from {name} ({dev}) to the chosen drive:",
+  "it": "Questo gioco viene copiato da {name} ({dev}) sull'unità scelta:",
+  "es": "Este juego se copia de {name} ({dev}) a la unidad elegida:",
+  "fr": "Ce jeu est copié de {name} ({dev}) vers le lecteur choisi :"
+ },
+ "Diese {n} Spiele werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:": {
+  "en": "These {n} games are copied from {name} ({dev}) to the chosen drive:",
+  "it": "Questi {n} giochi vengono copiati da {name} ({dev}) sull'unità scelta:",
+  "es": "Estos {n} juegos se copian de {name} ({dev}) a la unidad elegida:",
+  "fr": "Ces {n} jeux sont copiés de {name} ({dev}) vers le lecteur choisi :"
+ },
+ "Verschieben konnte nicht gestartet werden: {e}": {
+  "en": "Moving could not be started: {e}",
+  "it": "Impossibile avviare lo spostamento: {e}",
+  "es": "No se pudo iniciar el movimiento: {e}",
+  "fr": "Le déplacement n'a pas pu démarrer : {e}"
+ },
+ "Spiele kopiert.": {
+  "en": "Games copied.",
+  "it": "Giochi copiati.",
+  "es": "Juegos copiados.",
+  "fr": "Jeux copiés."
+ },
+ "Originale jetzt von {name} ({dev}) löschen?": {
+  "en": "Delete the originals from {name} ({dev}) now?",
+  "it": "Eliminare ora gli originali da {name} ({dev})?",
+  "es": "¿Borrar ahora los originales de {name} ({dev})?",
+  "fr": "Supprimer maintenant les originaux de {name} ({dev}) ?"
  }
 }

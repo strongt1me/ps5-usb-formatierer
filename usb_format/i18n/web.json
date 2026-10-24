@@ -1858,5 +1858,107 @@
   "it": "ID titolo",
   "es": "ID del título",
   "fr": "ID du titre"
+ },
+ "Spiele zum Verschieben anhaken": {
+  "en": "Tick games to move",
+  "it": "Seleziona i giochi da spostare",
+  "es": "Marca los juegos que quieras mover",
+  "fr": "Cochez les jeux à déplacer"
+ },
+ "Verschieben nach …": {
+  "en": "Move to …",
+  "it": "Sposta su …",
+  "es": "Mover a …",
+  "fr": "Déplacer vers …"
+ },
+ "Spiele verschieben …": {
+  "en": "Move games …",
+  "it": "Sposta giochi …",
+  "es": "Mover juegos …",
+  "fr": "Déplacer des jeux …"
+ },
+ "Kein anderes eingebundenes Laufwerk als Ziel.": {
+  "en": "No other mounted drive as a target.",
+  "it": "Nessun'altra unità montata come destinazione.",
+  "es": "No hay otra unidad montada como destino.",
+  "fr": "Aucun autre lecteur monté comme destination."
+ },
+ "Kopie nach dem Schreiben prüfen (empfohlen)": {
+  "en": "Verify the copy after writing (recommended)",
+  "it": "Verifica la copia dopo la scrittura (consigliato)",
+  "es": "Comprobar la copia tras escribir (recomendado)",
+  "fr": "Vérifier la copie après l'écriture (recommandé)"
+ },
+ "Liest die Kopie zurück und vergleicht Prüfsummen; dauert etwa die halbe Kopierzeit länger.": {
+  "en": "Reads the copy back and compares checksums; takes about half the copy time longer.",
+  "it": "Rilegge la copia e confronta i checksum; richiede circa metà del tempo di copia in più.",
+  "es": "Vuelve a leer la copia y compara sumas de verificación; tarda aproximadamente la mitad del tiempo de copia más.",
+  "fr": "Relit la copie et compare les sommes de contrôle ; dure environ la moitié du temps de copie en plus."
+ },
+ "Spiel verschieben": {
+  "en": "Move game",
+  "it": "Sposta gioco",
+  "es": "Mover juego",
+  "fr": "Déplacer le jeu"
+ },
+ "{n} Spiele verschieben": {
+  "en": "Move {n} games",
+  "it": "Sposta {n} giochi",
+  "es": "Mover {n} juegos",
+  "fr": "Déplacer {n} jeux"
+ },
+ "Dieses Spiel wird von {dev} auf das gewählte Laufwerk kopiert:": {
+  "en": "This game is copied from {dev} to the chosen drive:",
+  "it": "Questo gioco viene copiato da {dev} sull'unità scelta:",
+  "es": "Este juego se copia de {dev} a la unidad elegida:",
+  "fr": "Ce jeu est copié de {dev} vers le lecteur choisi :"
+ },
+ "Diese Spiele werden von {dev} auf das gewählte Laufwerk kopiert:": {
+  "en": "These games are copied from {dev} to the chosen drive:",
+  "it": "Questi giochi vengono copiati da {dev} sull'unità scelta:",
+  "es": "Estos juegos se copian de {dev} a la unidad elegida:",
+  "fr": "Ces jeux sont copiés de {dev} vers le lecteur choisi :"
+ },
+ "Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie gelöscht werden sollen. Laufende Spiele vorher beenden.": {
+  "en": "The originals are kept for now. After copying and checking you will be asked whether to delete them. Quit running games first.",
+  "it": "Gli originali restano per ora. Dopo la copia e la verifica ti verrà chiesto se eliminarli. Chiudi prima i giochi in esecuzione.",
+  "es": "Los originales se conservan por ahora. Tras copiar y comprobar se te preguntará si quieres borrarlos. Cierra antes los juegos en ejecución.",
+  "fr": "Les originaux sont conservés pour l'instant. Après la copie et la vérification, il vous sera demandé de les supprimer. Fermez d'abord les jeux en cours."
+ },
+ "Kopieren": {
+  "en": "Copy",
+  "it": "Copia",
+  "es": "Copiar",
+  "fr": "Copier"
+ },
+ "Spiele kopiert": {
+  "en": "Games copied",
+  "it": "Giochi copiati",
+  "es": "Juegos copiados",
+  "fr": "Jeux copiés"
+ },
+ "Kopie fertig – Originale löschen?": {
+  "en": "Copy done – delete the originals?",
+  "it": "Copia terminata – eliminare gli originali?",
+  "es": "Copia terminada – ¿borrar los originales?",
+  "fr": "Copie terminée – supprimer les originaux ?"
+ },
+ "Originale löschen …": {
+  "en": "Delete originals …",
+  "it": "Elimina gli originali …",
+  "es": "Borrar originales …",
+  "fr": "Supprimer les originaux …"
+ },
+ "Behalten": {
+  "en": "Keep",
+  "it": "Mantieni",
+  "es": "Conservar",
+  "fr": "Garder"
+ },
+ "Nichts kopiert": {
+  "en": "Nothing copied",
+  "it": "Nulla copiato",
+  "es": "No se copió nada",
+  "fr": "Rien copié"
  }
 }

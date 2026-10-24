@@ -149,6 +149,10 @@ class Api:
     def delete_games(self, keys, uninstall):
         return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall})
 
+    def move_games(self, keys, device, verify):
+        """Spiele auf ein anderes Laufwerk kopieren (Auftrag "move"); die Originale bleiben"""
+        return self._call("/api/move", {"keys": ",".join(keys), "device": device, "verify": verify})
+
     def format(self, device, fs, label, size, replug=False, limit=0, folders=True, verify=False, ident=""):
         body = {"device": device, "fs": fs, "label": label, "size": size, "replug": replug,
                 "folders": folders, "verify": verify}
@@ -340,6 +344,59 @@ def port_open(host, port, timeout=1.0):
         return True
     except OSError:
         return False
+
+
+def ask_move(root, dev, targets, names):
+    """Ziel-Laufwerk und Prüfung wählen. Liefert (Laufwerk, prüfen) oder None (abgebrochen)"""
+    px = ui_theme.px
+    win = tk.Toplevel(root)
+    win.withdraw()
+    win.title(_("Spiele verschieben"))
+    win.transient(root)
+    frm = ttk.Frame(win, padding=(18, 14, 18, 14))
+    frm.pack(fill="both", expand=True)
+    shown = "\n".join("• " + n for n in names[:10]) + ("\n" + _("… und {n} weitere", n=len(names) - 10) if len(names) > 10 else "")
+    ttk.Label(frm, text=(_("Dieses Spiel wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:", name=dev_title(dev), dev=dev["name"])
+                         if len(names) == 1 else _("Diese {n} Spiele werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:",
+                                                  n=len(names), name=dev_title(dev), dev=dev["name"])),
+              wraplength=px(460), justify="left").pack(anchor="w")
+    ttk.Label(frm, text=shown, justify="left").pack(anchor="w", pady=(px(6), px(10)))
+    items = []
+    for d in targets:
+        free = next((m.get("free") for m in d.get("mounts", []) if m.get("free") is not None), None)
+        items.append(f"{dev_title(d)} ({d['name']})" + (" · " + _("{size} frei", size=fmt_size(free)) if free is not None else ""))
+    box = ttk.Combobox(frm, state="readonly", values=items, width=48)
+    box.current(0)
+    box.pack(anchor="w", fill="x")
+    verify = tk.BooleanVar(value=True)
+    ttk.Checkbutton(frm, variable=verify, style="Switch.TCheckbutton",
+                    text=_("Kopie nach dem Schreiben prüfen (empfohlen)")).pack(anchor="w", pady=(px(10), 0))
+    ttk.Label(frm, text=_("Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie "
+                          "gelöscht werden sollen. Laufende Spiele vorher beenden."),
+              style="Hint.TLabel", wraplength=px(460), justify="left").pack(anchor="w", pady=(px(8), 0))
+    result = {"v": None}
+
+    def done(v):
+        result["v"] = v
+        win.destroy()
+
+    btns = ttk.Frame(frm)
+    btns.pack(fill="x", pady=(16, 0))
+    ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(None)).pack(side="right")
+    ttk.Button(btns, text=_("Kopieren"), style="Accent.TButton",
+               command=lambda: done((targets[max(0, box.current())], bool(verify.get())))).pack(side="right", padx=(0, 6))
+    win.bind("<Escape>", lambda e: done(None))
+    win.protocol("WM_DELETE_WINDOW", lambda: done(None))
+    win.update_idletasks()
+    top = root.winfo_toplevel()
+    x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
+    y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(pc_common._inside(win, top, x, y))
+    win.deiconify()
+    ui_theme.dark_titlebar(win)
+    pc_common.grab(win)
+    root.wait_window(win)
+    return result["v"]
 
 
 def report_text(rows):
@@ -758,6 +815,9 @@ class App(tk.Tk):
         self.del_btn = ttk.Button(gbar, text=_("Angehakte Spiele löschen …"), style="Danger.TButton",
                                   command=self._delete_games)
         self.del_btn.pack(side="right")
+        self.move_btn = ttk.Button(gbar, text=_("Angehakte Spiele verschieben …"), command=self._move_games)
+        self.move_btn.pack(side="right", padx=(0, px(8)))
+        Tooltip(self.move_btn, lambda: self._why(self.move_btn) or _("Die angehakten Spiele auf ein anderes Laufwerk kopieren"))
         self.games_sum = ttk.Label(gbar, style="Muted.TLabel")
         self.games_sum.pack(side="left")
         Tooltip(self.del_btn, lambda: self._why(self.del_btn) or _("Die angehakten Spiele vom Laufwerk löschen"))
@@ -1048,7 +1108,7 @@ class App(tk.Tk):
         dev = self._selected_device()
         if need_dev and not dev:
             return _("Erst ein Laufwerk wählen.")
-        if btn is self.del_btn:
+        if btn in (self.del_btn, self.move_btn):
             return _("Erst Spiele anhaken.")
         if btn in (self.img_verify_btn, self.img_del_btn):
             return _("Erst eine Sicherung in der Liste wählen.")
@@ -1517,6 +1577,7 @@ class App(tk.Tk):
         enable(self.start_btn, idle and dev and (self.mode_var.get() != "ps5" or formattable(dev)))
         enable(self.speed_btn, idle and dev)
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
+        enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.ps5_devices) > 1)
         for w in (self.backup_btn, self.restore_btn):
             enable(w, idle and not pc and self.api and dev and not dev.get("locked"))
         has_img = bool(self.img_tree.selection())
@@ -2158,6 +2219,67 @@ class App(tk.Tk):
         if self.busy or not self.api:
             return
         api = self.api
+
+        def work():
+            try:
+                api.delete_games(keys, uninstall)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Löschen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Spiele gelöscht."))
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _move_games(self):
+        """Angehakte Spiele auf ein anderes Laufwerk kopieren und prüfen; danach fragen, ob die Originale gelöscht werden"""
+        dev = self._selected_device()
+        all_keys = {g.get("key") for g in self.games.get(dev["name"], [])} if dev else set()
+        keys = [k for k in self.games_checked if k in all_keys]
+        if self.busy or not dev or not keys or not self.api:
+            return
+        games = {g.get("key"): g for g in self.games.get(dev["name"], [])}
+        names = sorted((games[k]["name"] or games[k]["id"]) for k in keys if k in games)
+        targets = [d for d in self.ps5_devices if d["name"] != dev["name"] and d.get("mounts")]
+        if not names or not targets:
+            messagebox.showinfo(_("Spiele verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
+            return
+        res = ask_move(self, dev, targets, names)
+        if not res or self.busy or not self.api:
+            return
+        target, verify = res
+        api = self.api
+        src_keys = list(keys)
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+            if not result.get("copied"):
+                messagebox.showerror(_("Spiele verschieben"), msg, parent=self)
+                return
+            copied = [k for k in (result.get("keys") or "").split(",") if k in games]
+            shown = "\n".join("• " + (games[k]["name"] or games[k]["id"]) for k in copied[:10])
+            if len(copied) > 10:
+                shown += "\n" + _("… und {n} weitere", n=len(copied) - 10)
+            if copied and messagebox.askyesno(_("Kopie fertig – Originale löschen?"),
+                                              msg + "\n\n" + shown + "\n\n" + _("Originale jetzt von {name} ({dev}) löschen?",
+                                                                                 name=dev_title(dev), dev=dev["name"]),
+                                              icon="warning", default="no", parent=self):
+                self._delete_keys(api, copied)
+
+        def work():
+            try:
+                api.move_games(src_keys, target["name"], verify)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Verschieben konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Spiele kopiert."), after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _delete_keys(self, api, keys):
+        """Löschauftrag für schon bestätigte Schlüssel (nach dem Verschieben); Kachel entfernt je nach Schalter"""
+        uninstall = self.uninstall_var.get()
 
         def work():
             try:
