@@ -2650,5 +2650,125 @@
   "it": "Unità sconosciuta",
   "es": "Unidad desconocida",
   "fr": "Lecteur inconnu"
+ },
+ "%s lässt sich nicht lesen: %s": {
+  "en": "%s cannot be read: %s",
+  "it": "%s non può essere letto: %s",
+  "es": "%s no se puede leer: %s",
+  "fr": "%s est illisible : %s"
+ },
+ "Nicht unterstützte Datei (Verknüpfung oder Sonderdatei): %s": {
+  "en": "Unsupported file (link or special file): %s",
+  "it": "File non supportato (collegamento o file speciale): %s",
+  "es": "Archivo no compatible (enlace o archivo especial): %s",
+  "fr": "Fichier non pris en charge (lien ou fichier spécial) : %s"
+ },
+ "Die Kopie weicht vom Original ab (%s) – nichts übernommen.": {
+  "en": "The copy differs from the original (%s) – nothing adopted.",
+  "it": "La copia differisce dall'originale (%s) – nulla adottato.",
+  "es": "La copia difiere del original (%s) – no se adoptó nada.",
+  "fr": "La copie diffère de l'original (%s) – rien repris."
+ },
+ "Größe ermitteln": {
+  "en": "Determining size",
+  "it": "Calcolo delle dimensioni",
+  "es": "Calculando el tamaño",
+  "fr": "Calcul de la taille"
+ },
+ "Auf dem Ziel ist nicht genug Platz: gebraucht werden %s, frei sind %s.": {
+  "en": "Not enough space on the target: %s needed, %s free.",
+  "it": "Spazio insufficiente sulla destinazione: servono %s, liberi %s.",
+  "es": "No hay espacio suficiente en el destino: hacen falta %s, hay %s libres.",
+  "fr": "Pas assez de place sur la destination : %s nécessaires, %s libres."
+ },
+ "Abgebrochen – nichts kopiert.": {
+  "en": "Cancelled – nothing copied.",
+  "it": "Annullato – nulla copiato.",
+  "es": "Cancelado – no se copió nada.",
+  "fr": "Annulé – rien copié."
+ },
+ "liegt am Ziel schon vor – nichts überschrieben": {
+  "en": "already exists on the target – nothing overwritten",
+  "it": "esiste già sulla destinazione – nulla sovrascritto",
+  "es": "ya existe en el destino – no se sobrescribió nada",
+  "fr": "existe déjà sur la destination – rien écrasé"
+ },
+ "Spiel kopieren": {
+  "en": "Copying game",
+  "it": "Copia del gioco",
+  "es": "Copiando juego",
+  "fr": "Copie du jeu"
+ },
+ "Kopie prüfen": {
+  "en": "Checking copy",
+  "it": "Verifica della copia",
+  "es": "Comprobando la copia",
+  "fr": "Vérification de la copie"
+ },
+ "Übernehmen am Ziel fehlgeschlagen: %s": {
+  "en": "Adopting on the target failed: %s",
+  "it": "Adozione sulla destinazione non riuscita: %s",
+  "es": "Falló la adopción en el destino: %s",
+  "fr": "Échec de la reprise sur la destination : %s"
+ },
+ "Abgebrochen – kopiert und geprüft: %d von %d.": {
+  "en": "Cancelled – copied and checked: %d of %d.",
+  "it": "Annullato – copiati e verificati: %d di %d.",
+  "es": "Cancelado – copiados y comprobados: %d de %d.",
+  "fr": "Annulé – copiés et vérifiés : %d sur %d."
+ },
+ "Kopieren fehlgeschlagen": {
+  "en": "Copying failed",
+  "it": "Copia non riuscita",
+  "es": "Falló la copia",
+  "fr": "Échec de la copie"
+ },
+ " und geprüft": {
+  "en": " and checked",
+  "it": " e verificati",
+  "es": " y comprobados",
+  "fr": " et vérifiés"
+ },
+ "Spiele kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.": {
+  "en": "Games copied%s: %d (to %s). The originals are still there.",
+  "it": "Giochi copiati%s: %d (su %s). Gli originali ci sono ancora.",
+  "es": "Juegos copiados%s: %d (a %s). Los originales siguen ahí.",
+  "fr": "Jeux copiés%s : %d (vers %s). Les originaux sont toujours là."
+ },
+ " Nicht kopiert: %d – %s": {
+  "en": " Not copied: %d – %s",
+  "it": " Non copiati: %d – %s",
+  "es": " No copiados: %d – %s",
+  "fr": " Non copiés : %d – %s"
+ },
+ "Nichts kopiert: %s": {
+  "en": "Nothing copied: %s",
+  "it": "Nulla copiato: %s",
+  "es": "No se copió nada: %s",
+  "fr": "Rien copié : %s"
+ },
+ "keys und device sind erforderlich": {
+  "en": "keys and device are required",
+  "it": "keys e device sono obbligatori",
+  "es": "Se requieren keys y device",
+  "fr": "keys et device sont requis"
+ },
+ "Ziel-Laufwerk nicht eingebunden – Liste neu laden": {
+  "en": "Target drive not mounted – reload the list",
+  "it": "Unità di destinazione non montata – ricarica l'elenco",
+  "es": "Unidad de destino no montada – recarga la lista",
+  "fr": "Lecteur de destination non monté – rechargez la liste"
+ },
+ "Quelle und Ziel sind dasselbe Laufwerk": {
+  "en": "Source and target are the same drive",
+  "it": "Origine e destinazione sono la stessa unità",
+  "es": "El origen y el destino son la misma unidad",
+  "fr": "La source et la destination sont le même lecteur"
+ },
+ "Auswahl nicht eindeutig – nichts kopiert. Liste neu laden.": {
+  "en": "Selection ambiguous – nothing copied. Reload the list.",
+  "it": "Selezione ambigua – nulla copiato. Ricarica l'elenco.",
+  "es": "Selección ambigua – no se copió nada. Recarga la lista.",
+  "fr": "Sélection ambiguë – rien copié. Rechargez la liste."
  }
 }
