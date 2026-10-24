@@ -2770,5 +2770,59 @@
   "it": "Selezione ambigua – nulla copiato. Ricarica l'elenco.",
   "es": "Selección ambigua – no se copió nada. Recarga la lista.",
   "fr": "Sélection ambiguë – rien copié. Rechargez la liste."
+ },
+ "Bisherigen Stand prüfen": {
+  "en": "Checking the earlier part",
+  "it": "Verifica della parte precedente",
+  "es": "Comprobando la parte anterior",
+  "fr": "Vérification de la partie précédente"
+ },
+ "Das Laufwerk hat sich seit der Unterbrechung verändert (andere Belegung) – bitte neu sichern.": {
+  "en": "The drive has changed since the interruption (different allocation) – please back up again.",
+  "it": "L'unità è cambiata dopo l'interruzione (allocazione diversa) – esegui di nuovo il backup.",
+  "es": "La unidad ha cambiado desde la interrupción (otra ocupación) – vuelve a hacer la copia.",
+  "fr": "Le lecteur a changé depuis l'interruption (autre occupation) – veuillez refaire la sauvegarde."
+ },
+ "Das Laufwerk hat sich seit der Unterbrechung verändert (Daten ab %llu MB) – bitte neu sichern.": {
+  "en": "The drive has changed since the interruption (data from %llu MB) – please back up again.",
+  "it": "L'unità è cambiata dopo l'interruzione (dati da %llu MB) – esegui di nuovo il backup.",
+  "es": "La unidad ha cambiado desde la interrupción (datos desde %llu MB) – vuelve a hacer la copia.",
+  "fr": "Le lecteur a changé depuis l'interruption (données à partir de %llu Mo) – veuillez refaire la sauvegarde."
+ },
+ "Der Merkpunkt der Teilsicherung ist nicht lesbar – bitte verwerfen und neu sichern.": {
+  "en": "The checkpoint of the partial backup is unreadable – please discard it and back up again.",
+  "it": "Il punto di ripresa del backup parziale non è leggibile – scartalo ed esegui di nuovo il backup.",
+  "es": "El punto de reanudación de la copia parcial no se puede leer – descártala y vuelve a copiar.",
+  "fr": "Le point de reprise de la sauvegarde partielle est illisible – supprimez-la et refaites la sauvegarde."
+ },
+ "Die Teilsicherung gehört zu einem anderen Datenträger.": {
+  "en": "The partial backup belongs to a different drive.",
+  "it": "Il backup parziale appartiene a un'altra unità.",
+  "es": "La copia parcial pertenece a otra unidad.",
+  "fr": "La sauvegarde partielle appartient à un autre lecteur."
+ },
+ "Die Teilsicherung ist kürzer als ihr Merkpunkt – bitte verwerfen und neu sichern.": {
+  "en": "The partial backup is shorter than its checkpoint – please discard it and back up again.",
+  "it": "Il backup parziale è più corto del suo punto di ripresa – scartalo ed esegui di nuovo il backup.",
+  "es": "La copia parcial es más corta que su punto de reanudación – descártala y vuelve a copiar.",
+  "fr": "La sauvegarde partielle est plus courte que son point de reprise – supprimez-la et refaites la sauvegarde."
+ },
+ "Die Teilsicherung bleibt erhalten und lässt sich fortsetzen.": {
+  "en": "The partial backup is kept and can be resumed.",
+  "it": "Il backup parziale resta e può essere ripreso.",
+  "es": "La copia parcial se conserva y se puede reanudar.",
+  "fr": "La sauvegarde partielle est conservée et peut être reprise."
+ },
+ "Teilsicherung nicht gefunden – Liste neu laden.": {
+  "en": "Partial backup not found – reload the list.",
+  "it": "Backup parziale non trovato – ricarica l'elenco.",
+  "es": "Copia parcial no encontrada – recarga la lista.",
+  "fr": "Sauvegarde partielle introuvable – rechargez la liste."
+ },
+ "Zur Teilsicherung fehlt der Merkpunkt – bitte verwerfen und neu sichern.": {
+  "en": "The checkpoint of the partial backup is missing – please discard it and back up again.",
+  "it": "Manca il punto di ripresa del backup parziale – scartalo ed esegui di nuovo il backup.",
+  "es": "Falta el punto de reanudación de la copia parcial – descártala y vuelve a copiar.",
+  "fr": "Le point de reprise de la sauvegarde partielle est absent – supprimez-la et refaites la sauvegarde."
  }
 }

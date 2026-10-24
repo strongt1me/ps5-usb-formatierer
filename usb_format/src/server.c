@@ -219,6 +219,7 @@ static unsigned job_seq;   /* zählt angenommene Aufträge (unter lock) - Downlo
 static volatile int quit_requested;
 static int quitting;   /* /api/quit angenommen: keine neuen Aufträge mehr (unter lock) */
 static volatile int cancel_requested;   /* POST /api/cancel */
+static volatile int cancel_keep;        /* POST /api/cancel {"keep":true}: Teilsicherung einer Image-Sicherung behalten */
 
 static void lib_refresh(void);
 static uint64_t fake_get(const usbdev_t *d);
@@ -312,6 +313,8 @@ typedef struct {
     FILE    *img;
     ib_reader_t *rd;
     char    *saves_list; /* Spielstände: Schlüssel bzw. Pfade, getrennt durch Zeilenumbruch */
+    char     resume_part[720];   /* Image-Sicherung fortsetzen: die .part-Datei */
+    int      thorough;           /* ... mit gründlicher Prüfung der Quelle */
     char     saves_dest[300];
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
@@ -1733,6 +1736,7 @@ static int claim_job(int c, job_t *j) {
     snprintf(st.device, sizeof(st.device), "%s", j->dev.name);
     snprintf(st.step, sizeof(st.step), "%s", T("Startet"));
     __atomic_store_n(&cancel_requested, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&cancel_keep, 0, __ATOMIC_RELAXED);
     pthread_mutex_unlock(&lock);
     return 0;
 }
@@ -1982,44 +1986,174 @@ static void img_result(sbuf_t *res, const char *file, const char *name, const ib
            r->sha_img);
 }
 
+
+/* ------------------------------------------------------------ Fortsetzbare Image-Sicherung
+ * Neben <Name>.img.zst.part liegt <Name>.img.zst.part.state: der letzte Merkpunkt (Dateilänge, Position, Zwischen-SHA-256, Kennung des
+ * Laufwerks). Nach einem Abbruch ("behalten"), einem Fehler oder einem Neustart der PS5 setzt POST /api/backup/resume dort fort. */
+#define PART_MAGIC "UFBKRES1"
+
+typedef struct {
+    char       magic[8];
+    uint32_t   struct_size, nframes;
+    char       ident[64], model[128], label[48], fs[16], created[24];
+    uint64_t   dev_size;
+    uint32_t   ss;
+    int64_t    when;
+    ib_ckpt_t  c;   /* c.frames zeigt ins Leere: die Rahmen stehen hinter dieser Struktur */
+} part_state_t;
+
+#define PART_FRAMES_MAX 100000u
+
+static int part_state_write(const char *state_path, const part_state_t *ps, const ib_frame_t *frames) {
+    char tmp[800];
+    snprintf(tmp, sizeof(tmp), "%.780s.tmp", state_path);
+    FILE *f = fopen(tmp, "wb");
+    if (!f) return -1;
+    int ok = fwrite(ps, sizeof(*ps), 1, f) == 1 && (!ps->nframes || fwrite(frames, sizeof(*frames), ps->nframes, f) == ps->nframes) &&
+             fflush(f) == 0 && (fsync(fileno(f)) == 0 || errno == EINVAL);
+    if (fclose(f) != 0) ok = 0;
+    if (ok && rename(tmp, state_path) != 0) ok = 0;
+    if (!ok) unlink(tmp);
+    return ok ? 0 : -1;
+}
+
+/* Zustand lesen; *frames (malloc) hängt der Aufrufer an ps->c.frames. 0 = ok */
+static int part_state_read(const char *state_path, part_state_t *ps, ib_frame_t **frames) {
+    *frames = NULL;
+    FILE *f = fopen(state_path, "rb");
+    if (!f) return -1;
+    int ok = fread(ps, sizeof(*ps), 1, f) == 1 && !memcmp(ps->magic, PART_MAGIC, 8) && ps->struct_size == sizeof(*ps) &&
+             ps->nframes <= PART_FRAMES_MAX && ps->c.used > 0 && ps->c.file_bytes > 0;
+    if (ok && ps->nframes) {
+        *frames = malloc((size_t)ps->nframes * sizeof(**frames));
+        ok = *frames && fread(*frames, sizeof(**frames), ps->nframes, f) == ps->nframes;
+    }
+    fclose(f);
+    if (!ok) { free(*frames); *frames = NULL; return -1; }
+    ps->c.frames = *frames;
+    ps->c.nframes = (int)ps->nframes;
+    return 0;
+}
+
+typedef struct {
+    FILE *f;
+    char  state[780];
+    const ib_info_t *info;
+    const usbdev_t  *dev;
+    int   saved;
+} part_ctx_t;
+
+static int part_checkpoint(void *ctx, const ib_ckpt_t *c) {
+    part_ctx_t *p = ctx;
+    if (fflush(p->f) != 0 || (fsync(fileno(p->f)) != 0 && errno != EINVAL)) return -1;
+    part_state_t ps;
+    memset(&ps, 0, sizeof(ps));
+    memcpy(ps.magic, PART_MAGIC, 8);
+    ps.struct_size = sizeof(ps);
+    ps.nframes = (uint32_t)c->nframes;
+    if (ps.nframes > PART_FRAMES_MAX) return -1;
+    snprintf(ps.ident, sizeof(ps.ident), "%s", p->dev->ident);
+    snprintf(ps.model, sizeof(ps.model), "%s", p->info->model);
+    snprintf(ps.label, sizeof(ps.label), "%s", p->info->label);
+    snprintf(ps.fs, sizeof(ps.fs), "%s", p->info->fs);
+    snprintf(ps.created, sizeof(ps.created), "%s", p->info->created);
+    ps.dev_size = p->dev->size;
+    ps.ss = p->dev->ss;
+    ps.when = (int64_t)time(NULL);
+    ps.c = *c;
+    ps.c.frames = NULL;
+    if (part_state_write(p->state, &ps, c->frames) != 0) return -1;
+    p->saved = 1;
+    return 0;
+}
+
+
 static void *backup_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
-    char err[256] = "", title[160], name[160], file[700], part[720], side[720], s1[24], s2[24];
+    char err[256] = "", title[160], name[160], file[700], part[720], side[720], s1[24], s2[24], statef[780];
     sbuf_t msg = {0}, res = {0};
     ib_info_t info;
-    img_info_of(&j->dev, &info);
-    ib_file_name(&info, name, sizeof(name));
-    if (mkdir(j->path, 0777) != 0 && errno != EEXIST) {
-        sb_tr(&msg, "Der Ordner %s lässt sich nicht anlegen: %s", j->path, strerror(errno));
-        job_done(j, 0, &msg, &res, 0);
-        return NULL;
+    if (getenv("USBFMT_FRAME_MAX")) ib_frame_max = strtoull(getenv("USBFMT_FRAME_MAX"), NULL, 10);   /* Tests: kleine Rahmen, viele Merkpunkte */
+    if (getenv("USBFMT_CKPT_EVERY")) { ib_ckpt_bytes = strtoull(getenv("USBFMT_CKPT_EVERY"), NULL, 10); ib_ckpt_secs = 0; }
+    part_state_t ps;
+    ib_frame_t *frames = NULL;
+    const int resuming = j->resume_part[0] != 0;
+    if (resuming) {
+        /* fortsetzen: Pfade und Angaben aus dem Merkpunkt, nicht neu bilden */
+        snprintf(part, sizeof(part), "%s", j->resume_part);
+        snprintf(statef, sizeof(statef), "%s.state", part);
+        snprintf(file, sizeof(file), "%.*s", (int)(strlen(part) - 5), part);   /* ohne ".part" */
+        snprintf(name, sizeof(name), "%.159s", strrchr(file, '/') ? strrchr(file, '/') + 1 : file);
+        snprintf(side, sizeof(side), "%s.sha256", file);
+        if (part_state_read(statef, &ps, &frames) != 0) {
+            sb_tr(&msg, "Der Merkpunkt der Teilsicherung ist nicht lesbar – bitte verwerfen und neu sichern.");
+            job_done(j, 0, &msg, &res, 0);
+            return NULL;
+        }
+        if ((ps.ident[0] && j->dev.ident[0] && strcmp(ps.ident, j->dev.ident) != 0) || ps.dev_size != j->dev.size || ps.ss != j->dev.ss) {
+            free(frames);
+            sb_tr(&msg, "Die Teilsicherung gehört zu einem anderen Datenträger.");
+            job_done(j, 0, &msg, &res, 0);
+            return NULL;
+        }
+        memset(&info, 0, sizeof(info));
+        snprintf(info.model, sizeof(info.model), "%s", ps.model);
+        snprintf(info.label, sizeof(info.label), "%s", ps.label);
+        snprintf(info.fs, sizeof(info.fs), "%s", ps.fs);
+        snprintf(info.ident, sizeof(info.ident), "%s", ps.ident);
+        snprintf(info.created, sizeof(info.created), "%s", ps.created);
+    } else {
+        img_info_of(&j->dev, &info);
+        ib_file_name(&info, name, sizeof(name));
+        if (mkdir(j->path, 0777) != 0 && errno != EEXIST) {
+            sb_tr(&msg, "Der Ordner %s lässt sich nicht anlegen: %s", j->path, strerror(errno));
+            job_done(j, 0, &msg, &res, 0);
+            return NULL;
+        }
+        /* derselbe Name in derselben Minute schon da: Nummer anhängen */
+        snprintf(file, sizeof(file), "%s/%s", j->path, name);
+        for (int k = 2; k < 100 && access(file, F_OK) == 0; k++)
+            snprintf(file, sizeof(file), "%s/%.*s_%d%s", j->path, (int)(strlen(name) - strlen(IMG_EXT)), name, k, IMG_EXT);
+        snprintf(name, sizeof(name), "%s", strrchr(file, '/') + 1);
+        snprintf(part, sizeof(part), "%s.part", file);
+        snprintf(side, sizeof(side), "%s.sha256", file);
+        snprintf(statef, sizeof(statef), "%s.state", part);
     }
-    /* derselbe Name in derselben Minute schon da: Nummer anhängen */
-    snprintf(file, sizeof(file), "%s/%s", j->path, name);
-    for (int k = 2; k < 100 && access(file, F_OK) == 0; k++)
-        snprintf(file, sizeof(file), "%s/%.*s_%d%s", j->path, (int)(strlen(name) - strlen(IMG_EXT)), name, k, IMG_EXT);
-    snprintf(name, sizeof(name), "%s", strrchr(file, '/') + 1);
-    snprintf(part, sizeof(part), "%s.part", file);
-    snprintf(side, sizeof(side), "%s.sha256", file);
 
     int fd = job_acquire(j, err, sizeof(err));   /* eingebunden: kurz abmelden, sonst sicherte man halb Geschriebenes */
-    if (fd < 0) { sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
-    int ofd = open(part, O_WRONLY | O_CREAT | O_EXCL, 0666);
-    fout_t o = {ofd >= 0 ? fdopen(ofd, "wb") : NULL, 0};
+    if (fd < 0) { free(frames); sb_add(&msg, "%s", err); job_done(j, 0, &msg, &res, 0); return NULL; }
+    int ofd = open(part, resuming ? O_RDWR : (O_WRONLY | O_CREAT | O_EXCL), 0666);
+    fout_t o = {ofd >= 0 ? fdopen(ofd, resuming ? "r+b" : "wb") : NULL, 0};
     if (!o.f) {
+        free(frames);
         sb_tr(&msg, "Die Datei %s lässt sich nicht anlegen: %s", part, strerror(errno));
         if (ofd >= 0) close(ofd);
         job_release(fd);
         job_done(j, 0, &msg, &res, 1);
         return NULL;
     }
+    if (resuming) {   /* auf den Merkpunkt zurückschneiden: danach geschriebene Bytes stammen von nach dem Merkpunkt */
+        struct stat ob;
+        if (fstat(fileno(o.f), &ob) != 0 || (uint64_t)ob.st_size < ps.c.file_bytes || ftruncate(fileno(o.f), (off_t)ps.c.file_bytes) != 0 ||
+            fseeko(o.f, (off_t)ps.c.file_bytes, SEEK_SET) != 0) {
+            free(frames);
+            fclose(o.f);
+            sb_tr(&msg, "Die Teilsicherung ist kürzer als ihr Merkpunkt – bitte verwerfen und neu sichern.");
+            job_release(fd);
+            job_done(j, 0, &msg, &res, 1);
+            return NULL;
+        }
+    }
     setvbuf(o.f, NULL, _IOFBF, 1 << 20);
     set_flags(1, 0);
     st.total_ptr = &info.used;   /* ib_backup setzt info.used nach der Belegungssuche */
     ib_result_t r;
-    int rc = ib_backup(fd, j->dev.ss, j->dev.size, &info, file_out, &o, on_progress, &cancel_requested, &r, err,
-                       sizeof(err));
+    part_ctx_t pc = {o.f, "", &info, &j->dev, 0};
+    snprintf(pc.state, sizeof(pc.state), "%s", statef);
+    ib_resume_t rs = {part_checkpoint, &pc, resuming ? &ps.c : NULL, j->thorough};
+    int rc = ib_backup_ex(fd, j->dev.ss, j->dev.size, &info, file_out, &o, on_progress, &cancel_requested, &r, err, sizeof(err), &rs);
+    free(frames);
     st.total_ptr = NULL;
     set_flags(0, 0);
     job_release(fd);   /* die PS5 bindet den Stick gleich wieder ein */
@@ -2035,13 +2169,18 @@ static void *backup_worker(void *arg) {
         snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht anlegen: %s"), hok ? file : side, strerror(errno));
     }
     if (rc || r.cancelled) {
-        unlink(part);
+        /* Teilsicherung behalten, wenn es einen Merkpunkt gibt und der Nutzer es wollte (Abbrechen) oder ein Fehler sie unterbrach
+         * (Platz voll, Laufwerk weg): dann lässt sich später fortsetzen. Sonst alles wegräumen. */
+        const int keep = (pc.saved || resuming) && (rc != 0 || __atomic_load_n(&cancel_keep, __ATOMIC_RELAXED));
+        if (!keep) { unlink(part); unlink(statef); }
         if (h) unlink(side);   /* auch, wenn erst das Umbenennen scheiterte: keine .sha256 ohne Sicherung */
         if (rc) sb_tr(&msg, "Sichern fehlgeschlagen: %s", err);
         else sb_tr(&msg, "Abgebrochen.");
+        if (keep) sb_add(&msg, " %s", T("Die Teilsicherung bleibt erhalten und lässt sich fortsetzen."));
         job_done(j, 0, &msg, &res, 1);
         return NULL;
     }
+    unlink(statef);   /* fertig: kein Merkpunkt mehr nötig */
     sb_tr(&msg, "%s gesichert: %s belegt, Datei %s.", dev_title(&j->dev, title, sizeof(title)),
           size_text(r.used, s1, sizeof(s1)), size_text(r.file_bytes, s2, sizeof(s2)));
     sb_add(&msg, " %s", file);
@@ -2499,6 +2638,95 @@ static void api_images_delete(int c, const char *body) {
     respond_ok(c, 200);
 }
 
+/* Teilsicherung (<Name>.img.zst.part) direkt in einem der Ordner usbfmt-backup? Wie img_path_loc für ".part" */
+static const imgloc_t *part_path_loc(const char *path, const imgloc_t *loc, int n) {
+    const char *slash = strrchr(path, '/');
+    if (!slash || !ends_with(path, ".img.zst.part") || strstr(path, "/../") || slash[1] == '.') return NULL;
+    char *rp = realpath(path, NULL);
+    const imgloc_t *hit = NULL;
+    struct stat sb;
+    for (int i = 0; rp && i < n && !hit; i++) {
+        char *rd = realpath(loc[i].dir, NULL);
+        size_t l = rd ? strlen(rd) : 0;
+        if (rd && !strncmp(rp, rd, l) && rp[l] == '/' && !strchr(rp + l + 1, '/') && !stat(rp, &sb) && S_ISREG(sb.st_mode))
+            hit = &loc[i];
+        free(rd);
+    }
+    free(rp);
+    return hit;
+}
+
+/* Pfad einer Teilsicherung aus der Anfrage (geprüft, echter Pfad); 0 = ok, sonst ist geantwortet */
+static int request_part(int c, kv_t *kv, int n, char *path, size_t pn, imgloc_t **locs, const imgloc_t **at) {
+    const char *p = kv_get(kv, n, "path");
+    if (!p) { respond_error(c, 400, "path ist erforderlich"); return -1; }
+    *locs = calloc(MAX_LOCS, sizeof(**locs));
+    int nl = *locs ? img_locations(*locs, MAX_LOCS) : 0;
+    *at = part_path_loc(p, *locs, nl);
+    char *rp = *at ? realpath(p, NULL) : NULL;
+    if (!rp || strlen(rp) >= pn) {
+        free(rp);
+        free(*locs);
+        *locs = NULL;
+        respond_error(c, 400, "Teilsicherung nicht gefunden – Liste neu laden.");
+        return -1;
+    }
+    snprintf(path, pn, "%s", rp);
+    free(rp);
+    return 0;
+}
+
+/* POST /api/backup/resume {"path":"<...img.zst.part>","device":"da1","size":..,"ident":"..","replug":true,"thorough":true}:
+ * Image-Sicherung ab dem letzten Merkpunkt fortsetzen */
+static void api_backup_resume(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX), replug;
+    usbdev_t d;
+    if (n < 0) { respond_error(c, 400, "Ungültige Anfrage"); return; }
+    char path[720], statef[780];
+    imgloc_t *locs = NULL;
+    const imgloc_t *at = NULL;
+    if (request_part(c, kv, n, path, sizeof(path), &locs, &at)) return;
+    snprintf(statef, sizeof(statef), "%s.state", path);
+    const char *bad = access(statef, F_OK) != 0 ? N_("Zur Teilsicherung fehlt der Merkpunkt – bitte verwerfen und neu sichern.") : NULL;
+    free(locs);
+    if (bad) { respond_error(c, 404, bad); return; }
+    if (request_device(c, kv, n, &d) || request_replug(c, kv, n, &d, &replug)) return;
+    if (at && !strcmp(at->device, d.name)) { respond_error(c, 400, N_("Die Sicherung kann nicht auf dem Datenträger liegen, der gesichert wird.")); return; }
+    job_t *j = new_job(c, JOB_BACKUP);
+    if (!j) return;
+    j->dev = d;
+    j->replug = replug;
+    j->thorough = kv_true(kv, n, "thorough");
+    snprintf(j->resume_part, sizeof(j->resume_part), "%s", path);
+    start_job(c, j, backup_worker);
+}
+
+/* POST /api/images/discard {"path":"<...img.zst.part>"}: Teilsicherung mit Merkpunkt löschen (nicht während eines Auftrags) */
+static void api_images_discard(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    if (n < 0) { respond_error(c, 400, "Ungültige Anfrage"); return; }
+    char path[720], statef[780];
+    imgloc_t *locs = NULL;
+    const imgloc_t *at = NULL;
+    if (request_part(c, kv, n, path, sizeof(path), &locs, &at)) return;
+    free(locs);
+    pthread_mutex_lock(&lock);
+    int busy = st.busy;
+    pthread_mutex_unlock(&lock);
+    if (busy) { respond_error(c, 409, "Erst den laufenden Auftrag abwarten."); return; }
+    snprintf(statef, sizeof(statef), "%s.state", path);
+    if (unlink(path) != 0) {
+        char err[800];
+        snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht löschen: %s"), path, strerror(errno));
+        respond_error(c, 500, err);
+        return;
+    }
+    unlink(statef);
+    respond_ok(c, 200);
+}
+
 /* Orte und vorhandene Sicherungen */
 static void api_images(int c) {
     imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
@@ -2563,6 +2791,45 @@ static void api_images(int c) {
             sb_str(&b, info.created);
             snprintf(path + strlen(path), 1024 - strlen(path), ".sha256");
             sb_add(&b, ",\"sha256\":%s}", access(path, F_OK) == 0 ? "true" : "false");
+        }
+        if (dir) closedir(dir);
+    }
+    sb_add(&b, "],\"partials\":[");
+    first = 1;
+    for (int i = 0; path && i < nl; i++) {
+        DIR *dir = opendir(loc[i].dir);
+        struct dirent *e;
+        int count = 0;
+        while (dir && (e = readdir(dir)) && count < MAX_IMAGES) {
+            if (e->d_name[0] == '.' || !ends_with(e->d_name, ".img.zst.part")) continue;
+            char sp[1100];
+            if (snprintf(path, 1024, "%s/%s", loc[i].dir, e->d_name) >= 1024 || snprintf(sp, sizeof(sp), "%s.state", path) >= (int)sizeof(sp)) continue;
+            part_state_t ps;
+            ib_frame_t *fr = NULL;
+            if (part_state_read(sp, &ps, &fr) != 0) continue;
+            free(fr);
+            count++;
+            sb_add(&b, "%s{\"path\":", first ? "" : ",");
+            first = 0;
+            sb_str(&b, path);
+            sb_add(&b, ",\"name\":");
+            sb_str(&b, e->d_name);
+            sb_add(&b, ",\"dir\":");
+            sb_str(&b, loc[i].dir);
+            sb_add(&b, ",\"device\":");
+            sb_str(&b, loc[i].device);
+            sb_add(&b, ",\"ident\":");
+            sb_str(&b, ps.ident);
+            sb_add(&b, ",\"model\":");
+            sb_str(&b, ps.model);
+            sb_add(&b, ",\"label\":");
+            sb_str(&b, ps.label);
+            sb_add(&b, ",\"fs\":");
+            sb_str(&b, ps.fs);
+            sb_add(&b, ",\"created\":");
+            sb_str(&b, ps.created);
+            sb_add(&b, ",\"size\":%llu,\"used\":%llu,\"done\":%llu,\"bytes\":%llu,\"when\":%lld}", (unsigned long long)ps.dev_size,
+                   (unsigned long long)ps.c.used, (unsigned long long)ps.c.used_done, (unsigned long long)ps.c.file_bytes, (long long)ps.when);
         }
         if (dir) closedir(dir);
     }
@@ -4108,6 +4375,10 @@ static void handle(int c) {
         api_images(c);
     else if (strcmp(path, "/api/images/verify") == 0 && is_post)
         api_images_verify(c, body);
+    else if (strcmp(path, "/api/backup/resume") == 0 && is_post)
+        api_backup_resume(c, body);
+    else if (strcmp(path, "/api/images/discard") == 0 && is_post)
+        api_images_discard(c, body);
     else if (strcmp(path, "/api/images/delete") == 0 && is_post)
         api_images_delete(c, body);
     else if (strcmp(path, "/api/backup") == 0 && is_post)
@@ -4134,6 +4405,7 @@ static void handle(int c) {
         api_saves_restore_paths(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {
         /* Warten auf Abziehen/Einstecken, Prüfen und Beschreiben brechen ab; das Formatieren selbst nicht */
+        __atomic_store_n(&cancel_keep, body && strstr(body, "\"keep\"") && strstr(body, "true") ? 1 : 0, __ATOMIC_RELAXED);
         __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
         respond_ok(c, 200);
     }

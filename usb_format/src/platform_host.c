@@ -22,8 +22,9 @@
 void plat_notify(const char *msg) { printf("[Benachrichtigung] %s\n", msg); fflush(stdout); }
 
 void plat_throttle(void) {
-    if (getenv("USBFMT_SLOW")) {
-        struct timespec ts = {0, 40 * 1000 * 1000};
+    if (getenv("USBFMT_SLOW")) {   /* USBFMT_SLOW=n: n-mal so langsam (Standard 1 = 40 ms je Fortschrittsmeldung) */
+        int m = atoi(getenv("USBFMT_SLOW"));
+        struct timespec ts = {0, 40 * 1000 * 1000 * (m > 1 ? m : 1)};
         nanosleep(&ts, NULL);
     }
 }

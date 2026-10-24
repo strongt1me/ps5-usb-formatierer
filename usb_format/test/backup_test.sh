@@ -194,7 +194,7 @@ code=$(curl -s -o "$W/body" -w '%{http_code}' -H "Content-Type: application/octe
 [ "$code" = 400 ] && ok "Hochladen: zu kleines Ziel abgelehnt" || bad "Hochladen zu klein ($code)" "$(cat "$W/body")"
 
 # ---------------------------------------------------------------- Abbrechen
-start "$W/a.img:$W/b.img:$W/c.img" "1,1,0" USBFMT_SLOW=1
+start "$W/a.img:$W/b.img:$W/c.img" "1,1,0" USBFMT_SLOW=5
 rm -f "$W/data/usbfmt-backup"/*.img.zst*
 post "{\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"dest\":\"$W/data/usbfmt-backup\"}" backup >/dev/null
 for _ in $(seq 1 50); do curl -s "$U/api/status" | grep -q '"cancellable":true' && break; sleep 0.1; done
@@ -214,6 +214,54 @@ wait_job
 [ "$(q 'str(d["ok"]) + str(d["cancelled"])' <"$W/st")" = FalseTrue ] && ok "Sichern abgebrochen" || bad "Abbrechen" "$(cat "$W/st")"
 [ -z "$(ls "$W/data/usbfmt-backup" 2>/dev/null | grep -v kaputt | grep -v link)" ] && ok "abgebrochen: keine Dateien übrig" \
     || bad "Reste: $(ls "$W/data/usbfmt-backup")"
+
+# ---------------------------------------------------------------- Teilsicherung behalten und fortsetzen
+echo "== Fortsetzen =="
+D="$W/data/usbfmt-backup"
+start "$W/a.img:$W/b.img:$W/c.img" "1,1,0"
+rm -f "$D"/*.img.zst*
+post "{\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"dest\":\"$D\"}" backup >/dev/null
+wait_job
+REF=$(q 'd["result"]["sha256_data"]' <"$W/st")   # Vergleich: ein Lauf ohne Unterbrechung
+[ -n "$REF" ] && ok "Vergleichslauf ohne Unterbrechung" || bad "Vergleichslauf" "$(cat "$W/st")"
+rm -f "$D"/*.img.zst*
+start "$W/a.img:$W/b.img:$W/c.img" "1,1,0" USBFMT_SLOW=8 USBFMT_FRAME_MAX=262144 USBFMT_CKPT_EVERY=1
+post "{\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"dest\":\"$D\"}" backup >/dev/null
+for _ in $(seq 1 150); do curl -s "$U/api/status" >"$W/st"; [ "$(q 'd["percent"] >= 30' <"$W/st")" = True ] && break; sleep 0.1; done
+curl -s -H "$J" -d '{"keep":true}' "$U/api/cancel" >/dev/null
+wait_job
+PART=$(ls "$D"/*.img.zst.part 2>/dev/null | head -1)
+[ "$(q 'd["ok"] == False and d["cancelled"]' <"$W/st")" = True ] && [ -n "$PART" ] && [ -f "$PART.state" ] && grep -q 'fortsetzen' "$W/st"     && ok "Abbrechen mit \"behalten\": Teilsicherung und Merkpunkt bleiben, Meldung nennt Fortsetzen" || bad "Abbrechen behalten" "$(cat "$W/st") $(ls -a "$D")"
+curl -s "$U/api/images" >"$W/imgs"
+[ "$(q 'len(d["partials"]) == 1 and d["partials"][0]["done"] > 0 and d["partials"][0]["done"] < d["partials"][0]["used"] and d["partials"][0]["path"].endswith(".part")' <"$W/imgs")" = True ]     && ok "Liste nennt die Teilsicherung mit Fortschritt" || bad "Liste Teilsicherung" "$(cat "$W/imgs")"
+[ ! -e "$D"/*.img.zst ] 2>/dev/null; ls "$D"/*.img.zst >/dev/null 2>&1 && bad "fertige Datei trotz Abbruch" || ok "keine fertige Datei bei Abbruch"
+# fortsetzen (gründlich)
+start "$W/a.img:$W/b.img:$W/c.img" "1,1,0" USBFMT_SLOW=1 USBFMT_FRAME_MAX=262144 USBFMT_CKPT_EVERY=1
+code=$(post "{\"path\":\"$PART\",\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"thorough\":true}" backup/resume)
+wait_job
+FIN=$(ls "$D"/*.img.zst 2>/dev/null | head -1)
+[ "$code" = 202 ] && [ "$(q 'd["ok"]' <"$W/st")" = True ] && [ -n "$FIN" ] && [ ! -e "$PART" ] && [ ! -e "$PART.state" ] && [ -f "$FIN.sha256" ]     && ok "Fortsetzen: fertige Sicherung, Teilsicherung und Merkpunkt weg, .sha256 daneben" || bad "Fortsetzen" "$code $(cat "$W/st") $(ls -a "$D")"
+[ "$(q 'd["result"]["sha256_data"]' <"$W/st")" = "$REF" ] && ok "fortgesetzte Sicherung hat dieselbe Prüfsumme wie ein Lauf ohne Unterbrechung" || bad "Prüfsumme weicht ab" "$REF $(cat "$W/st")"
+code=$(post "{\"path\":\"$FIN\"}" images/verify)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["result"]["checked"] and d["result"]["side"] == "ok"' <"$W/st")" = True ]     && ok "fortgesetztes Image besteht Prüfen (Prüfsumme im Image, .sha256)" || bad "Prüfen des fortgesetzten Images" "$code $(cat "$W/st")"
+rm -f "$D"/*.img.zst*
+# Fehlerfälle und Verwerfen
+start "$W/a.img:$W/b.img:$W/c.img" "1,1,0" USBFMT_SLOW=8 USBFMT_FRAME_MAX=262144 USBFMT_CKPT_EVERY=1
+post "{\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"dest\":\"$D\"}" backup >/dev/null
+for _ in $(seq 1 150); do curl -s "$U/api/status" >"$W/st"; [ "$(q 'd["percent"] >= 20' <"$W/st")" = True ] && break; sleep 0.1; done
+curl -s -H "$J" -d '{"keep":true}' "$U/api/cancel" >/dev/null
+wait_job
+PART=$(ls "$D"/*.img.zst.part 2>/dev/null | head -1)
+start "$W/a.img:$W/b.img:$W/c.img" "1,1,0"
+code=$(post "{\"path\":\"$PART\",\"device\":\"da1\",\"size\":$SB,\"ident\":\"b.img\",\"replug\":true}" backup/resume)
+if [ "$code" = 202 ]; then wait_job; [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q 'anderen Datenträger' "$W/st" && ok "anderer Datenträger: Fortsetzen abgelehnt" || bad "anderer Datenträger" "$(cat "$W/st")"
+else ok "anderer Datenträger: Fortsetzen abgelehnt ($code)"; fi
+code=$(post "{\"path\":\"$D/../nirgends.img.zst.part\",\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\"}" backup/resume)
+[ "$code" = 400 ] && ok "Pfad außerhalb der Sicherungsordner: abgelehnt" || bad "fremder Pfad" "$code"
+code=$(post "{\"path\":\"$PART\"}" images/discard)
+[ "$code" = 200 ] && [ ! -e "$PART" ] && [ ! -e "$PART.state" ] && ok "Verwerfen löscht Teilsicherung und Merkpunkt" || bad "Verwerfen" "$code $(ls -a "$D")"
+code=$(post "{\"path\":\"$D/USB_x.img.zst\"}" images/discard)
+[ "$code" = 400 ] && ok "Verwerfen nimmt nur Teilsicherungen" || bad "Verwerfen fremder Datei" "$code"
 
 # ---------------------------------------------------------------- Sperre bei laufendem Spiel
 # ShadowMountPlus spiegelt eingebundene Laufwerke in die Sandbox laufender Titel: dann nie abmelden
