@@ -2147,24 +2147,6 @@
   "es": "falsa · real {size}",
   "fr": "contrefaite · réelle {size}"
  },
- "Am PC": {
-  "en": "On PC",
-  "it": "Sul PC",
-  "es": "En el PC",
-  "fr": "Sur le PC"
- },
- "Für die PS5 formatieren": {
-  "en": "Format for PS5",
-  "it": "Formatta per PS5",
-  "es": "Formatear para PS5",
-  "fr": "Formater pour la PS5"
- },
- "Frei formatieren": {
-  "en": "Format freely",
-  "it": "Formattazione libera",
-  "es": "Formatear libremente",
-  "fr": "Formatage libre"
- },
  "Anleitung öffnen (F1)": {
   "en": "Open the guide (F1)",
   "it": "Apri la guida (F1)",
@@ -2986,5 +2968,125 @@
   "it": "Impossibile avviare la ripresa: {e}",
   "es": "No se pudo iniciar la reanudación: {e}",
   "fr": "La reprise n'a pas pu démarrer : {e}"
+ },
+ "Update": {
+  "en": "Update",
+  "it": "Aggiornamento",
+  "es": "Actualización",
+  "fr": "Mise à jour"
+ },
+ "Formatieren löscht alle Daten auf diesem Laufwerk.": {
+  "en": "Formatting erases all data on this drive.",
+  "it": "La formattazione cancella tutti i dati su questa unità.",
+  "es": "Formatear borra todos los datos de esta unidad.",
+  "fr": "Le formatage efface toutes les données de ce lecteur."
+ },
+ "PS5-Pakete: fPKG hat eine Debug-Signatur im Kopf, ein offizielles PKG die offizielle. Bei PS4-Paketen unterscheiden sich fPKG und PKG im Kopf nicht – dort steht nur PKG.": {
+  "en": "PS5 packages: an fPKG has a debug signature in its header, an official PKG the official one. For PS4 packages fPKG and PKG do not differ in the header – they are only shown as PKG.",
+  "it": "Pacchetti PS5: un fPKG ha una firma di debug nell'intestazione, un PKG ufficiale quella ufficiale. Nei pacchetti PS4 fPKG e PKG non si distinguono nell'intestazione – vengono mostrati solo come PKG.",
+  "es": "Paquetes de PS5: un fPKG tiene una firma de depuración en la cabecera y un PKG oficial la oficial. En los paquetes de PS4 fPKG y PKG no se distinguen en la cabecera: solo se muestra PKG.",
+  "fr": "Paquets PS5 : un fPKG a une signature de débogage dans l'en-tête, un PKG officiel la signature officielle. Pour les paquets PS4, fPKG et PKG ne diffèrent pas dans l'en-tête : seul PKG est affiché."
+ },
+ "Betriebsart": {
+  "en": "Mode",
+  "it": "Modalità",
+  "es": "Modo",
+  "fr": "Mode"
+ },
+ "Am PC – für die PS5": {
+  "en": "On the PC – for the PS5",
+  "it": "Sul PC – per la PS5",
+  "es": "En el PC – para la PS5",
+  "fr": "Sur le PC – pour la PS5"
+ },
+ "Am PC – frei formatieren": {
+  "en": "On the PC – format freely",
+  "it": "Sul PC – formattazione libera",
+  "es": "En el PC – formateo libre",
+  "fr": "Sur le PC – formatage libre"
+ },
+ "PKG": {
+  "en": "PKG",
+  "it": "PKG",
+  "es": "PKG",
+  "fr": "PKG"
+ },
+ "PKG-Dateien auf diesem Datenträger:": {
+  "en": "PKG files on this drive:",
+  "it": "File PKG su questa unità:",
+  "es": "Archivos PKG en esta unidad:",
+  "fr": "Fichiers PKG sur ce lecteur :"
+ },
+ "PKG-Dateien auf diesem Datenträger: {n}": {
+  "en": "PKG files on this drive: {n}",
+  "it": "File PKG su questa unità: {n}",
+  "es": "Archivos PKG en esta unidad: {n}",
+  "fr": "Fichiers PKG sur ce lecteur : {n}"
+ },
+ "Keine PKG-Dateien auf diesem Datenträger.": {
+  "en": "No PKG files on this drive.",
+  "it": "Nessun file PKG su questa unità.",
+  "es": "No hay archivos PKG en esta unidad.",
+  "fr": "Aucun fichier PKG sur ce lecteur."
+ },
+ "Lesetempo des Laufwerks messen (die Daten bleiben erhalten)": {
+  "en": "Measure the drive's read speed (the data is kept)",
+  "it": "Misura la velocità di lettura dell'unità (i dati restano)",
+  "es": "Mide la velocidad de lectura de la unidad (los datos se conservan)",
+  "fr": "Mesurer la vitesse de lecture du lecteur (les données sont conservées)"
+ },
+ "exFAT prüfen und auf Wunsch reparieren": {
+  "en": "Check exFAT and repair it if you like",
+  "it": "Controlla exFAT e, se vuoi, ripara",
+  "es": "Comprobar exFAT y repararlo si quieres",
+  "fr": "Vérifier l'exFAT et le réparer si vous le souhaitez"
+ },
+ "Tempo gemessen.": {
+  "en": "Speed measured.",
+  "it": "Velocità misurata.",
+  "es": "Velocidad medida.",
+  "fr": "Vitesse mesurée."
+ },
+ "Geprüft.": {
+  "en": "Checked.",
+  "it": "Controllato.",
+  "es": "Comprobado.",
+  "fr": "Vérifié."
+ },
+ "Umbenannt.": {
+  "en": "Renamed.",
+  "it": "Rinominato.",
+  "es": "Renombrado.",
+  "fr": "Renommé."
+ },
+ "Fehler gefunden. Jetzt reparieren?": {
+  "en": "Errors found. Repair now?",
+  "it": "Errori trovati. Riparare ora?",
+  "es": "Se encontraron errores. ¿Reparar ahora?",
+  "fr": "Erreurs trouvées. Réparer maintenant ?"
+ },
+ "Das Dateisystem wird repariert.": {
+  "en": "The file system will be repaired.",
+  "it": "Il file system verrà riparato.",
+  "es": "Se reparará el sistema de archivos.",
+  "fr": "Le système de fichiers sera réparé."
+ },
+ "Neue Bezeichnung (bis zu 11 Zeichen: A–Z, 0–9, Leerzeichen, - und _):": {
+  "en": "New label (up to 11 characters: A–Z, 0–9, space, - and _):",
+  "it": "Nuova etichetta (fino a 11 caratteri: A–Z, 0–9, spazio, - e _):",
+  "es": "Nueva etiqueta (hasta 11 caracteres: A–Z, 0–9, espacio, - y _):",
+  "fr": "Nouvelle étiquette (jusqu'à 11 caractères : A–Z, 0–9, espace, - et _) :"
+ },
+ "Reparieren": {
+  "en": "Repair",
+  "it": "Ripara",
+  "es": "Reparar",
+  "fr": "Réparer"
+ },
+ "Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (max. {n} Zeichen).": {
+  "en": "Only A–Z, 0–9, space, - and _ allowed (max. {n} characters).",
+  "it": "Consentiti solo A–Z, 0–9, spazio, - e _ (max. {n} caratteri).",
+  "es": "Solo se permiten A–Z, 0–9, espacio, - y _ (máx. {n} caracteres).",
+  "fr": "Seuls A–Z, 0–9, espace, - et _ sont autorisés ({n} caractères max.)."
  }
 }

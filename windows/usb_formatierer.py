@@ -43,9 +43,9 @@ LABEL_RE = re.compile(r"^[A-Za-z0-9 _-]{0,11}\Z")   # \Z: kein Zeilenumbruch am 
 IP_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
 MODES = (("ps5", "An der PS5"), ("pc", "Am PC – für PS5"), ("std", "Am PC – frei"))
 # Seitenleiste: An der PS5 drei Seiten, am PC die beiden Modi
-NAV = (("An der PS5", (("ps5:format", "Formatieren"), ("ps5:games", "Spiele"), ("ps5:images", "Image-Sicherung"),
-                      ("ps5:saves", "Spielstände"))),
-       ("Am PC", (("pc", "Für die PS5 formatieren"), ("std", "Frei formatieren"))))
+NAV = (("Betriebsart", (("ps5", "An der PS5"), ("pc", "Am PC – für die PS5"), ("std", "Am PC – frei formatieren"))),)
+# Reiter im Modus "An der PS5" (wie in der Weboberfläche): Schlüssel der Seite, Beschriftung
+TABS = (("games", "Spiele"), ("pkg", "PKG"), ("saves", "Spielstände"), ("images", "Werkzeuge"), ("format", "Formatieren"))
 
 
 def find_payload():
@@ -148,6 +148,15 @@ class Api:
 
     def delete_games(self, keys, uninstall):
         return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall})
+
+    def speed(self, dev):
+        return self._call("/api/speed", self._dev(dev))
+
+    def check(self, dev, repair=False):
+        return self._call("/api/check", dict(self._dev(dev), repair=bool(repair)))
+
+    def set_label(self, dev, label):
+        return self._call("/api/label", dict(self._dev(dev), label=label))
 
     def move_games(self, keys, device, verify):
         """Spiele auf ein anderes Laufwerk kopieren (Auftrag "move"); die Originale bleiben"""
@@ -605,8 +614,8 @@ class App(tk.Tk):
         self.verify_var = tk.BooleanVar(value=self.settings.get("verify", False))
         self.folders_var = tk.BooleanVar(value=self.settings.get("folders", True))
         self.host_var = tk.StringVar(value=self.settings.get("host", ""))
-        self.page = self.settings.get("page") if self.settings.get("page") in ("format", "games", "images") \
-            else "format"
+        self.page = self.settings.get("page") if self.settings.get("page") in dict(TABS) else "games"
+        self.pkgs = {}             # Pakete je Laufwerk (aus /api/library: pkgfiles)
         self.fs_var = tk.StringVar(value="exFAT")
         self.cluster_var = tk.StringVar()
         saved_label = self.settings.get("label", "")   # die Eingabeprüfung greift nur beim Tippen
@@ -653,7 +662,8 @@ class App(tk.Tk):
                 b = ttk.Button(side, text=_(text), style="Nav.TButton", command=lambda k=key: self._nav(k))
                 b.pack(fill="x", pady=(0, px(2)))
                 self.nav_btns[key] = b
-                Tooltip(b, _("Strg+{n}", n=len(self.nav_btns)))
+                if key != "ps5":
+                    Tooltip(b, _("Strg+{n}", n=len(TABS) + len(self.nav_btns) - 1))
         self.mode_btns = list(self.nav_btns.values())
         self.conn_pill = ttk.Label(side, style="PillWarn.TLabel", text=_("Nicht verbunden"))
         self.conn_pill.pack(side="bottom", anchor="w", pady=(px(12), 0))
@@ -749,11 +759,34 @@ class App(tk.Tk):
         right = ttk.Frame(body, style="Page.TFrame")
         right.grid(row=0, column=1, sticky="nsew")
         right.columnconfigure(0, weight=1)
-        right.rowconfigure(0, weight=1)
+        right.rowconfigure(1, weight=1)
 
-        # -- Seite "Formatieren" (an der PS5 und am PC für die PS5)
-        fc = self.format_card = ui_theme.card(right)
-        fc.grid(row=0, column=0, sticky="nsew")
+        # -- Reiter: Spiele | PKG | Spielstände | Werkzeuge | Formatieren (nur an der PS5)
+        self.tabbar = ui_theme.card(right, padding=(8, 6))
+        self.tabbar.grid(row=0, column=0, sticky="ew", pady=(0, px(10)))
+        self.tab_btns = {}
+        for i, (key, text) in enumerate(TABS):
+            b = ttk.Button(self.tabbar, text=_(text), style="Tab.TButton", command=lambda k=key: self._set_tab(k))
+            b.pack(side="left", padx=(0, px(4)) if key != "format" else 0)
+            if key == "format":
+                b.pack_configure(side="right")
+            self.tab_btns[key] = b
+            Tooltip(b, _("Strg+{n}", n=i + 1))
+        self.mode_btns += list(self.tab_btns.values())
+
+        # -- Seite "Formatieren" (an der PS5 und am PC für die PS5): roter Rahmen mit Warnung, wie in der Weboberfläche
+        colors = ui_theme.colors()
+        fwrap = self.format_card = tk.Frame(right, background=colors["danger"], highlightthickness=0)
+        fwrap.grid(row=1, column=0, sticky="nsew")
+        banner = tk.Frame(fwrap, background=colors["danger_bg"])
+        banner.pack(fill="x", padx=1, pady=(1, 0))
+        tk.Label(banner, text="⚠  " + _("Formatieren löscht alle Daten auf diesem Laufwerk."), background=colors["danger_bg"],
+                 foreground=colors["danger"], font="UfBold", anchor="w", justify="left").pack(anchor="w", padx=px(14), pady=(px(9), 0))
+        self.fmt_drive_lbl = tk.Label(banner, text="", background=colors["danger_bg"], foreground=colors["text"],
+                                      anchor="w", justify="left")
+        self.fmt_drive_lbl.pack(anchor="w", padx=px(14), pady=(0, px(9)))
+        fc = ui_theme.card(fwrap)
+        fc.pack(fill="both", expand=True, padx=1, pady=(0, 1))
         fc.columnconfigure(1, weight=1)
         ttk.Label(fc, text=_("Dateisystem"), style="Muted.TLabel").grid(row=0, column=0, columnspan=2, sticky="w",
                                                                          pady=(0, px(6)))
@@ -790,7 +823,7 @@ class App(tk.Tk):
         # -- Seite "Spiele": wie "Inhalt" in der Weboberfläche - Kästchen und Titel, rechts Titel-ID · Format ·
         # Größe. Ein Klick auf die Zeile (oder die Leertaste) hakt an bzw. ab - kein Markieren mit Strg/Umschalt nötig
         gb = self.games_box = ui_theme.card(right)
-        gb.grid(row=0, column=0, sticky="nsew")
+        gb.grid(row=1, column=0, sticky="nsew")
         gb.columnconfigure(0, weight=1)
         gb.rowconfigure(1, weight=1)
         ghead = ttk.Frame(gb)
@@ -841,8 +874,26 @@ class App(tk.Tk):
         Tooltip(self.del_btn, lambda: self._why(self.del_btn) or _("Die angehakten Spiele vom Laufwerk löschen"))
 
         # -- Seite "Image-Sicherung" des Datenträgers an der PS5 (wie "Sichern & wiederherstellen" im Browser)
-        ic = self.img_row = ui_theme.card(right)
-        ic.grid(row=0, column=0, sticky="nsew")
+        iw = self.img_row = ttk.Frame(right, style="Page.TFrame")
+        iw.grid(row=1, column=0, sticky="nsew")
+        iw.columnconfigure(0, weight=1)
+        iw.rowconfigure(1, weight=1)
+        tc = self.tools_card = ui_theme.card(iw)
+        tc.grid(row=0, column=0, sticky="ew", pady=(0, px(12)))
+        tc.columnconfigure((0, 1, 2), weight=1, uniform="tl")
+        ttk.Label(tc, text=_("Werkzeuge").upper(), style="Section.TLabel").grid(row=0, column=0, columnspan=3, sticky="w",
+                                                                              pady=(0, px(8)))
+        self.ps5_speed_btn = ttk.Button(tc, text=_("Tempo messen"), command=self._ps5_speed)
+        self.ps5_speed_btn.grid(row=1, column=0, sticky="ew")
+        self.ps5_check_btn = ttk.Button(tc, text=_("Prüfen & reparieren"), command=self._ps5_check)
+        self.ps5_check_btn.grid(row=1, column=1, sticky="ew", padx=(px(6), 0))
+        self.ps5_rename_btn = ttk.Button(tc, text=_("Umbenennen"), command=self._ps5_rename)
+        self.ps5_rename_btn.grid(row=1, column=2, sticky="ew", padx=(px(6), 0))
+        Tooltip(self.ps5_speed_btn, lambda: self._why(self.ps5_speed_btn) or _("Lesetempo des Laufwerks messen (die Daten bleiben erhalten)"))
+        Tooltip(self.ps5_check_btn, lambda: self._why(self.ps5_check_btn) or _("exFAT prüfen und auf Wunsch reparieren"))
+        Tooltip(self.ps5_rename_btn, lambda: self._why(self.ps5_rename_btn) or _("Bezeichnung des Laufwerks ändern"))
+        ic = ui_theme.card(iw)
+        ic.grid(row=1, column=0, sticky="nsew")
         ic.columnconfigure(0, weight=1)
         ttk.Label(ic, text=_("Gewähltes Laufwerk als Image sichern oder ein Image zurückschreiben."),
                   style="Bold.TLabel", wraplength=px(440), justify="left").grid(row=0, column=0, sticky="w")
@@ -918,9 +969,31 @@ class App(tk.Tk):
         self.part_discard_btn.pack(side="left", padx=(px(8), 0))
         self.part_box.grid_remove()
 
+        # ---- PKG: Installationspakete des Laufwerks mit Plattform, PKG/fPKG, Update und Titel-ID (aus dem Paketkopf)
+        pk = self.pkg_card = ui_theme.card(right)
+        pk.grid(row=1, column=0, sticky="nsew")
+        pk.columnconfigure(0, weight=1)
+        pk.rowconfigure(1, weight=1)
+        self.pkg_caption = ttk.Label(pk, text=_("PKG-Dateien auf diesem Datenträger:"), style="Bold.TLabel")
+        self.pkg_caption.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, px(8)))
+        self.pkg_tree = ttk.Treeview(pk, columns=("meta",), show="tree", height=8, selectmode="browse",
+                                     style="Games.Treeview")
+        self.pkg_tree.column("#0", width=px(260), minwidth=120, stretch=True)
+        self.pkg_tree.column("meta", width=px(240), minwidth=120, anchor="e", stretch=False)
+        self.pkg_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
+        self.pkg_tree.tag_configure("fpkg", foreground=ui_theme.colors()["warn"])
+        self.pkg_tree.grid(row=1, column=0, sticky="nsew")
+        psb = ttk.Scrollbar(pk, orient="vertical", command=self.pkg_tree.yview)
+        psb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
+        self.pkg_tree.configure(yscrollcommand=psb.set)
+        self.pkg_hint = ttk.Label(pk, style="Hint.TLabel", wraplength=px(440), justify="left",
+                                  text=_("PS5-Pakete: fPKG hat eine Debug-Signatur im Kopf, ein offizielles PKG die offizielle. "
+                                         "Bei PS4-Paketen unterscheiden sich fPKG und PKG im Kopf nicht – dort steht nur PKG."))
+        self.pkg_hint.grid(row=2, column=0, columnspan=2, sticky="w", pady=(px(8), 0))
+
         # ---- Spielstände
         sc = self.saves_card = ui_theme.card(right)
-        sc.grid(row=0, column=0, sticky="nsew")
+        sc.grid(row=1, column=0, sticky="nsew")
         sc.columnconfigure(0, weight=1)
         ttk.Label(sc, text=_("PS5-Spielstände sichern und wiederherstellen."),
                   style="Bold.TLabel", wraplength=px(440), justify="left").grid(row=0, column=0, sticky="w")
@@ -998,31 +1071,43 @@ class App(tk.Tk):
         # alle Seiten gleich groß: das Fenster springt beim Umschalten nicht (der größte Bereich gibt das Maß vor)
         self.update_idletasks()
         content.columnconfigure(0, minsize=max(self.std_panel.winfo_reqwidth(), body.winfo_reqwidth()))
+        # ... und gleich hoch: der höchste Reiter gibt das Maß vor (das Fenster springt beim Wechseln nicht)
+        right.rowconfigure(1, minsize=max(w.winfo_reqheight() for w in (self.format_card, self.games_box, self.pkg_card,
+                                                                         self.img_row, self.saves_card)))
 
     def _nav(self, key):
-        """Seitenleiste: Bereich wechseln (An der PS5: Seite; Am PC: Modus)"""
+        """Seitenleiste: Betriebsart wechseln (An der PS5, Am PC – für die PS5, Am PC – frei); "ps5:<Seite>" wie ein Reiter"""
         if key.startswith("ps5:"):
-            self.page = key[4:]
-            self.settings["page"] = self.page
-            if self.mode_var.get() != "ps5":
-                self.mode_var.set("ps5")
-                self._mode_changed()
-            else:
-                save_settings(self.settings)
-                self._show_page()
-        elif key != self.mode_var.get():
+            return self._set_tab(key[4:])
+        if key != self.mode_var.get():
             self.mode_var.set(key)
             self._mode_changed()
+
+    def _set_tab(self, name):
+        """Reiter wechseln (An der PS5); steht ein anderer Modus, zuerst dorthin"""
+        if name not in dict(TABS):
+            return
+        self.page = name
+        self.settings["page"] = self.page
+        if self.mode_var.get() != "ps5":
+            self.mode_var.set("ps5")
+            self._mode_changed()
+        else:
+            save_settings(self.settings)
+            self._show_page()
 
     def _show_page(self):
         """Seitenleiste markieren, passende Karten zeigen, Überschrift setzen"""
         mode = self.mode_var.get()
-        key = "ps5:" + self.page if mode == "ps5" else mode
+        key = mode
         for k, b in self.nav_btns.items():
             b.configure(style="NavSel.TButton" if k == key else "Nav.TButton")
-        titles = {"ps5:format": _("Formatieren"), "ps5:games": _("Spiele"), "ps5:images": _("Image-Sicherung"),
-                  "ps5:saves": _("Spielstände"), "pc": _("Am PC – für PS5"), "std": _("Am PC – frei")}
-        self.page_title.configure(text=titles.get(key, ""))
+        for k, b in self.tab_btns.items():
+            sel = mode == "ps5" and k == self.page
+            b.configure(style=("TabDanger.TButton" if k == "format" else "TabSel.TButton") if sel else "Tab.TButton")
+        titles = {"ps5": dict(TABS).get(self.page, ""), "pc": _("Am PC – für die PS5"), "std": _("Am PC – frei")}
+        self.page_title.configure(text=_(titles.get(key, "")) if key == "ps5" else titles.get(key, ""))
+        self.tabbar.grid() if mode == "ps5" else self.tabbar.grid_remove()
         if mode == "std":
             self.ps5_body.grid_remove()
             self.status_card.grid_remove()
@@ -1036,7 +1121,7 @@ class App(tk.Tk):
         self.tools.grid_remove() if ps5 else self.tools.grid()
         self.ps5_warn.pack(side="bottom", anchor="w", pady=(ui_theme.px(8), 0)) if ps5 else self.ps5_warn.pack_forget()
         page = self.page if ps5 else "format"
-        for name, card in (("format", self.format_card), ("games", self.games_box),
+        for name, card in (("format", self.format_card), ("games", self.games_box), ("pkg", self.pkg_card),
                            ("images", self.img_row), ("saves", self.saves_card)):
             card.grid() if name == page else card.grid_remove()
         if page == "images" and self.api:
@@ -1049,11 +1134,13 @@ class App(tk.Tk):
             _("Erst oben mit der PS5 verbinden."))
 
     def _shortcuts(self):
-        """Tastenkürzel: F1 Anleitung, F5 neu einlesen, Strg+1 … 5 Seiten, Strg+F Spiele suchen"""
+        """Tastenkürzel: F1 Anleitung, F5 neu einlesen, Strg+1 … 5 Reiter, Strg+6/7 Betriebsart, Strg+F Spiele suchen"""
         self.bind_all("<F1>", lambda e: open_help(i18n.lang(), self))
         self.bind_all("<F5>", lambda e: self._key_ok() and self._f5())
-        for i, key in enumerate(self.nav_btns):
-            self.bind_all(f"<Control-Key-{i + 1}>", lambda e, k=key: self._key_ok() and self._nav(k))
+        for i, (key, _text) in enumerate(TABS):
+            self.bind_all(f"<Control-Key-{i + 1}>", lambda e, k=key: self._key_ok() and self._set_tab(k))
+        for i, key in enumerate(("pc", "std")):
+            self.bind_all(f"<Control-Key-{len(TABS) + i + 1}>", lambda e, k=key: self._key_ok() and self._nav(k))
         self.bind_all("<Control-f>", lambda e: self._key_ok() and self._find_game())
         self.bind_all("<Control-F>", lambda e: self._key_ok() and self._find_game())
         for seq in ("<Control-h>", "<Control-H>"):
@@ -1107,7 +1194,7 @@ class App(tk.Tk):
 
     def _find_game(self):
         if self.mode_var.get() != "ps5" or self.page != "games":
-            self._nav("ps5:games")
+            self._set_tab("games")
         self.game_search.focus_set()
         self.game_search.select_range(0, "end")
         return "break"
@@ -1193,6 +1280,57 @@ class App(tk.Tk):
         self.img_hint.configure(text=_("Noch keine Sicherung auf der PS5.") if not imgs else
                                 _("{n} Sicherungen – intern und auf eingebundenen USB-Laufwerken.", n=len(imgs)))
         self._update()
+
+    def _ps5_tool(self, title, start, done_title):
+        """Gemeinsamer Ablauf der Werkzeuge an der PS5: Rückfrage (start liefert den Aufruf), Auftrag, Meldung am Ende"""
+        dev = self._selected_device()
+        if self.busy or not dev or not self.api:
+            return
+        api = self.api
+
+        def shown(ok, msg, result):
+            (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
+            if ok and result.get("code") == 4 and not result.get("repair"):   # Fehler gefunden: Reparatur anbieten
+                if messagebox.askyesno(_("Reparieren"), _("Fehler gefunden. Jetzt reparieren?"), parent=self):
+                    self._ps5_check(repair=True)
+
+        def work():
+            try:
+                start(api, dev)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", str(e)))
+                return
+            self._follow(api, foreign=False, done_title=done_title, after=shown)
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _ps5_speed(self):
+        dev = self._selected_device()
+        if dev and not self.busy:
+            self._ps5_tool(_("Tempo messen"), lambda api, d: api.speed(d), _("Tempo gemessen."))
+
+    def _ps5_check(self, repair=False):
+        dev = self._selected_device()
+        if not dev or self.busy:
+            return
+        if repair and not messagebox.askokcancel(_("Reparieren"), self._replug_note(dev) + _("Das Dateisystem wird repariert."),
+                                                 parent=self):
+            return
+        self._ps5_tool(_("Reparieren") if repair else _("Prüfen"), lambda api, d: api.check(d, repair), _("Geprüft."))
+
+    def _ps5_rename(self):
+        dev = self._selected_device()
+        if not dev or self.busy:
+            return
+        from tkinter import simpledialog
+        label = simpledialog.askstring(_("Umbenennen"), _("Neue Bezeichnung (bis zu 11 Zeichen: A–Z, 0–9, Leerzeichen, - und _):"),
+                                       initialvalue=dev.get("label", ""), parent=self)
+        if label is None or not LABEL_RE.match(label):
+            if label is not None:
+                messagebox.showerror(_("Umbenennen"), _("Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (max. {n} Zeichen).", n=11), parent=self)
+            return
+        self._ps5_tool(_("Umbenennen"), lambda api, d: api.set_label(d, label), _("Umbenannt."))
 
     def _my_partials(self):
         dev = self._selected_device()
@@ -1686,6 +1824,9 @@ class App(tk.Tk):
 
         idle = not self.busy
         pc = self.mode_var.get() == "pc"
+        fdev = self._selected_device()
+        self.fmt_drive_lbl.configure(text=(f"{dev_title(fdev)} ({fdev.get('name') or fdev.get('disk', '')}, {fmt_size(fdev['size'])})"
+                                           if fdev and fdev.get("size") else _("Erst ein Laufwerk wählen.")))
 
         def enable(w, on, *extra):
             w.state(list(extra) + (["!disabled"] if on else ["disabled"]))
@@ -1708,6 +1849,10 @@ class App(tk.Tk):
         enable(self.start_btn, idle and dev and (self.mode_var.get() != "ps5" or formattable(dev)))
         enable(self.speed_btn, idle and dev)
         self._refresh_partials()
+        ps5dev = self.mode_var.get() == "ps5" and self.api and self._selected_device()
+        enable(self.ps5_speed_btn, idle and ps5dev)
+        enable(self.ps5_check_btn, idle and ps5dev and (ps5dev or {}).get("format") == "exFAT")
+        enable(self.ps5_rename_btn, idle and ps5dev and (ps5dev or {}).get("format") in ("exFAT", "FAT32"))
         enable(self.part_resume_btn, idle and not pc and self.api and self._part_selected())
         enable(self.part_discard_btn, idle and not pc and self.api and self._part_selected())
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
@@ -1809,6 +1954,29 @@ class App(tk.Tk):
         return {"text": self._ps5_dev_text(d), "title": dev_title(d), "size": fmt_size(d["size"]), "sub": sub,
                 "pills": pills, "used": used, "last": last_job_text(last) if last else ""}
 
+    def _show_pkgs(self):
+        """PKG-Reiter: Pakete des gewählten Laufwerks (Plattform, PKG/fPKG, Update, Titel-ID, Größe) + Zähler an den Reitern"""
+        dev = self._selected_device()
+        pkgs = sorted(self.pkgs.get(dev["name"], []), key=lambda x: (x.get("name") or "").lower()) \
+            if dev and self.mode_var.get() == "ps5" and dev.get("name") else []
+        rows = []
+        for pk in pkgs:
+            typ = pk.get("type") or "PKG"
+            bits = [typ] + [x for x in (pk.get("platform"), _("Update") if pk.get("update") else "", pk.get("title_id")) if x]
+            bits.append(fmt_size(pk.get("size", 0)))
+            rows.append((pk["path"], "  " + (pk.get("name") or pk["path"]), " · ".join(bits), typ == "fPKG"))
+        if rows != getattr(self, "_pkgs_shown", None):
+            self.pkg_tree.delete(*self.pkg_tree.get_children())
+            for i, (iid, name, meta, fake) in enumerate(rows):
+                tags = (("odd",) if i % 2 else ()) + (("fpkg",) if fake else ())
+                self.pkg_tree.insert("", "end", iid=iid, text=name, values=(meta,), tags=tags)
+            self._pkgs_shown = rows
+        self.pkg_caption.configure(text=_("PKG-Dateien auf diesem Datenträger: {n}", n=len(rows)) if rows
+                                   else _("Keine PKG-Dateien auf diesem Datenträger."))
+        games = self.games.get(dev["name"], []) if dev and dev.get("name") else []
+        self.tab_btns["games"].configure(text=_("Spiele") + (f" ({len(games)})" if games else ""))
+        self.tab_btns["pkg"].configure(text=_("PKG") + (f" ({len(rows)})" if rows else ""))
+
     def _show_games(self):
         """Spiele des gewählten PS5-Datenträgers in der Liste darunter. Während die PS5 sucht, kommt die Liste jede
         Sekunde neu: nur bei Änderungen neu aufbauen, Auswahl und Scrollstand bleiben"""
@@ -1852,6 +2020,7 @@ class App(tk.Tk):
         else:
             text = _("Spiele auf diesem Datenträger: keine gefunden")
         self.games_caption.configure(text=text)
+        self._show_pkgs()
 
     def _ensure_game_sizes(self, dev, games):
         """Ordner-Spiele haben erst eine Größe, wenn die PS5 sie ermittelt hat (jede Datei wird angesehen): einmal je Laufwerk
@@ -3121,6 +3290,11 @@ class App(tk.Tk):
                 for t in data.get("titles", []):
                     if t.get("device"):   # nur Datenträger, nicht der interne Ordner /data/homebrew
                         games.setdefault(t["device"], []).append(t)
+                pkgs = {}
+                for pk in data.get("pkgfiles", []) or []:
+                    if pk.get("device"):
+                        pkgs.setdefault(pk["device"], []).append(pk)
+                self.pkgs = pkgs
                 self.games = games
                 self.lib_known = True
                 if data.get("scanning"):

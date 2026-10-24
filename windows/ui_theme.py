@@ -323,6 +323,15 @@ def _build(root, style, c, s, m):
     button("NavSel.TButton", "Uf.NavSel.bg", c["accent_bg"], c["accent_bg"], c["accent_bg"], c["accent_bg"],
            c["accent"], c["disabled"])
     style.configure("NavSel.TButton", anchor="w", padding=(px(12), px(8)), font="UfBold")
+    # Reiter (An der PS5): wie die Seitenleiste, aber mittig; "Formatieren" in Warnfarbe
+    button("Tab.TButton", "Uf.Tab.bg", c["card"], c["hover"], c["press"], c["card"], c["muted"], c["disabled"])
+    style.configure("Tab.TButton", anchor="center", padding=(px(16), px(8)))
+    button("TabSel.TButton", "Uf.TabSel.bg", c["accent_bg"], c["accent_bg"], c["accent_bg"], c["accent_bg"],
+           c["accent"], c["disabled"])
+    style.configure("TabSel.TButton", anchor="center", padding=(px(16), px(8)), font="UfBold")
+    button("TabDanger.TButton", "Uf.TabDanger.bg", c["danger_bg"], c["danger_bg"], c["danger_bg"], c["danger_bg"],
+           c["danger"], c["disabled"])
+    style.configure("TabDanger.TButton", anchor="center", padding=(px(16), px(8)), font="UfBold")
     # Auswahl-Kacheln ("Wofür soll der Datenträger dienen?"): wählbar wie Optionsfelder
     button("Chip.TButton", "Uf.Chip.bg", c["card2"], c["hover"], c["press"], c["card"], c["text"], c["disabled"],
            stroke=c["border"], dis_stroke=c["border"], focus=c["border2"])
