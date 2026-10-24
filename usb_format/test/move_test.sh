@@ -53,13 +53,27 @@ DEV2=$(q '[r["device"] for r in d["roots"] if r["device"] != "'"$DEV1"'"][0]' <"
 [ -n "$DEV1" ] && [ -n "$DEV2" ] && [ "$DEV1" != "$DEV2" ] && ok "zwei Laufwerke ($DEV1 -> $DEV2)" || bad "Laufwerke" "$DEV1 $DEV2 $(cat "$W/lib" | head -c 400)"
 K=$(key "$A/Astro")
 
-# Pakete: .pkg-Dateien im Stamm und in Unterordnern (ps4/<Titel>, PS5-Updates/<Titel>) mit Plattform aus dem Kopf
-mkdir -p "$W/mnt/usb0/ps4/CUSA00001" "$W/mnt/usb0/PS5-Updates/PPSA00002"
-printf 'CNT0000' >"$W/mnt/usb0/ps4/CUSA00001/app.pkg"
-printf 'LIH0000' >"$W/mnt/usb0/PS5-Updates/PPSA00002/update.pkg"
-printf 'XXXX0000' >"$W/mnt/usb0/fremd.pkg"
+# Pakete: .pkg-Dateien im Stamm und in Unterordnern (ps4/<Titel>, PS5-Updates/<Titel>), Kopf wie bei der LibProsperoPkg gelesen:
+# PS4 (CNT): Titel-ID aus der Content-ID, Update an den Inhalts-Flags; PS5 (FIH/LIH): Byte 0x05 0x80 = PKG, sonst fPKG
+mkdir -p "$W/mnt/usb0/ps4/CUSA00001" "$W/mnt/usb0/PS5-Updates/CUSA00002"
+python3 - "$W/mnt/usb0" <<'PYEOF'
+import sys
+r = sys.argv[1]
+def cnt(path, cid, flags):
+    h = bytearray(0x200)
+    h[0:4] = b"CNT"; h[0x40:0x40 + len(cid)] = cid.encode(); h[0x78:0x7c] = flags.to_bytes(4, "big")
+    open(path, "wb").write(h)
+def fih(path, magic, signed):
+    h = bytearray(0x200); h[0:4] = magic; h[5] = signed
+    open(path, "wb").write(h)
+cnt(r + "/ps4/CUSA00001/app.pkg", "EP0001-CUSA00001_00-TESTGAME00000000", 0x0A000000)
+cnt(r + "/PS5-Updates/CUSA00002/update.pkg", "UP0002-CUSA00002_00-TESTGAME00000000", 0x42240000)
+fih(r + "/UP1018-PPSA16833_00-LEGO-4xx.pkg", b"LIH", 0x00)
+fih(r + "/offiziell_PPSA00003.pkg", b"FIH", 0x80)
+open(r + "/fremd.pkg", "wb").write(b"XXXX" * 64)
+PYEOF
 library
-[ "$(q 'sorted((p["name"], p["platform"]) for p in d["pkgfiles"])' <"$W/lib")" = "[('app.pkg', 'PS4'), ('fremd.pkg', ''), ('update.pkg', 'PS5')]" ]     && ok "PKG-Liste: Plattform aus dem Kopf (PS4, PS5, unbekannt), auch in Unterordnern" || bad "PKG-Liste" "$(q 'd["pkgfiles"]' <"$W/lib")"
+[ "$(q 'sorted((p["name"], p["platform"], p["type"], p["title_id"], p["update"]) for p in d["pkgfiles"])' <"$W/lib")" = "[('UP1018-PPSA16833_00-LEGO-4xx.pkg', 'PS5', 'fPKG', 'PPSA16833', False), ('app.pkg', 'PS4', '', 'CUSA00001', False), ('fremd.pkg', '', '', '', False), ('offiziell_PPSA00003.pkg', 'PS5', 'PKG', 'PPSA00003', False), ('update.pkg', 'PS4', '', 'CUSA00002', True)]" ]     && ok "PKG-Liste: Plattform, PKG/fPKG (PS5 an der Signatur), Titel-ID, Update (PS4 an den Flags)" || bad "PKG-Liste" "$(q 'd["pkgfiles"]' <"$W/lib")"
 [ "$(q 'all("ext" in t for t in d["titles"])' <"$W/lib")" = True ] && ok "Titel tragen das Feld ext" || bad "ext fehlt"
 
 # ---------------------------------------------------------------- Kopieren mit Prüfen

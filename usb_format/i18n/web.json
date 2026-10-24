@@ -1955,12 +1955,6 @@
   "es": "No hay archivos PKG en esta unidad.",
   "fr": "Aucun fichier PKG sur ce lecteur."
  },
- "Ob ein Paket ein fPKG oder ein offizielles PKG ist, lässt sich aus der Datei nicht sicher erkennen.": {
-  "en": "Whether a package is an fPKG or an official PKG cannot be told reliably from the file.",
-  "it": "Dal file non si può stabilire con certezza se un pacchetto sia un fPKG o un PKG ufficiale.",
-  "es": "Por el archivo no se puede saber con seguridad si un paquete es un fPKG o un PKG oficial.",
-  "fr": "Le fichier ne permet pas de savoir avec certitude si un paquet est un fPKG ou un PKG officiel."
- },
  "Erst ein Laufwerk wählen.": {
   "en": "Choose a drive first.",
   "it": "Scegli prima un'unità.",
@@ -2074,5 +2068,17 @@
   "it": "Non scartato",
   "es": "No descartada",
   "fr": "Non supprimée"
+ },
+ "Update": {
+  "en": "Update",
+  "it": "Aggiornamento",
+  "es": "Actualización",
+  "fr": "Mise à jour"
+ },
+ "PS5-Pakete: fPKG hat eine Debug-Signatur im Kopf, ein offizielles PKG die offizielle. Bei PS4-Paketen unterscheiden sich fPKG und PKG im Kopf nicht – dort steht nur PKG.": {
+  "en": "PS5 packages: an fPKG has a debug signature in its header, an official PKG the official one. For PS4 packages fPKG and PKG do not differ in the header – they are only shown as PKG.",
+  "it": "Pacchetti PS5: un fPKG ha una firma di debug nell'intestazione, un PKG ufficiale quella ufficiale. Nei pacchetti PS4 fPKG e PKG non si distinguono nell'intestazione – vengono mostrati solo come PKG.",
+  "es": "Paquetes de PS5: un fPKG tiene una firma de depuración en la cabecera y un PKG oficial la oficial. En los paquetes de PS4 fPKG y PKG no se distinguen en la cabecera: solo se muestra PKG.",
+  "fr": "Paquets PS5 : un fPKG a une signature de débogage dans l'en-tête, un PKG officiel la signature officielle. Pour les paquets PS4, fPKG et PKG ne diffèrent pas dans l'en-tête : seul PKG est affiché."
  }
 }

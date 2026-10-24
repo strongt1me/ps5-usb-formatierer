@@ -1340,7 +1340,11 @@ static void api_library(int c, int refresh) {
             sb_str(&b, nm ? nm + 1 : pk->path);
             sb_add(&b, ",\"platform\":");
             sb_str(&b, pk->platform);
-            sb_add(&b, ",\"size\":%llu,\"device\":", (unsigned long long)pk->size);
+            sb_add(&b, ",\"type\":");
+            sb_str(&b, pk->type);
+            sb_add(&b, ",\"title_id\":");
+            sb_str(&b, pk->title_id);
+            sb_add(&b, ",\"update\":%s,\"size\":%llu,\"device\":", pk->update ? "true" : "false", (unsigned long long)pk->size);
             sb_str(&b, lib_snap[i].device);
             sb_add(&b, "}");
         }

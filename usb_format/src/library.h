@@ -20,6 +20,9 @@ typedef struct {
 typedef struct {
     char     path[256];
     char     platform[4];  /* "PS4" (Kopf 7F 43 4E 54), "PS5" (7F 4C 49 48 bzw. 7F 46 49 48) oder "" */
+    char     type[8];      /* PS5: "PKG" (offiziell signiert, Byte 0x05 = 0x80) oder "fPKG" (Debug-Signatur); PS4: "" (aus dem Kopf nicht zu erkennen) */
+    char     title_id[12]; /* aus der Content-ID im Kopf (PS4) bzw. dem Dateinamen, sonst leer */
+    int      update;       /* PS4: Patch laut Inhalts-Flags (0x40000000 = Folgepatch, 0x00100000 = erster Patch) */
     uint64_t size;
 } lib_pkg_t;
 

@@ -402,6 +402,40 @@ static void image_game(lib_root_t *r, const char *path, const char *fname, uint6
     else base_name(t->name, sizeof(t->name), fname);
 }
 
+/* Kopf eines Pakets lesen (wie die LibProsperoPkg es tut): PS4/CNT (7F 43 4E 54, Big-Endian) mit Content-ID bei 0x40 und Inhalts-Flags bei
+ * 0x78; PS5 (7F 46 49 48 "FIH", auch 7F 4C 49 48 "LIH"): Byte 0x05 = 0x80 offiziell signiert, 0x00 Debug-Signatur (= fPKG). Eine PS4-fPKG
+ * lässt sich vom offiziellen Paket im Kopf nicht unterscheiden (gleiche DRM-/Inhaltstypen). */
+static void pkg_read_header(lib_pkg_t *p, const char *fname) {
+    uint8_t h[0x80];
+    int fd = open(p->path, O_RDONLY);
+    ssize_t n = fd >= 0 ? read(fd, h, sizeof(h)) : -1;
+    if (fd >= 0) close(fd);
+    if (n == (ssize_t)sizeof(h) && h[0] == 0x7F && h[1] == 'C' && h[2] == 'N' && h[3] == 'T') {
+        copy_str(p->platform, sizeof(p->platform), "PS4");
+        const uint32_t flags = (uint32_t)h[0x78] << 24 | (uint32_t)h[0x79] << 16 | (uint32_t)h[0x7A] << 8 | h[0x7B];
+        p->update = (flags & 0x40000000u) || (flags & 0x00100000u);
+        char cid[0x25];
+        memcpy(cid, h + 0x40, 0x24);
+        cid[0x24] = 0;
+        const char *dash = strchr(cid, '-');   /* "EP0001-CUSA00775_00-TETRISGAME000000": Titel-ID hinter dem ersten Strich */
+        if (dash && strlen(dash) >= 10 && (!strncmp(dash + 1, "CUSA", 4) || !strncmp(dash + 1, "PPSA", 4))) {
+            memcpy(p->title_id, dash + 1, 9);
+            p->title_id[9] = 0;
+        }
+    } else if (n == (ssize_t)sizeof(h) && h[0] == 0x7F && (h[1] == 'F' || h[1] == 'L') && h[2] == 'I' && h[3] == 'H') {
+        copy_str(p->platform, sizeof(p->platform), "PS5");
+        copy_str(p->type, sizeof(p->type), h[5] == 0x80 ? "PKG" : "fPKG");
+    }
+    if (!p->title_id[0]) {   /* Dateiname: "…PPSA16833_00…" bzw. "CUSA15884 - …" */
+        for (const char *c = fname; *c; c++)
+            if ((!strncmp(c, "CUSA", 4) || !strncmp(c, "PPSA", 4)) && strspn(c + 4, "0123456789") >= 5) {
+                memcpy(p->title_id, c, 9);
+                p->title_id[9] = 0;
+                break;
+            }
+    }
+}
+
 /* games: Spiele-Ordner und Abbilder suchen; pkgs: .pkg-Dateien zählen */
 static void scan_dir(lib_root_t *r, const char *dir, int games, int pkgs, char *buf) {
     DIR *d = opendir(dir);
@@ -430,13 +464,7 @@ static void scan_dir(lib_root_t *r, const char *dir, int games, int pkgs, char *
                         memset(p, 0, sizeof(*p));
                         copy_str(p->path, sizeof(p->path), path);
                         p->size = (uint64_t)st.st_size;
-                        uint8_t m[4];
-                        int fd = open(path, O_RDONLY);
-                        if (fd >= 0 && read(fd, m, 4) == 4) {
-                            if (m[0] == 0x7F && m[1] == 'C' && m[2] == 'N' && m[3] == 'T') copy_str(p->platform, sizeof(p->platform), "PS4");
-                            else if (m[0] == 0x7F && (m[1] == 'L' || m[1] == 'F') && m[2] == 'I' && m[3] == 'H') copy_str(p->platform, sizeof(p->platform), "PS5");
-                        }
-                        if (fd >= 0) close(fd);
+                        pkg_read_header(p, e->d_name);
                     }
                 }
             }
