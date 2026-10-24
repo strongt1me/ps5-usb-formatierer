@@ -22,6 +22,7 @@ typedef struct {
     char     platform[8];   /* "PS5" (savedata_prospero) oder "PS4" (savedata: Container sdimg_<Name> + <Name>.bin) */
     char     key_path[512]; /* PS4: die Schlüsseldatei <Name>.bin (96 Byte, verschlüsselter Schlüssel), sonst leer */
     uint64_t size;
+    time_t   mtime;         /* Änderungszeit des Containers (= die der PS5-Datenbank) */
 } save_info_t;
 
 /* Namen aus Ordnern und aus hochgeladenen Metadaten dürfen nur Buchstaben, Ziffern, "_", "-" und "." enthalten,
@@ -46,8 +47,9 @@ typedef int (*saves_prog_fn)(void *ctx, uint64_t done, uint64_t total);   /* Rü
  * -2 = Fehler mitten im Strom (Antwort bewusst ohne Abschluss, der Aufrufer schließt die Verbindung). */
 int  saves_download(int sock, const save_info_t *list, int n, char *err, size_t errsz);
 
-/* Spielstand als ZIP in <root>/<Benutzer>_<uid>/<Titel>_<Name>.zip schreiben (erst daneben, dann umbenannt; eine vorhandene
- * Sicherung desselben Spielstands wird ersetzt). out = Pfad der Datei. 0 = ok, sonst Fehlertext in err */
+/* Spielstand als ZIP in <root>/<Benutzer>_<uid>/<Titel>_<Name>.zip schreiben (erst daneben, dann umbenannt). Eine vorhandene
+ * Sicherung desselben Spielstands bleibt als Vorversion <Titel>_<Name>.<JJJJMMTT-HHMMSS>.zip erhalten; es bleiben die neueste und
+ * die zwei davor (BACKUP_KEEP), ältere Vorversionen werden gelöscht. out = Pfad der Datei. 0 = ok, sonst Fehlertext in err */
 int  saves_backup_file(const save_info_t *s, const char *root, char *out, size_t outsz, saves_prog_fn prog, void *pctx,
                        char *err, size_t errsz);
 
@@ -65,7 +67,8 @@ typedef struct {
     char     path[600];
     char     uid[16], username[64], title_id[32], title_name[256], save_dir[256], platform[8];
     uint64_t size;
-    time_t   mtime;
+    time_t   mtime;         /* Zeit der Sicherungsdatei */
+    int64_t  save_mtime;    /* Änderungszeit des Spielstands zum Zeitpunkt der Sicherung (0 = unbekannt, ältere Sicherungen) */
 } save_backup_t;
 int  saves_list_backups(const char *root, save_backup_t **out, int *count);
 

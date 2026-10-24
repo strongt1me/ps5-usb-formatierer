@@ -1792,5 +1792,53 @@
   "it": "{n} salvataggi",
   "es": "{n} partidas",
   "fr": "{n} sauvegardes"
+ },
+ "noch nie gesichert": {
+  "en": "never backed up",
+  "it": "mai salvato",
+  "es": "nunca guardado",
+  "fr": "jamais sauvegardé"
+ },
+ "gesichert am {date}": {
+  "en": "backed up on {date}",
+  "it": "salvato il {date}",
+  "es": "guardado el {date}",
+  "fr": "sauvegardé le {date}"
+ },
+ "seit der Sicherung vom {date} geändert": {
+  "en": "changed since the backup of {date}",
+  "it": "modificato dopo il backup del {date}",
+  "es": "modificado desde la copia del {date}",
+  "fr": "modifié depuis la sauvegarde du {date}"
+ },
+ "{n} ohne aktuelle Sicherung": {
+  "en": "{n} without a current backup",
+  "it": "{n} senza backup aggiornato",
+  "es": "{n} sin copia actual",
+  "fr": "{n} sans sauvegarde à jour"
+ },
+ "alle gesichert": {
+  "en": "all backed up",
+  "it": "tutti salvati",
+  "es": "todo guardado",
+  "fr": "tout sauvegardé"
+ },
+ "entspricht dem aktuellen Stand": {
+  "en": "matches the current save",
+  "it": "corrisponde allo stato attuale",
+  "es": "coincide con el estado actual",
+  "fr": "correspond à l'état actuel"
+ },
+ "älter als der aktuelle Stand": {
+  "en": "older than the current save",
+  "it": "più vecchio dello stato attuale",
+  "es": "más antiguo que el estado actual",
+  "fr": "plus ancien que l'état actuel"
+ },
+ "neuer als der aktuelle Stand": {
+  "en": "newer than the current save",
+  "it": "più recente dello stato attuale",
+  "es": "más reciente que el estado actual",
+  "fr": "plus récent que l'état actuel"
  }
 }

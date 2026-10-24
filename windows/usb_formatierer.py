@@ -334,7 +334,39 @@ def port_open(host, port, timeout=1.0):
         return False
 
 
-def ask_backups(root, backups, locations=()):
+def _same_save(b, x):
+    return (b.get("uid") == x.get("uid") and b.get("title_id") == x.get("title_id") and b.get("save_dir") == x.get("save_dir")
+            and (b.get("platform") or "PS5") == (x.get("platform") or "PS5"))
+
+
+def _when(t):
+    return time.strftime("%x %H:%M", time.localtime(t or 0))
+
+
+def save_backup_state(save, backups):
+    """(Text, Warnung) zum Stand der Sicherung eines Spielstands; None, solange die Sicherungen nicht geladen sind"""
+    if backups is None:
+        return None
+    mine = [b for b in backups if _same_save(b, save)]
+    if not mine:
+        return _("noch nie gesichert"), True
+    b = max(mine, key=lambda x: x.get("time") or 0)
+    if (b.get("save_mtime") or 0) > 0 and (save.get("mtime") or 0) > b["save_mtime"] + 1:
+        return _("seit der Sicherung vom {date} geändert", date=_when(b.get("time"))), True
+    return _("gesichert am {date}", date=_when(b.get("time"))), False
+
+
+def backup_vs_current(b, saves):
+    """Vergleich einer Sicherung mit dem Spielstand, wie er jetzt auf der PS5 liegt (leer, wenn unbekannt)"""
+    cur = next((x for x in saves if _same_save(b, x)), None)
+    if not cur or not (b.get("save_mtime") or 0) > 0 or not (cur.get("mtime") or 0) > 0:
+        return ""
+    if abs(cur["mtime"] - b["save_mtime"]) <= 1:
+        return _("entspricht dem aktuellen Stand")
+    return _("älter als der aktuelle Stand") if b["save_mtime"] < cur["mtime"] else _("neuer als der aktuelle Stand")
+
+
+def ask_backups(root, backups, locations=(), saves=()):
     """Gefundene Sicherungen (nach Benutzer gruppiert, mehrere markierbar). Liefert ("paths", [Pfade]), ("file", None)
     für "Datei vom PC wählen …" oder None (abgebrochen)."""
     px = ui_theme.px
@@ -374,7 +406,7 @@ def ask_backups(root, backups, locations=()):
             for b in items:
                 when = time.strftime("%x %H:%M", time.localtime(b.get("time") or 0))
                 tree.insert(f"u{ui}", "end", iid=b["path"], text=b.get("title_name") or b.get("title_id", ""),
-                            values=(" · ".join(x for x in (b.get("platform") or "PS5", fmt_size(b.get("size", 0)), when, b.get("save_dir", "").removeprefix("sdimg_"), where_of(b)) if x),),
+                            values=(" · ".join(x for x in (b.get("platform") or "PS5", fmt_size(b.get("size", 0)), when, b.get("save_dir", "").removeprefix("sdimg_"), where_of(b), backup_vs_current(b, saves)) if x),),
                             image=imgs[False])
 
     ok_btn = ttk.Button(frm, text=_("Wiederherstellen"), style="Accent.TButton")
@@ -388,10 +420,23 @@ def ask_backups(root, backups, locations=()):
         kids = tree.get_children(iid)
         if kids:   # Benutzerzeile: alle seine Sicherungen
             on = not all(k in checked for k in kids)
+            seen = []   # von mehreren Versionen desselben Spielstands nur die neueste (die Liste ist je Spielstand neueste zuerst)
             for k in kids:
+                b = next(x for x in backups if x["path"] == k)
+                if on and any(_same_save(b, o) for o in seen):
+                    (checked.discard)(k)
+                    tree.item(k, image=imgs[False])
+                    continue
+                seen.append(b)
                 (checked.add if on else checked.discard)(k)
                 tree.item(k, image=imgs[on])
         else:
+            if iid not in checked:   # höchstens eine Version je Spielstand
+                me = next(x for x in backups if x["path"] == iid)
+                for o in backups:
+                    if o["path"] in checked and o["path"] != iid and _same_save(o, me):
+                        checked.discard(o["path"])
+                        tree.item(o["path"], image=imgs[False])
             (checked.discard if iid in checked else checked.add)(iid)
             tree.item(iid, image=imgs[iid in checked])
         sync()
@@ -791,16 +836,18 @@ class App(tk.Tk):
         self.saves_all_chk = ttk.Checkbutton(sf, text=_("Alle auswählen"), variable=self.saves_all_var,
                                              command=self._saves_all_toggle)
         self.saves_all_chk.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, px(4)))
-        self.saves_tree = ttk.Treeview(sf, columns=("user", "console", "size"), show="tree headings", height=6,
+        self.saves_tree = ttk.Treeview(sf, columns=("user", "console", "size", "backup"), show="tree headings", height=6,
                                        selectmode="none", style="Games.Treeview")
         self.saves_tree.heading("#0", text=_("Spiel"), anchor="w")
         self.saves_tree.heading("user", text=_("Benutzer"), anchor="w")
         self.saves_tree.heading("console", text=_("Konsole"), anchor="w")
         self.saves_tree.heading("size", text=_("Größe"), anchor="w")
+        self.saves_tree.heading("backup", text=_("Sicherung"), anchor="w")
         self.saves_tree.column("#0", width=px(210), minwidth=120, anchor="w", stretch=True)
         self.saves_tree.column("user", width=px(100), minwidth=70, anchor="w", stretch=False)
         self.saves_tree.column("console", width=px(60), minwidth=45, anchor="w", stretch=False)
         self.saves_tree.column("size", width=px(80), minwidth=60, anchor="w", stretch=False)
+        self.saves_tree.column("backup", width=px(190), minwidth=100, anchor="w", stretch=False)
         self.saves_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
         self.saves_tree.grid(row=1, column=0, sticky="nsew")
         ssb = ttk.Scrollbar(sf, orient="vertical", command=self.saves_tree.yview)
@@ -818,6 +865,7 @@ class App(tk.Tk):
         self.saves_down_btn.pack(side="left")
         self.saves_rest_btn = ttk.Button(sa, text=_("Wiederherstellen …"), command=self._saves_restore)
         self.saves_rest_btn.pack(side="left", padx=(px(8), 0))
+        self._saves_backups = None   # gefundene Sicherungen (None: noch nicht geladen)
         self._saves_data = []      # [{key, title_id, title_name, save_dir, uid, username, size}]
         self._saves_users = []     # [{uid, username}]
 
@@ -1088,6 +1136,11 @@ class App(tk.Tk):
                 self.q.put(("saves_loaded", saves, users))
             except (ConnectionError, ApiError) as e:
                 self.q.put(("saves_loaded_err", str(e)))
+                return
+            try:   # wann wurde was zuletzt gesichert? (liest Dateien auf der PS5, darum nachträglich)
+                self.q.put(("saves_backups", api.saves_backups()[0]))
+            except (ConnectionError, ApiError):
+                self.q.put(("saves_backups", None))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1121,19 +1174,21 @@ class App(tk.Tk):
             first = items[0]
             name = first.get("title_name") or first.get("title_id", "")
             who = first.get("username") or first.get("uid", "")
+            st1 = [save_backup_state(x, self._saves_backups) for x in items]
             if len(items) == 1:
                 tree.insert("", "end", iid=first["key"], text=name,
-                            values=(who, plat or "PS5", fmt_size(first["size"]) if first.get("size") else ""),
+                            values=(who, plat or "PS5", fmt_size(first["size"]) if first.get("size") else "", st1[0][0] if st1[0] else ""),
                             image=self.check_imgs[first["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
             else:
                 gid = f"g:{uid}/{tid}/{plat}"
                 tree.insert("", "end", iid=gid, text=name, open=False,
-                            values=(who, plat or "PS5", fmt_size(sum(x.get("size", 0) for x in items))),
+                            values=(who, plat or "PS5", fmt_size(sum(x.get("size", 0) for x in items)),
+                                    "" if st1[0] is None else (_("{n} ohne aktuelle Sicherung", n=sum(1 for z in st1 if z[1])) if any(z[1] for z in st1) else _("alle gesichert"))),
                             image=self.check_imgs[all(x["key"] in self.saves_checked for x in items)],
                             tags=("odd",) if n % 2 else ())
-                for x in items:
+                for x, sx in zip(items, st1):
                     tree.insert(gid, "end", iid=x["key"], text=x["save_dir"].removeprefix("sdimg_"),
-                                values=("", "", fmt_size(x["size"]) if x.get("size") else ""),
+                                values=("", "", fmt_size(x["size"]) if x.get("size") else "", sx[0] if sx else ""),
                                 image=self.check_imgs[x["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
             n += 1
         self.saves_hint.configure(text="" if shown else _("Keine Spielstände gefunden."))
@@ -1272,7 +1327,7 @@ class App(tk.Tk):
         except (ConnectionError, ApiError) as e:
             messagebox.showerror(_("Spielstand wiederherstellen"), str(e), parent=self)
             return
-        res = ask_backups(self, backups, locations)
+        res = ask_backups(self, backups, locations, self._saves_data)
         if not res:
             return
         kind, paths = res
@@ -2668,6 +2723,9 @@ class App(tk.Tk):
             self._update()
         elif kind == "saves_loaded":
             self._fill_saves(msg[1], msg[2])
+        elif kind == "saves_backups":
+            self._saves_backups = msg[1]
+            self._render_saves_tree()
         elif kind == "saves_loaded_err":
             self.saves_hint.configure(text=msg[1])
         elif kind == "saves_msg":

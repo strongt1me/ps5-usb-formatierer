@@ -385,6 +385,7 @@ int saves_scan(save_info_t **out, int *count) {
                 scpy(s->username, sizeof(s->username), username);
                 snprintf(s->key, sizeof(s->key), "%s/%s/%s%s", s->uid, s->title_id, s->save_dir, ps4 ? "#PS4" : "");
                 s->size = (uint64_t)st.st_size;
+                s->mtime = st.st_mtime;
                 scpy(s->platform, sizeof(s->platform), ps4 ? "PS4" : "PS5");
                 if (ps4) scpy(s->key_path, sizeof(s->key_path), kpath);
                 if (strcmp(last_tid, s->title_id) != 0) {
@@ -696,6 +697,50 @@ done:
     return rc;
 }
 
+#define BACKUP_KEEP 3   /* je Spielstand und Ort: die neueste Sicherung und die zwei davor */
+
+/* Vorversion: Name endet auf ".<JJJJMMTT-HHMMSS>.zip" hinter dem Präfix "<Titel>_<Name>" */
+static int is_version_name(const char *name, const char *prefix) {
+    size_t pl = strlen(prefix);
+    if (strncmp(name, prefix, pl) != 0 || name[pl] != '.' || strlen(name) != pl + 1 + 15 + 4 || strcmp(name + pl + 16, ".zip") != 0)
+        return 0;
+    for (int i = 0; i < 15; i++)
+        if (i == 8 ? name[pl + 1 + i] != '-' : !isdigit((unsigned char)name[pl + 1 + i])) return 0;
+    return 1;
+}
+
+static int cmp_str_desc(const void *a, const void *b) { return strcmp((const char *)b, (const char *)a); }
+
+/* Die bisherige Sicherung (final_path) als Vorversion beiseitelegen und alte Vorversionen entfernen. Fehler hier lassen die
+ * neue Sicherung nicht scheitern: im schlimmsten Fall wird die alte wie früher ersetzt. */
+static void rotate_backups(const char *dir, const char *prefix, const char *final_path) {
+    struct stat st;
+    if (stat(final_path, &st) == 0 && S_ISREG(st.st_mode)) {
+        struct tm tmv;
+        char stamp[24], old[1400];
+        time_t t = st.st_mtime;
+        gmtime_r(&t, &tmv);
+        strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", &tmv);
+        if (!path_fmt(old, sizeof(old), "%s/%s.%s.zip", dir, prefix, stamp)) (void)rename(final_path, old);
+    }
+    DIR *d = opendir(dir);
+    if (!d) return;
+    char (*names)[320] = malloc(sizeof(*names) * 256);
+    int n = 0;
+    struct dirent *e;
+    while (names && (e = readdir(d)) && n < 256)
+        if (is_version_name(e->d_name, prefix) && strlen(e->d_name) < sizeof(*names)) scpy(names[n++], sizeof(*names), e->d_name);
+    closedir(d);
+    if (names && n > BACKUP_KEEP - 1) {
+        qsort(names, (size_t)n, sizeof(*names), cmp_str_desc);   /* neueste zuerst */
+        for (int i = BACKUP_KEEP - 1; i < n; i++) {
+            char p[1400];
+            if (!path_fmt(p, sizeof(p), "%s/%s", dir, names[i])) unlink(p);
+        }
+    }
+    free(names);
+}
+
 int saves_backup_file(const save_info_t *s, const char *root, char *out, size_t outsz, saves_prog_fn prog, void *pctx,
                       char *err, size_t errsz) {
     if (op_read(err, errsz)) return -1;
@@ -731,6 +776,10 @@ int saves_backup_file(const save_info_t *s, const char *root, char *out, size_t 
     }
     if (close(fd) != 0) { fd = -1; snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno)); goto done; }
     fd = -1;
+    {
+        char prefix[600];
+        if (!path_fmt(prefix, sizeof(prefix), "%s_%s", s->title_id, s->save_dir)) rotate_backups(dir, prefix, final_path);
+    }
     if (rename(tmp, final_path) != 0) {
         snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
         goto done;
@@ -1121,7 +1170,9 @@ static int cmp_backups(const void *a, const void *b) {
     int c = strcmp(x->username, y->username);
     if (c) return c;
     c = strcmp(x->title_name, y->title_name);
-    return c ? c : strcmp(x->save_dir, y->save_dir);
+    if (!c) c = strcmp(x->save_dir, y->save_dir);
+    if (c) return c;
+    return x->mtime < y->mtime ? 1 : x->mtime > y->mtime ? -1 : 0;   /* gleiche Sicherung: neueste zuerst */
 }
 
 int saves_list_backups(const char *root, save_backup_t **out, int *count) {
@@ -1172,6 +1223,9 @@ int saves_list_backups(const char *root, save_backup_t **out, int *count) {
                         scpy(b->title_name, sizeof(b->title_name), b->title_id);
                     b->size = (uint64_t)st.st_size;
                     b->mtime = st.st_mtime;
+                    char mt[24] = "";
+                    if (meta_get(meta, "mtime", mt, sizeof(mt)) == 0 && strlen(mt) < 12 && strspn(mt, "0123456789") == strlen(mt))
+                        b->save_mtime = (int64_t)strtoll(mt, NULL, 10);
                     n++;
                 }
             }

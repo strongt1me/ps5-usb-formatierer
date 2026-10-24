@@ -2885,7 +2885,7 @@ static void api_saves(int c) {
         sb_str(&b, saves[i].username);
         sb_add(&b, ",\"platform\":");
         sb_str(&b, saves[i].platform);
-        sb_add(&b, ",\"size\":%llu}", (unsigned long long)saves[i].size);
+        sb_add(&b, ",\"size\":%llu,\"mtime\":%lld}", (unsigned long long)saves[i].size, (long long)saves[i].mtime);
     }
     sb_add(&b, "]}");
     free(saves);
@@ -3035,7 +3035,8 @@ static void api_saves_backups(int c) {
             sb_str(&b, bk[k].save_dir);
             sb_add(&b, ",\"platform\":");
             sb_str(&b, bk[k].platform);
-            sb_add(&b, ",\"size\":%llu,\"time\":%lld}", (unsigned long long)bk[k].size, (long long)bk[k].mtime);
+            sb_add(&b, ",\"size\":%llu,\"time\":%lld,\"save_mtime\":%lld}", (unsigned long long)bk[k].size, (long long)bk[k].mtime,
+                   (long long)bk[k].save_mtime);
         }
         free(bk);
     }

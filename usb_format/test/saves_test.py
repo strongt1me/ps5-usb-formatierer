@@ -7,6 +7,7 @@ import http.client
 import io
 import json
 import os
+import re
 import shutil
 import signal
 import struct
@@ -309,6 +310,24 @@ try:
     [t.start() for t in ts]
     [t.join() for t in ts]
     check("vier gleichzeitige Downloads: alle 200", all(s2 == 200 and n > 1000 for s2, n in r2), str(r2))
+
+    print("== Versionen der Sicherung ==")
+    zdir = os.path.dirname(z1)
+    for i in range(4):   # die bisherige Sicherung zeitlich verschieben: sonst tragen die Vorversionen denselben Zeitstempel
+        os.utime(z1, (1700000000 + i * 100000,) * 2)
+        st, j = jreq("POST", "/api/saves/backup?lang=en", {"keys": K1, "dest": dest})
+        wait_job()
+    vers = sorted(f for f in os.listdir(zdir) if f.startswith("PPSA01234_sdimg_SAVEDATA00.") and f.endswith(".zip") and f != os.path.basename(z1))
+    check("Sichern behält die neueste und zwei Vorversionen", os.path.exists(z1) and len(vers) == 2, str(vers))
+    check("Vorversionen heißen <Titel>_<Name>.<JJJJMMTT-HHMMSS>.zip", all(re.fullmatch(r"PPSA01234_sdimg_SAVEDATA00\.\d{8}-\d{6}\.zip", v) for v in vers), str(vers))
+    check("Vorversionen sind gültige ZIPs", all(zipfile.ZipFile(os.path.join(zdir, v)).testzip() is None for v in vers))
+    st, j = jreq("GET", "/api/saves/backups")
+    mine = [b for b in j["backups"] if b["title_id"] == "PPSA01234" and b["save_dir"] == "sdimg_SAVEDATA00"]
+    check("Liste: drei Einträge dieser Sicherung, neueste zuerst", len(mine) == 3 and mine[0]["path"] == z1 and mine[0]["time"] >= mine[1]["time"] >= mine[2]["time"], str(mine)[:300])
+    check("Liste und Spielstände tragen die Änderungszeit des Spielstands", all(isinstance(b.get("save_mtime"), int) and b["save_mtime"] > 0 for b in mine)
+          and isinstance(jreq("GET", "/api/saves")[1]["saves"][0].get("mtime"), int), str(mine)[:200])
+    for v in vers:   # für die Folgetests wieder nur die eine Sicherung
+        os.unlink(os.path.join(zdir, v))
 
     print("== Fortschritt beim Sichern ==")
     all5 = [s["key"] for s in jreq("GET", "/api/saves")[1]["saves"]]
