@@ -333,6 +333,7 @@ static void finish(int ok, const char *msg, const char *result) {
     st.done = 1;
     st.ok = ok;
     st.percent = ok ? 100 : st.percent;
+    st.detail[0] = 0;   /* keine Restzeit mehr, wenn nichts mehr läuft */
     st.cancellable = st.replug = 0;
     st.cancelled = !ok && __atomic_load_n(&cancel_requested, __ATOMIC_RELAXED);
     snprintf(st.step, sizeof(st.step), "%s", ok ? T("Fertig") : T("Fehler"));
