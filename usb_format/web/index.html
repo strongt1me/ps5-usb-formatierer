@@ -1465,7 +1465,8 @@ function showResult(title, text, ok, extra) {
 /* Prüfbericht nach dem Formatieren: je Punkt ein Zeichen für das Ergebnis, Bezeichnung und Wert (kommen vom Formatierer in der
    gewählten Sprache) */
 function reportList(rows) {
-  const box = el("div", "dlist", "");
+  const box = el("div", "", "");   /* kein "dlist": das ist die rote Warnbox */
+  box.style.cssText = "max-height:340px;overflow-y:auto;margin-top:6px";
   const mark = { ok: "✓", warn: "!", bad: "✗", info: "•" };
   const col = { ok: "var(--ok, #4caf7a)", warn: "var(--warn, #e0a030)", bad: "var(--bad, #e05a5a)", info: "var(--muted)" };
   for (const r of rows) {
