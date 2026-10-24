@@ -228,6 +228,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Laufwerk %s wird gerade benutzt. Bitte Explorer-Fenster und Programme schließen, die darauf zugreifen, und es noch einmal versuchen.", "Drive %s is in use. Please close Explorer windows and programs that access it and try again.", "L'unità %s è in uso. Chiudi le finestre di Esplora risorse e i programmi che vi accedono e riprova.", "La unidad %s está en uso. Cierra las ventanas del Explorador y los programas que accedan a ella e inténtalo de nuevo.", "Le lecteur %s est utilisé. Fermez les fenêtres de l'Explorateur et les programmes qui y accèdent, puis réessayez."}},
     {{"Laufwerk %s wird vom System verwendet (LVM, RAID oder Verschlüsselung) – abgelehnt.", "Drive %s is used by the system (LVM, RAID or encryption) – refused.", "L'unità %s è usata dal sistema (LVM, RAID o crittografia) – rifiutata.", "La unidad %s la usa el sistema (LVM, RAID o cifrado) – rechazada.", "Le lecteur %s est utilisé par le système (LVM, RAID ou chiffrement) – refusé."}},
     {{"Laufwerk nicht mehr erreichbar (bei %llu MB) – abgezogen oder USB-Verbindung unterbrochen? Die Prüfung ist ungültig.", "Drive no longer reachable (at %llu MB) – unplugged or USB connection interrupted? The check is invalid.", "Unità non più raggiungibile (a %llu MB) – scollegata o connessione USB interrotta? La verifica non è valida.", "La unidad ya no responde (en %llu MB) – ¿desconectada o conexión USB interrumpida? La comprobación no es válida.", "Lecteur plus accessible (à %llu Mo) – débranché ou connexion USB interrompue ? La vérification n'est pas valable."}},
+    {{"Laufwerk unbekannt", "Unknown drive", "Unità sconosciuta", "Unidad desconocida", "Lecteur inconnu"}},
     {{"Laufwerk öffnen", "Opening drive", "Apertura unità", "Abriendo la unidad", "Ouverture du lecteur"}},
     {{"Lesefehler bei %llu MB: %s", "Read error at %llu MB: %s", "Errore di lettura a %llu MB: %s", "Error de lectura en %llu MB: %s", "Erreur de lecture à %llu Mo : %s"}},
     {{"Lesen %.0f MB/s, Schreiben %.0f MB/s – %s", "Read %.0f MB/s, write %.0f MB/s – %s", "Lettura %.0f MB/s, scrittura %.0f MB/s – %s", "Lectura %.0f MB/s, escritura %.0f MB/s – %s", "Lecture %.0f Mo/s, écriture %.0f Mo/s – %s"}},
@@ -444,4 +445,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannt", "unknown", "sconosciuto", "desconocido", "inconnu"}},
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
 };
-const unsigned i18n_count = 441;
+const unsigned i18n_count = 442;

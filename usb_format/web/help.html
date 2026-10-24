@@ -284,7 +284,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li><b>Laufwerk wählen.</b> Die Liste zeigt jedes USB-Laufwerk mit Name, Größe, Dateisystem, Bezeichnung und Belegung.
       „eingebunden“ heißt: Die PS5 nutzt es gerade. „Gefälscht“ kennzeichnet Sticks, die beim Echtheitstest durchgefallen sind.</li>
     <li><b>Inhalt ansehen.</b> Bei eingebundenen Laufwerken zeigt der Formatierer Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien
-      und freien Platz. Doppelte Spiele (gleiche Titel-ID an mehreren Orten) werden gemeldet. Über „Spiele löschen …“ entfernen Sie
+      und freien Platz. Doppelte Spiele (gleiche Titel-ID an mehreren Orten) werden gemeldet. Die Liste lässt sich nach Name, Größe oder Titel-ID sortieren; die Größe von Ordner-Spielen ermittelt der Formatierer beim Sortieren nach Größe im Hintergrund (das kann bei vielen Dateien etwas dauern). Bei doppelten Spielen steht die Größe jedes Fundorts dabei. Über „Spiele löschen …“ entfernen Sie
       Spiele – auf Wunsch samt Kachel auf der Startseite.</li>
     <li><b>Werkzeuge nutzen.</b> „Tempo messen“ misst das Lesetempo. „Prüfen &amp; reparieren“ prüft exFAT und behebt Fehler.
       „Umbenennen“ ändert die Bezeichnung (exFAT, FAT32), die Daten bleiben erhalten. „Sichern &amp; wiederherstellen“ legt ein Image des Laufwerks an oder schreibt eines zurück (siehe unten).</li>
@@ -555,7 +555,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li><b>Choose a drive.</b> The list shows every USB drive with name, size, file system, label and usage.
       “mounted” means the PS5 is using it right now. “Fake” marks sticks that failed the authenticity test.</li>
     <li><b>View the content.</b> For mounted drives the formatter shows games (folders and images with title ID), PKG files and
-      free space. Duplicate games (same title ID in several places) are reported. Use “Delete games …” to remove games –
+      free space. Duplicate games (same title ID in several places) are reported. The list can be sorted by name, size or title ID; when you sort by size, the formatter works out the size of folder games in the background (this can take a while with many files). Each location of a duplicate shows its size. Use “Delete games …” to remove games –
       optionally including their tile on the home screen.</li>
     <li><b>Use the tools.</b> “Measure speed” measures the read speed. “Check &amp; repair” checks exFAT and fixes errors.
       “Rename” changes the label (exFAT, FAT32) and keeps the data. “Back up &amp; restore” creates an image of the drive or writes one back (see below).</li>
@@ -826,7 +826,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li><b>Scegli l'unità.</b> L'elenco mostra ogni unità USB con nome, dimensione, file system, etichetta e occupazione.
       «montata» significa che la PS5 la sta usando. «Contraffatta» indica le chiavette che non hanno superato il test di autenticità.</li>
     <li><b>Guarda il contenuto.</b> Per le unità montate il formattatore mostra i giochi (cartelle e immagini con ID titolo), i file PKG
-      e lo spazio libero. I giochi doppi (stesso ID titolo in più posizioni) vengono segnalati. Con «Elimina giochi …» rimuovi i giochi –
+      e lo spazio libero. I giochi doppi (stesso ID titolo in più posizioni) vengono segnalati. L'elenco si può ordinare per nome, dimensione o ID titolo; ordinando per dimensione il formattatore calcola in background quella dei giochi in cartella (con molti file può richiedere un po'). Per i giochi doppi ogni posizione mostra la sua dimensione. Con «Elimina giochi …» rimuovi i giochi –
       se vuoi, anche il loro riquadro nella schermata iniziale.</li>
     <li><b>Usa gli strumenti.</b> «Misura velocità» misura la velocità di lettura. «Controlla e ripara» controlla exFAT e corregge gli errori.
       «Rinomina» cambia l'etichetta (exFAT, FAT32) mantenendo i dati. «Salva e ripristina» crea un'immagine dell'unità o ne riscrive una (vedi sotto).</li>
@@ -1097,7 +1097,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li><b>Elegir la unidad.</b> La lista muestra cada unidad USB con nombre, tamaño, sistema de archivos, etiqueta y ocupación.
       «montada» significa que la PS5 la está usando. «Falsificada» marca los pendrives que no superaron la prueba de autenticidad.</li>
     <li><b>Ver el contenido.</b> En las unidades montadas, el formateador muestra los juegos (carpetas e imágenes con ID de título), los archivos PKG
-      y el espacio libre. Se avisa de los juegos duplicados (mismo ID de título en varios sitios). Con «Borrar juegos …» eliminas juegos –
+      y el espacio libre. Se avisa de los juegos duplicados (mismo ID de título en varios sitios). La lista se puede ordenar por nombre, tamaño o ID de título; al ordenar por tamaño el formateador calcula en segundo plano el de los juegos en carpeta (con muchos archivos puede tardar). En los duplicados cada ubicación muestra su tamaño. Con «Borrar juegos …» eliminas juegos –
       si quieres, también su icono de la pantalla de inicio.</li>
     <li><b>Usar las herramientas.</b> «Medir velocidad» mide la velocidad de lectura. «Comprobar y reparar» comprueba exFAT y corrige errores.
       «Renombrar» cambia la etiqueta (exFAT, FAT32) y conserva los datos. «Guardar y restaurar» crea una imagen de la unidad o vuelve a escribir una (ver abajo).</li>
@@ -1368,7 +1368,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li><b>Choisir un lecteur.</b> La liste affiche chaque lecteur USB avec nom, taille, système de fichiers, nom de volume et occupation.
       « monté » signifie que la PS5 l'utilise en ce moment. « Contrefaite » signale les clés qui ont échoué au test d'authenticité.</li>
     <li><b>Voir le contenu.</b> Pour les lecteurs montés, le formateur affiche les jeux (dossiers et images avec ID de titre), les fichiers PKG
-      et l'espace libre. Les jeux en double (même ID de titre à plusieurs endroits) sont signalés. « Supprimer des jeux … » retire des jeux –
+      et l'espace libre. Les jeux en double (même ID de titre à plusieurs endroits) sont signalés. La liste peut être triée par nom, taille ou ID du titre ; lors du tri par taille, le formateur calcule en arrière-plan celle des jeux en dossier (cela peut durer avec beaucoup de fichiers). Pour les doublons, chaque emplacement indique sa taille. « Supprimer des jeux … » retire des jeux –
       si vous le souhaitez, avec leur vignette sur l'écran d'accueil.</li>
     <li><b>Utiliser les outils.</b> « Mesurer la vitesse » mesure la vitesse de lecture. « Vérifier et réparer » contrôle exFAT et corrige les erreurs.
       « Renommer » change le nom de volume (exFAT, FAT32) en conservant les données. « Sauvegarder et restaurer » crée une image du lecteur ou en réécrit une (voir plus bas).</li>

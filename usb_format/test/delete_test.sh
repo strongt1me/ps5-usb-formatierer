@@ -64,6 +64,15 @@ start USBFMT_SMP_PORT=$SMP_PORT
 library
 [ "$(q 'all(len(t["key"]) == 8 for t in d["titles"])' <"$W/lib")" = True ] && ok "Bibliothek liefert Schlüssel" \
     || bad "Schlüssel" "$(cat "$W/lib")"
+# Größen der Ordner-Spiele (Hintergrundlauf): Summe aller Dateien, unbekanntes Laufwerk abgelehnt
+head -c 12345 /dev/urandom >"$H/Astro/data.bin"; mkdir -p "$H/Astro/sub"; head -c 777 /dev/urandom >"$H/Astro/sub/x.bin"
+dev=$(q '[t["device"] for t in d["titles"] if t["path"] == "'"$H/Astro"'"][0]' <"$W/lib")
+code=$(post "{\"device\":\"nope\"}" library/sizes)
+[ "$code" = 400 ] && ok "Größen: unbekanntes Laufwerk abgelehnt" || bad "Größen unbekannt" "$code"
+code=$(post "{\"device\":\"$dev\"}" library/sizes)
+for _ in $(seq 1 100); do curl -s "$U/api/library/sizes" >"$W/gs"; grep -q '"running":false' "$W/gs" && break; sleep 0.1; done
+want=$(python3 -c 'import os,sys; print(sum(os.path.getsize(os.path.join(r,f)) for r,_,fs in os.walk(sys.argv[1]) for f in fs))' "$H/Astro")
+[ "$code" = 202 ] && [ "$(q 'd["sizes"].get("'"$(key "$H/Astro")"'")' <"$W/gs")" = "$want" ]     && ok "Größen: Ordner-Spiel mit Summe aller Dateien ($want Bytes)" || bad "Größen Summe" "$code want=$want $(cat "$W/gs")"
 code=$(post "{\"keys\":\"$(key "$W/data/homebrew/Intern")\"}" delete)
 [ "$code" = 404 ] && [ -d "$W/data/homebrew/Intern" ] && ok "internes Spiel (/data/homebrew) nicht löschbar" \
     || bad "internes Spiel" "$code $(cat "$W/body")"

@@ -2644,5 +2644,11 @@
   "it": "Montaggio",
   "es": "Montaje",
   "fr": "Montage"
+ },
+ "Laufwerk unbekannt": {
+  "en": "Unknown drive",
+  "it": "Unità sconosciuta",
+  "es": "Unidad desconocida",
+  "fr": "Lecteur inconnu"
  }
 }

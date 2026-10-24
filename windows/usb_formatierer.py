@@ -269,6 +269,14 @@ class Api:
                 pass
         return n
 
+    def library_sizes_start(self, device):
+        """Größen der Ordner-Spiele eines Laufwerks im Hintergrund auf der PS5 ermitteln lassen"""
+        return self._call("/api/library/sizes", {"device": device})
+
+    def library_sizes(self):
+        """Stand dieser Ermittlung: {running, done, total, sizes: {Schlüssel: Bytes}}"""
+        return self._call("/api/library/sizes", timeout=15)
+
     def saves_locations(self):
         """Orte für Spielstand-Sicherungen auf der PS5 (intern /data/game_saves, USB <Laufwerk>/game_saves)"""
         return self._call("/api/saves/locations", timeout=15).get("locations") or []
@@ -1619,6 +1627,8 @@ class App(tk.Tk):
         games = self.games.get(dev["name"], [])
         q = self._game_query()
         sort = self.sort_keys[max(0, self.sort_combo.current())][0]
+        if sort == "size":
+            self._ensure_game_sizes(dev, games)
         key = {"name": lambda g: (g["name"] or g["id"]).lower(), "size": lambda g: -(g.get("size") or 0),
                "id": lambda g: g.get("id", "")}[sort]
         shown = [g for g in games if not q or q in (g["name"] or "").lower() or q in g.get("id", "").lower()]
@@ -1647,6 +1657,30 @@ class App(tk.Tk):
         else:
             text = _("Spiele auf diesem Datenträger: keine gefunden")
         self.games_caption.configure(text=text)
+
+    def _ensure_game_sizes(self, dev, games):
+        """Ordner-Spiele haben erst eine Größe, wenn die PS5 sie ermittelt hat (jede Datei wird angesehen): einmal je Laufwerk
+        anfordern und den Stand ab und zu abfragen, bis sie fertig ist"""
+        asked = self.__dict__.setdefault("_sizes_asked", set())
+        api = self.api
+        if not api or dev["name"] in asked or all(g.get("size") or g["kind"] != "Ordner" for g in games):
+            return
+        asked.add(dev["name"])
+        name = dev["name"]
+
+        def work():
+            try:
+                api.library_sizes_start(name)
+                while True:
+                    r = api.library_sizes()
+                    self.q.put(("game_sizes", name, r.get("sizes") or {}, bool(r.get("running")), api))
+                    if not r.get("running"):
+                        return
+                    time.sleep(1.5)
+            except (ConnectionError, ApiError):
+                self.__dict__.get("_sizes_asked", set()).discard(name)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _game_click(self, e):
         if self.games_tree.identify_region(e.x, e.y) in ("tree", "cell"):
@@ -2729,6 +2763,12 @@ class App(tk.Tk):
             self._update()
         elif kind == "saves_loaded":
             self._fill_saves(msg[1], msg[2])
+        elif kind == "game_sizes":
+            if msg[4] is self.api:
+                for g in self.games.get(msg[1], []):
+                    if g.get("kind") == "Ordner" and g.get("key") in msg[2]:
+                        g["size"] = msg[2][g["key"]]
+                self._show_games()
         elif kind == "saves_backups":
             self._saves_backups = msg[1]
             self._render_saves_tree()

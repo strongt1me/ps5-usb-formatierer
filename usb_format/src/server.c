@@ -1168,6 +1168,110 @@ static void api_devices(int c) {
 }
 
 /* Spiele aller Laufwerke; doppelte Titel-IDs (ShadowMountPlus wechselt dann ständig zwischen ihnen) gesondert */
+/* ------------------------------------------------------------ Größen der Spiele-Ordner
+ * Die Spielesuche kennt nur die Größe von Abbildern (Dateigröße); die von Ordner-Spielen ermittelt dieser Hintergrundlauf auf
+ * Wunsch (POST /api/library/sizes), weil er jede Datei ansehen muss. Ergebnisse (je Spiel-Schlüssel) liefert GET /api/library/sizes. */
+typedef struct { uint32_t key; uint64_t bytes; } gsize_t;
+static pthread_mutex_t gs_lock = PTHREAD_MUTEX_INITIALIZER;
+static gsize_t *gs_arr;
+static int gs_n, gs_cap, gs_running, gs_done, gs_total;
+static char gs_device[16];
+
+static uint64_t tree_bytes(const char *path, int depth) {
+    struct stat sb;
+    if (depth > 32 || __atomic_load_n(&quit_requested, __ATOMIC_RELAXED) || lstat(path, &sb) != 0) return 0;
+    if (!S_ISDIR(sb.st_mode)) return S_ISREG(sb.st_mode) ? (uint64_t)sb.st_size : 0;
+    DIR *d = opendir(path);
+    if (!d) return 0;
+    uint64_t w = 0;
+    char *sub = malloc(1024);
+    struct dirent *e;
+    while (sub && (e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (snprintf(sub, 1024, "%s/%s", path, e->d_name) < 1024) w += tree_bytes(sub, depth + 1);
+    }
+    free(sub);
+    closedir(d);
+    return w;
+}
+
+typedef struct { uint32_t key; char path[256]; } gsjob_t;
+
+static void *gsize_worker(void *arg) {
+    (void)arg;
+    gsjob_t *jobs = NULL;
+    int n = 0;
+    pthread_mutex_lock(&lib_lock);   /* Ordner-Spiele des Laufwerks aus dem letzten Suchlauf */
+    for (int i = 0; i < lib_n; i++)
+        if (!strcmp(lib_snap[i].device, gs_device))
+            for (int k = 0; k < lib_snap[i].r.ntitles; k++)
+                if (!strcmp(lib_snap[i].r.titles[k].kind, "Ordner")) {
+                    gsjob_t *p = realloc(jobs, (size_t)(n + 1) * sizeof(*jobs));
+                    if (!p) break;
+                    jobs = p;
+                    jobs[n].key = path_key(lib_snap[i].r.titles[k].path);
+                    snprintf(jobs[n].path, sizeof(jobs[n].path), "%s", lib_snap[i].r.titles[k].path);
+                    n++;
+                }
+    pthread_mutex_unlock(&lib_lock);
+    pthread_mutex_lock(&gs_lock);
+    gs_total = n;
+    gs_done = 0;
+    pthread_mutex_unlock(&gs_lock);
+    for (int i = 0; i < n && !__atomic_load_n(&quit_requested, __ATOMIC_RELAXED); i++) {
+        uint64_t b = tree_bytes(jobs[i].path, 0);
+        pthread_mutex_lock(&gs_lock);
+        int at = -1;
+        for (int k = 0; k < gs_n; k++) if (gs_arr[k].key == jobs[i].key) at = k;
+        if (at < 0 && gs_n == gs_cap) {
+            gsize_t *p = realloc(gs_arr, (size_t)(gs_cap = gs_cap ? gs_cap * 2 : 64) * sizeof(*p));
+            if (p) gs_arr = p; else gs_cap = gs_n;
+        }
+        if (at < 0 && gs_n < gs_cap) at = gs_n++;
+        if (at >= 0) { gs_arr[at].key = jobs[i].key; gs_arr[at].bytes = b; }
+        gs_done = i + 1;
+        pthread_mutex_unlock(&gs_lock);
+    }
+    free(jobs);
+    pthread_mutex_lock(&gs_lock);
+    gs_running = 0;
+    pthread_mutex_unlock(&gs_lock);
+    return NULL;
+}
+
+/* POST /api/library/sizes {"device":"da1"}: Größen der Ordner-Spiele dieses Laufwerks ermitteln (läuft schon: nichts doppelt) */
+static void api_library_sizes_start(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    const char *dev = n > 0 ? kv_get(kv, n, "device") : NULL;
+    int known = 0;
+    pthread_mutex_lock(&lib_lock);
+    for (int i = 0; dev && i < lib_n; i++) if (!strcmp(lib_snap[i].device, dev)) known = 1;
+    pthread_mutex_unlock(&lib_lock);
+    if (!known) { respond_error(c, 400, N_("Laufwerk unbekannt")); return; }
+    pthread_mutex_lock(&gs_lock);
+    int start = !gs_running;
+    if (start) { gs_running = 1; snprintf(gs_device, sizeof(gs_device), "%.15s", dev); }
+    pthread_mutex_unlock(&gs_lock);
+    if (start) {
+        pthread_t th;
+        if (pthread_create(&th, NULL, gsize_worker, NULL) == 0) pthread_detach(th);
+        else { pthread_mutex_lock(&gs_lock); gs_running = 0; pthread_mutex_unlock(&gs_lock); respond_error(c, 500, N_("Thread konnte nicht gestartet werden")); return; }
+    }
+    respond_ok(c, 202);
+}
+
+/* GET /api/library/sizes */
+static void api_library_sizes(int c) {
+    sbuf_t b = {0};
+    pthread_mutex_lock(&gs_lock);
+    sb_add(&b, "{\"running\":%s,\"done\":%d,\"total\":%d,\"sizes\":{", gs_running ? "true" : "false", gs_done, gs_total);
+    for (int i = 0; i < gs_n; i++) sb_add(&b, "%s\"%08x\":%llu", i ? "," : "", gs_arr[i].key, (unsigned long long)gs_arr[i].bytes);
+    pthread_mutex_unlock(&gs_lock);
+    sb_add(&b, "}}");
+    respond_json(c, 200, &b);
+}
+
 static void api_library(int c, int refresh) {
     if (refresh) lib_refresh();
     sbuf_t b = {0};
@@ -3626,6 +3730,10 @@ static void handle(int c) {
         respond_ex(c, 200, "image/jpeg", web_page_light, (size_t)(web_page_light_end - web_page_light), "max-age=86400");
     else if (strcmp(path, "/api/devices") == 0 && is_get)
         api_devices(c);
+    else if (strcmp(path, "/api/library/sizes") == 0 && is_get)
+        api_library_sizes(c);
+    else if (strcmp(path, "/api/library/sizes") == 0 && is_post)
+        api_library_sizes_start(c, body);
     else if (strcmp(path, "/api/library") == 0 && is_get)
         api_library(c, q && strstr(q, "refresh=1") != NULL);
     else if (strcmp(path, "/api/status") == 0 && is_get)

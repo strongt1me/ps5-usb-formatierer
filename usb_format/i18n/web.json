@@ -1840,5 +1840,23 @@
   "it": "più recente dello stato attuale",
   "es": "más reciente que el estado actual",
   "fr": "plus récent que l'état actuel"
+ },
+ "Sortieren nach": {
+  "en": "Sort by",
+  "it": "Ordina per",
+  "es": "Ordenar por",
+  "fr": "Trier par"
+ },
+ "Name": {
+  "en": "Name",
+  "it": "Nome",
+  "es": "Nombre",
+  "fr": "Nom"
+ },
+ "Titel-ID": {
+  "en": "Title ID",
+  "it": "ID titolo",
+  "es": "ID del título",
+  "fr": "ID du titre"
  }
 }
