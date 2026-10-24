@@ -372,7 +372,9 @@ def ask_move(root, dev, targets, names):
     ttk.Checkbutton(frm, variable=verify, style="Switch.TCheckbutton",
                     text=_("Kopie nach dem Schreiben prüfen (empfohlen)")).pack(anchor="w", pady=(px(10), 0))
     ttk.Label(frm, text=_("Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie "
-                          "gelöscht werden sollen. Laufende Spiele vorher beenden."),
+                          "gelöscht werden sollen. Laufende Spiele vorher beenden.") + " " +
+              _("Kennt ShadowMountPlus ein Spiel nicht (z. B. manche PS4-Spiele), lässt sich das Original danach nicht über den "
+                "Löschdialog entfernen – dann bleibt es stehen."),
               style="Hint.TLabel", wraplength=px(460), justify="left").pack(anchor="w", pady=(px(8), 0))
     result = {"v": None}
 

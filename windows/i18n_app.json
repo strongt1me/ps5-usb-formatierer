@@ -2896,5 +2896,11 @@
   "it": "Eliminare ora gli originali da {name} ({dev})?",
   "es": "¿Borrar ahora los originales de {name} ({dev})?",
   "fr": "Supprimer maintenant les originaux de {name} ({dev}) ?"
+ },
+ "Kennt ShadowMountPlus ein Spiel nicht (z. B. manche PS4-Spiele), lässt sich das Original danach nicht über den Löschdialog entfernen – dann bleibt es stehen.": {
+  "en": "If ShadowMountPlus does not know a game (e.g. some PS4 games), the original cannot be removed through the delete dialog afterwards – it then stays.",
+  "it": "Se ShadowMountPlus non conosce un gioco (ad es. alcuni giochi PS4), l'originale non può poi essere rimosso con la finestra di eliminazione – resta dov'è.",
+  "es": "Si ShadowMountPlus no conoce un juego (p. ej. algunos juegos de PS4), el original no se puede quitar después con el diálogo de borrado – se queda donde está.",
+  "fr": "Si ShadowMountPlus ne connaît pas un jeu (p. ex. certains jeux PS4), l'original ne peut pas être supprimé ensuite via la boîte de suppression – il reste en place."
  }
 }

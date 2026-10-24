@@ -1919,12 +1919,6 @@
   "es": "Estos juegos se copian de {dev} a la unidad elegida:",
   "fr": "Ces jeux sont copiés de {dev} vers le lecteur choisi :"
  },
- "Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie gelöscht werden sollen. Laufende Spiele vorher beenden.": {
-  "en": "The originals are kept for now. After copying and checking you will be asked whether to delete them. Quit running games first.",
-  "it": "Gli originali restano per ora. Dopo la copia e la verifica ti verrà chiesto se eliminarli. Chiudi prima i giochi in esecuzione.",
-  "es": "Los originales se conservan por ahora. Tras copiar y comprobar se te preguntará si quieres borrarlos. Cierra antes los juegos en ejecución.",
-  "fr": "Les originaux sont conservés pour l'instant. Après la copie et la vérification, il vous sera demandé de les supprimer. Fermez d'abord les jeux en cours."
- },
  "Kopieren": {
   "en": "Copy",
   "it": "Copia",
@@ -1960,5 +1954,11 @@
   "it": "Nulla copiato",
   "es": "No se copió nada",
   "fr": "Rien copié"
+ },
+ "Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie gelöscht werden sollen. Laufende Spiele vorher beenden. Kennt ShadowMountPlus ein Spiel nicht (z. B. manche PS4-Spiele), lässt sich das Original danach nicht über den Löschdialog entfernen – dann bleibt es stehen.": {
+  "en": "The originals are kept for now. After copying and checking you will be asked whether to delete them. Quit running games first. If ShadowMountPlus does not know a game (e.g. some PS4 games), the original cannot be removed through the delete dialog afterwards – it then stays.",
+  "it": "Gli originali restano per ora. Dopo la copia e la verifica ti verrà chiesto se eliminarli. Chiudi prima i giochi in esecuzione. Se ShadowMountPlus non conosce un gioco (ad es. alcuni giochi PS4), l'originale non può poi essere rimosso con la finestra di eliminazione – resta dov'è.",
+  "es": "Los originales se conservan por ahora. Tras copiar y comprobar se te preguntará si quieres borrarlos. Cierra antes los juegos en ejecución. Si ShadowMountPlus no conoce un juego (p. ej. algunos juegos de PS4), el original no se puede quitar después con el diálogo de borrado – se queda donde está.",
+  "fr": "Les originaux sont conservés pour l'instant. Après la copie et la vérification, il vous sera demandé de les supprimer. Fermez d'abord les jeux en cours. Si ShadowMountPlus ne connaît pas un jeu (p. ex. certains jeux PS4), l'original ne peut pas être supprimé ensuite via la boîte de suppression – il reste en place."
  }
 }
