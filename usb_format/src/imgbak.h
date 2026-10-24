@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "sha256.h"
+
 /*
  * Image-Sicherung eines Datenträgers als .img.zst - eine gewöhnliche zstd-Datei (mit "zstd -d" zu einem rohen
  * Image entpackbar). Vorn steht ein überspringbarer zstd-Rahmen mit Angaben und der Belegungskarte, hinten einer
@@ -40,6 +42,46 @@ typedef struct {
     int      cancelled;
     int      checked;       /* Prüfsumme am Ende des Images verglichen (eigene Images) */
 } ib_result_t;
+
+/* ---- Fortsetzbare Sicherung ----
+ * Daten stehen in Rahmen von höchstens IB_FRAME_MAX Quell-Bytes. Nach jedem fertigen Rahmen (und jeder freien Strecke) kann der
+ * Aufrufer einen Merkpunkt speichern; mit ihm macht ib_backup_ex dort weiter, wo eine Sicherung aufhörte. Die fertige Datei ist
+ * dieselbe wie bei einem Lauf ohne Unterbrechung (außer dem Zeitstempel im Kopf, der aus dem ersten Lauf stammt). */
+#define IB_FRAME_MAX (1ull << 30)
+extern uint64_t ib_ckpt_bytes;  /* Merkpunkt frühestens nach so vielen Ausgabe-Bytes (Standard 64 MiB) ... */
+extern int      ib_ckpt_secs;   /* ... oder so vielen Sekunden (Standard 5); Tests setzen beides auf 0 */
+extern uint64_t ib_frame_max;   /* Rahmengröße (Tests verkleinern sie); Standard IB_FRAME_MAX, ein Vielfaches von IB_BLOCK */
+
+typedef struct {
+    uint64_t start, len;    /* Quell-Bytes des Rahmens */
+    uint8_t  sha[32];       /* SHA-256 der belegten Blöcke darin (Quelle) */
+} ib_frame_t;
+
+typedef struct {
+    uint64_t   seg;         /* Position im Image, ab der weitergemacht wird (Rahmengrenze) */
+    uint64_t   file_bytes;  /* so viele Bytes der .img.zst sind bis dahin geschrieben */
+    uint64_t   used_done;   /* belegte Bytes bis dahin gelesen */
+    sha256_t   sha_file;    /* Zwischenstand der SHA-256 über die Datei */
+    sha256_t   sha_used;    /* ... und über die belegten Blöcke */
+    uint8_t    map_fp[32];  /* SHA-256 der Belegungskarte: dasselbe Laufwerk-Layout? */
+    uint64_t   size, used;  /* Größe des Images und belegte Bytes laut Karte */
+    ib_frame_t *frames;     /* fertige Datenrahmen (für die gründliche Prüfung beim Fortsetzen) */
+    int        nframes;
+} ib_ckpt_t;
+
+/* Aufrufer speichert den Merkpunkt (Ausgabedatei vorher auf den Datenträger schreiben). 0 = gespeichert */
+typedef int (*ib_ckpt_fn)(void *ctx, const ib_ckpt_t *c);
+
+typedef struct {
+    ib_ckpt_fn       save;
+    void            *save_ctx;
+    const ib_ckpt_t *resume;    /* fortsetzen (NULL: neue Sicherung) - die Ausgabe muss bei file_bytes stehen */
+    int              thorough;  /* beim Fortsetzen die gesicherten Rahmen der Quelle noch einmal lesen und vergleichen */
+} ib_resume_t;
+
+int ib_backup_ex(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out, void *octx,
+                 ib_progress_fn progress, volatile int *cancel, ib_result_t *r, char *err, size_t errlen,
+                 const ib_resume_t *rs);
 
 /* Belegte Bytes ermitteln (nur lesen) - für die Anzeige vorab und die Platzprüfung am Ziel */
 uint64_t ib_used_bytes(int fd, uint32_t ss, uint64_t size);

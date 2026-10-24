@@ -251,5 +251,34 @@ else
     echo "  (zstd fehlt - Prüfung mit zstd -d übersprungen)"
 fi
 
+# ------------------------------------------------------------------ Fortsetzen
+# Image mit mehreren Rahmen (IB_FRAME_MAX 1 MiB, Merkpunkt nach jedem): unterbrechen, fortsetzen - das Ergebnis muss wie ein
+# durchgehender Lauf sein (Prüfsumme der belegten Blöcke, Datei und Dateilänge gleich)
+echo "== Fortsetzen =="
+rm -f "$W/s.img"
+truncate -s 128M "$W/s.img"
+"$W/mkfs_test" mbr "$W/s.img" exfat $((128 * 1048576)) 512 QUELLE 0 --mbr "${FILES[@]}" >/dev/null 2>&1 || bad "Fortsetzen: mkfs"
+head -c $((6 * 1048576)) /dev/urandom | dd of="$W/s.img" bs=1M seek=8 conv=notrunc status=none   # mehr belegt wirken lassen
+export IB_CREATED="2026-01-01 00:00" IB_FRAME_MAX=1048576 IB_CKPT_BYTES=0 IB_THREADS=0
+read -r u0 b0 sha0 shf0 < <("$IB" backup "$W/s.img" "$W/full.img.zst" 512) || bad "Fortsetzen: Vergleichslauf"
+for stop in 1 2 4; do
+    read -r u1 b1 sha1 shf1 < <("$IB" resume "$W/s.img" "$W/res.img.zst" "$stop" 0 2>"$W/res.err") || { bad "Fortsetzen nach $stop Merkpunkten: $(cat "$W/res.err")"; continue; }
+    if [ "$sha1" = "$sha0" ] && [ "$shf1" = "$shf0" ] && [ "$b1" = "$b0" ] && cmp -s "$W/full.img.zst" "$W/res.img.zst"; then
+        ok "Fortsetzen nach $stop Merkpunkten: Datei und Prüfsummen wie ein durchgehender Lauf ($(head -1 "$W/res.err"))"
+    else
+        bad "Fortsetzen nach $stop Merkpunkten weicht ab" "$sha1 $sha0 $b1 $b0"
+    fi
+done
+read -r v1 c1 _ < <("$IB" verify "$W/res.img.zst") && [ "$c1" = 1 ] && ok "fortgesetztes Image besteht die Prüfung (Prüfsumme am Ende stimmt)" || bad "Prüfung des fortgesetzten Images"
+read -r u2 b2 sha2 shf2 < <("$IB" resume "$W/s.img" "$W/res2.img.zst" 2 1 2>/dev/null) && [ "$shf2" = "$shf0" ]     && ok "Fortsetzen mit gründlicher Prüfung der Quelle: Ergebnis gleich" || bad "gründliche Prüfung" "$shf2 $shf0"
+cp "$W/s.img" "$W/s_orig.img"
+if "$IB" resume "$W/s.img" "$W/res3.img.zst" 2 1 veraendern >/dev/null 2>"$W/res3.err"; then
+    bad "Quelle verändert: gründliche Prüfung hat es nicht bemerkt"
+else
+    grep -q "verändert" "$W/res3.err" && ok "Quelle zwischen den Läufen verändert: gründliche Prüfung lehnt das Fortsetzen ab" || bad "Ablehnung ohne passende Meldung" "$(cat "$W/res3.err")"
+fi
+cp "$W/s_orig.img" "$W/s.img"
+unset IB_CREATED IB_FRAME_MAX IB_CKPT_BYTES IB_THREADS
+
 [ $FAIL = 0 ] && echo "Image-Sicherung: alle Prüfungen bestanden" || echo "Image-Sicherung: FEHLER"
 exit $FAIL

@@ -399,6 +399,9 @@ static int emit_zero(emit_t *e, uint64_t len, volatile int *cancel, int *cancell
 }
 
 int ib_threads = -1;
+uint64_t ib_frame_max = IB_FRAME_MAX;
+uint64_t ib_ckpt_bytes = 64u << 20;
+int ib_ckpt_secs = 5;
 
 /* Threads für zstd: gepackt wird nebenher, während dieser Thread liest, prüft (SHA-256) und schreibt */
 static int compress_threads(void) {
@@ -423,9 +426,49 @@ static int ib_pct(uint64_t done, uint64_t total) {
 
 int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out, void *octx,
               ib_progress_fn progress, volatile int *cancel, ib_result_t *r, char *err, size_t errlen) {
+    return ib_backup_ex(fd, ss, size, info, out, octx, progress, cancel, r, err, errlen, NULL);
+}
+
+/* Quelle der Rahmen [start, start+len) noch einmal lesen: SHA-256 der belegten Blöcke (wie beim Sichern) */
+static int frame_sha(int fd, const map_t *m, uint64_t size, uint8_t *page, uint64_t start, uint64_t len, uint8_t out[32],
+                     volatile int *cancel, uint64_t *done, uint64_t total, ib_progress_fn progress, char *err, size_t errlen) {
+    sha256_t sh;
+    sha256_init(&sh);
+    for (uint64_t pos = start; pos < start + len; pos += PAGE) {
+        if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) return 1;
+        const size_t l = start + len - pos < PAGE ? (size_t)(start + len - pos) : PAGE;
+        for (size_t o = 0; o < l; ) {
+            uint64_t b = (pos + o) / IB_BLOCK;
+            size_t run = 0;
+            int used = map_used(m, b);
+            while (o + run < l && map_used(m, (pos + o + run) / IB_BLOCK) == used) run += (size_t)block_len((pos + o + run) / IB_BLOCK, size);
+            if (used) {
+                if (rd_all(fd, page + o, run, pos + o)) {
+                    snprintf(err, errlen, T("Lesefehler bei %llu MB: %s"), (unsigned long long)((pos + o) >> 20), strerror(errno));
+                    return -1;
+                }
+                sha256_update(&sh, page + o, run);
+                *done += run;
+            }
+            o += run;
+        }
+        progress(T("Bisherigen Stand prüfen"), ib_pct(*done, total));
+    }
+    sha256_final(&sh, out);
+    return 0;
+}
+
+int ib_backup_ex(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out, void *octx,
+                 ib_progress_fn progress, volatile int *cancel, ib_result_t *r, char *err, size_t errlen,
+                 const ib_resume_t *rs) {
     memset(r, 0, sizeof(*r));
     map_t m = {0};
     uint8_t *page = NULL, *obuf = NULL, *head = NULL;
+    ib_frame_t *frames = NULL;
+    int nframes = 0, capframes = 0;
+    time_t last_ckpt = 0;
+    uint64_t last_ckpt_bytes = 0;
+    const ib_ckpt_t *res = rs ? rs->resume : NULL;
     ZSTD_CCtx *cc = NULL;
     int rc = -1;
     emit_t e = {out, octx, {{0}, 0, {0}, 0}, 0};
@@ -439,6 +482,18 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
     info->size = size;
     info->used = map_used_bytes(&m, size);
     info->has_map = 1;
+    uint8_t map_fp[32];
+    {
+        sha256_t fp;
+        sha256_init(&fp);
+        sha256_update(&fp, m.bits, (size_t)((m.n + 7) / 8));
+        sha256_final(&fp, map_fp);
+    }
+    if (res && (res->size != size || res->used != info->used || memcmp(res->map_fp, map_fp, 32) != 0)) {
+        snprintf(err, errlen, "%s", T("Das Laufwerk hat sich seit der Unterbrechung verändert (andere Belegung) – bitte neu sichern."));
+        free(m.bits);
+        return -1;
+    }
     if (!info->created[0]) {
         time_t now = time(NULL);
         struct tm tmv;
@@ -462,7 +517,7 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
     memcpy(head + strlen(HEAD_TAG), js, at);
     head[strlen(HEAD_TAG) + at] = '\n';
     memcpy(head + strlen(HEAD_TAG) + at + 1, m.bits, mapb);
-    if (emit_skippable(&e, MAGIC_HEAD, head, hlen)) goto werr;
+    if (!res && emit_skippable(&e, MAGIC_HEAD, head, hlen)) goto werr;
 
     cc = ZSTD_createCCtx();
     const size_t olen = ZSTD_CStreamOutSize();
@@ -475,7 +530,37 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
     if (workers > 0 && !ZSTD_isError(ZSTD_CCtx_setParameter(cc, ZSTD_c_nbWorkers, workers)))
         ZSTD_CCtx_setParameter(cc, ZSTD_c_jobSize, 4 << 20);   /* kleine Aufträge: wenig Speicher je Thread */
 
-    for (uint64_t seg = 0; seg < size; ) {
+    uint64_t seg0 = 0;
+    if (res) {   /* Zwischenstände übernehmen; auf Wunsch zuerst die gesicherten Rahmen der Quelle noch einmal lesen */
+        if (res->nframes > 0) {
+            frames = malloc((size_t)res->nframes * sizeof(*frames));
+            if (!frames) { snprintf(err, errlen, "%s", T("Kein Speicher")); goto out; }
+            memcpy(frames, res->frames, (size_t)res->nframes * sizeof(*frames));
+            nframes = capframes = res->nframes;
+        }
+        if (rs->thorough) {
+            uint64_t total = 0, done = 0;
+            for (int i = 0; i < nframes; i++) total += frames[i].len;   /* Obergrenze (mit freien Blöcken): reicht für den Balken */
+            for (int i = 0; i < nframes; i++) {
+                uint8_t d[32];
+                int fr = frame_sha(fd, &m, size, page, frames[i].start, frames[i].len, d, cancel, &done, total ? total : 1, progress, err, errlen);
+                if (fr > 0) { r->cancelled = 1; rc = 0; goto out; }
+                if (fr < 0) goto out;
+                if (memcmp(d, frames[i].sha, 32) != 0) {
+                    snprintf(err, errlen, T("Das Laufwerk hat sich seit der Unterbrechung verändert (Daten ab %llu MB) – bitte neu sichern."),
+                             (unsigned long long)(frames[i].start >> 20));
+                    goto out;
+                }
+            }
+        }
+        e.sha = res->sha_file;
+        e.bytes = res->file_bytes;
+        su = res->sha_used;
+        r->used = res->used_done;
+        seg0 = res->seg;
+    }
+
+    for (uint64_t seg = seg0; seg < size; ) {
         if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
         const uint64_t zl = free_len(&m, seg, size);
         if (zl >= ZERO_MIN) {   /* lange freie Strecke: nicht packen, nur beschreiben */
@@ -483,9 +568,12 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
             if (r->cancelled) { rc = 0; goto out; }
             seg += zl;
             progress(T("Sichern"), ib_pct(r->used, info->used));
-            continue;
+            goto checkpoint;
         }
-        const uint64_t end = data_end(&m, seg, size);
+        uint64_t end = data_end(&m, seg, size);
+        if (end - seg > ib_frame_max) end = seg + ib_frame_max;   /* Rahmen begrenzen: Fortsetzpunkte alle GiB */
+        sha256_t sf;   /* Quell-Prüfsumme dieses Rahmens (für die gründliche Prüfung beim Fortsetzen) */
+        sha256_init(&sf);
         ZSTD_CCtx_reset(cc, ZSTD_reset_session_only);
         ZSTD_CCtx_setPledgedSrcSize(cc, end - seg);
         for (uint64_t pos = seg; pos < end; pos += PAGE) {
@@ -505,6 +593,7 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
                         goto out;
                     }
                     sha256_update(&su, page + o, run);
+                    sha256_update(&sf, page + o, run);
                     r->used += run;
                 } else {
                     memset(page + o, 0, run);
@@ -528,7 +617,34 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
             if (emit(&e, obuf, ob.pos)) goto werr;
             if (!z) break;
         }
+        if (nframes == capframes) {
+            ib_frame_t *p = realloc(frames, (size_t)(capframes = capframes ? capframes * 2 : 64) * sizeof(*p));
+            if (!p) { snprintf(err, errlen, "%s", T("Kein Speicher")); goto out; }
+            frames = p;
+        }
+        frames[nframes].start = seg;
+        frames[nframes].len = end - seg;
+        sha256_final(&sf, frames[nframes].sha);
+        nframes++;
         seg = end;
+checkpoint:
+        /* Merkpunkt höchstens alle 64 MiB Ausgabe bzw. 5 Sekunden (jeder kostet ein fsync) */
+        if (rs && rs->save && seg < size && (e.bytes - last_ckpt_bytes >= ib_ckpt_bytes || time(NULL) - last_ckpt >= ib_ckpt_secs)) {
+            ib_ckpt_t c;
+            c.seg = seg;
+            c.file_bytes = e.bytes;
+            c.used_done = r->used;
+            c.sha_file = e.sha;
+            c.sha_used = su;
+            memcpy(c.map_fp, map_fp, 32);
+            c.size = size;
+            c.used = info->used;
+            c.frames = frames;
+            c.nframes = nframes;
+            if (rs->save(rs->save_ctx, &c) != 0) goto werr;
+            last_ckpt = time(NULL);
+            last_ckpt_bytes = e.bytes;
+        }
     }
     uint8_t d[32];
     sha256_final(&su, d);
@@ -550,6 +666,7 @@ out:
     free(obuf);
     free(head);
     free(m.bits);
+    free(frames);
     return rc;
 }
 
