@@ -2548,5 +2548,101 @@
   "it": "%s: %s (%d di %d)",
   "es": "%s: %s (%d de %d)",
   "fr": "%s : %s (%d sur %d)"
+ },
+ "Nachkontrolle: Dateisystem prüfen": {
+  "en": "Final check: checking the file system",
+  "it": "Controllo finale: verifica del file system",
+  "es": "Comprobación final: revisando el sistema de archivos",
+  "fr": "Contrôle final : vérification du système de fichiers"
+ },
+ "Prüfung vorher": {
+  "en": "Check before",
+  "it": "Controllo prima",
+  "es": "Comprobación previa",
+  "fr": "Contrôle avant"
+ },
+ "abgebrochen – formatiert wurde trotzdem": {
+  "en": "cancelled – formatted anyway",
+  "it": "annullato – formattato comunque",
+  "es": "cancelada – se formateó de todos modos",
+  "fr": "annulé – formaté malgré tout"
+ },
+ "Jede Stelle geprüft – echt, keine Fehler": {
+  "en": "Every location checked – genuine, no errors",
+  "it": "Ogni posizione controllata – autentico, nessun errore",
+  "es": "Cada posición comprobada – auténtico, sin errores",
+  "fr": "Chaque emplacement vérifié – authentique, aucune erreur"
+ },
+ "Stichproben geprüft – echt, keine Fehler": {
+  "en": "Samples checked – genuine, no errors",
+  "it": "Campioni controllati – autentico, nessun errore",
+  "es": "Muestras comprobadas – auténtico, sin errores",
+  "fr": "Échantillons vérifiés – authentique, aucune erreur"
+ },
+ "nicht geprüft": {
+  "en": "not checked",
+  "it": "non controllato",
+  "es": "no comprobado",
+  "fr": "non vérifié"
+ },
+ "Tempo": {
+  "en": "Speed",
+  "it": "Velocità",
+  "es": "Velocidad",
+  "fr": "Vitesse"
+ },
+ "Lesen %.0f MB/s, Schreiben %.0f MB/s – %s": {
+  "en": "Read %.0f MB/s, write %.0f MB/s – %s",
+  "it": "Lettura %.0f MB/s, scrittura %.0f MB/s – %s",
+  "es": "Lectura %.0f MB/s, escritura %.0f MB/s – %s",
+  "fr": "Lecture %.0f Mo/s, écriture %.0f Mo/s – %s"
+ },
+ "Dateisystem": {
+  "en": "File system",
+  "it": "File system",
+  "es": "Sistema de archivos",
+  "fr": "Système de fichiers"
+ },
+ "Partitionstabelle": {
+  "en": "Partition table",
+  "it": "Tabella delle partizioni",
+  "es": "Tabla de particiones",
+  "fr": "Table de partitions"
+ },
+ "Nachkontrolle": {
+  "en": "Final check",
+  "it": "Controllo finale",
+  "es": "Comprobación final",
+  "fr": "Contrôle final"
+ },
+ "Ordner": {
+  "en": "Folders",
+  "it": "Cartelle",
+  "es": "Carpetas",
+  "fr": "Dossiers"
+ },
+ "homebrew, etaHEN/games und pkg angelegt": {
+  "en": "homebrew, etaHEN/games and pkg created",
+  "it": "homebrew, etaHEN/games e pkg creati",
+  "es": "homebrew, etaHEN/games y pkg creados",
+  "fr": "homebrew, etaHEN/games et pkg créés"
+ },
+ "Größe": {
+  "en": "Size",
+  "it": "Dimensione",
+  "es": "Tamaño",
+  "fr": "Taille"
+ },
+ "Nur die echten %s genutzt, der Stick meldet %s": {
+  "en": "Only the genuine %s used, the stick reports %s",
+  "it": "Usati solo i %s reali, la chiavetta dichiara %s",
+  "es": "Solo se usan los %s reales, la memoria indica %s",
+  "fr": "Seuls les %s réels sont utilisés, la clé annonce %s"
+ },
+ "Einbinden": {
+  "en": "Mounting",
+  "it": "Montaggio",
+  "es": "Montaje",
+  "fr": "Montage"
  }
 }

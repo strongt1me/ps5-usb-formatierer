@@ -1278,7 +1278,7 @@ function finished(st, d) {
   const key = d ? devKey(d) : "";
   if (r.read && d) speedOf[key] = { read: r.read, write: r.write || (speedOf[key] || {}).write };
   if (st.kind === "format") {
-    if (st.ok) { showMsg(st.message, true); return showResult(tr("Datenträger erfolgreich formatiert"), st.message, true); }
+    if (st.ok) { showMsg(st.message, true); return showResult(tr("Datenträger erfolgreich formatiert"), r.report ? "" : st.message, true, r.report && reportList(r.report)); }
     if (r.fake) return fakeDialog(st, r, d);
     if (r.bad) return badDialog(st, d);
     showMsg(st.message, false);
@@ -1458,8 +1458,32 @@ $("dyes").addEventListener("click", () => closeDialog("yes"));
 $("dalt").addEventListener("click", () => closeDialog("alt"));
 $("dackbox").addEventListener("change", () => { $("dyes").disabled = !$("dackbox").checked; });
 
-function showResult(title, text, ok) {
-  return dialog({ title, cls: ok ? "good" : "", text, yes: tr("OK"), yesCls: ok ? "solid primary" : "danger solid", no: false });
+function showResult(title, text, ok, extra) {
+  return dialog({ title, cls: ok ? "good" : "", text, extra, yes: tr("OK"), yesCls: ok ? "solid primary" : "danger solid", no: false });
+}
+
+/* Prüfbericht nach dem Formatieren: je Punkt ein Zeichen für das Ergebnis, Bezeichnung und Wert (kommen vom Formatierer in der
+   gewählten Sprache) */
+function reportList(rows) {
+  const box = el("div", "dlist", "");
+  const mark = { ok: "✓", warn: "!", bad: "✗", info: "•" };
+  const col = { ok: "var(--ok, #4caf7a)", warn: "var(--warn, #e0a030)", bad: "var(--bad, #e05a5a)", info: "var(--muted)" };
+  for (const r of rows) {
+    const row = el("div", "", "");
+    row.style.cssText = "display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--border);font-size:14px";
+    const m = el("span", "", mark[r.state] || "•");
+    m.style.cssText = "flex:0 0 18px;font-weight:700;color:" + (col[r.state] || col.info);
+    const t = el("div", "", "");
+    const b = el("b", "", "");
+    b.textContent = r.label;
+    const v = el("small", "", "");
+    v.style.display = "block";
+    v.textContent = r.value;
+    t.append(b, v);
+    row.append(m, t);
+    box.appendChild(row);
+  }
+  return box;
 }
 
 /* Gefälschter Speicher: nur den echten Bereich formatieren */

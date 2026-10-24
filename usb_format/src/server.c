@@ -439,6 +439,20 @@ static void speed_json(sbuf_t *b, const devtest_t *t) {
     if (t->read_mbps > 0) { sb_add(b, ",\"rating\":"); sb_str(b, dt_rating(t->read_mbps)); }
 }
 
+/* Zeile des Prüfberichts nach dem Formatieren: state ok | warn | bad | info */
+static void report_row(sbuf_t *b, const char *label, const char *state, const char *fmt, ...) {
+    char v[400];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(v, sizeof(v), fmt, ap);
+    va_end(ap);
+    sb_add(b, "%s{\"label\":", b->len && b->p[b->len - 1] != '[' ? "," : "");
+    sb_str(b, label);
+    sb_add(b, ",\"state\":\"%s\",\"value\":", state);
+    sb_str(b, v);
+    sb_add(b, "}");
+}
+
 static const char *rating_text(double read_mbps) {
     const char *r = dt_rating(read_mbps);
     return !strcmp(r, "schnell") ? T("schnell genug für Spiele") : !strcmp(r, "ausreichend")
@@ -630,8 +644,18 @@ static void *format_worker(void *arg) {
     o.limit = j->limit;
     o.dirs = j->folders && native ? TEMPLATE_DIRS : NULL;
     int rc;
+    fsck_result_t fr;
+    int have_fsck = 0;
     if (native) {
         rc = format_disk(&d, j->fs, j->label, arc4random(), j->cluster, &o);
+        if (rc == 0 && j->fs == FS_EXFAT) {   /* Nachkontrolle des frisch geschriebenen Dateisystems, solange der Stick noch uns gehört */
+            fsinfo_t fi;
+            on_progress(N_("Nachkontrolle: Dateisystem prüfen"), 99);
+            if (fs_probe(fd, j->dev.ss, j->dev.size, &fi) == 0 && !strcmp(fi.fs, "exFAT")) {
+                exfat_fsck_run(fd, fi.start, fi.size ? fi.size : j->dev.size - fi.start, j->dev.ss, 0, &fr);
+                have_fsck = 1;
+            }
+        }
         job_release(fd);
         if (rc == 0) snprintf(summary, sizeof(summary), "%s", mkfs_summary());
         else snprintf(err, sizeof(err), "%s", mkfs_error());
@@ -666,11 +690,41 @@ static void *format_worker(void *arg) {
     if (test_cancelled) sb_tr(&msg, " Die Prüfung wurde abgebrochen – formatiert wurde trotzdem.");
     sb_add(&msg, " %s", native ? T("Die PS5 bindet ihn gleich selbst ein.") : T("Die PS5 kann dieses Format nicht nutzen."));
 
+    /* Prüfbericht: was geprüft und geschrieben wurde, je Punkt mit Ergebnis */
+    sbuf_t rep = {0};
+    sb_add(&rep, "[");
+    if (test_cancelled) report_row(&rep, T("Prüfung vorher"), "warn", "%s", T("abgebrochen – formatiert wurde trotzdem"));
+    else if (tested == 2) report_row(&rep, T("Prüfung vorher"), "ok", "%s", T("Jede Stelle geprüft – echt, keine Fehler"));
+    else if (tested) report_row(&rep, T("Prüfung vorher"), "ok", "%s", T("Stichproben geprüft – echt, keine Fehler"));
+    else report_row(&rep, T("Prüfung vorher"), "info", "%s", T("nicht geprüft"));
+    if (tested && !test_cancelled && t.read_mbps > 0)
+        report_row(&rep, T("Tempo"), t.read_mbps >= 40 ? "ok" : "warn", T("Lesen %.0f MB/s, Schreiben %.0f MB/s – %s"), t.read_mbps,
+                   t.write_mbps, rating_text(t.read_mbps));
+    report_row(&rep, T("Dateisystem"), "ok", "%s", summary);
+    report_row(&rep, T("Partitionstabelle"), "ok", "%s", o.is_gpt ? "GPT" : "MBR");
+    if (have_fsck) {
+        char sum[256];
+        exfat_fsck_summary(&fr, 0, sum, sizeof(sum));
+        report_row(&rep, T("Nachkontrolle"), fr.code == 0 || fr.code == 1 ? "ok" : "bad", "%s", sum);
+    }
+    if (o.dirs) report_row(&rep, T("Ordner"), "ok", "%s", T("homebrew, etaHEN/games und pkg angelegt"));
+    if (j->limit) report_row(&rep, T("Größe"), "warn", T("Nur die echten %s genutzt, der Stick meldet %s"), size_text(j->limit, s1, sizeof(s1)),
+                             size_text(j->dev.size, s2, sizeof(s2)));
+    else report_row(&rep, T("Größe"), "ok", "%s", size_text(j->dev.size, s1, sizeof(s1)));
+    report_row(&rep, T("Einbinden"), native ? "info" : "warn", "%s",
+               native ? T("Die PS5 bindet ihn gleich selbst ein.") : T("Die PS5 kann dieses Format nicht nutzen."));
+    sb_add(&rep, "]");
+    if (have_fsck && fr.code != 0 && fr.code != 1) {
+        char sum[256];
+        exfat_fsck_summary(&fr, 0, sum, sizeof(sum));
+        sb_tr(&msg, " %s: %s", T("Nachkontrolle"), sum);
+    }
     sb_add(&res, "{\"test\":\"%s\",\"scheme\":\"%s\",\"folders\":%s,\"limit\":%llu",
            test_cancelled ? "cancelled" : tested == 2 ? "full" : tested ? "quick" : "none", o.is_gpt ? "GPT" : "MBR",
            o.dirs ? "true" : "false", (unsigned long long)j->limit);
     if (tested && !test_cancelled) speed_json(&res, &t);
-    sb_add(&res, "}");
+    sb_add(&res, ",\"report\":%s}", rep.p ? rep.p : "[]");
+    free(rep.p);
     job_done(j, 1, &msg, &res, 1);
     return NULL;
 }

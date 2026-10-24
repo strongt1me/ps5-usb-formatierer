@@ -334,6 +334,12 @@ def port_open(host, port, timeout=1.0):
         return False
 
 
+def report_text(rows):
+    """Prüfbericht nach dem Formatieren als Text: je Punkt ein Zeichen für das Ergebnis, Bezeichnung und Wert"""
+    mark = {"ok": "✓", "warn": "!", "bad": "✗", "info": "•"}
+    return "\n".join(f"{mark.get(r.get('state'), '•')} {r.get('label', '')}: {r.get('value', '')}" for r in rows or [])
+
+
 def _same_save(b, x):
     return (b.get("uid") == x.get("uid") and b.get("title_id") == x.get("title_id") and b.get("save_dir") == x.get("save_dir")
             and (b.get("platform") or "PS5") == (x.get("platform") or "PS5"))
@@ -2059,8 +2065,8 @@ class App(tk.Tk):
         def after(ok, msg, result):
             """eigenes Formatieren: bei gefälschtem Stick anbieten, nur den echten Bereich zu nutzen"""
             if ok:
-                messagebox.showinfo(_("PS5-USB formatieren"), _("Datenträger erfolgreich formatiert.") + "\n\n" + msg,
-                                    parent=self)
+                messagebox.showinfo(_("PS5-USB formatieren"), _("Datenträger erfolgreich formatiert.") + "\n\n"
+                                    + (report_text(result.get("report")) or msg), parent=self)
             elif result.get("fake") and result.get("real", 0) >= 64 * 1024 * 1024:
                 real = result["real"]
                 if self._confirm(_("Gefälschter Speicher erkannt"),

@@ -113,6 +113,10 @@ start "$W/c.img" "0"
 code=$(post "{\"device\":\"da0\",\"fs\":\"exfat\",\"size\":$(size_of "$W/c.img"),\"full\":true,\"folders\":true}" format)
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["result"]["test"] == "full"' <"$W/st")" = True ] \
     && ok "vollständig formatiert: $(q 'd["message"]' <"$W/st" | cut -c1-160)" || bad "vollständig" "$(cat "$W/st")"
+# Prüfbericht: je Punkt Bezeichnung, Ergebnis und Wert; die Nachkontrolle des Dateisystems ist ok
+[ "$(q 'len(d["result"]["report"]) >= 6 and all(set(r) == {"label","state","value"} and r["state"] in ("ok","warn","bad","info") for r in d["result"]["report"])' <"$W/st")" = True ]     && ok "Prüfbericht: Zeilen mit Bezeichnung, Ergebnis und Wert" || bad "Prüfbericht Form" "$(cat "$W/st")"
+[ "$(q 'dict((r["label"], r["state"]) for r in d["result"]["report"]).get("Nachkontrolle")' <"$W/st")" = ok ]     && ok "Prüfbericht: Nachkontrolle des Dateisystems ok" || bad "Nachkontrolle" "$(cat "$W/st")"
+[ "$(q '[r["value"] for r in d["result"]["report"] if r["label"] == "Prüfung vorher"][0]' <"$W/st")" = "Jede Stelle geprüft – echt, keine Fehler" ]     && ok "Prüfbericht: Prüfung vorher benannt" || bad "Prüfung vorher" "$(cat "$W/st")"
 
 # ---------------------------------------------------------------- Abbrechen während des vollständigen Beschreibens
 truncate -s 3G "$W/d.img"
