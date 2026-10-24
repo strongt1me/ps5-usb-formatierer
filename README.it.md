@@ -7,7 +7,7 @@
 **Formatta chiavette e dischi USB – direttamente sulla PS5 o sul PC.**<br>
 Con test di autenticità e velocità, backup immagine, gestione dei giochi, tutti i file system più diffusi e partizioni personalizzate.
 
-[![Versione](https://img.shields.io/badge/Versione-2.6.26-185fa5?style=for-the-badge)](../../releases/latest)
+[![Versione](https://img.shields.io/badge/Versione-2.6.27-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licenza](https://img.shields.io/badge/Licenza-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Piattaforma](https://img.shields.io/badge/Piattaforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Lingue](https://img.shields.io/badge/Lingue-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funzioni)
