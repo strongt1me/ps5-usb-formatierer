@@ -323,12 +323,6 @@
   "es": "ID de título desconocido",
   "fr": "ID de titre inconnu"
  },
- "Ordner": {
-  "en": "folder",
-  "it": "cartella",
-  "es": "carpeta",
-  "fr": "dossier"
- },
  "Höchstens {n} Spiele auf einmal.": {
   "en": "At most {n} games at once.",
   "it": "Al massimo {n} giochi alla volta.",
@@ -1984,5 +1978,101 @@
   "it": "La formattazione cancella tutti i dati su questa unità.",
   "es": "Formatear borra todos los datos de esta unidad.",
   "fr": "Le formatage efface toutes les données de ce lecteur."
+ },
+ "Unvollständige Sicherungen": {
+  "en": "Incomplete backups",
+  "it": "Backup incompleti",
+  "es": "Copias incompletas",
+  "fr": "Sauvegardes incomplètes"
+ },
+ "Sicherung abbrechen": {
+  "en": "Cancel backup",
+  "it": "Annulla il backup",
+  "es": "Cancelar la copia",
+  "fr": "Annuler la sauvegarde"
+ },
+ "Die Sicherung ist erst teilweise fertig. Die Teilsicherung behalten, um sie später an derselben Stelle fortzusetzen, oder verwerfen?": {
+  "en": "The backup is only partly done. Keep the partial backup to resume it later from the same point, or discard it?",
+  "it": "Il backup è solo in parte completato. Mantenere il backup parziale per riprenderlo dallo stesso punto, oppure scartarlo?",
+  "es": "La copia solo está parcialmente hecha. ¿Conservar la copia parcial para reanudarla después desde el mismo punto o descartarla?",
+  "fr": "La sauvegarde n'est qu'en partie terminée. Garder la sauvegarde partielle pour la reprendre plus tard au même endroit, ou la supprimer ?"
+ },
+ "Teilsicherung behalten": {
+  "en": "Keep partial backup",
+  "it": "Mantieni il backup parziale",
+  "es": "Conservar la copia parcial",
+  "fr": "Garder la sauvegarde partielle"
+ },
+ "Verwerfen": {
+  "en": "Discard",
+  "it": "Scarta",
+  "es": "Descartar",
+  "fr": "Supprimer"
+ },
+ "Weitermachen": {
+  "en": "Carry on",
+  "it": "Continua",
+  "es": "Seguir",
+  "fr": "Continuer"
+ },
+ "{pct} % gesichert ({done} von {used})": {
+  "en": "{pct} % backed up ({done} of {used})",
+  "it": "{pct} % salvato ({done} di {used})",
+  "es": "{pct} % copiado ({done} de {used})",
+  "fr": "{pct} % sauvegardé ({done} sur {used})"
+ },
+ "Fortsetzen": {
+  "en": "Resume",
+  "it": "Riprendi",
+  "es": "Reanudar",
+  "fr": "Reprendre"
+ },
+ "Bisherigen Stand der Quelle prüfen (empfohlen)": {
+  "en": "Check the earlier part of the source (recommended)",
+  "it": "Verifica la parte precedente della sorgente (consigliato)",
+  "es": "Comprobar la parte anterior del origen (recomendado)",
+  "fr": "Vérifier la partie précédente de la source (recommandé)"
+ },
+ "Liest die schon gesicherten Teile des Laufwerks noch einmal und vergleicht sie. Nur so ist sicher, dass sich daran seit der Unterbrechung nichts geändert hat.": {
+  "en": "Reads the already backed-up parts of the drive again and compares them. Only this makes sure nothing changed since the interruption.",
+  "it": "Rilegge le parti dell'unità già salvate e le confronta. Solo così si è certi che nulla sia cambiato dopo l'interruzione.",
+  "es": "Vuelve a leer las partes ya copiadas de la unidad y las compara. Solo así se sabe que no ha cambiado nada desde la interrupción.",
+  "fr": "Relit les parties déjà sauvegardées du lecteur et les compare. C'est le seul moyen d'être sûr que rien n'a changé depuis l'interruption."
+ },
+ "Sicherung fortsetzen": {
+  "en": "Resume backup",
+  "it": "Riprendi il backup",
+  "es": "Reanudar la copia",
+  "fr": "Reprendre la sauvegarde"
+ },
+ "{dev} wird ab {pct} % weitergesichert.": {
+  "en": "{dev} is backed up further from {pct} %.",
+  "it": "{dev} viene salvata ancora a partire dal {pct} %.",
+  "es": "{dev} se sigue copiando desde el {pct} %.",
+  "fr": "{dev} est sauvegardé à partir de {pct} %."
+ },
+ "Teilsicherung verwerfen": {
+  "en": "Discard partial backup",
+  "it": "Scarta il backup parziale",
+  "es": "Descartar la copia parcial",
+  "fr": "Supprimer la sauvegarde partielle"
+ },
+ "Diese Teilsicherung wird gelöscht:": {
+  "en": "This partial backup will be deleted:",
+  "it": "Questo backup parziale verrà eliminato:",
+  "es": "Esta copia parcial se eliminará:",
+  "fr": "Cette sauvegarde partielle sera supprimée :"
+ },
+ "{name} verworfen.": {
+  "en": "{name} discarded.",
+  "it": "{name} scartato.",
+  "es": "{name} descartada.",
+  "fr": "{name} supprimée."
+ },
+ "Nicht verworfen": {
+  "en": "Not discarded",
+  "it": "Non scartato",
+  "es": "No descartada",
+  "fr": "Non supprimée"
  }
 }

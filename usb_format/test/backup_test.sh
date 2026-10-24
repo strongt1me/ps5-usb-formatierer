@@ -238,6 +238,11 @@ curl -s "$U/api/images" >"$W/imgs"
 # fortsetzen (gründlich)
 start "$W/a.img:$W/b.img:$W/c.img" "1,1,0" USBFMT_SLOW=1 USBFMT_FRAME_MAX=262144 USBFMT_CKPT_EVERY=1
 code=$(post "{\"path\":\"$PART\",\"device\":\"da0\",\"size\":$SA,\"ident\":\"a.img\",\"replug\":true,\"thorough\":true}" backup/resume)
+prog=""
+for _ in $(seq 1 600); do curl -s "$U/api/status" >"$W/st"; prog="$prog $(q 'd["percent"]' <"$W/st")"; grep -q '"busy":false' "$W/st" && break; sleep 0.05; done
+python3 -c 'import sys
+v=[int(x) for x in sys.argv[1].split() if x != "0"]
+sys.exit(0 if v and all(b >= a for a, b in zip(v, v[1:])) else 1)' "$prog" && ok "Fortsetzen: Balken läuft durchgehend vorwärts (auch während der Prüfung des bisherigen Stands)" || bad "Fortschritt beim Fortsetzen" "$prog"
 wait_job
 FIN=$(ls "$D"/*.img.zst 2>/dev/null | head -1)
 [ "$code" = 202 ] && [ "$(q 'd["ok"]' <"$W/st")" = True ] && [ -n "$FIN" ] && [ ! -e "$PART" ] && [ ! -e "$PART.state" ] && [ -f "$FIN.sha256" ]     && ok "Fortsetzen: fertige Sicherung, Teilsicherung und Merkpunkt weg, .sha256 daneben" || bad "Fortsetzen" "$code $(cat "$W/st") $(ls -a "$D")"

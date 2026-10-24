@@ -431,7 +431,7 @@ int ib_backup(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn out
 
 /* Quelle der Rahmen [start, start+len) noch einmal lesen: SHA-256 der belegten Blöcke (wie beim Sichern) */
 static int frame_sha(int fd, const map_t *m, uint64_t size, uint8_t *page, uint64_t start, uint64_t len, uint8_t out[32],
-                     volatile int *cancel, uint64_t *done, uint64_t total, ib_progress_fn progress, char *err, size_t errlen) {
+                     volatile int *cancel, uint64_t *done, uint64_t total, int share, ib_progress_fn progress, char *err, size_t errlen) {
     sha256_t sh;
     sha256_init(&sh);
     for (uint64_t pos = start; pos < start + len; pos += PAGE) {
@@ -452,7 +452,7 @@ static int frame_sha(int fd, const map_t *m, uint64_t size, uint8_t *page, uint6
             }
             o += run;
         }
-        progress(T("Bisherigen Stand prüfen"), ib_pct(*done, total));
+        { int pc = ib_pct(*done, total) * share / 100; progress(T("Bisherigen Stand prüfen"), pc < 1 ? 1 : pc); }   /* belegt den schon gesicherten Anteil des Balkens */
     }
     sha256_final(&sh, out);
     return 0;
@@ -540,10 +540,11 @@ int ib_backup_ex(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn 
         }
         if (rs->thorough) {
             uint64_t total = 0, done = 0;
-            for (int i = 0; i < nframes; i++) total += frames[i].len;   /* Obergrenze (mit freien Blöcken): reicht für den Balken */
+            const int share = ib_pct(res->used_done, info->used);   /* so viel des Balkens ist schon gesichert: die Prüfung füllt genau diesen Teil */
+            total = res->used_done;   /* gelesen werden genau die schon gesicherten belegten Bytes */
             for (int i = 0; i < nframes; i++) {
                 uint8_t d[32];
-                int fr = frame_sha(fd, &m, size, page, frames[i].start, frames[i].len, d, cancel, &done, total ? total : 1, progress, err, errlen);
+                int fr = frame_sha(fd, &m, size, page, frames[i].start, frames[i].len, d, cancel, &done, total ? total : 1, share, progress, err, errlen);
                 if (fr > 0) { r->cancelled = 1; rc = 0; goto out; }
                 if (fr < 0) goto out;
                 if (memcmp(d, frames[i].sha, 32) != 0) {

@@ -162,8 +162,16 @@ class Api:
             body["limit"] = limit   # gefälschter Stick: nur den echten Bereich nutzen
         return self._call("/api/format", body)
 
-    def cancel(self):
-        return self._call("/api/cancel", {})
+    def cancel(self, keep=False):
+        """Auftrag abbrechen; keep: eine Image-Sicherung auf die PS5 als Teilsicherung behalten (später fortsetzen)"""
+        return self._call("/api/cancel", {"keep": True} if keep else {})
+
+    def resume_backup(self, dev, path, thorough):
+        """Image-Sicherung ab dem letzten Merkpunkt fortsetzen"""
+        return self._call("/api/backup/resume", dict(self._dev(dev), path=path, thorough=bool(thorough)))
+
+    def discard_partial(self, path):
+        return self._call("/api/images/discard", {"path": path})
 
     # Image-Sicherung (.img.zst): Orte und Sicherungen auf der PS5, sichern, zurückschreiben, Download, Hochladen
     @staticmethod
@@ -399,6 +407,14 @@ def ask_move(root, dev, targets, names):
     pc_common.grab(win)
     root.wait_window(win)
     return result["v"]
+
+
+def game_type_label(g):
+    """Art eines Spiels: Dump-Ordner oder die Endung des Abbilds (exFAT, ffpkg, ffpfs, ffpfsc)"""
+    if g.get("kind") == "Ordner":
+        return _("Dump-Ordner")
+    ext = (g.get("ext") or "").lower()
+    return {"exfat": "exFAT", "ffpkg": "ffpkg", "ffpfs": "ffpfs", "ffpfsc": "ffpfsc"}.get(ext) or g.get("kind") or "?"
 
 
 def report_text(rows):
@@ -879,6 +895,28 @@ class App(tk.Tk):
             "Gewählte Sicherung ganz lesen und ihre Prüfsummen vergleichen (auf der PS5)"))
         Tooltip(self.img_del_btn, lambda: self._why(self.img_del_btn, need_dev=False) or _(
             "Gewählte Sicherung samt .sha256-Datei löschen"))
+        # unvollständige Sicherungen dieses Laufwerks (abgebrochen mit "behalten", Fehler, Neustart): fortsetzen oder verwerfen
+        self.ps5_partials = []
+        self._part_key = None
+        self.part_box = ttk.Frame(ic)
+        self.part_box.grid(row=8, column=0, sticky="ew", pady=(px(14), 0))
+        self.part_box.columnconfigure(0, weight=1)
+        ttk.Separator(self.part_box).grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, px(10)))
+        ttk.Label(self.part_box, text=_("Unvollständige Sicherungen").upper(), style="Section.TLabel").grid(row=1, column=0, sticky="w")
+        self.part_tree = ttk.Treeview(self.part_box, columns=("meta",), show="tree", height=2, selectmode="browse",
+                                      style="Games.Treeview")
+        self.part_tree.column("#0", width=px(240), minwidth=120, stretch=True)
+        self.part_tree.column("meta", width=px(230), minwidth=120, anchor="e", stretch=False)
+        self.part_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
+        self.part_tree.grid(row=2, column=0, sticky="ew", pady=(px(6), 0))
+        self.part_tree.bind("<<TreeviewSelect>>", lambda e: self._update())
+        pa = ttk.Frame(self.part_box)
+        pa.grid(row=3, column=0, sticky="e", pady=(px(8), 0))
+        self.part_resume_btn = ttk.Button(pa, text=_("Fortsetzen …"), style="Accent.TButton", command=self._part_resume)
+        self.part_resume_btn.pack(side="left")
+        self.part_discard_btn = ttk.Button(pa, text=_("Verwerfen …"), command=self._part_discard)
+        self.part_discard_btn.pack(side="left", padx=(px(8), 0))
+        self.part_box.grid_remove()
 
         # ---- Spielstände
         sc = self.saves_card = ui_theme.card(right)
@@ -1139,6 +1177,8 @@ class App(tk.Tk):
     def _fill_img_list(self, data):
         imgs = sorted(data.get("images", []), key=lambda i: i.get("created", "") or i.get("name", ""), reverse=True)
         self.ps5_images = imgs
+        self.ps5_partials = data.get("partials", []) or []
+        self._part_key = None
         keep = self.img_tree.selection()
         self.img_tree.delete(*self.img_tree.get_children())
         for n, i in enumerate(imgs):
@@ -1153,6 +1193,95 @@ class App(tk.Tk):
         self.img_hint.configure(text=_("Noch keine Sicherung auf der PS5.") if not imgs else
                                 _("{n} Sicherungen – intern und auf eingebundenen USB-Laufwerken.", n=len(imgs)))
         self._update()
+
+    def _my_partials(self):
+        dev = self._selected_device()
+        if not dev or self.mode_var.get() != "ps5":
+            return []
+        return [x for x in self.ps5_partials if x.get("size") == dev.get("size") and x.get("device") != dev.get("name")
+                and (not x.get("ident") or not dev.get("ident") or x["ident"] == dev["ident"])]
+
+    def _part_pct(self, x):
+        return max(1, min(99, int(100 * x.get("done", 0) / x["used"]))) if x.get("used") else 0
+
+    def _refresh_partials(self):
+        mine = self._my_partials()
+        key = tuple((x["path"], x.get("done")) for x in mine)
+        if key == self._part_key:
+            return
+        self._part_key = key
+        keep = self.part_tree.selection()
+        self.part_tree.delete(*self.part_tree.get_children())
+        for n, x in enumerate(mine):
+            where = _("intern") if not x.get("device") else x["device"]
+            when = time.strftime("%x %H:%M", time.localtime(x.get("when") or 0))
+            self.part_tree.insert("", "end", iid=x["path"], tags=("odd",) if n % 2 else (),
+                                  text="  " + _("{pct} % gesichert ({done} von {used})", pct=self._part_pct(x),
+                                               done=fmt_size(x.get("done", 0)), used=fmt_size(x.get("used", 0))),
+                                  values=(f"{when} · {where}",))
+        sel = [k for k in keep if self.part_tree.exists(k)]
+        if sel:
+            self.part_tree.selection_set(sel)
+        elif mine:
+            self.part_tree.selection_set(mine[0]["path"])
+        if mine:
+            self.part_box.grid()
+        else:
+            self.part_box.grid_remove()
+
+    def _part_selected(self):
+        sel = self.part_tree.selection()
+        return next((x for x in self._my_partials() if sel and x["path"] == sel[0]), None)
+
+    def _part_resume(self):
+        dev, part = self._selected_device(), self._part_selected()
+        if self.busy or not dev or not part or not self.api:
+            return
+        ans = messagebox.askyesnocancel(
+            _("Sicherung fortsetzen"),
+            _("{dev} wird ab {pct} % weitergesichert.", dev=f"{dev_title(dev)} ({dev['name']})", pct=self._part_pct(part)) +
+            "\n\n" + self._replug_note(dev) +
+            _("Mit Prüfung des bisherigen Stands: Die schon gesicherten Teile des Laufwerks werden noch einmal gelesen und "
+              "verglichen. Nur so ist sicher, dass sich daran seit der Unterbrechung nichts geändert hat (empfohlen).") +
+            "\n\n" + _("Ja: mit Prüfung · Nein: ohne Prüfung · Abbrechen"), parent=self)
+        if ans is None or self.busy or not self.api:
+            return
+        api = self.api
+        self._img_to_pc = False
+
+        def shown(ok, msg, result):
+            (messagebox.showinfo if ok else messagebox.showerror)(_("Sicherung fortsetzen"), msg, parent=self)
+
+        def work():
+            try:
+                api.resume_backup(dev, part["path"], bool(ans))
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Fortsetzen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, after=shown)
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _part_discard(self):
+        part = self._part_selected()
+        if self.busy or not part or not self.api:
+            return
+        name = os.path.basename(part["path"])
+        if not messagebox.askokcancel(_("Teilsicherung verwerfen"), _("Diese Teilsicherung wird gelöscht:") + "\n" + name + "\n\n" +
+                                      _("Das lässt sich nicht rückgängig machen."), icon="warning", default="cancel", parent=self):
+            return
+        api = self.api
+
+        def work():
+            try:
+                api.discard_partial(part["path"])
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("bgerror", str(e)))
+            self.q.put(("status", _("{name} verworfen.", name=name)))
+            self._load_img_list()
+
+        threading.Thread(target=self._guard(work, background=True), daemon=True).start()
 
     def _img_selected(self):
         sel = self.img_tree.selection()
@@ -1578,6 +1707,9 @@ class App(tk.Tk):
         # formattable() gilt nur für Laufwerke an der PS5 - nach dem Wechsel in "frei" steht hier noch ein PC-Laufwerk
         enable(self.start_btn, idle and dev and (self.mode_var.get() != "ps5" or formattable(dev)))
         enable(self.speed_btn, idle and dev)
+        self._refresh_partials()
+        enable(self.part_resume_btn, idle and not pc and self.api and self._part_selected())
+        enable(self.part_discard_btn, idle and not pc and self.api and self._part_selected())
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
         enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.ps5_devices) > 1)
         for w in (self.backup_btn, self.restore_btn):
@@ -1697,7 +1829,7 @@ class App(tk.Tk):
         shown = [g for g in games if not q or q in (g["name"] or "").lower() or q in g.get("id", "").lower()]
         rows = []
         for g in sorted(shown, key=key):
-            kind = _("Ordner") if g["kind"] == "Ordner" else _("Abbild {kind}", kind=g["kind"])   # Art kommt deutsch
+            kind = game_type_label(g)
             meta = " · ".join(x for x in (g["id"], kind, fmt_size(g["size"]) if g["size"] else "") if x)
             rows.append((g.get("key") or None, g["name"] or g["id"], meta))
         if rows != getattr(self, "_games_shown", None):
@@ -2355,6 +2487,7 @@ class App(tk.Tk):
         if choice is None:
             return
         to_pc = choice == len(locs)
+        self._img_to_pc = to_pc
         path = None
         if to_pc:
             name = image_file_name({"model": dev.get("model", ""), "volumes": [{"label": dev.get("label", "")}]})
@@ -2607,7 +2740,7 @@ class App(tk.Tk):
                                                  "Ergebnis ist unbekannt. Bitte den Datenträger prüfen bzw. erneut "
                                                  "formatieren."), foreign, done_title, {}, after))
                 return
-            flags = {k: st[k] for k in ("replug", "cancellable", "detail") if k in st}
+            flags = {k: st[k] for k in ("replug", "cancellable", "detail", "kind") if k in st}
             self.q.put(("progress", int(st.get("percent") or 0), st.get("step") or "", flags))
             if not st.get("busy"):
                 try:   # erst die Liste, dann das Ergebnis - sonst überschreibt der Listenhinweis die Meldung
@@ -2792,6 +2925,18 @@ class App(tk.Tk):
 
     def _cancel(self):
         """Abbrechen: am PC über die Abbruch-Datei des Helfers, an der PS5 über /api/cancel"""
+        keep = False
+        if (not self.pc_job and self.api and self.mode_var.get() == "ps5" and self.ps5_flags.get("kind") == "backup"
+                and not getattr(self, "_img_to_pc", False)):
+            # Image-Sicherung auf die PS5: Teilsicherung behalten (später fortsetzen) oder verwerfen?
+            ans = messagebox.askyesnocancel(
+                _("Sicherung abbrechen"),
+                _("Die Sicherung ist erst teilweise fertig. Die Teilsicherung behalten, um sie später an derselben Stelle "
+                  "fortzusetzen, oder verwerfen?") + "\n\n" + _("Ja: behalten · Nein: verwerfen · Abbrechen: weitermachen"),
+                parent=self)
+            if ans is None:
+                return
+            keep = bool(ans)
         self.cancel_btn.state(["disabled"])
         self.status_var.set(_("Wird abgebrochen …"))
         if self.pc_job:
@@ -2801,7 +2946,7 @@ class App(tk.Tk):
 
             def work():
                 try:
-                    api.cancel()
+                    api.cancel(keep)
                 except (ConnectionError, ApiError) as e:
                     self.q.put(("bgerror", _("Abbrechen nicht möglich: {e}", e=e)))
 

@@ -1361,12 +1361,6 @@
   "es": "No desconectes ni vuelvas a conectar unidades USB en la PS5 mientras se usan",
   "fr": "Ne débranchez ni ne rebranchez aucun support USB sur la PS5 pendant l'utilisation"
  },
- "Ordner": {
-  "en": "folder",
-  "it": "cartella",
-  "es": "carpeta",
-  "fr": "dossier"
- },
  "Der Helfer {name} fehlt neben dem Programm.": {
   "en": "The helper {name} is missing next to the program.",
   "it": "L'helper {name} manca accanto al programma.",
@@ -1966,12 +1960,6 @@
   "it": "Elimina i giochi selezionati …",
   "es": "Eliminar los juegos marcados …",
   "fr": "Supprimer les jeux cochés …"
- },
- "Abbild {kind}": {
-  "en": "image {kind}",
-  "it": "immagine {kind}",
-  "es": "imagen {kind}",
-  "fr": "image {kind}"
  },
  "Neue Version {version} verfügbar": {
   "en": "New version {version} available",
@@ -2902,5 +2890,101 @@
   "it": "Se ShadowMountPlus non conosce un gioco (ad es. alcuni giochi PS4), l'originale non può poi essere rimosso con la finestra di eliminazione – resta dov'è.",
   "es": "Si ShadowMountPlus no conoce un juego (p. ej. algunos juegos de PS4), el original no se puede quitar después con el diálogo de borrado – se queda donde está.",
   "fr": "Si ShadowMountPlus ne connaît pas un jeu (p. ex. certains jeux PS4), l'original ne peut pas être supprimé ensuite via la boîte de suppression – il reste en place."
+ },
+ "Unvollständige Sicherungen": {
+  "en": "Incomplete backups",
+  "it": "Backup incompleti",
+  "es": "Copias incompletas",
+  "fr": "Sauvegardes incomplètes"
+ },
+ "Sicherung abbrechen": {
+  "en": "Cancel backup",
+  "it": "Annulla il backup",
+  "es": "Cancelar la copia",
+  "fr": "Annuler la sauvegarde"
+ },
+ "Dump-Ordner": {
+  "en": "Dump folder",
+  "it": "Cartella dump",
+  "es": "Carpeta de volcado",
+  "fr": "Dossier de dump"
+ },
+ "{pct} % gesichert ({done} von {used})": {
+  "en": "{pct} % backed up ({done} of {used})",
+  "it": "{pct} % salvato ({done} di {used})",
+  "es": "{pct} % copiado ({done} de {used})",
+  "fr": "{pct} % sauvegardé ({done} sur {used})"
+ },
+ "Sicherung fortsetzen": {
+  "en": "Resume backup",
+  "it": "Riprendi il backup",
+  "es": "Reanudar la copia",
+  "fr": "Reprendre la sauvegarde"
+ },
+ "{dev} wird ab {pct} % weitergesichert.": {
+  "en": "{dev} is backed up further from {pct} %.",
+  "it": "{dev} viene salvata ancora a partire dal {pct} %.",
+  "es": "{dev} se sigue copiando desde el {pct} %.",
+  "fr": "{dev} est sauvegardé à partir de {pct} %."
+ },
+ "Teilsicherung verwerfen": {
+  "en": "Discard partial backup",
+  "it": "Scarta il backup parziale",
+  "es": "Descartar la copia parcial",
+  "fr": "Supprimer la sauvegarde partielle"
+ },
+ "Diese Teilsicherung wird gelöscht:": {
+  "en": "This partial backup will be deleted:",
+  "it": "Questo backup parziale verrà eliminato:",
+  "es": "Esta copia parcial se eliminará:",
+  "fr": "Cette sauvegarde partielle sera supprimée :"
+ },
+ "{name} verworfen.": {
+  "en": "{name} discarded.",
+  "it": "{name} scartato.",
+  "es": "{name} descartada.",
+  "fr": "{name} supprimée."
+ },
+ "Die Sicherung ist erst teilweise fertig. Die Teilsicherung behalten, um sie später an derselben Stelle fortzusetzen, oder verwerfen?": {
+  "en": "The backup is only partly done. Keep the partial backup to resume it later from the same point, or discard it?",
+  "it": "Il backup è solo in parte completato. Mantenere il backup parziale per riprenderlo dallo stesso punto, oppure scartarlo?",
+  "es": "La copia solo está parcialmente hecha. ¿Conservar la copia parcial para reanudarla después desde el mismo punto o descartarla?",
+  "fr": "La sauvegarde n'est qu'en partie terminée. Garder la sauvegarde partielle pour la reprendre plus tard au même endroit, ou la supprimer ?"
+ },
+ "Ja: behalten · Nein: verwerfen · Abbrechen: weitermachen": {
+  "en": "Yes: keep · No: discard · Cancel: carry on",
+  "it": "Sì: mantieni · No: scarta · Annulla: continua",
+  "es": "Sí: conservar · No: descartar · Cancelar: seguir",
+  "fr": "Oui : garder · Non : supprimer · Annuler : continuer"
+ },
+ "Fortsetzen …": {
+  "en": "Resume …",
+  "it": "Riprendi …",
+  "es": "Reanudar …",
+  "fr": "Reprendre …"
+ },
+ "Verwerfen …": {
+  "en": "Discard …",
+  "it": "Scarta …",
+  "es": "Descartar …",
+  "fr": "Supprimer …"
+ },
+ "Mit Prüfung des bisherigen Stands: Die schon gesicherten Teile des Laufwerks werden noch einmal gelesen und verglichen. Nur so ist sicher, dass sich daran seit der Unterbrechung nichts geändert hat (empfohlen).": {
+  "en": "With a check of the earlier part: the already backed-up parts of the drive are read again and compared. Only this makes sure nothing changed since the interruption (recommended).",
+  "it": "Con verifica della parte precedente: le parti dell'unità già salvate vengono rilette e confrontate. Solo così si è certi che nulla sia cambiato dopo l'interruzione (consigliato).",
+  "es": "Con comprobación de la parte anterior: se vuelven a leer y comparar las partes ya copiadas de la unidad. Solo así se sabe que no ha cambiado nada desde la interrupción (recomendado).",
+  "fr": "Avec vérification de la partie précédente : les parties déjà sauvegardées du lecteur sont relues et comparées. C'est le seul moyen d'être sûr que rien n'a changé depuis l'interruption (recommandé)."
+ },
+ "Ja: mit Prüfung · Nein: ohne Prüfung · Abbrechen": {
+  "en": "Yes: with check · No: without check · Cancel",
+  "it": "Sì: con verifica · No: senza verifica · Annulla",
+  "es": "Sí: con comprobación · No: sin comprobación · Cancelar",
+  "fr": "Oui : avec vérification · Non : sans vérification · Annuler"
+ },
+ "Fortsetzen konnte nicht gestartet werden: {e}": {
+  "en": "Resuming could not be started: {e}",
+  "it": "Impossibile avviare la ripresa: {e}",
+  "es": "No se pudo iniciar la reanudación: {e}",
+  "fr": "La reprise n'a pas pu démarrer : {e}"
  }
 }
