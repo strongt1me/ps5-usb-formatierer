@@ -173,15 +173,21 @@ html.tv .hwarn { font-size: 16px; }
 .stat b { display: block; font-size: 19px; font-weight: 600; }
 .stat span { font-size: 12px; color: var(--muted); }
 .stat b.good { color: var(--ok); } .stat b.mid { color: var(--warn); } .stat b.slow { color: var(--danger); }
-.games { font-size: 13.5px; max-height: 260px; overflow-y: auto; }
-.game { display: flex; justify-content: space-between; padding: 5px 0; border-top: 1px solid var(--border); }
+.games { font-size: 13.5px; max-height: 340px; overflow-y: auto; scrollbar-gutter: stable; padding-right: 8px; scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
+.game { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; row-gap: 1px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); }
+.game > span { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game i { grid-column: 1; grid-row: 2; min-width: 0; margin: 0; font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.game .gsize { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-align: right; font-style: normal; font-size: 12.5px;
+  font-variant-numeric: tabular-nums; color: var(--text); }
+.game .gsize.wait { color: var(--muted); }
+.sortbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 10px 0 6px; font-size: 12.5px; color: var(--muted); }
+.sortbar select { flex: none; width: auto; min-width: 0; padding: 4px 30px 4px 10px; font-size: 12.5px; border-radius: 8px; }
 .game:first-child { border-top: 0; }
-.game span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.game i { font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; margin-left: 10px; }
 /* Auswahl zum Löschen */
-.game.pick { align-items: center; cursor: pointer; }
-.game.pick input { flex: none; margin: 0 10px 0 0; }
-.game.pick span { flex: 1; min-width: 0; }
+.game.pick { cursor: pointer; grid-template-columns: auto 1fr auto; }
+.game.pick input { grid-column: 1; grid-row: 1 / span 2; align-self: center; margin: 0 10px 0 0; }
+.game.pick > span, .game.pick i { grid-column: 2; }
+.game.pick .gsize { grid-column: 3; }
 .game.pick.on span { color: var(--text); font-weight: 600; }
 .pickbar { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px;
            border-top: 1px solid var(--border); font-size: 13.5px; }
@@ -971,8 +977,7 @@ function renderContent() {
   if (lib.scanning && !titles.length) box.appendChild(libScanNote());
   if (titles.length) {
     if (titles.length > 1) {
-      const bar = el("div", "", ""), lab = el("label", "", tr("Sortieren nach") + " "), sel = el("select");
-      bar.style.cssText = "margin:8px 0 4px;font-size:13px;color:var(--muted)";
+      const bar = el("div", "sortbar", ""), lab = el("label", "", tr("Sortieren nach")), sel = el("select");
       for (const [v, text] of [["name", tr("Name")], ["size", tr("Größe")], ["id", tr("Titel-ID")]]) sel.add(new Option(text, v));
       sel.value = gamesSort;
       sel.dataset.key = "__sort";
@@ -982,11 +987,10 @@ function renderContent() {
         if (gamesSort === "size") { sizesAsked.delete(d.name); loadGameSizes(d); }
         renderContent();
       });
-      lab.appendChild(sel);
-      bar.appendChild(lab);
+      bar.append(lab, sel);
       box.appendChild(bar);
     }
-    if (gamesSort === "size") loadGameSizes(d);   /* gemerkte Wahl: beim ersten Zeichnen anfordern */
+    loadGameSizes(d);   /* Größen der Ordner-Spiele im Hintergrund holen (einmal je Laufwerk) */
     const list = el("div", "games"), sorted = sortGames(titles);
     for (const k of Array.from(picked)) if (!titles.some(t => t.key === k)) picked.delete(k);   /* nicht mehr da */
     if (sorted.length > 3 && !pickMode) {   /* ruhig halten: drei Spiele, der Rest auf Wunsch */
@@ -1008,8 +1012,8 @@ function renderContent() {
     for (const t of showAll || pickMode ? sorted : sorted.slice(0, 3)) {
       const sz = gameSize(t);
       const info = el("i", "", (t.id || tr("Titel-ID unbekannt")) + " · " +
-                               (t.kind === "Ordner" ? tr("Ordner") : tr("Abbild {kind}", { kind: t.kind })) +
-                               (sz !== undefined ? " · " + fmtSize(sz) : gamesSort === "size" ? " · …" : ""));
+                               (t.kind === "Ordner" ? tr("Ordner") : tr("Abbild {kind}", { kind: t.kind })));
+      const szEl = el("em", "gsize" + (sz === undefined ? " wait" : ""), sz === undefined ? "…" : fmtSize(sz));
       let g;
       if (pickMode) {   /* Häkchen vor jedem Spiel; die ganze Zeile schaltet um */
         g = el("label", "game pick" + (picked.has(t.key) ? " on" : ""));
@@ -1024,10 +1028,10 @@ function renderContent() {
         });
         boxes.push({ cb, row, key: t.key });
         if (t.key === focusKey) focusBox = cb;
-        g.append(cb, el("span", "", t.name), info);
+        g.append(cb, el("span", "", t.name), info, szEl);
       } else {
         g = el("div", "game");
-        g.append(el("span", "", t.name), info);
+        g.append(el("span", "", t.name), info, szEl);
       }
       g.title = t.path;
       list.appendChild(g);
