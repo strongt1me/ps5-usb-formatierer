@@ -1144,7 +1144,7 @@ class App(tk.Tk):
 
     def _set_tab(self, name):
         """Reiter wechseln (An der PS5); steht ein anderer Modus, zuerst dorthin"""
-        if name not in dict(TABS):
+        if name not in dict(TABS) or (name == "format" and self._place_selected()):
             return
         self.page = name
         self.settings["page"] = self.page
@@ -1154,6 +1154,11 @@ class App(tk.Tk):
         else:
             save_settings(self.settings)
             self._show_page()
+
+    def _place_selected(self):
+        """Ist ein fester Ort (interner Speicher) gewählt? Der lässt sich nicht formatieren"""
+        dev = self._selected_device() if self.mode_var.get() == "ps5" else None
+        return bool(dev and dev.get("place"))
 
     def _show_page(self):
         """Seitenleiste markieren, passende Karten zeigen, Überschrift setzen"""
@@ -1888,6 +1893,14 @@ class App(tk.Tk):
 
         idle = not self.busy
         pc = self.mode_var.get() == "pc"
+        fb = self.tab_btns["format"]   # fester Ort (intern): kein Reiter "Formatieren"
+        if self._place_selected():
+            if fb.winfo_manager():
+                fb.pack_forget()
+            if self.page == "format":
+                self._set_tab("games")
+        elif not fb.winfo_manager():
+            fb.pack(side="right")
         fdev = self._selected_device()
         self.fmt_drive_lbl.configure(text=(f"{dev_title(fdev)} ({fdev.get('name') or fdev.get('disk', '')}, {fmt_size(fdev['size'])})"
                                            if fdev and fdev.get("size") else _("Erst ein Laufwerk wählen.")))

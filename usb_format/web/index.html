@@ -1239,7 +1239,7 @@ let activeTab = "games";
 try { const t = localStorage.getItem("tab"); if (TABS.includes(t)) activeTab = t; } catch (e) {}
 
 function setTab(name, focus) {
-  if (!TABS.includes(name)) name = "games";
+  if (!TABS.includes(name) || (name === "format" && selectedPlace)) name = "games";   /* feste Orte (intern) lassen sich nicht formatieren */
   activeTab = name;
   try { localStorage.setItem("tab", name); } catch (e) {}
   for (const t of TABS) $(TAB_PANE[t]).hidden = t !== name;
@@ -1403,6 +1403,9 @@ function updateTabInfo() {
 }
 
 function renderTabs() {
+  const fb = document.querySelector('#tabbar button[data-tab="format"]');
+  if (fb) fb.style.display = selectedPlace ? "none" : "";
+  if (selectedPlace && activeTab === "format") setTab("games");
   renderContent();
   renderPkgs();
   renderCheck();
