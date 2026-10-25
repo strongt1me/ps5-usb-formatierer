@@ -39,7 +39,7 @@ Eingebundene Laufwerke meldet der Formatierer per Software ab und übernimmt sie
 <td width="33%" valign="top">
 
 ### 🕹️ Spiele im Blick
-Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien und Belegung. Doppelte Spiele erkennen, Spiele über „Spiele löschen …“ samt Kachel entfernen.
+Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien und Belegung. Doppelte Spiele erkennen, Spiele über „Spiele löschen …“ samt Kachel entfernen. Spiele lassen sich auch zwischen Laufwerken und dem internen PS5-Speicher kopieren oder verschieben, samt zugehöriger Dateien (Backport-Ordner, Prüfsummen); PKG-Dateien lassen sich ebenfalls verschieben und löschen.
 
 </td>
 </tr>

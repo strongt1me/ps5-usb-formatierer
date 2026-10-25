@@ -39,7 +39,7 @@ Il formattatore scollega via software le unità montate e le acquisisce prima ch
 <td width="33%" valign="top">
 
 ### 🕹️ Giochi sotto controllo
-Giochi (cartelle e immagini con ID titolo), file PKG e occupazione. Riconosce i giochi doppi, rimuove i giochi insieme al riquadro con «Elimina giochi …».
+Giochi (cartelle e immagini con ID titolo), file PKG e occupazione. Riconosce i giochi doppi, rimuove i giochi insieme al riquadro con «Elimina giochi …». I giochi si possono anche copiare o spostare tra unità e la memoria interna della PS5, con i file collegati (cartella backport, checksum); anche i file PKG si possono spostare ed eliminare.
 
 </td>
 </tr>

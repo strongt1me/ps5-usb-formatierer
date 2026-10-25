@@ -39,7 +39,7 @@ The formatter detaches mounted drives by software and takes them over before the
 <td width="33%" valign="top">
 
 ### 🕹️ Games at a glance
-Games (folders and images with title ID), PKG files and usage. Detects duplicate games, removes games including their tile via “Delete games …”.
+Games (folders and images with title ID), PKG files and usage. Detects duplicate games, removes games including their tile via “Delete games …”. Games can also be copied or moved between drives and the internal PS5 storage, together with their related files (backport folder, checksums); PKG files can be moved and deleted too.
 
 </td>
 </tr>

@@ -820,6 +820,8 @@ static void *label_worker(void *arg) {
 typedef struct {
     char       device[16];   /* leer: interner Ordner (z. B. /data/homebrew) */
     char       place[16];    /* dann der Ort: "intern" (/data/...) oder "extN" (/mnt/extN) */
+    char     **xtra;         /* je Titel: zugehörige Dateien/Ordner (Pfade, getrennt durch Zeilenumbruch) oder NULL - einmal je Suche
+                                gesucht, damit /api/library nicht bei jedem Abruf den Datenträger durchsucht */
     int        usb;
     lib_root_t r;
     /* welcher Datenträger dort eingehängt war: steckt am selben Anschluss ein anderer (oder wurde neu eingehängt),
@@ -873,8 +875,34 @@ static uint32_t path_key(const char *p) {
     return h;
 }
 
+static int find_extras(const char *root, const char *path, const char *id, char (*out)[300], int max);
+
+static void libroot_free(libroot_t *r) {
+    for (int i = 0; r->xtra && i < r->r.ntitles; i++) free(r->xtra[i]);
+    free(r->xtra);
+    r->xtra = NULL;
+    lib_free(&r->r);
+}
+
+/* Zugehörige Dateien aller Titel der Wurzel suchen und merken */
+static void libroot_fill_extras(libroot_t *r) {
+    char (*ex)[300] = malloc(sizeof(char[300]) * LIB_EXTRAS_MAX);
+    r->xtra = r->r.ntitles > 0 ? calloc((size_t)r->r.ntitles, sizeof(*r->xtra)) : NULL;
+    for (int k = 0; ex && r->xtra && k < r->r.ntitles; k++) {
+        const lib_title_t *t = &r->r.titles[k];
+        const int nex = find_extras(r->r.root, t->path, t->id, ex, LIB_EXTRAS_MAX);
+        if (!nex) continue;
+        char *joined = malloc((size_t)nex * 300 + 1);
+        if (!joined) continue;
+        size_t o = 0;
+        for (int x = 0; x < nex; x++) o += (size_t)snprintf(joined + o, 301, "%s%s", x ? "\n" : "", ex[x]);
+        r->xtra[k] = joined;
+    }
+    free(ex);
+}
+
 static void lib_free_all(libroot_t *r, int n) {
-    for (int i = 0; i < n; i++) lib_free(&r[i].r);
+    for (int i = 0; i < n; i++) libroot_free(&r[i]);
     free(r);
 }
 
@@ -914,6 +942,7 @@ static void *lib_worker(void *arg) {
                 snprintf(roots[n].ident, sizeof(roots[n].ident), "%s", devs[i].ident);
                 lib_progress(-1, total, devs[i].mounts[m].path);
                 lib_scan(devs[i].mounts[m].path, 1, &roots[n].r);
+                libroot_fill_extras(&roots[n]);
                 n++;
             }
         }
@@ -923,8 +952,8 @@ static void *lib_worker(void *arg) {
             roots[n].dev = root_dev(extra[k]);
             lib_progress(-1, total, extra[k]);
             lib_scan(extra[k], roots[n].usb, &roots[n].r);
-            if (roots[n].r.ntitles || roots[n].r.pkgs) n++;
-            else lib_free(&roots[n].r);
+            if (roots[n].r.ntitles || roots[n].r.pkgs) { libroot_fill_extras(&roots[n]); n++; }
+            else libroot_free(&roots[n]);
         }
         free(devs);
 
@@ -1268,7 +1297,7 @@ static void api_devices(int c) {
                 if (!r->device[0]) known = 1;   /* fester Ordner (z. B. /mnt/ext0): wie bisher nur über den Pfad */
                 else if (strcmp(r->device, devs[i].name) != 0 || r->size != devs[i].size || r->dev != mdev[i][m] ||
                     (r->ident[0] && devs[i].ident[0] && strcmp(r->ident, devs[i].ident) != 0)) {
-                    lib_free(&r->r);   /* veraltet: Eintrag entfernen */
+                    libroot_free(r);   /* veraltet: Eintrag entfernen */
                     memmove(r, r + 1, (size_t)(lib_n - k - 1) * sizeof(*r));
                     lib_n--;
                     k--;
@@ -1433,17 +1462,20 @@ static void api_library(int c, int refresh) {
             sb_str(&b, lib_snap[i].r.root);
             sb_add(&b, ",\"device\":");
             sb_str(&b, lroot_name(&lib_snap[i]));
-            char (*ex)[300] = malloc(sizeof(char[300]) * LIB_EXTRAS_MAX);
-            int nex = ex ? find_extras(lib_snap[i].r.root, t->path, t->id, ex, LIB_EXTRAS_MAX) : 0;
-            if (nex) {   /* zugehörige Dateien und Ordner (Backport, Prüfsummen): mit dem Spiel kopieren bzw. löschen */
+            const char *xt = lib_snap[i].xtra ? lib_snap[i].xtra[k] : NULL;
+            if (xt && *xt) {   /* zugehörige Dateien und Ordner (Backport, Prüfsummen): mit dem Spiel kopieren bzw. löschen */
                 sb_add(&b, ",\"extras\":[");
-                for (int x = 0; x < nex; x++) {
-                    if (x) sb_add(&b, ",");
-                    sb_str(&b, ex[x]);
+                for (const char *a = xt; *a;) {
+                    const char *e = strchr(a, '\n');
+                    char one[300];
+                    snprintf(one, sizeof(one), "%.*s", (int)(e ? (size_t)(e - a) : strlen(a)), a);
+                    if (a != xt) sb_add(&b, ",");
+                    sb_str(&b, one);
+                    if (!e) break;
+                    a = e + 1;
                 }
                 sb_add(&b, "]");
             }
-            free(ex);
             sb_add(&b, "}");
         }
     /* .pkg-Dateien (Installationspakete) mit Plattform */
@@ -2833,10 +2865,12 @@ static void api_backup_resume(int c, const char *body) {
     if (request_part(c, kv, n, path, sizeof(path), &locs, &at)) return;
     snprintf(statef, sizeof(statef), "%s.state", path);
     const char *bad = access(statef, F_OK) != 0 ? N_("Zur Teilsicherung fehlt der Merkpunkt – bitte verwerfen und neu sichern.") : NULL;
+    char at_dev[sizeof(at->device)] = "";   /* at zeigt in locs: vor dem Freigeben den Namen merken */
+    if (at) snprintf(at_dev, sizeof(at_dev), "%s", at->device);
     free(locs);
     if (bad) { respond_error(c, 404, bad); return; }
     if (request_device(c, kv, n, &d) || request_replug(c, kv, n, &d, &replug)) return;
-    if (at && !strcmp(at->device, d.name)) { respond_error(c, 400, N_("Die Sicherung kann nicht auf dem Datenträger liegen, der gesichert wird.")); return; }
+    if (at && !strcmp(at_dev, d.name)) { respond_error(c, 400, N_("Die Sicherung kann nicht auf dem Datenträger liegen, der gesichert wird.")); return; }
     job_t *j = new_job(c, JOB_BACKUP);
     if (!j) return;
     j->dev = d;

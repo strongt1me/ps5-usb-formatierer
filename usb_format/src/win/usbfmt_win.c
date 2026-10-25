@@ -274,6 +274,8 @@ int plat_list(void) {
     /* Alle Nummern zugleich abfragen: Eine schlafende Platte hält ihre Abfrage Sekunden auf, die anderen nicht */
     for (int n = 0; n < MAX_DISKS; n++) {
         probes[n].n = n;
+        probes[n].done = 0;
+        probes[n].rc = -1;
         pth[n] = CreateThread(NULL, 0, probe_worker, &probes[n], 0, NULL);
         if (!pth[n]) probe_worker(&probes[n]);
     }
