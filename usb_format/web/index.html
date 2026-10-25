@@ -165,12 +165,9 @@ input:disabled { cursor: not-allowed; opacity: .5; }
 .chip.on { color: var(--ok); border-color: var(--ok); }
 .chip.fake { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); font-weight: 600; }
 .m .fakeinfo { display: block; color: var(--danger); font-size: 12.5px; margin-top: 3px; }
-/* Warnhinweis im Kopfbereich: dauerhaft sichtbar, aber ruhig */
-.hwarn { display: flex; align-items: center; margin-bottom: 12px; padding: 9px 12px; border-radius: 9px;
-         background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); font-size: 13.5px; line-height: 1.4; }
-.hwarn svg { flex: none; width: 20px; height: 20px; margin-right: 10px; fill: none; stroke: currentColor;
-             stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-html.tv .hwarn { font-size: 16px; }
+/* Warnhinweis unter den Laufwerken: dauerhaft sichtbar, aber ruhig (wie im Windows-Programm) */
+.hwarn { margin-top: 14px; color: var(--warn); font-size: 12.5px; line-height: 1.4; }
+html.tv .hwarn { font-size: 15px; }
 .usage { height: 6px; border-radius: 4px; background: var(--bar); margin: 8px 0 4px; overflow: hidden; }
 .usage div { height: 100%; background: var(--accent); border-radius: 4px; }
 .utext { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
@@ -364,11 +361,6 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
 <main>
   <div class="card hero">
    <div class="pane">
-    <!-- Warnung ganz oben in der Kachel: nur die eine Zeile, die Erklärung steht in der Anleitung (Wichtig vorab) -->
-    <div class="hwarn" role="note">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v5"/><path d="M12 18.2v.1"/></svg>
-      <b>Während der Nutzung keine USB-Datenträger abziehen oder neu anschließen</b>
-    </div>
     <div class="head">
       <div><h1>USB-Formatierer</h1><div class="sub" id="host"></div></div>
       <div class="hbtns">
@@ -399,6 +391,8 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
    <div class="pane">
     <div class="sec">Laufwerk</div>
     <div id="devs"><div class="empty">Suche USB-Geräte …</div></div>
+    <!-- Warnung unter den Laufwerken: nur die eine Zeile, dezent; die Erklärung steht in der Anleitung (Wichtig vorab) -->
+    <div class="hwarn" role="note">Während der Nutzung keine USB-Datenträger abziehen oder neu anschließen</div>
    </div>
 
    <div class="tabbar" id="tabbar" role="tablist">
