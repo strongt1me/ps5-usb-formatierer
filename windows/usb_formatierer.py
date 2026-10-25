@@ -1039,8 +1039,7 @@ class App(tk.Tk):
         Tooltip(self.pkg_move_btn, lambda: self._why(self.pkg_move_btn) or _("Die angehakten Pakete auf ein anderes Laufwerk kopieren"))
         Tooltip(self.pkg_del_btn, lambda: self._why(self.pkg_del_btn) or _("Die angehakten Pakete vom Laufwerk löschen"))
         self.pkg_hint = ttk.Label(pk, style="Hint.TLabel", wraplength=px(440), justify="left",
-                                  text=_("PS5-Pakete: fPKG hat eine Debug-Signatur im Kopf, ein offizielles PKG die offizielle. "
-                                         "Bei PS4-Paketen unterscheiden sich fPKG und PKG im Kopf nicht – dort steht nur PKG."))
+                                  text=_("fPKG oder PKG: Bei PS5-Paketen steht es im Kopf (Debug- bzw. offizielle Signatur), bei PS4-Paketen verrät es der Image-Schlüssel (ein fPKG ist mit dem öffentlich bekannten Fake-Schlüssel verschlüsselt). Lässt sich das nicht feststellen, steht nur PKG."))
         self.pkg_hint.grid(row=3, column=0, columnspan=2, sticky="w", pady=(px(8), 0))
 
         # ---- Spielstände
