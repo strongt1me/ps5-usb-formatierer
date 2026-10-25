@@ -3220,5 +3220,29 @@
   "it": "Eliminarli anche? Altrimenti potrebbero essere applicati di nuovo al gioco la prossima volta.",
   "es": "¿Borrarlos también? De lo contrario podrían volver a aplicarse al juego la próxima vez.",
   "fr": "Les supprimer aussi ? Sinon ils pourraient être appliqués de nouveau au jeu la prochaine fois."
+ },
+ "Spiele kopieren": {
+  "en": "Copy games",
+  "it": "Copia giochi",
+  "es": "Copiar juegos",
+  "fr": "Copier des jeux"
+ },
+ "Angehakte Spiele kopieren …": {
+  "en": "Copy ticked games …",
+  "it": "Copia i giochi selezionati …",
+  "es": "Copiar los juegos marcados …",
+  "fr": "Copier les jeux cochés …"
+ },
+ "Die angehakten Spiele auf ein anderes Laufwerk kopieren; die Originale bleiben": {
+  "en": "Copy the ticked games to another drive; the originals stay",
+  "it": "Copia i giochi selezionati su un'altra unità; gli originali restano",
+  "es": "Copiar los juegos marcados a otra unidad; los originales se conservan",
+  "fr": "Copier les jeux cochés vers un autre lecteur ; les originaux restent"
+ },
+ "Die Originale bleiben erhalten. Laufende Spiele vorher beenden.": {
+  "en": "The originals are kept. Quit running games first.",
+  "it": "Gli originali restano. Chiudi prima i giochi in esecuzione.",
+  "es": "Los originales se conservan. Cierra antes los juegos en ejecución.",
+  "fr": "Les originaux sont conservés. Quittez d'abord les jeux en cours."
  }
 }

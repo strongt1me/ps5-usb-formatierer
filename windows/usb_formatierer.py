@@ -390,13 +390,13 @@ def port_open(host, port, timeout=1.0):
         return False
 
 
-def ask_move(root, dev, targets, names, pkg=False, extras=""):
+def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False):
     """Ziel-Laufwerk und Prüfung wählen. Liefert (Laufwerk, prüfen, zugehörige Dateien mitkopieren) oder None (abgebrochen).
     extras: Aufzählung der zugehörigen Dateien; leer = es gibt keine, der Haken fehlt"""
     px = ui_theme.px
     win = tk.Toplevel(root)
     win.withdraw()
-    win.title(_("Spiele verschieben"))
+    win.title(_("Spiele kopieren") if copy_only else _("Spiele verschieben"))
     win.transient(root)
     frm = ttk.Frame(win, padding=(18, 14, 18, 14))
     frm.pack(fill="both", expand=True)
@@ -424,11 +424,15 @@ def ask_move(root, dev, targets, names, pkg=False, extras=""):
                         text=_("Zugehörige Dateien mitkopieren")).pack(anchor="w", pady=(px(6), 0))
         ttk.Label(frm, text=_("Backport-Ordner des Spiels, Prüfsummen und Dump-Infos:") + "\n" + extras,
                   style="Hint.TLabel", wraplength=px(460), justify="left").pack(anchor="w", pady=(px(2), 0))
-    ttk.Label(frm, text=_("Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie "
-                          "gelöscht werden sollen. Laufende Spiele vorher beenden.") + " " +
-              _("Kennt ShadowMountPlus ein Spiel nicht (z. B. manche PS4-Spiele), lässt sich das Original danach nicht über den "
-                "Löschdialog entfernen – dann bleibt es stehen."),
-              style="Hint.TLabel", wraplength=px(460), justify="left").pack(anchor="w", pady=(px(8), 0))
+    if copy_only:
+        ttk.Label(frm, text=_("Die Originale bleiben erhalten. Laufende Spiele vorher beenden."),
+                  style="Hint.TLabel", wraplength=px(460), justify="left").pack(anchor="w", pady=(px(8), 0))
+    else:
+        ttk.Label(frm, text=_("Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie "
+                              "gelöscht werden sollen. Laufende Spiele vorher beenden.") + " " +
+                  _("Kennt ShadowMountPlus ein Spiel nicht (z. B. manche PS4-Spiele), lässt sich das Original danach nicht über den "
+                    "Löschdialog entfernen – dann bleibt es stehen."),
+                  style="Hint.TLabel", wraplength=px(460), justify="left").pack(anchor="w", pady=(px(8), 0))
     result = {"v": None}
 
     def done(v):
@@ -902,14 +906,17 @@ class App(tk.Tk):
         self.uninstall_chk.grid(row=2, column=0, columnspan=2, sticky="w", pady=(px(10), 0))
         gbar = ttk.Frame(gb)
         gbar.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(px(8), 0))
+        self.games_sum = ttk.Label(gbar, style="Muted.TLabel")   # eigene Zeile über den Knöpfen: sonst wird er abgeschnitten
+        self.games_sum.pack(side="top", anchor="w", pady=(0, px(6)))
         self.del_btn = ttk.Button(gbar, text=_("Angehakte Spiele löschen …"), style="Danger.TButton",
                                   command=self._delete_games)
         self.del_btn.pack(side="right")
         self.move_btn = ttk.Button(gbar, text=_("Angehakte Spiele verschieben …"), command=self._move_games)
         self.move_btn.pack(side="right", padx=(0, px(8)))
+        self.copy_btn = ttk.Button(gbar, text=_("Angehakte Spiele kopieren …"), command=lambda: self._move_games(copy_only=True))
+        self.copy_btn.pack(side="right", padx=(0, px(8)))
+        Tooltip(self.copy_btn, lambda: self._why(self.copy_btn) or _("Die angehakten Spiele auf ein anderes Laufwerk kopieren; die Originale bleiben"))
         Tooltip(self.move_btn, lambda: self._why(self.move_btn) or _("Die angehakten Spiele auf ein anderes Laufwerk kopieren"))
-        self.games_sum = ttk.Label(gbar, style="Muted.TLabel")
-        self.games_sum.pack(side="left")
         Tooltip(self.del_btn, lambda: self._why(self.del_btn) or _("Die angehakten Spiele vom Laufwerk löschen"))
 
         # -- Seite "Image-Sicherung" des Datenträgers an der PS5 (wie "Sichern & wiederherstellen" im Browser)
@@ -1287,7 +1294,7 @@ class App(tk.Tk):
         dev = self._selected_device()
         if need_dev and not dev:
             return _("Erst ein Laufwerk wählen.")
-        if btn in (self.del_btn, self.move_btn):
+        if btn in (self.del_btn, self.move_btn, self.copy_btn):
             return _("Erst Spiele anhaken.")
         if btn in (self.pkg_del_btn, self.pkg_move_btn):
             return _("Erst Pakete anhaken.")
@@ -1918,6 +1925,7 @@ class App(tk.Tk):
         enable(self.pkg_del_btn, idle and not pc and self.api and self.pkg_checked)
         enable(self.pkg_move_btn, idle and not pc and self.api and self.pkg_checked and len(self.devices) > 1)
         enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
+        enable(self.copy_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
         for w in (self.backup_btn, self.restore_btn):
             enable(w, idle and not pc and self.api and dev and not dev.get("locked") and not dev.get("place"))
         has_img = bool(self.img_tree.selection())
@@ -2706,8 +2714,9 @@ class App(tk.Tk):
         self.pbar["value"] = 0
         self._run(work)
 
-    def _move_games(self):
-        """Angehakte Spiele auf ein anderes Laufwerk kopieren und prüfen; danach fragen, ob die Originale gelöscht werden"""
+    def _move_games(self, copy_only=False):
+        """Angehakte Spiele auf ein anderes Laufwerk kopieren und prüfen; danach fragen, ob die Originale gelöscht werden
+        (copy_only: nur kopieren, keine Frage)"""
         dev = self._selected_device()
         all_keys = {g.get("key") for g in self.games.get(dev["name"], [])} if dev else set()
         keys = [k for k in self.games_checked if k in all_keys]
@@ -2719,7 +2728,7 @@ class App(tk.Tk):
         if not names or not targets:
             messagebox.showinfo(_("Spiele verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
             return
-        res = ask_move(self, dev, targets, names, extras=extras_text([games[k] for k in keys if k in games]))
+        res = ask_move(self, dev, targets, names, extras=extras_text([games[k] for k in keys if k in games]), copy_only=copy_only)
         if not res or self.busy or not self.api:
             return
         target, verify, with_extras = res
@@ -2732,6 +2741,9 @@ class App(tk.Tk):
                 messagebox.showerror(_("Spiele verschieben"), msg, parent=self)
                 return
             copied = [k for k in (result.get("keys") or "").split(",") if k in games]
+            if copy_only:
+                messagebox.showinfo(_("Spiele kopieren"), msg, parent=self)
+                return
             shown = "\n".join("• " + (games[k]["name"] or games[k]["id"]) for k in copied[:10])
             if len(copied) > 10:
                 shown += "\n" + _("… und {n} weitere", n=len(copied) - 10)
