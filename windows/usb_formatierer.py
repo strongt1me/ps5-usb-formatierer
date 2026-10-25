@@ -608,6 +608,7 @@ class App(tk.Tk):
         self.games = {}            # PS5-Gerätename (da1 ...) -> Spiele darauf (aus /api/library)
         self.lib_loading = False
         self.lib_known = False     # Spieleliste mindestens einmal geladen (sonst Inhalt unbekannt)
+        self._lib_step = (0, 0, "", 0.0)
         self.lib_bar = False       # Fortschritt der Spielesuche steht gerade im Balken
         self.version_asked = set()   # (PS5, Version), zu denen der Versionsabgleich schon gefragt hat
         self.settle_ids = []       # Zeitgeber: Liste nach einem PS5-Auftrag noch einmal leise holen
@@ -3424,8 +3425,8 @@ class App(tk.Tk):
                 self.lib_known = True
                 if data.get("scanning"):
                     self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
-                    self._library_progress(data.get("progress"))
-                    self.after(1000 if data.get("progress") else 2000, lambda a=self.api: self._relibrary(a))
+                    self._library_progress(data.get("progress") or {})
+                    self.after(1000, lambda a=self.api: self._relibrary(a))
                 elif self.lib_bar:
                     self.lib_bar = False
                     if not self.busy and self.mode_var.get() == "ps5":
@@ -3512,13 +3513,17 @@ class App(tk.Tk):
         if not isinstance(prog, dict) or self.busy or self.formatting or self.mode_var.get() != "ps5":
             return
         total, done = int(prog.get("total") or 0), int(prog.get("done") or 0)
-        if total <= 0:
-            return
         root = str(prog.get("root") or "")
-        text = _("Spiele auf der PS5 werden gesucht: {where} …", where=root) if root else \
-            _("Spiele auf der PS5 werden gesucht …")
+        text = _("Spiele auf der PS5 werden gesucht: {where} …", where=root) if root else             _("Spiele auf der PS5 werden gesucht …")
+        if (total, done, root) != self._lib_step[:3]:
+            self._lib_step = (total, done, root, time.time())
+        # Ein einzelnes großes Laufwerk meldet erst am Ende: der Balken rückt bis kurz vor den nächsten Schritt vor
+        frac = done / total if total > 0 else 0
+        nxt = (done + 1) / total if total > 0 else 0.1
+        frac += (nxt - frac) * 0.9 * (1 - 2.718281828 ** (-(time.time() - self._lib_step[3]) / 20))
+        pct = min(99, int(100 * frac))
         self.lib_bar = True
-        show_scan(self.pbar, self.status_var, min(99, 100 * done // total), text)
+        show_scan(self.pbar, self.status_var, pct, text)
 
     def _on_close(self):
         if self.elf_sending and not messagebox.askyesno(

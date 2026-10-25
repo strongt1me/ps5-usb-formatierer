@@ -174,9 +174,7 @@ def lock_helper(exe):
 
 def pc_scan_text(pending, elapsed):
     """Statuszeile beim Einlesen: welche Datenträger noch gelesen werden - nach ein paar Sekunden mit dem Grund"""
-    if not pending:
-        return _("Suche USB-Datenträger am PC …")
-    text = _("Lese Datenträger: {names} …", names=", ".join(pending))
+    text = _("Lese Datenträger: {names} …", names=", ".join(pending)) if pending else _("Suche USB-Datenträger am PC …")
     if elapsed >= 3:
         text += " " + _("Schlafende Festplatten laufen dabei erst an – das kann einige Sekunden dauern.")
     return text
@@ -192,6 +190,12 @@ def pc_list(progress=None):
     proc = subprocess.Popen([exe, "list"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     got, errors, started = {}, [], time.time()
+    last = {"pct": 0, "pending": [], "at": started}
+
+    def report(pct, pending):
+        last.update(pct=pct, pending=pending, at=time.time())
+        if progress:
+            progress(pct, pc_scan_text(pending, time.time() - started))
 
     def read_out():
         got["out"] = proc.stdout.read()
@@ -200,8 +204,7 @@ def pc_list(progress=None):
         for raw in proc.stderr:
             parts = raw.decode("utf-8", "replace").rstrip("\r\n").split("\t")
             if parts[0] == "P" and len(parts) > 1 and parts[1].isdigit():
-                if progress:
-                    progress(min(int(parts[1]), 100), pc_scan_text([p for p in parts[2:] if p], time.time() - started))
+                report(min(int(parts[1]), 100), [p for p in parts[2:] if p])
             elif any(parts):
                 errors.append("\t".join(parts))
 
@@ -209,7 +212,17 @@ def pc_list(progress=None):
     for t in readers:
         t.start()
     try:
-        proc.wait(timeout=90)   # mehrere schlafende Platten laufen gleichzeitig an - selten länger als 30 s
+        # Eine schlafende Platte hält den Helfer Sekunden an einer Stelle auf: dann rückt der Balken langsam bis kurz
+        # vor die nächste Meldung vor (nie darüber hinaus) und die Zeile nennt den Grund - er steht nie scheinbar still
+        while proc.poll() is None:
+            if time.time() - started > 90:   # mehrere schlafende Platten laufen gleichzeitig an - selten länger als 30 s
+                raise subprocess.TimeoutExpired(exe, 90)
+            time.sleep(0.25)
+            idle = time.time() - last["at"]
+            if progress and idle >= 0.5 and last["pct"] < 99:
+                ceil = 9 if last["pct"] < 10 else min(last["pct"] + 4, 99)
+                shown = min(ceil, last["pct"] + int(idle * 1.5))
+                progress(shown, pc_scan_text(last["pending"], time.time() - started))
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()

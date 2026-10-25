@@ -252,13 +252,43 @@ static DWORD WINAPI list_worker(LPVOID arg) {
 /* Erst die Datenträger (schnell, ohne Zugriff auf die Laufwerke), dann ihre Laufwerke - die Abfrage von Bezeichnung und
  * freiem Platz weckt schlafende Festplatten. Das geschieht für alle Datenträger zugleich: mehrere schlafende Platten
  * laufen gemeinsam an statt nacheinander. Fortschritt auf stderr (list_progress). */
+typedef struct {
+    int n;
+    diskinfo_t di;
+    int rc;
+    volatile LONG done;
+} probe_t;
+
+static DWORD WINAPI probe_worker(LPVOID arg) {
+    probe_t *p = arg;
+    p->rc = disk_info(p->n, &p->di);
+    InterlockedExchange(&p->done, 1);
+    return 0;
+}
+
 int plat_list(void) {
     static listdisk_t disks[MAX_DISKS];
+    static probe_t probes[MAX_DISKS];
+    HANDLE pth[MAX_DISKS];
     int k = 0, shown = -1;
+    /* Alle Nummern zugleich abfragen: Eine schlafende Platte hält ihre Abfrage Sekunden auf, die anderen nicht */
     for (int n = 0; n < MAX_DISKS; n++) {
-        int pct = n * 10 / MAX_DISKS;
+        probes[n].n = n;
+        pth[n] = CreateThread(NULL, 0, probe_worker, &probes[n], 0, NULL);
+        if (!pth[n]) probe_worker(&probes[n]);
+    }
+    for (;;) {
+        int nd = 0;
+        for (int n = 0; n < MAX_DISKS; n++) nd += probes[n].done;
+        int pct = nd * 10 / MAX_DISKS;
         if (pct != shown) list_progress(shown = pct, NULL, 0);
-        if (disk_info(n, &disks[k].di) || !usb_bus(disks[k].di.bus) || system_disk(n)) continue;
+        if (nd == MAX_DISKS) break;
+        Sleep(20);
+    }
+    for (int n = 0; n < MAX_DISKS; n++) {
+        if (pth[n]) { WaitForSingleObject(pth[n], INFINITE); CloseHandle(pth[n]); }
+        if (probes[n].rc || !usb_bus(probes[n].di.bus) || system_disk(n)) continue;
+        disks[k].di = probes[n].di;
         disks[k].nv = 0;
         disks[k].th = NULL;
         k++;
