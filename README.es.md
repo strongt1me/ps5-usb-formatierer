@@ -7,7 +7,7 @@
 **Formatea pendrives y discos USB – directamente en la PS5 o en el PC.**<br>
 Con prueba de autenticidad y velocidad, copia de imagen, gestión de juegos, todos los sistemas de archivos habituales y particiones propias.
 
-[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.6.27-185fa5?style=for-the-badge)](../../releases/latest)
+[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.6.28-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licencia](https://img.shields.io/badge/Licencia-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plataforma](https://img.shields.io/badge/Plataforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-descarga)
 [![Idiomas](https://img.shields.io/badge/Idiomas-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funciones)
