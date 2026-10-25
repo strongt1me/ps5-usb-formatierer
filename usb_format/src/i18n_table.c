@@ -3,10 +3,12 @@
 
 const i18n_entry_t i18n_table[] = {
     {{" %d Kacheln von der Startseite entfernt.", " %d tiles removed from the home screen.", " %d riquadri rimossi dalla schermata iniziale.", " %d iconos quitados de la pantalla de inicio.", " %d vignettes retirées de l'écran d'accueil."}},
+    {{" %d zugehörige Dateien bzw. Ordner mitgelöscht.", " %d related files or folders deleted too.", " Eliminati anche %d file o cartelle collegati.", " También se borraron %d archivos o carpetas relacionados.", " %d fichiers ou dossiers associés également supprimés."}},
     {{" %s: echt%s, lesen %.0f MB/s, schreiben %.0f MB/s", " %s: genuine%s, read %.0f MB/s, write %.0f MB/s", " %s: autentica%s, lettura %.0f MB/s, scrittura %.0f MB/s", " %s: auténtica%s, lectura %.0f MB/s, escritura %.0f MB/s", " %s : authentique%s, lecture %.0f Mo/s, écriture %.0f Mo/s"}},
     {{" (%ld Ordner, %ld Dateien)", " (%ld folders, %ld files)", " (%ld cartelle, %ld file)", " (%ld carpetas, %ld archivos)", " (%ld dossiers, %ld fichiers)"}},
     {{" (Windows-Fehler %lu)", " (Windows error %lu)", " (errore di Windows %lu)", " (error de Windows %lu)", " (erreur Windows %lu)"}},
     {{" 1 Kachel von der Startseite entfernt.", " 1 tile removed from the home screen.", " 1 riquadro rimosso dalla schermata iniziale.", " 1 icono quitado de la pantalla de inicio.", " 1 vignette retirée de l'écran d'accueil."}},
+    {{" 1 zugehörige Datei bzw. Ordner mitgelöscht.", " 1 related file or folder deleted too.", " Eliminato anche 1 file o cartella collegata.", " También se borró 1 archivo o carpeta relacionado.", " 1 fichier ou dossier associé également supprimé."}},
     {{" Der Datenträger ist jetzt leer und vorläufig mit exFAT formatiert.", " The drive is now empty and temporarily formatted with exFAT.", " L'unità ora è vuota e formattata provvisoriamente in exFAT.", " La unidad ahora está vacía y formateada provisionalmente con exFAT.", " Le support est maintenant vide et formaté provisoirement en exFAT."}},
     {{" Die Prüfung wurde abgebrochen – formatiert wurde trotzdem.", " The check was cancelled – formatting was done anyway.", " La verifica è stata annullata – la formattazione è stata eseguita comunque.", " La comprobación se canceló – el formateo se hizo de todos modos.", " La vérification a été annulée – le formatage a quand même été effectué."}},
     {{" Jetzt einfach abziehen und an die PS5 stecken.", " Now simply unplug it and plug it into the PS5.", " Ora scollegala e inseriscila nella PS5.", " Ahora desconéctala y conéctala a la PS5.", " Il suffit maintenant de la débrancher et de la brancher sur la PS5."}},
@@ -41,6 +43,8 @@ const i18n_entry_t i18n_table[] = {
     {{"%s: %s (Windows-Fehler %lu)", "%s: %s (Windows error %lu)", "%s: %s (errore Windows %lu)", "%s: %s (error de Windows %lu)", "%s : %s (erreur Windows %lu)"}},
     {{"%s: Sicherung %d von %d – %s", "%s: backup %d of %d – %s", "%s: backup %d di %d – %s", "%s: copia %d de %d – %s", "%s : sauvegarde %d sur %d – %s"}},
     {{"%s: Spielstand %d von %d – %s", "%s: save game %d of %d – %s", "%s: salvataggio %d di %d – %s", "%s: partida %d de %d – %s", "%s : sauvegarde %d sur %d – %s"}},
+    {{"%s: Zugehöriges nicht gelöscht (%s)", "%s: related item not deleted (%s)", "%s: elemento collegato non eliminato (%s)", "%s: elemento relacionado no borrado (%s)", "%s : élément associé non supprimé (%s)"}},
+    {{"%s: Zugehöriges nicht kopiert (%s)", "%s: related item not copied (%s)", "%s: elemento collegato non copiato (%s)", "%s: elemento relacionado no copiado (%s)", "%s : élément associé non copié (%s)"}},
     {{"%s: gelöscht, aber Kachel nicht entfernt (%s)", "%s: deleted, but tile not removed (%s)", "%s: eliminato, ma il riquadro non è stato rimosso (%s)", "%s: borrado, pero el icono no se quitó (%s)", "%s : supprimé, mais la vignette n'a pas été retirée (%s)"}},
     {{"%sPartition %d (%s): %s", "%sPartition %d (%s): %s", "%sPartizione %d (%s): %s", "%sPartición %d (%s): %s", "%sPartition %d (%s) : %s"}},
     {{", Bezeichnung %s", ", label %s", ", etichetta %s", ", etiqueta %s", ", nom %s"}},
@@ -136,6 +140,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Der Datenträger ist schreibgeschützt.", "The drive is write-protected.", "L'unità è protetta da scrittura.", "La unidad está protegida contra escritura.", "Le support est protégé en écriture."}},
     {{"Der Download ist nicht mehr gültig – bitte neu starten.", "The download is no longer valid – please start it again.", "Il download non è più valido – avvialo di nuovo.", "La descarga ya no es válida – iníciala de nuevo.", "Le téléchargement n'est plus valide – relancez-le."}},
     {{"Der Download wurde abgebrochen (Verbindung zum Browser getrennt).", "The download was aborted (connection to the browser lost).", "Il download è stato interrotto (connessione al browser persa).", "La descarga se interrumpió (conexión con el navegador perdida).", "Le téléchargement a été interrompu (connexion au navigateur perdue)."}},
+    {{"Der Formatierer kann sich nicht selbst löschen.", "The formatter cannot delete itself.", "Il formattatore non può eliminare sé stesso.", "El formateador no puede borrarse a sí mismo.", "Le formateur ne peut pas se supprimer lui-même."}},
     {{"Der Formatierer wird gerade beendet", "The formatter is shutting down", "Il formattatore si sta chiudendo", "El formateador se está cerrando", "Le formateur est en cours de fermeture"}},
     {{"Der Merkpunkt der Teilsicherung ist nicht lesbar – bitte verwerfen und neu sichern.", "The checkpoint of the partial backup is unreadable – please discard it and back up again.", "Il punto di ripresa del backup parziale non è leggibile – scartalo ed esegui di nuovo il backup.", "El punto de reanudación de la copia parcial no se puede leer – descártala y vuelve a copiar.", "Le point de reprise de la sauvegarde partielle est illisible – supprimez-la et refaites la sauvegarde."}},
     {{"Der Ordner %s lässt sich nicht anlegen: %s", "The folder %s cannot be created: %s", "Impossibile creare la cartella %s: %s", "No se puede crear la carpeta %s: %s", "Impossible de créer le dossier %s : %s"}},
@@ -427,6 +432,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Zu viele Partitionen.", "Too many partitions.", "Troppe partizioni.", "Demasiadas particiones.", "Trop de partitions."}},
     {{"Zu viele Spielstände in einer ZIP-Datei (höchstens 64)", "Too many save games in one ZIP file (max 64)", "Troppi salvataggi in un file ZIP (max 64)", "Demasiadas partidas en un archivo ZIP (máx. 64)", "Trop de sauvegardes dans un fichier ZIP (max 64)"}},
     {{"Zu viele gleichzeitige Anfragen – bitte gleich noch einmal versuchen", "Too many simultaneous requests – please try again in a moment", "Troppe richieste contemporanee – riprova tra un attimo", "Demasiadas solicitudes simultáneas – inténtalo de nuevo en un momento", "Trop de requêtes simultanées – réessayez dans un instant"}},
+    {{"Zugehörige Dateien kopieren", "Copy related files", "Copia dei file collegati", "Copiar archivos relacionados", "Copier les fichiers associés"}},
     {{"Zugriff verweigert – Administratorrechte nötig.", "Access denied – administrator rights required.", "Accesso negato – sono necessari i diritti di amministratore.", "Acceso denegado – se necesitan permisos de administrador.", "Accès refusé – droits d'administrateur nécessaires."}},
     {{"Zugriff verweigert.", "Access denied.", "Accesso negato.", "Acceso denegado.", "Accès refusé."}},
     {{"Zuordnungs-Bitmap schreiben", "Writing allocation bitmap", "Scrittura bitmap di allocazione", "Escribiendo mapa de bits de asignación", "Écriture du bitmap d'allocation"}},
@@ -484,4 +490,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
     {{"Übernehmen am Ziel fehlgeschlagen: %s", "Adopting on the target failed: %s", "Adozione sulla destinazione non riuscita: %s", "Falló la adopción en el destino: %s", "Échec de la reprise sur la destination : %s"}},
 };
-const unsigned i18n_count = 481;
+const unsigned i18n_count = 487;

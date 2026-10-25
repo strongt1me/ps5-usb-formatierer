@@ -74,8 +74,8 @@ for _ in $(seq 1 100); do curl -s "$U/api/library/sizes" >"$W/gs"; grep -q '"run
 want=$(python3 -c 'import os,sys; print(sum(os.path.getsize(os.path.join(r,f)) for r,_,fs in os.walk(sys.argv[1]) for f in fs))' "$H/Astro")
 [ "$code" = 202 ] && [ "$(q 'd["sizes"].get("'"$(key "$H/Astro")"'")' <"$W/gs")" = "$want" ]     && ok "Größen: Ordner-Spiel mit Summe aller Dateien ($want Bytes)" || bad "Größen Summe" "$code want=$want $(cat "$W/gs")"
 code=$(post "{\"keys\":\"$(key "$W/data/homebrew/Intern")\"}" delete)
-[ "$code" = 404 ] && [ -d "$W/data/homebrew/Intern" ] && ok "internes Spiel (/data/homebrew) nicht löschbar" \
-    || bad "internes Spiel" "$code $(cat "$W/body")"
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = True ] && [ ! -e "$W/data/homebrew/Intern" ] && grep -qx 'delete PPSA05555' "$W/smp.log"     && ok "internes Spiel (/data/homebrew): über ShadowMountPlus gelöscht" || bad "internes Spiel" "$code $(cat "$W/body" "$W/st")"
+library
 code=$(post '{"keys":"","uninstall":true}' delete)
 [ "$code" = 400 ] && ok "leere Auswahl abgelehnt" || bad "leere Auswahl" "$code"
 

@@ -71,7 +71,27 @@ def dev_title(d):
 def formattable(d):
     # Eingebundene Sticks werden nicht selbst ausgehängt (CE-108255-1): Der Benutzer zieht sie an der PS5 ab und
     # steckt sie wieder ein, der Formatierer übernimmt sie vor der PS5 ("replug")
-    return not d["locked"]
+    return not d["locked"] and not d.get("place")
+
+
+def extras_text(games):
+    """Zugehörige Dateien/Ordner der Spiele (Backport-Ordner, Prüfsummen) als Aufzählung, höchstens 8"""
+    names = []
+    for g in games:
+        for x in g.get("extras") or []:
+            names.append("• " + x.rsplit("/", 1)[-1] + (" (Backport)" if "/backport/" in x else ""))
+    return "\n".join(names[:8]) + ("\n" + _("… und {n} weitere", n=len(names) - 8) if len(names) > 8 else "")
+
+
+def place_devices(roots):
+    """Feste Orte der PS5 mit Spielen (intern, ext1 …) aus /api/library als Einträge der Laufwerksliste"""
+    out = []
+    for r in roots or []:
+        if r.get("place") and not any(d["name"] == r["device"] for d in out):
+            out.append({"name": r["device"], "place": True, "size": 0, "locked": False, "format": "", "label": "",
+                        "fake_real": 0, "ident": "", "mounts": [{"path": r.get("root", ""), "total": 0, "free": None}],
+                        "model": _("Interner PS5-Speicher") if r["device"] == "intern" else _("Erweiterter Speicher")})
+    return out
 
 
 def is_replug_step(step, flags=None):
@@ -146,8 +166,8 @@ class Api:
     def info(self, timeout=4):
         return self._call("/api/info", timeout=timeout)
 
-    def delete_games(self, keys, uninstall):
-        return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall})
+    def delete_games(self, keys, uninstall, extras=False):
+        return self._call("/api/delete", {"keys": ",".join(keys), "uninstall": uninstall, "extras": extras})
 
     def speed(self, dev):
         return self._call("/api/speed", self._dev(dev))
@@ -165,9 +185,9 @@ class Api:
     def delete_pkgs(self, keys):
         return self._call("/api/pkg/delete", {"keys": ",".join(keys)})
 
-    def move_games(self, keys, device, verify):
-        """Spiele auf ein anderes Laufwerk kopieren (Auftrag "move"); die Originale bleiben"""
-        return self._call("/api/move", {"keys": ",".join(keys), "device": device, "verify": verify})
+    def move_games(self, keys, device, verify, extras=False):
+        """Spiele auf ein anderes Laufwerk kopieren (Auftrag "move"); die Originale bleiben. extras: Backport-Ordner usw. mit"""
+        return self._call("/api/move", {"keys": ",".join(keys), "device": device, "verify": verify, "extras": extras})
 
     def format(self, device, fs, label, size, replug=False, limit=0, folders=True, verify=False, ident=""):
         body = {"device": device, "fs": fs, "label": label, "size": size, "replug": replug,
@@ -370,8 +390,9 @@ def port_open(host, port, timeout=1.0):
         return False
 
 
-def ask_move(root, dev, targets, names, pkg=False):
-    """Ziel-Laufwerk und Prüfung wählen. Liefert (Laufwerk, prüfen) oder None (abgebrochen)"""
+def ask_move(root, dev, targets, names, pkg=False, extras=""):
+    """Ziel-Laufwerk und Prüfung wählen. Liefert (Laufwerk, prüfen, zugehörige Dateien mitkopieren) oder None (abgebrochen).
+    extras: Aufzählung der zugehörigen Dateien; leer = es gibt keine, der Haken fehlt"""
     px = ui_theme.px
     win = tk.Toplevel(root)
     win.withdraw()
@@ -380,8 +401,10 @@ def ask_move(root, dev, targets, names, pkg=False):
     frm = ttk.Frame(win, padding=(18, 14, 18, 14))
     frm.pack(fill="both", expand=True)
     shown = "\n".join("• " + n for n in names[:10]) + ("\n" + _("… und {n} weitere", n=len(names) - 10) if len(names) > 10 else "")
-    one = _("Dieses Paket wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:", name=dev_title(dev), dev=dev["name"]) if pkg else         _("Dieses Spiel wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:", name=dev_title(dev), dev=dev["name"])
-    many = _("Diese {n} Pakete werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:", n=len(names), name=dev_title(dev), dev=dev["name"]) if pkg else         _("Diese {n} Spiele werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:", n=len(names), name=dev_title(dev), dev=dev["name"])
+    one = _("Dieses Paket wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:", name=dev_title(dev), dev=dev["name"]) if pkg else \
+        _("Dieses Spiel wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:", name=dev_title(dev), dev=dev["name"])
+    many = _("Diese {n} Pakete werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:", n=len(names), name=dev_title(dev), dev=dev["name"]) if pkg else \
+        _("Diese {n} Spiele werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:", n=len(names), name=dev_title(dev), dev=dev["name"])
     ttk.Label(frm, text=(one if len(names) == 1 else many),
               wraplength=px(460), justify="left").pack(anchor="w")
     ttk.Label(frm, text=shown, justify="left").pack(anchor="w", pady=(px(6), px(10)))
@@ -395,6 +418,12 @@ def ask_move(root, dev, targets, names, pkg=False):
     verify = tk.BooleanVar(value=True)
     ttk.Checkbutton(frm, variable=verify, style="Switch.TCheckbutton",
                     text=_("Kopie nach dem Schreiben prüfen (empfohlen)")).pack(anchor="w", pady=(px(10), 0))
+    with_extras = tk.BooleanVar(value=True)
+    if extras:
+        ttk.Checkbutton(frm, variable=with_extras, style="Switch.TCheckbutton",
+                        text=_("Zugehörige Dateien mitkopieren")).pack(anchor="w", pady=(px(6), 0))
+        ttk.Label(frm, text=_("Backport-Ordner des Spiels, Prüfsummen und Dump-Infos:") + "\n" + extras,
+                  style="Hint.TLabel", wraplength=px(460), justify="left").pack(anchor="w", pady=(px(2), 0))
     ttk.Label(frm, text=_("Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie "
                           "gelöscht werden sollen. Laufende Spiele vorher beenden.") + " " +
               _("Kennt ShadowMountPlus ein Spiel nicht (z. B. manche PS4-Spiele), lässt sich das Original danach nicht über den "
@@ -410,7 +439,8 @@ def ask_move(root, dev, targets, names, pkg=False):
     btns.pack(fill="x", pady=(16, 0))
     ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(None)).pack(side="right")
     ttk.Button(btns, text=_("Kopieren"), style="Accent.TButton",
-               command=lambda: done((targets[max(0, box.current())], bool(verify.get())))).pack(side="right", padx=(0, 6))
+               command=lambda: done((targets[max(0, box.current())], bool(verify.get()),
+                                     bool(extras and with_extras.get())))).pack(side="right", padx=(0, 6))
     win.bind("<Escape>", lambda e: done(None))
     win.protocol("WM_DELETE_WINDOW", lambda: done(None))
     win.update_idletasks()
@@ -605,6 +635,7 @@ class App(tk.Tk):
         self.consoles = {}         # Anzeigetext -> Fund aus ps5_discovery
         self.ps5_devices = []      # zuletzt gelesene Liste der PS5 (bleibt beim Umschalten erhalten)
         self.pc_job = None         # laufender Auftrag des PC-Helfers
+        self.place_devs = []       # feste Orte der PS5 mit Spielen (intern, ext1), aus /api/library
         self.games = {}            # PS5-Gerätename (da1 ...) -> Spiele darauf (aus /api/library)
         self.lib_loading = False
         self.lib_known = False     # Spieleliste mindestens einmal geladen (sonst Inhalt unbekannt)
@@ -1876,6 +1907,8 @@ class App(tk.Tk):
         enable(self.speed_btn, idle and dev)
         self._refresh_partials()
         ps5dev = self.mode_var.get() == "ps5" and self.api and self._selected_device()
+        if ps5dev and ps5dev.get("place"):
+            ps5dev = None   # feste Orte lassen sich weder messen noch prüfen noch umbenennen
         enable(self.ps5_speed_btn, idle and ps5dev)
         enable(self.ps5_check_btn, idle and ps5dev and (ps5dev or {}).get("format") == "exFAT")
         enable(self.ps5_rename_btn, idle and ps5dev and (ps5dev or {}).get("format") in ("exFAT", "FAT32"))
@@ -1883,10 +1916,10 @@ class App(tk.Tk):
         enable(self.part_discard_btn, idle and not pc and self.api and self._part_selected())
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
         enable(self.pkg_del_btn, idle and not pc and self.api and self.pkg_checked)
-        enable(self.pkg_move_btn, idle and not pc and self.api and self.pkg_checked and len(self.ps5_devices) > 1)
-        enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.ps5_devices) > 1)
+        enable(self.pkg_move_btn, idle and not pc and self.api and self.pkg_checked and len(self.devices) > 1)
+        enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
         for w in (self.backup_btn, self.restore_btn):
-            enable(w, idle and not pc and self.api and dev and not dev.get("locked"))
+            enable(w, idle and not pc and self.api and dev and not dev.get("locked") and not dev.get("place"))
         has_img = bool(self.img_tree.selection())
         for w in (self.img_verify_btn, self.img_del_btn):
             enable(w, idle and not pc and self.api and has_img)
@@ -1962,6 +1995,15 @@ class App(tk.Tk):
 
     def _ps5_drive_item(self, d):
         """Karte eines Laufwerks an der PS5: Modell, Größe, Format, eingebunden/frei, Fälschung, Spiele, Belegung"""
+        if d.get("place"):   # fester Ort: nur Spiele ansehen, kopieren, verschieben, löschen
+            n, k = len(self.games.get(d["name"], [])), len(self.pkgs.get(d["name"], []))
+            pills = [(_("Spiele und Homebrew") if d["name"] == "intern" else _("M.2-Erweiterung"), "Accent")]
+            if n:
+                pills.append((_("1 Spiel") if n == 1 else _("{n} Spiele", n=n), ""))
+            if k:
+                pills.append((f"{k} PKG", ""))
+            return {"text": f"{dev_title(d)} ({d['name']})", "title": dev_title(d), "size": "", "sub": d["name"],
+                    "pills": pills, "used": None, "last": ""}
         fmt = d.get("format") or ""
         fmt = {"leer": _("leer"), "keine Partition": _("ohne Partition"),
                "unbekannt": _("Format unbekannt")}.get(fmt, fmt)
@@ -2065,14 +2107,14 @@ class App(tk.Tk):
         dev, picked = self._pkg_selection()
         if self.busy or not dev or not picked or not self.api:
             return
-        targets = [d for d in self.ps5_devices if d["name"] != dev["name"] and d.get("mounts")]
+        targets = [d for d in self.devices if d["name"] != dev["name"] and d.get("mounts")]
         if not targets:
             messagebox.showinfo(_("Pakete verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
             return
         res = ask_move(self, dev, targets, [x.get("name") for x in picked], pkg=True)
         if not res or self.busy or not self.api:
             return
-        target, verify = res
+        target, verify, _extras = res
         api = self.api
         keys = [x.get("key") or x["path"] for x in picked]
         by_key = dict(zip(keys, picked))
@@ -2251,8 +2293,9 @@ class App(tk.Tk):
         prev, self.keep_sel = self._selected_device() or self.keep_sel, None
         if prev and "disk" in prev:
             prev = None
-        self.devices = devices
-        self.dev_combo.set_items([self._ps5_drive_item(d) for d in devices])
+        self.devices = devices + self.place_devs
+        self.dev_combo.set_items([self._ps5_drive_item(d) for d in self.devices])
+        devices = self.devices
         idx = -1
         if prev:   # gleicher Name reicht nicht: steckt dahinter ein anderer Datenträger (anderer Stick, die
             # Spiele-SSD), wird nichts übernommen
@@ -2260,13 +2303,13 @@ class App(tk.Tk):
                         and d["model"] == prev["model"] and d.get("ident", "") == prev.get("ident", "")), -1)
         if idx < 0:
             # vorausgewählt wird nur ein freier Stick, nie ein eingebundener (z. B. die Spiele-SSD)
-            free = [i for i, d in enumerate(devices) if formattable(d) and not d["mounts"]]
+            free = [i for i, d in enumerate(devices) if formattable(d) and not d["mounts"] and not d.get("place")]
             idx = free[0] if len(free) == 1 else -1
         if idx >= 0:
             self.dev_combo.current(idx)
         else:
             self.dev_combo.current(-1)
-        if not devices and self.api:
+        if not self.ps5_devices and self.api:
             self.status_var.set(_("Kein USB-Stick an der PS5 gefunden. Stick einstecken und „Aktualisieren“ "
                                   "klicken."))
         self._show_games()
@@ -2647,11 +2690,14 @@ class App(tk.Tk):
             return
         if self.busy or not self.api:
             return
+        extras = self._ask_extras_delete([games[k] for k in keys if k in games])
+        if self.busy or not self.api:
+            return
         api = self.api
 
         def work():
             try:
-                api.delete_games(keys, uninstall)
+                api.delete_games(keys, uninstall, extras)
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", _("Löschen konnte nicht gestartet werden: {e}", e=e)))
                 return
@@ -2669,14 +2715,14 @@ class App(tk.Tk):
             return
         games = {g.get("key"): g for g in self.games.get(dev["name"], [])}
         names = sorted((games[k]["name"] or games[k]["id"]) for k in keys if k in games)
-        targets = [d for d in self.ps5_devices if d["name"] != dev["name"] and d.get("mounts")]
+        targets = [d for d in self.devices if d["name"] != dev["name"] and d.get("mounts")]
         if not names or not targets:
             messagebox.showinfo(_("Spiele verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
             return
-        res = ask_move(self, dev, targets, names)
+        res = ask_move(self, dev, targets, names, extras=extras_text([games[k] for k in keys if k in games]))
         if not res or self.busy or not self.api:
             return
-        target, verify = res
+        target, verify, with_extras = res
         api = self.api
         src_keys = list(keys)
 
@@ -2693,11 +2739,11 @@ class App(tk.Tk):
                                               msg + "\n\n" + shown + "\n\n" + _("Originale jetzt von {name} ({dev}) löschen?",
                                                                                  name=dev_title(dev), dev=dev["name"]),
                                               icon="warning", default="no", parent=self):
-                self._delete_keys(api, copied)
+                self._delete_keys(api, copied, [games[k] for k in copied])
 
         def work():
             try:
-                api.move_games(src_keys, target["name"], verify)
+                api.move_games(src_keys, target["name"], verify, with_extras)
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", _("Verschieben konnte nicht gestartet werden: {e}", e=e)))
                 return
@@ -2706,13 +2752,25 @@ class App(tk.Tk):
         self.pbar["value"] = 0
         self._run(work)
 
-    def _delete_keys(self, api, keys):
+    def _ask_extras_delete(self, games):
+        """Frage: auch die zugehörigen Dateien und Ordner (Backport, Prüfsummen) löschen? Sonst würden sie beim nächsten
+        Mal wieder auf das Spiel angewendet. Ohne zugehörige Dateien keine Frage."""
+        text = extras_text(games)
+        if not text:
+            return False
+        return messagebox.askyesno(_("Zugehörige Dateien löschen?"),
+                                   _("Zu den Spielen gehören weitere Dateien und Ordner:") + "\n\n" + text + "\n\n" +
+                                   _("Auch löschen? Sonst könnten sie beim nächsten Mal wieder auf das Spiel angewendet werden."),
+                                   icon="warning", default="yes", parent=self)
+
+    def _delete_keys(self, api, keys, games=()):
         """Löschauftrag für schon bestätigte Schlüssel (nach dem Verschieben); Kachel entfernt je nach Schalter"""
         uninstall = self.uninstall_var.get()
+        extras = self._ask_extras_delete(list(games))
 
         def work():
             try:
-                api.delete_games(keys, uninstall)
+                api.delete_games(keys, uninstall, extras)
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", _("Löschen konnte nicht gestartet werden: {e}", e=e)))
                 return
@@ -3422,6 +3480,11 @@ class App(tk.Tk):
                         pkgs.setdefault(pk["device"], []).append(pk)
                 self.pkgs = pkgs
                 self.games = games
+                places = place_devices(data.get("roots"))
+                if [d["name"] for d in places] != [d["name"] for d in self.place_devs]:
+                    self.place_devs = places
+                    if self.mode_var.get() == "ps5" and self.ps5_devices:
+                        self.devices = self.ps5_devices + places
                 self.lib_known = True
                 if data.get("scanning"):
                     self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
@@ -3433,7 +3496,8 @@ class App(tk.Tk):
                         self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
                         self._scan_finished()
             if self.mode_var.get() == "ps5" and self.ps5_devices:
-                self.dev_combo.refresh([self._ps5_drive_item(d) for d in self.ps5_devices])
+                self.devices = self.ps5_devices + self.place_devs
+                self.dev_combo.refresh([self._ps5_drive_item(d) for d in self.devices])
             self._show_games()
         elif kind == "pcdevices":
             self.busy = False

@@ -2884,5 +2884,41 @@
   "it": "Pacchetti non trovati – ricarica l'elenco",
   "es": "Paquetes no encontrados – recarga la lista",
   "fr": "Paquets introuvables – rechargez la liste"
+ },
+ "Der Formatierer kann sich nicht selbst löschen.": {
+  "en": "The formatter cannot delete itself.",
+  "it": "Il formattatore non può eliminare sé stesso.",
+  "es": "El formateador no puede borrarse a sí mismo.",
+  "fr": "Le formateur ne peut pas se supprimer lui-même."
+ },
+ "%s: Zugehöriges nicht gelöscht (%s)": {
+  "en": "%s: related item not deleted (%s)",
+  "it": "%s: elemento collegato non eliminato (%s)",
+  "es": "%s: elemento relacionado no borrado (%s)",
+  "fr": "%s : élément associé non supprimé (%s)"
+ },
+ " 1 zugehörige Datei bzw. Ordner mitgelöscht.": {
+  "en": " 1 related file or folder deleted too.",
+  "it": " Eliminato anche 1 file o cartella collegata.",
+  "es": " También se borró 1 archivo o carpeta relacionado.",
+  "fr": " 1 fichier ou dossier associé également supprimé."
+ },
+ " %d zugehörige Dateien bzw. Ordner mitgelöscht.": {
+  "en": " %d related files or folders deleted too.",
+  "it": " Eliminati anche %d file o cartelle collegati.",
+  "es": " También se borraron %d archivos o carpetas relacionados.",
+  "fr": " %d fichiers ou dossiers associés également supprimés."
+ },
+ "Zugehörige Dateien kopieren": {
+  "en": "Copy related files",
+  "it": "Copia dei file collegati",
+  "es": "Copiar archivos relacionados",
+  "fr": "Copier les fichiers associés"
+ },
+ "%s: Zugehöriges nicht kopiert (%s)": {
+  "en": "%s: related item not copied (%s)",
+  "it": "%s: elemento collegato non copiato (%s)",
+  "es": "%s: elemento relacionado no copiado (%s)",
+  "fr": "%s : élément associé non copié (%s)"
  }
 }

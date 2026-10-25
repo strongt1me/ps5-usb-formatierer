@@ -286,11 +286,15 @@ enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, 
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
                                        "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete"};
 
+#define LIB_EXTRAS_MAX 8
+
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
     char id[16], name[128], path[256], root[96], device[16];
     uint64_t size;   /* Abbild: Größe laut Suche */
     dev_t    dev;    /* st_dev der Wurzel laut Suche: noch derselbe eingehängte Datenträger? */
+    int      nex;
+    char     ex[LIB_EXTRAS_MAX][300];   /* zugehörige Dateien/Ordner (find_extras) */
 } del_item_t;
 
 typedef struct {
@@ -308,6 +312,7 @@ typedef struct {
     /* Spiele löschen */
     del_item_t *items;
     int      nitems, uninstall;
+    int      extras;             /* zugehörige Dateien (Backport, Prüfsummen) mitkopieren bzw. mitlöschen */
     /* Image sichern (path: Zielordner) bzw. wiederherstellen (path: Image-Datei, schon geöffnet in img/rd) */
     char     path[512];
     FILE    *img;
@@ -814,6 +819,7 @@ static void *label_worker(void *arg) {
 
 typedef struct {
     char       device[16];   /* leer: interner Ordner (z. B. /data/homebrew) */
+    char       place[16];    /* dann der Ort: "intern" (/data/...) oder "extN" (/mnt/extN) */
     int        usb;
     lib_root_t r;
     /* welcher Datenträger dort eingehängt war: steckt am selben Anschluss ein anderer (oder wurde neu eingehängt),
@@ -822,6 +828,30 @@ typedef struct {
     uint64_t   size;
     char       ident[64];
 } libroot_t;
+
+/* Name, unter dem Clients die Wurzel kennen: USB-Laufwerk (da1) oder fester Ort (intern, ext1) */
+static const char *lroot_name(const libroot_t *r) { return r->device[0] ? r->device : r->place; }
+
+/* Interner Speicher der PS5 (Tests: USBFMT_INTERNAL_BASE) */
+static const char *internal_base(void) {
+    const char *e = getenv("USBFMT_INTERNAL_BASE");
+    return e && *e == '/' ? e : "/data";
+}
+
+static void place_of(const char *root, char *out, size_t n) {
+    if (!strncmp(root, "/mnt/ext", 8) && root[8] >= '0' && root[8] <= '9') {
+        const char *b = strrchr(root, '/');
+        snprintf(out, n, "%s", b + 1);
+    } else snprintf(out, n, "%s", "intern");
+}
+
+/* Ordner, unter dem der Pfad eines Spiels gespeichert wird: bei internen Orten /data, sonst die Wurzel */
+static const char *move_base(const char *root, char *buf, size_t n) {
+    const char *ib = internal_base();
+    size_t l = strlen(ib);
+    if (!strncmp(root, ib, l) && root[l] == '/') { snprintf(buf, n, "%s", ib); return buf; }
+    return root;
+}
 
 static dev_t root_dev(const char *path) {
     struct stat s;
@@ -889,6 +919,7 @@ static void *lib_worker(void *arg) {
         }
         for (int k = 0; roots && extra && extra[k] && extra[k + 1] && n < cap; k += 2) {
             roots[n].usb = !strcmp(extra[k + 1], "usb");
+            place_of(extra[k], roots[n].place, sizeof(roots[n].place));
             roots[n].dev = root_dev(extra[k]);
             lib_progress(-1, total, extra[k]);
             lib_scan(extra[k], roots[n].usb, &roots[n].r);
@@ -931,6 +962,53 @@ static void lib_refresh(void) {
     pthread_attr_destroy(&attr);
     if (rc == 0) pthread_detach(t);
     else { pthread_mutex_lock(&lib_lock); lib_busy = 0; pthread_mutex_unlock(&lib_lock); }
+}
+
+/* ------------------------------------------------------------ Zugehörige Dateien eines Spiels
+ * Zu einem Spiel gehören neben seinem Ordner/Abbild: der Ordner <Titel-ID> im Backport-Ordner (nur dieser, nie andere)
+ * und Begleitdateien neben dem Spiel (<Name>.sha256, <Name>.dump-info.json). Gefunden wird nur, was wirklich da ist. */
+static int id_safe(const char *id) {
+    if (!id[0]) return 0;
+    for (const char *p = id; *p; p++)
+        if (!((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '_' || *p == '-')) return 0;
+    return 1;
+}
+
+static int extra_add(char (*out)[300], int n, int max, const char *path, int want_dir) {
+    struct stat sb;
+    if (n >= max || lstat(path, &sb) != 0 || (want_dir ? !S_ISDIR(sb.st_mode) : !S_ISREG(sb.st_mode))) return n;
+    for (int i = 0; i < n; i++) if (!strcmp(out[i], path)) return n;
+    if (snprintf(out[n], 300, "%s", path) >= 300) return n;
+    return n + 1;
+}
+
+static int find_extras(const char *root, const char *path, const char *id, char (*out)[300], int max) {
+    int n = 0;
+    char dir[300], base[200], bare[200], t[700];
+    snprintf(dir, sizeof(dir), "%s", path);
+    char *sl = strrchr(dir, '/');
+    if (!sl) return 0;
+    snprintf(base, sizeof(base), "%s", sl + 1);
+    *sl = 0;
+    snprintf(bare, sizeof(bare), "%s", base);
+    char *dot = strrchr(bare, '.');
+    if (dot && dot != bare) *dot = 0;
+    static const char *const sfx[] = {".sha256", ".dump-info.json"};
+    for (int k = 0; k < 2; k++) {
+        snprintf(t, sizeof(t), "%s/%s%s", dir, base, sfx[k]);
+        n = extra_add(out, n, max, t, 0);
+        if (strcmp(bare, base) != 0) { snprintf(t, sizeof(t), "%s/%s%s", dir, bare, sfx[k]); n = extra_add(out, n, max, t, 0); }
+    }
+    if (id_safe(id)) {
+        const char *bases[] = {dir, root, internal_base(), NULL};
+        for (int b = 0; bases[b]; b++) {
+            snprintf(t, sizeof(t), "%s/backport/%s", bases[b], id);
+            n = extra_add(out, n, max, t, 1);
+            snprintf(t, sizeof(t), "%s/homebrew/backport/%s", bases[b], id);
+            n = extra_add(out, n, max, t, 1);
+        }
+    }
+    return n;
 }
 
 static void api_library(int c, int refresh);
@@ -1208,7 +1286,7 @@ static void *gsize_worker(void *arg) {
     int n = 0;
     pthread_mutex_lock(&lib_lock);   /* Ordner-Spiele des Laufwerks aus dem letzten Suchlauf */
     for (int i = 0; i < lib_n; i++)
-        if (!strcmp(lib_snap[i].device, gs_device))
+        if (!strcmp(lroot_name(&lib_snap[i]), gs_device))
             for (int k = 0; k < lib_snap[i].r.ntitles; k++)
                 if (!strcmp(lib_snap[i].r.titles[k].kind, "Ordner")) {
                     gsjob_t *p = realloc(jobs, (size_t)(n + 1) * sizeof(*jobs));
@@ -1251,7 +1329,7 @@ static void api_library_sizes_start(int c, const char *body) {
     const char *dev = n > 0 ? kv_get(kv, n, "device") : NULL;
     int known = 0;
     pthread_mutex_lock(&lib_lock);
-    for (int i = 0; dev && i < lib_n; i++) if (!strcmp(lib_snap[i].device, dev)) known = 1;
+    for (int i = 0; dev && i < lib_n; i++) if (!strcmp(lroot_name(&lib_snap[i]), dev)) known = 1;
     pthread_mutex_unlock(&lib_lock);
     if (!known) { respond_error(c, 400, N_("Laufwerk unbekannt")); return; }
     pthread_mutex_lock(&gs_lock);
@@ -1299,9 +1377,9 @@ static void api_library(int c, int refresh) {
         sb_add(&b, "%s{\"root\":", i ? "," : "");
         sb_str(&b, r->r.root);
         sb_add(&b, ",\"device\":");
-        sb_str(&b, r->device);
-        sb_add(&b, ",\"usb\":%s,\"titles\":%d,\"pkgs\":%d,\"pkg_bytes\":%llu,\"folders\":",
-               r->usb ? "true" : "false", r->r.ntitles, r->r.pkgs, (unsigned long long)r->r.pkg_bytes);
+        sb_str(&b, lroot_name(r));
+        sb_add(&b, ",\"place\":%s,\"usb\":%s,\"titles\":%d,\"pkgs\":%d,\"pkg_bytes\":%llu,\"folders\":",
+               r->device[0] ? "false" : "true", r->usb ? "true" : "false", r->r.ntitles, r->r.pkgs, (unsigned long long)r->r.pkg_bytes);
         sb_str(&b, r->r.folders);
         sb_add(&b, "}");
     }
@@ -1324,7 +1402,18 @@ static void api_library(int c, int refresh) {
             sb_add(&b, ",\"key\":\"%08x\",\"size\":%llu,\"root\":", path_key(t->path), (unsigned long long)t->size);
             sb_str(&b, lib_snap[i].r.root);
             sb_add(&b, ",\"device\":");
-            sb_str(&b, lib_snap[i].device);
+            sb_str(&b, lroot_name(&lib_snap[i]));
+            char (*ex)[300] = malloc(sizeof(char[300]) * LIB_EXTRAS_MAX);
+            int nex = ex ? find_extras(lib_snap[i].r.root, t->path, t->id, ex, LIB_EXTRAS_MAX) : 0;
+            if (nex) {   /* zugehörige Dateien und Ordner (Backport, Prüfsummen): mit dem Spiel kopieren bzw. löschen */
+                sb_add(&b, ",\"extras\":[");
+                for (int x = 0; x < nex; x++) {
+                    if (x) sb_add(&b, ",");
+                    sb_str(&b, ex[x]);
+                }
+                sb_add(&b, "]");
+            }
+            free(ex);
             sb_add(&b, "}");
         }
     /* .pkg-Dateien (Installationspakete) mit Plattform */
@@ -1346,7 +1435,7 @@ static void api_library(int c, int refresh) {
             sb_add(&b, ",\"title_id\":");
             sb_str(&b, pk->title_id);
             sb_add(&b, ",\"update\":%s,\"size\":%llu,\"device\":", pk->update ? "true" : "false", (unsigned long long)pk->size);
-            sb_str(&b, lib_snap[i].device);
+            sb_str(&b, lroot_name(&lib_snap[i]));
             sb_add(&b, "}");
         }
     /* Duplikate: jede Titel-ID, die mehr als einmal vorkommt, einmal mit allen Fundorten */
@@ -3027,7 +3116,7 @@ static void *delete_worker(void *arg) {
     i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0}, done_names = {0}, errs = {0};
     char err[256];
-    int ok_n = 0, fail_n = 0, tiles = 0;
+    int ok_n = 0, fail_n = 0, tiles = 0, extras_n = 0;
 
     lib_hint_t *smp = NULL;
     int nsmp = 0, http, smp_ok = 0, stale = 1;
@@ -3128,16 +3217,27 @@ static void *delete_worker(void *arg) {
             sb_str(&failed, err);
             sb_add(&failed, "}");
         }
-        if (rc == 0) { ok_n++; sb_add(&done_names, "%s%s", done_names.len ? ", " : "", it->name); }
-        else { fail_n++; sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, err); }
+        if (rc == 0) {
+            ok_n++;
+            sb_add(&done_names, "%s%s", done_names.len ? ", " : "", it->name);
+            for (int x = 0; j->extras && x < it->nex; x++) {   /* Backport-Ordner, Prüfsummen: sonst gälten sie beim nächsten Mal wieder */
+                if (remove_tree(it->ex[x], 0, NULL) == 0) extras_n++;
+                else if (errno != ENOENT) {
+                    sb_add(&errs, "%s", errs.len ? "; " : "");
+                    sb_tr(&errs, "%s: Zugehöriges nicht gelöscht (%s)", it->name, it->ex[x]);
+                }
+            }
+        } else { fail_n++; sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, err); }
     }
-    sb_add(&res, "{\"deleted\":%d,\"failed\":%d,\"tiles\":%d,\"failed_items\":[%s]}", ok_n, fail_n, tiles,
-           failed.p ? failed.p : "");
+    sb_add(&res, "{\"deleted\":%d,\"failed\":%d,\"tiles\":%d,\"extras\":%d,\"failed_items\":[%s]}", ok_n, fail_n, tiles,
+           extras_n, failed.p ? failed.p : "");
     free(failed.p);
     free(smp);
 
     if (ok_n == 1) sb_tr(&msg, "1 Spiel gelöscht: %s.", done_names.p);
     else if (ok_n) sb_tr(&msg, "%d Spiele gelöscht: %s.", ok_n, done_names.p);
+    if (extras_n == 1) sb_tr(&msg, " 1 zugehörige Datei bzw. Ordner mitgelöscht.");
+    else if (extras_n) sb_tr(&msg, " %d zugehörige Dateien bzw. Ordner mitgelöscht.", extras_n);
     if (tiles == 1) sb_tr(&msg, " 1 Kachel von der Startseite entfernt.");
     else if (tiles) sb_tr(&msg, " %d Kacheln von der Startseite entfernt.", tiles);
     if (errs.len) sb_add(&msg, "%s%s.", ok_n ? " " : T("Nicht gelöscht – "), errs.p);
@@ -3880,13 +3980,17 @@ static void api_delete(int c, const char *body) {
     const char *u = strstr(body, "\"uninstall\"");
     int uninstall = 0;
     if (u) { u = ws(u + 11); if (*u == ':' && !strncmp(ws(u + 1), "true", 4)) uninstall = 1; }
+    const char *xe = strstr(body, "\"extras\"");
+    int with_extras = 0;
+    if (xe) { xe = ws(xe + 8); if (*xe == ':' && !strncmp(ws(xe + 1), "true", 4)) with_extras = 1; }
 
     job_t *j = new_job(c, JOB_DELETE);
     if (!j) return;
     j->uninstall = uninstall;
+    j->extras = with_extras;
     j->items = calloc(MAX_DELETE, sizeof(*j->items));
     if (!j->items) { free(j); respond_error(c, 500, "Kein Speicher"); return; }
-    int ambiguous = 0, badkey = 0;
+    int ambiguous = 0, badkey = 0, own = 0;
     pthread_mutex_lock(&lib_lock);
     for (char *p = keys, *save = NULL, *tok; (tok = strtok_r(p, ",", &save)); p = NULL) {
         char *kend;
@@ -3899,7 +4003,7 @@ static void api_delete(int c, const char *body) {
             for (int t = 0; t < lib_snap[i].r.ntitles; t++) hits += path_key(lib_snap[i].r.titles[t].path) == want;
         if (hits > 1) { ambiguous = 1; break; }
         for (int i = 0; i < lib_n && j->nitems < MAX_DELETE; i++) {
-            if (!lib_snap[i].usb || !lib_snap[i].device[0]) continue;
+            if (!lroot_name(&lib_snap[i])[0]) continue;
             for (int t = 0; t < lib_snap[i].r.ntitles && j->nitems < MAX_DELETE; t++) {
                 const lib_title_t *tt = &lib_snap[i].r.titles[t];
                 if (path_key(tt->path) != want) continue;
@@ -3911,13 +4015,21 @@ static void api_delete(int c, const char *body) {
                 snprintf(it->name, sizeof(it->name), "%s", tt->name[0] ? tt->name : tt->id);
                 snprintf(it->path, sizeof(it->path), "%s", tt->path);
                 snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
-                snprintf(it->device, sizeof(it->device), "%s", lib_snap[i].device);
+                snprintf(it->device, sizeof(it->device), "%s", lroot_name(&lib_snap[i]));
                 it->size = tt->size;
                 it->dev = lib_snap[i].dev;
+                if (with_extras) it->nex = find_extras(lib_snap[i].r.root, tt->path, tt->id, it->ex, LIB_EXTRAS_MAX);
+                if (!strcmp(tt->id, APP_TITLE)) own = 1;
             }
         }
     }
     pthread_mutex_unlock(&lib_lock);
+    if (own) {   /* der Formatierer läuft aus diesem Ordner */
+        free(j->items);
+        free(j);
+        respond_error(c, 409, N_("Der Formatierer kann sich nicht selbst löschen."));
+        return;
+    }
     if (ambiguous || badkey || !j->nitems) {
         free(j->items);
         free(j);
@@ -4101,7 +4213,7 @@ static int mkdirs_to(const char *path) {   /* alle Ordner bis einschließlich pa
 static void *move_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
-    sbuf_t msg = {0}, res = {0}, items = {0}, errs = {0};
+    sbuf_t msg = {0}, res = {0}, items = {0}, errs = {0}, xwarn = {0};
     char s1[24], s2[24], stage[640];
     int ok_n = 0, fail_n = 0;
     mv_t m;
@@ -4119,6 +4231,7 @@ static void *move_worker(void *arg) {
     for (int i = 0; i < j->nitems; i++) {
         const del_item_t *it = &j->items[i];
         sizes[i] = it->size ? it->size : tree_bytes(it->path, 0);
+        for (int x = 0; j->extras && x < it->nex; x++) sizes[i] += tree_bytes(it->ex[x], 0);
         m.total += sizes[i];
     }
     m.weight = m.verify ? m.total * 2 : m.total;
@@ -4135,9 +4248,15 @@ static void *move_worker(void *arg) {
     for (int i = 0; i < j->nitems; i++) {
         const del_item_t *it = &j->items[i];
         char gstage[720], final_path[1024], rel[300];
-        const size_t rl = strlen(it->root);
-        if (strncmp(it->path, it->root, rl) != 0 || it->path[rl] != '/') { sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("Pfad liegt nicht auf dem USB-Laufwerk")); fail_n++; continue; }
+        char bbuf[128];
+        const char *mbase = move_base(it->root, bbuf, sizeof(bbuf));
+        const size_t rl = strlen(mbase);
+        if (strncmp(it->path, mbase, rl) != 0 || it->path[rl] != '/') { sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("Pfad liegt nicht auf dem USB-Laufwerk")); fail_n++; continue; }
         snprintf(rel, sizeof(rel), "%s", it->path + rl + 1);
+        if (!j->pkgmode && !strcmp(troot, internal_base()) && strncmp(rel, "homebrew/", 9) != 0 && strncmp(rel, "etaHEN/games/", 13) != 0) {
+            const char *nm = strrchr(it->path, '/');   /* intern liegen Spiele nur in homebrew/ bzw. etaHEN/games/ */
+            snprintf(rel, sizeof(rel), "homebrew/%s", nm ? nm + 1 : it->path);
+        }
         snprintf(final_path, sizeof(final_path), "%s/%s", troot, rel);
         snprintf(gstage, sizeof(gstage), "%s/%d_%08x", stage, i, path_key(it->path));
         struct stat sb;
@@ -4168,6 +4287,43 @@ static void *move_worker(void *arg) {
             }
         }
         mv_free_list(&m);
+        /* zugehörige Dateien (Backport-Ordner, Prüfsummen): was am Ziel schon liegt, bleibt unberührt */
+        for (int x = 0; rc == 0 && j->extras && x < it->nex; x++) {
+            const char *ep = it->ex[x], *en = strrchr(ep, '/');
+            char xfinal[1024], xstage[800];
+            en = en ? en + 1 : ep;
+            struct stat xs;
+            if (strstr(ep, "/backport/")) snprintf(xfinal, sizeof(xfinal), "%s/homebrew/backport/%s", troot, en);
+            else {
+                snprintf(xfinal, sizeof(xfinal), "%s", final_path);
+                char *sl2 = strrchr(xfinal, '/');
+                if (sl2) snprintf(sl2 + 1, sizeof(xfinal) - (size_t)(sl2 + 1 - xfinal), "%s", en);
+            }
+            if (lstat(xfinal, &xs) == 0) continue;
+            snprintf(xstage, sizeof(xstage), "%s_x%d", gstage, x);
+            snprintf(m.step, sizeof(m.step), T("%s: %s (%d von %d)"), T("Zugehörige Dateien kopieren"), it->name, i + 1, j->nitems);
+            mv_progress(&m, 1);
+            const int xfirst = m.n;
+            m.err[0] = 0;
+            int xrc = mv_copy_tree(&m, ep, xstage, "", 0);
+            if (xrc == 0 && m.verify) xrc = mv_verify(&m, xstage, xfirst);
+            if (xrc == 0) {
+                char xparent[1024];
+                snprintf(xparent, sizeof(xparent), "%s", xfinal);
+                char *sl3 = strrchr(xparent, '/');
+                if (sl3) *sl3 = 0;
+                if (mkdirs_to(xparent) != 0 || rename(xstage, xfinal) != 0) {
+                    snprintf(m.err, sizeof(m.err), T("Übernehmen am Ziel fehlgeschlagen: %s"), strerror(errno));
+                    xrc = -1;
+                }
+            }
+            mv_free_list(&m);
+            if (xrc != 0) {
+                (void)remove_tree(xstage, 0, NULL);
+                sb_add(&xwarn, "%s", xwarn.len ? "; " : "");   /* das Spiel selbst ist da: nur melden */
+                sb_tr(&xwarn, "%s: Zugehöriges nicht kopiert (%s)", it->name, m.err[0] ? m.err : en);
+            }
+        }
         if (rc != 0) {
             (void)remove_tree(gstage, 0, NULL);
             if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
@@ -4187,6 +4343,7 @@ static void *move_worker(void *arg) {
         if (j->pkgmode) sb_tr(&msg, "Pakete kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.", m.verify ? T(" und geprüft") : "", ok_n, j->dev.name);
         else sb_tr(&msg, "Spiele kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.", m.verify ? T(" und geprüft") : "", ok_n, j->dev.name);
         if (fail_n) sb_tr(&msg, " Nicht kopiert: %d – %s", fail_n, errs.p ? errs.p : "");
+        if (xwarn.len) sb_add(&msg, " %s.", xwarn.p);
     } else {
         sb_tr(&msg, "Nichts kopiert: %s", errs.p ? errs.p : "");
     }
@@ -4198,6 +4355,7 @@ fin:
     mv_free_list(&m);
     free(items.p);
     free(errs.p);
+    free(xwarn.p);
     free(j->items);
     j->items = NULL;
     job_done(j, ok_n > 0 && fail_n == 0, &msg, &res, 1);
@@ -4225,10 +4383,21 @@ static void api_move(int c, const char *body) {
     if (!j) return;
     j->verify = kv_true(kv, n, "verify");
     j->pkgmode = pkgmode;
+    j->extras = kv_true(kv, n, "extras");
     j->items = calloc(MAX_DELETE, sizeof(*j->items));
     if (!j->items) { job_free(j); respond_error(c, 500, "Kein Speicher"); return; }
     int ambiguous = 0, badkey = 0, same_dev = 0, have_target = 0;
     pthread_mutex_lock(&lib_lock);
+    if (!strcmp(dev, "intern")) {   /* interner Speicher der PS5 */
+        snprintf(j->path, sizeof(j->path), "%s", internal_base());
+        snprintf(j->dev.name, sizeof(j->dev.name), "%s", "intern");
+        have_target = 1;
+    } else if (!strncmp(dev, "ext", 3) && dev[3] >= '0' && dev[3] <= '9' && !dev[4]) {   /* M.2-Erweiterung */
+        struct stat xs;
+        snprintf(j->path, sizeof(j->path), "/mnt/%.8s", dev);
+        snprintf(j->dev.name, sizeof(j->dev.name), "%.8s", dev);
+        have_target = stat(j->path, &xs) == 0 && S_ISDIR(xs.st_mode);
+    }
     for (int i = 0; i < lib_n; i++)   /* Ziel: eingebundenes USB-Laufwerk dieses Namens */
         if (lib_snap[i].usb && !strcmp(lib_snap[i].device, dev) && !have_target) {
             snprintf(j->path, sizeof(j->path), "%s", lib_snap[i].r.root);
@@ -4246,19 +4415,19 @@ static void api_move(int c, const char *body) {
         }
         if (hits > 1) { ambiguous = 1; break; }
         for (int i = 0; i < lib_n && j->nitems < MAX_DELETE; i++) {
-            if (!lib_snap[i].usb || !lib_snap[i].device[0]) continue;
+            if (!lroot_name(&lib_snap[i])[0]) continue;
             if (pkgmode) {
                 for (int t = 0; t < lib_snap[i].r.npkglist && j->nitems < MAX_DELETE; t++) {
                     const lib_pkg_t *pk = &lib_snap[i].r.pkglist[t];
                     if (path_key(pk->path) != want) continue;
-                    if (!strcmp(lib_snap[i].device, dev)) { same_dev = 1; continue; }
+                    if (!strcmp(lroot_name(&lib_snap[i]), dev)) { same_dev = 1; continue; }
                     const char *nm = strrchr(pk->path, '/');
                     del_item_t *it = &j->items[j->nitems++];
                     snprintf(it->id, sizeof(it->id), "%s", pk->title_id);
                     snprintf(it->name, sizeof(it->name), "%.127s", nm ? nm + 1 : pk->path);
                     snprintf(it->path, sizeof(it->path), "%s", pk->path);
                     snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
-                    snprintf(it->device, sizeof(it->device), "%s", lib_snap[i].device);
+                    snprintf(it->device, sizeof(it->device), "%s", lroot_name(&lib_snap[i]));
                     it->size = pk->size;
                     it->dev = lib_snap[i].dev;
                 }
@@ -4267,13 +4436,14 @@ static void api_move(int c, const char *body) {
             for (int t = 0; t < lib_snap[i].r.ntitles && j->nitems < MAX_DELETE; t++) {
                 const lib_title_t *tt = &lib_snap[i].r.titles[t];
                 if (path_key(tt->path) != want) continue;
-                if (!strcmp(lib_snap[i].device, dev)) { same_dev = 1; continue; }
+                if (!strcmp(lroot_name(&lib_snap[i]), dev)) { same_dev = 1; continue; }
                 del_item_t *it = &j->items[j->nitems++];
+                if (j->extras) it->nex = find_extras(lib_snap[i].r.root, tt->path, tt->id, it->ex, LIB_EXTRAS_MAX);
                 snprintf(it->id, sizeof(it->id), "%s", tt->id);
                 snprintf(it->name, sizeof(it->name), "%s", tt->name[0] ? tt->name : tt->id);
                 snprintf(it->path, sizeof(it->path), "%s", tt->path);
                 snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
-                snprintf(it->device, sizeof(it->device), "%s", lib_snap[i].device);
+                snprintf(it->device, sizeof(it->device), "%s", lroot_name(&lib_snap[i]));
                 it->size = tt->size;
                 it->dev = lib_snap[i].dev;
             }
@@ -4371,7 +4541,7 @@ static void api_pkg_delete(int c, const char *body) {
             for (int t = 0; t < lib_snap[i].r.npkglist; t++) hits += path_key(lib_snap[i].r.pkglist[t].path) == want;
         if (hits > 1) { ambiguous = 1; break; }
         for (int i = 0; i < lib_n && j->nitems < MAX_DELETE; i++) {
-            if (!lib_snap[i].usb || !lib_snap[i].device[0]) continue;
+            if (!lroot_name(&lib_snap[i])[0]) continue;
             for (int t = 0; t < lib_snap[i].r.npkglist && j->nitems < MAX_DELETE; t++) {
                 const lib_pkg_t *pk = &lib_snap[i].r.pkglist[t];
                 if (path_key(pk->path) != want) continue;
@@ -4381,7 +4551,7 @@ static void api_pkg_delete(int c, const char *body) {
                 snprintf(it->name, sizeof(it->name), "%.127s", nm ? nm + 1 : pk->path);
                 snprintf(it->path, sizeof(it->path), "%s", pk->path);
                 snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
-                snprintf(it->device, sizeof(it->device), "%s", lib_snap[i].device);
+                snprintf(it->device, sizeof(it->device), "%s", lroot_name(&lib_snap[i]));
                 it->size = pk->size;
                 it->dev = lib_snap[i].dev;
             }

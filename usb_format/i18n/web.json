@@ -2146,5 +2146,59 @@
   "it": "Gli originali restano per ora. Dopo la copia e la verifica ti verrà chiesto se eliminarli.",
   "es": "Los originales se conservan por ahora. Tras copiar y comprobar se te preguntará si quieres borrarlos.",
   "fr": "Les originaux sont conservés pour l'instant. Après la copie et la vérification, il vous sera demandé de les supprimer."
+ },
+ "Interner PS5-Speicher": {
+  "en": "Internal PS5 storage",
+  "it": "Memoria interna della PS5",
+  "es": "Almacenamiento interno de la PS5",
+  "fr": "Stockage interne de la PS5"
+ },
+ "Erweiterter Speicher": {
+  "en": "Extended storage",
+  "it": "Memoria estesa",
+  "es": "Almacenamiento ampliado",
+  "fr": "Stockage étendu"
+ },
+ "Spiele und Homebrew": {
+  "en": "Games and homebrew",
+  "it": "Giochi e homebrew",
+  "es": "Juegos y homebrew",
+  "fr": "Jeux et homebrew"
+ },
+ "M.2-Erweiterung": {
+  "en": "M.2 expansion",
+  "it": "Espansione M.2",
+  "es": "Ampliación M.2",
+  "fr": "Extension M.2"
+ },
+ "keine Spiele gefunden": {
+  "en": "no games found",
+  "it": "nessun gioco trovato",
+  "es": "no se encontraron juegos",
+  "fr": "aucun jeu trouvé"
+ },
+ "Zugehörige Dateien mitkopieren": {
+  "en": "Copy related files too",
+  "it": "Copia anche i file collegati",
+  "es": "Copiar también los archivos relacionados",
+  "fr": "Copier aussi les fichiers associés"
+ },
+ "Backport-Ordner des Spiels, Prüfsummen und Dump-Infos: {list}": {
+  "en": "The game's backport folder, checksums and dump info: {list}",
+  "it": "Cartella backport del gioco, checksum e info dump: {list}",
+  "es": "Carpeta backport del juego, sumas de verificación e info del volcado: {list}",
+  "fr": "Dossier backport du jeu, sommes de contrôle et infos du dump : {list}"
+ },
+ "Auch die zugehörigen Dateien und Ordner löschen": {
+  "en": "Also delete the related files and folders",
+  "it": "Elimina anche i file e le cartelle collegati",
+  "es": "Borrar también los archivos y carpetas relacionados",
+  "fr": "Supprimer aussi les fichiers et dossiers associés"
+ },
+ "Sonst könnten sie beim nächsten Mal wieder auf das Spiel angewendet werden.": {
+  "en": "Otherwise they could be applied to the game again next time.",
+  "it": "Altrimenti potrebbero essere applicati di nuovo al gioco la prossima volta.",
+  "es": "De lo contrario podrían volver a aplicarse al juego la próxima vez.",
+  "fr": "Sinon ils pourraient être appliqués de nouveau au jeu la prochaine fois."
  }
 }

@@ -3166,5 +3166,59 @@
   "it": "Questi {n} pacchetti vengono copiati da {name} ({dev}) sull'unità scelta:",
   "es": "Estos {n} paquetes se copian de {name} ({dev}) a la unidad elegida:",
   "fr": "Ces {n} paquets sont copiés de {name} ({dev}) vers le lecteur choisi :"
+ },
+ "Interner PS5-Speicher": {
+  "en": "Internal PS5 storage",
+  "it": "Memoria interna della PS5",
+  "es": "Almacenamiento interno de la PS5",
+  "fr": "Stockage interne de la PS5"
+ },
+ "Erweiterter Speicher": {
+  "en": "Extended storage",
+  "it": "Memoria estesa",
+  "es": "Almacenamiento ampliado",
+  "fr": "Stockage étendu"
+ },
+ "Spiele und Homebrew": {
+  "en": "Games and homebrew",
+  "it": "Giochi e homebrew",
+  "es": "Juegos y homebrew",
+  "fr": "Jeux et homebrew"
+ },
+ "M.2-Erweiterung": {
+  "en": "M.2 expansion",
+  "it": "Espansione M.2",
+  "es": "Ampliación M.2",
+  "fr": "Extension M.2"
+ },
+ "Zugehörige Dateien mitkopieren": {
+  "en": "Copy related files too",
+  "it": "Copia anche i file collegati",
+  "es": "Copiar también los archivos relacionados",
+  "fr": "Copier aussi les fichiers associés"
+ },
+ "Backport-Ordner des Spiels, Prüfsummen und Dump-Infos:": {
+  "en": "The game's backport folder, checksums and dump info:",
+  "it": "Cartella backport del gioco, checksum e info dump:",
+  "es": "Carpeta backport del juego, sumas de verificación e info del volcado:",
+  "fr": "Dossier backport du jeu, sommes de contrôle et infos du dump :"
+ },
+ "Zugehörige Dateien löschen?": {
+  "en": "Delete related files?",
+  "it": "Eliminare i file collegati?",
+  "es": "¿Borrar los archivos relacionados?",
+  "fr": "Supprimer les fichiers associés ?"
+ },
+ "Zu den Spielen gehören weitere Dateien und Ordner:": {
+  "en": "The games have further files and folders:",
+  "it": "Ai giochi appartengono altri file e cartelle:",
+  "es": "Los juegos tienen más archivos y carpetas:",
+  "fr": "Les jeux ont d'autres fichiers et dossiers :"
+ },
+ "Auch löschen? Sonst könnten sie beim nächsten Mal wieder auf das Spiel angewendet werden.": {
+  "en": "Delete them too? Otherwise they could be applied to the game again next time.",
+  "it": "Eliminarli anche? Altrimenti potrebbero essere applicati di nuovo al gioco la prossima volta.",
+  "es": "¿Borrarlos también? De lo contrario podrían volver a aplicarse al juego la próxima vez.",
+  "fr": "Les supprimer aussi ? Sinon ils pourraient être appliqués de nouveau au jeu la prochaine fois."
  }
 }
