@@ -79,7 +79,7 @@ def extras_text(games):
     names = []
     for g in games:
         for x in g.get("extras") or []:
-            names.append("• " + x.rsplit("/", 1)[-1] + (" (Backport)" if "/backport/" in x else ""))
+            names.append("• " + x.rsplit("/", 1)[-1] + (" (Backport)" if "/backport" in x else ""))
     return "\n".join(names[:8]) + ("\n" + _("… und {n} weitere", n=len(names) - 8) if len(names) > 8 else "")
 
 

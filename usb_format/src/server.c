@@ -982,6 +982,35 @@ static int extra_add(char (*out)[300], int n, int max, const char *path, int wan
     return n + 1;
 }
 
+/* Backport-Ordner zu einer Titel-ID in <parent>/backports (auch "backport"): der Ordner mit genau diesem Namen, sonst der
+ * erste (Byte-Reihenfolge), dessen Name mit der Titel-ID beginnt (z. B. "PPSA12345 Spielname"); andere nie */
+static int backport_in(const char *parent, const char *id, char (*out)[300], int n, int max) {
+    static const char *const names[] = {"backports", "backport"};
+    const size_t il = strlen(id);
+    for (int k = 0; k < 2; k++) {
+        char dp[700], best[256] = "";
+        snprintf(dp, sizeof(dp), "%s/%s", parent, names[k]);
+        DIR *d = opendir(dp);
+        if (!d) continue;
+        struct dirent *e;
+        while ((e = readdir(d))) {
+            struct stat sb;
+            char t[1000];
+            if (strncmp(e->d_name, id, il) != 0 || strlen(e->d_name) >= sizeof(best)) continue;
+            if (snprintf(t, sizeof(t), "%s/%s", dp, e->d_name) >= (int)sizeof(t) || stat(t, &sb) != 0 || !S_ISDIR(sb.st_mode)) continue;
+            if (!strcmp(e->d_name, id)) { snprintf(best, sizeof(best), "%s", e->d_name); break; }
+            if (!best[0] || strcmp(e->d_name, best) < 0) snprintf(best, sizeof(best), "%s", e->d_name);
+        }
+        closedir(d);
+        if (best[0]) {
+            char t[1000];
+            snprintf(t, sizeof(t), "%s/%s", dp, best);
+            n = extra_add(out, n, max, t, 1);
+        }
+    }
+    return n;
+}
+
 static int find_extras(const char *root, const char *path, const char *id, char (*out)[300], int max) {
     int n = 0;
     char dir[300], base[200], bare[200], t[700];
@@ -999,14 +1028,15 @@ static int find_extras(const char *root, const char *path, const char *id, char 
         n = extra_add(out, n, max, t, 0);
         if (strcmp(bare, base) != 0) { snprintf(t, sizeof(t), "%s/%s%s", dir, bare, sfx[k]); n = extra_add(out, n, max, t, 0); }
     }
-    if (id_safe(id)) {
-        const char *bases[] = {dir, root, internal_base(), NULL};
-        for (int b = 0; bases[b]; b++) {
-            snprintf(t, sizeof(t), "%s/backport/%s", bases[b], id);
-            n = extra_add(out, n, max, t, 1);
-            snprintf(t, sizeof(t), "%s/homebrew/backport/%s", bases[b], id);
-            n = extra_add(out, n, max, t, 1);
-        }
+    if (id_safe(id)) {   /* wie ShadowMountPlus: <Suchordner>/backports/<Titel-ID>[ Zusatz] */
+        const char *ib = internal_base();
+        char b1[300], b2[300], b3[300], b4[300];
+        snprintf(b1, sizeof(b1), "%s/homebrew", root);
+        snprintf(b2, sizeof(b2), "%s/etaHEN/games", root);
+        snprintf(b3, sizeof(b3), "%s/homebrew", ib);
+        snprintf(b4, sizeof(b4), "%s/etaHEN/games", ib);
+        const char *bases[] = {dir, root, b1, b2, ib, b3, b4, NULL};
+        for (int b = 0; bases[b]; b++) n = backport_in(bases[b], id, out, n, max);
     }
     return n;
 }
@@ -4293,8 +4323,21 @@ static void *move_worker(void *arg) {
             char xfinal[1024], xstage[800];
             en = en ? en + 1 : ep;
             struct stat xs;
-            if (strstr(ep, "/backport/")) snprintf(xfinal, sizeof(xfinal), "%s/homebrew/backport/%s", troot, en);
-            else {
+            if (strstr(ep, "/backport")) {   /* .../backports/<Name>: neben dem Spiel, sonst im homebrew-Ordner des Ziels */
+                char par[1024], gpar[1024];
+                snprintf(par, sizeof(par), "%s", ep);
+                for (int up = 0; up < 2; up++) { char *s2 = strrchr(par, '/'); if (s2) *s2 = 0; }
+                snprintf(gpar, sizeof(gpar), "%s", it->path);
+                char *s3 = strrchr(gpar, '/');
+                if (s3) *s3 = 0;
+                if (!strcmp(par, gpar)) {
+                    snprintf(xfinal, sizeof(xfinal), "%s", final_path);
+                    char *s4 = strrchr(xfinal, '/');
+                    if (s4) *s4 = 0;
+                    size_t xl = strlen(xfinal);
+                    snprintf(xfinal + xl, sizeof(xfinal) - xl, "/backports/%s", en);
+                } else snprintf(xfinal, sizeof(xfinal), "%s/homebrew/backports/%s", troot, en);
+            } else {
                 snprintf(xfinal, sizeof(xfinal), "%s", final_path);
                 char *sl2 = strrchr(xfinal, '/');
                 if (sl2) snprintf(sl2 + 1, sizeof(xfinal) - (size_t)(sl2 + 1 - xfinal), "%s", en);

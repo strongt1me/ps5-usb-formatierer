@@ -2072,7 +2072,7 @@ async function askDeleteOriginals(st, r) {
 
 /* Die zugehörigen Dateien/Ordner der Spiele als Liste (Ordnername bzw. Dateiname, höchstens 6) */
 function extrasText(titles) {
-  const all = titles.flatMap(t => (t.extras || []).map(x => x.split("/").slice(-1)[0] + (/\/backport\//.test(x) ? " (Backport)" : "")));
+  const all = titles.flatMap(t => (t.extras || []).map(x => x.split("/").slice(-1)[0] + (/\/backports?\//.test(x) ? " (Backport)" : "")));
   return all.slice(0, 6).join(" · ") + (all.length > 6 ? " " + tr("… und {n} weitere", { n: all.length - 6 }) : "");
 }
 
