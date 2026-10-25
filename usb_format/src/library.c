@@ -10,7 +10,6 @@
 
 #include "fsread.h"
 #include "library.h"
-#include "pkgsign.h"
 
 #define PARAM_MAX (256 * 1024)
 
@@ -405,18 +404,14 @@ static void image_game(lib_root_t *r, const char *path, const char *fname, uint6
 
 /* Kopf eines Pakets lesen (wie die LibProsperoPkg es tut): PS4/CNT (7F 43 4E 54, Big-Endian) mit Content-ID bei 0x40 und Inhalts-Flags bei
  * 0x78; PS5 (7F 46 49 48 "FIH", auch 7F 4C 49 48 "LIH"): Byte 0x05 = 0x80 offiziell signiert, 0x00 Debug-Signatur (= fPKG). Eine PS4-fPKG
- * lässt sich vom offiziellen Paket im Kopf nicht unterscheiden (gleiche DRM-/Inhaltstypen): pkg4_is_fake (pkgsign.c) prüft dafür
- * den Image-Schlüssel. */
+ * lässt sich vom offiziellen Paket im Kopf nicht unterscheiden (gleiche DRM-/Inhaltstypen). */
 static void pkg_read_header(lib_pkg_t *p, const char *fname) {
     uint8_t h[0x80];
     int fd = open(p->path, O_RDONLY);
     ssize_t n = fd >= 0 ? read(fd, h, sizeof(h)) : -1;
-    int fake = -1;
-    if (n == (ssize_t)sizeof(h) && h[0] == 0x7F && h[1] == 'C' && h[2] == 'N' && h[3] == 'T') fake = pkg4_is_fake(fd);
     if (fd >= 0) close(fd);
     if (n == (ssize_t)sizeof(h) && h[0] == 0x7F && h[1] == 'C' && h[2] == 'N' && h[3] == 'T') {
         copy_str(p->platform, sizeof(p->platform), "PS4");
-        if (fake >= 0) copy_str(p->type, sizeof(p->type), fake ? "fPKG" : "PKG");   /* am Image-Schlüssel, nicht im Kopf */
         const uint32_t flags = (uint32_t)h[0x78] << 24 | (uint32_t)h[0x79] << 16 | (uint32_t)h[0x7A] << 8 | h[0x7B];
         p->update = (flags & 0x40000000u) || (flags & 0x00100000u);
         char cid[0x25];
