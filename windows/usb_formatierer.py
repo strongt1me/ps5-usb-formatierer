@@ -86,11 +86,12 @@ def extras_text(games):
 def place_devices(roots):
     """Feste Orte der PS5 mit Spielen (intern, ext1 …) aus /api/library als Einträge der Laufwerksliste"""
     out = []
-    for r in roots or []:
+    for r in list(roots or []) + [{"place": True, "device": "intern", "root": "/data"}]:   # intern gibt es immer (Spielstände)
         if r.get("place") and not any(d["name"] == r["device"] for d in out):
             out.append({"name": r["device"], "place": True, "size": 0, "locked": False, "format": "", "label": "",
                         "fake_real": 0, "ident": "", "mounts": [{"path": r.get("root", ""), "total": 0, "free": None}],
                         "model": _("Interner PS5-Speicher") if r["device"] == "intern" else _("Erweiterter Speicher")})
+    out.sort(key=lambda d: d["name"] != "intern")
     return out
 
 
@@ -1144,7 +1145,7 @@ class App(tk.Tk):
 
     def _set_tab(self, name):
         """Reiter wechseln (An der PS5); steht ein anderer Modus, zuerst dorthin"""
-        if name not in dict(TABS) or (name == "format" and self._place_selected()):
+        if name not in dict(TABS) or name not in self._tab_keys():
             return
         self.page = name
         self.settings["page"] = self.page
@@ -1159,6 +1160,13 @@ class App(tk.Tk):
         """Ist ein fester Ort (interner Speicher) gewählt? Der lässt sich nicht formatieren"""
         dev = self._selected_device() if self.mode_var.get() == "ps5" else None
         return bool(dev and dev.get("place"))
+
+    def _tab_keys(self):
+        """Welche Reiter es gibt: Interner Speicher: Spiele, PKG, Spielstände; Laufwerk: Spiele, PKG, Werkzeuge, Formatieren"""
+        dev = self._selected_device() if self.mode_var.get() == "ps5" else None
+        if dev and dev.get("place"):
+            return ["games", "pkg"] + (["saves"] if dev.get("name") == "intern" else [])
+        return ["games", "pkg", "images", "format"]
 
     def _show_page(self):
         """Seitenleiste markieren, passende Karten zeigen, Überschrift setzen"""
@@ -1893,14 +1901,16 @@ class App(tk.Tk):
 
         idle = not self.busy
         pc = self.mode_var.get() == "pc"
-        fb = self.tab_btns["format"]   # fester Ort (intern): kein Reiter "Formatieren"
-        if self._place_selected():
-            if fb.winfo_manager():
-                fb.pack_forget()
-            if self.page == "format":
-                self._set_tab("games")
-        elif not fb.winfo_manager():
-            fb.pack(side="right")
+        keys = self._tab_keys()   # Reiter je nach Eintrag
+        if keys != getattr(self, "_tabs_shown", None):
+            for b in self.tab_btns.values():
+                b.pack_forget()
+            for k, _t in TABS:
+                if k in keys:
+                    self.tab_btns[k].pack(side="right" if k == "format" else "left", padx=0 if k == "format" else (0, ui_theme.px(4)))
+            self._tabs_shown = keys
+        if self.mode_var.get() == "ps5" and self.page not in keys:
+            self._set_tab("games")
         fdev = self._selected_device()
         self.fmt_drive_lbl.configure(text=(f"{dev_title(fdev)} ({fdev.get('name') or fdev.get('disk', '')}, {fmt_size(fdev['size'])})"
                                            if fdev and fdev.get("size") else _("Erst ein Laufwerk wählen.")))

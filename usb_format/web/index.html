@@ -968,6 +968,9 @@ function places() {
     out.push({ name: r.device, place: true, model: r.device === "intern" ? tr("Interner PS5-Speicher") : tr("Erweiterter Speicher"),
                size: 0, format: "", label: "", ident: "", locked: false, mounts: [{ path: r.root, total: 0, free: 0 }] });
   }
+  if (!out.some(x => x.name === "intern"))   /* der interne Speicher ist immer da - dort liegen auch die Spielstände */
+    out.unshift({ name: "intern", place: true, model: tr("Interner PS5-Speicher"), size: 0, format: "", label: "", ident: "", locked: false,
+                  mounts: [{ path: "/data", total: 0, free: 0 }] });
   return out;
 }
 function currentPlace() { return selectedPlace ? places().find(x => x.name === selectedPlace) : undefined; }
@@ -1238,8 +1241,16 @@ const TAB_PANE = { games: "tp-games", pkg: "tp-pkg", saves: "savespane", tools: 
 let activeTab = "games";
 try { const t = localStorage.getItem("tab"); if (TABS.includes(t)) activeTab = t; } catch (e) {}
 
+/* Welche Reiter es gibt, hängt vom Eintrag ab: Interner Speicher: Spiele, PKG, Spielstände; Laufwerk: Spiele, PKG, Werkzeuge, Formatieren */
+function tabVisible(t) {
+  if (t === "saves") return selectedPlace === "intern";
+  if (t === "tools" || t === "format") return !selectedPlace;
+  return true;
+}
+const visibleTabs = () => TABS.filter(tabVisible);
+
 function setTab(name, focus) {
-  if (!TABS.includes(name) || (name === "format" && selectedPlace)) name = "games";   /* feste Orte (intern) lassen sich nicht formatieren */
+  if (!TABS.includes(name) || !tabVisible(name)) name = "games";
   activeTab = name;
   try { localStorage.setItem("tab", name); } catch (e) {}
   for (const t of TABS) $(TAB_PANE[t]).hidden = t !== name;
@@ -1252,9 +1263,9 @@ function setTab(name, focus) {
 }
 $("tabbar").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (b) setTab(b.dataset.tab); });
 $("tabbar").addEventListener("keydown", e => {   /* Pfeiltasten wechseln den Reiter (Controller, Tastatur) */
-  const i = TABS.indexOf(activeTab);
-  if (e.key === "ArrowRight") { setTab(TABS[Math.min(TABS.length - 1, i + 1)], true); e.preventDefault(); }
-  else if (e.key === "ArrowLeft") { setTab(TABS[Math.max(0, i - 1)], true); e.preventDefault(); }
+  const vt = visibleTabs(), i = vt.indexOf(activeTab);
+  if (e.key === "ArrowRight") { setTab(vt[Math.min(vt.length - 1, i + 1)], true); e.preventDefault(); }
+  else if (e.key === "ArrowLeft") { setTab(vt[Math.max(0, i - 1)], true); e.preventDefault(); }
 });
 
 setTab(activeTab);
@@ -1403,9 +1414,11 @@ function updateTabInfo() {
 }
 
 function renderTabs() {
-  const fb = document.querySelector('#tabbar button[data-tab="format"]');
-  if (fb) fb.style.display = selectedPlace ? "none" : "";
-  if (selectedPlace && activeTab === "format") setTab("games");
+  for (const t of TABS) {
+    const b = document.querySelector('#tabbar button[data-tab="' + t + '"]');
+    if (b) b.style.display = tabVisible(t) ? "" : "none";
+  }
+  if (!tabVisible(activeTab)) setTab("games");
   renderContent();
   renderPkgs();
   renderCheck();
