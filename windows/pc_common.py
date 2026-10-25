@@ -190,12 +190,16 @@ def pc_list(progress=None):
     proc = subprocess.Popen([exe, "list"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     got, errors, started = {}, [], time.time()
-    last = {"pct": 0, "pending": [], "at": started}
+    last = {"pct": 0, "pending": [], "at": started, "top": 0}
+
+    def show(pct, pending):
+        last["top"] = pct = max(pct, last["top"])   # der Balken geht nie zurück
+        if progress:
+            progress(pct, pc_scan_text(pending, time.time() - started))
 
     def report(pct, pending):
         last.update(pct=pct, pending=pending, at=time.time())
-        if progress:
-            progress(pct, pc_scan_text(pending, time.time() - started))
+        show(pct, pending)
 
     def read_out():
         got["out"] = proc.stdout.read()
@@ -220,9 +224,12 @@ def pc_list(progress=None):
             time.sleep(0.25)
             idle = time.time() - last["at"]
             if progress and idle >= 0.5 and last["pct"] < 99:
-                ceil = 9 if last["pct"] < 10 else min(last["pct"] + 4, 99)
-                shown = min(ceil, last["pct"] + int(idle * 1.5))
-                progress(shown, pc_scan_text(last["pending"], time.time() - started))
+                # bis kurz vor die nächste Meldung: beim Abfragen der Datenträger (bis 30 %) langsam bis 45 (der Balken geht nie zurück), danach bis kurz vor den
+                # Anteil, den der nächste fertige Datenträger bringt
+                np = max(1, len(last["pending"]))
+                ceil = 45 if last["pct"] < 30 and not last["pending"] else last["pct"] + (100 - last["pct"]) * 0.8 / np
+                shown = last["pct"] + (ceil - last["pct"]) * (1 - 2.718281828 ** (-idle / 8))
+                show(int(shown), last["pending"])
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()

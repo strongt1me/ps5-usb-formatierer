@@ -280,7 +280,7 @@ int plat_list(void) {
     for (;;) {
         int nd = 0;
         for (int n = 0; n < MAX_DISKS; n++) nd += probes[n].done;
-        int pct = nd * 10 / MAX_DISKS;
+        int pct = nd * 30 / MAX_DISKS;   /* Abfrage der Datenträger: 0 bis 30 %, danach ihre Laufwerke */
         if (pct != shown) list_progress(shown = pct, NULL, 0);
         if (nd == MAX_DISKS) break;
         Sleep(20);
@@ -305,7 +305,7 @@ int plat_list(void) {
                 wait[np++] = disks[i].th;
             }
         done = k - np;
-        list_progress(10 + (k ? 90 * done / k : 90), pending, np);
+        list_progress(30 + (k ? 70 * done / k : 70), pending, np);
         if (!np) break;
         DWORD r = WaitForMultipleObjects((DWORD)np, wait, FALSE, INFINITE);
         if (r >= WAIT_OBJECT_0 + (DWORD)np) {   /* Warten geht nicht: alle abwarten */
