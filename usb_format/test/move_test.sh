@@ -76,6 +76,17 @@ library
 [ "$(q 'sorted((p["name"], p["platform"], p["type"], p["title_id"], p["update"]) for p in d["pkgfiles"])' <"$W/lib")" = "[('UP1018-PPSA16833_00-LEGO-4xx.pkg', 'PS5', 'fPKG', 'PPSA16833', False), ('app.pkg', 'PS4', '', 'CUSA00001', False), ('fremd.pkg', '', '', '', False), ('offiziell_PPSA00003.pkg', 'PS5', 'PKG', 'PPSA00003', False), ('update.pkg', 'PS4', '', 'CUSA00002', True)]" ]     && ok "PKG-Liste: Plattform, PKG/fPKG (PS5 an der Signatur), Titel-ID, Update (PS4 an den Flags)" || bad "PKG-Liste" "$(q 'd["pkgfiles"]' <"$W/lib")"
 [ "$(q 'all("ext" in t for t in d["titles"])' <"$W/lib")" = True ] && ok "Titel tragen das Feld ext" || bad "ext fehlt"
 
+# Pakete verschieben und löschen (wie Spiele: Schlüssel aus pkgfiles, Original bleibt, Löschen räumt den leeren Titel-Ordner)
+PK=$(q '[p["key"] for p in d["pkgfiles"] if p["name"] == "app.pkg"][0]' <"$W/lib")
+code=$(post "{\"pkgs\":\"$PK\",\"device\":\"$DEV2\",\"verify\":true}" move)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["result"]["copied"] == 1' <"$W/st")" = True ] && cmp -s "$W/mnt/usb0/ps4/CUSA00001/app.pkg" "$W/mnt/usb1/ps4/CUSA00001/app.pkg"     && [ -f "$W/mnt/usb0/ps4/CUSA00001/app.pkg" ] && grep -q 'Packages\|Pakete' "$W/st" && ok "PKG verschieben: Kopie am Ziel (gleicher Pfad), Original bleibt" || bad "PKG verschieben" "$code $(cat "$W/body" "$W/st")"
+code=$(post "{\"keys\":\"${PK}XYZ\"}" pkg/delete)
+[ "$code" = 404 ] && [ -f "$W/mnt/usb0/ps4/CUSA00001/app.pkg" ] && ok "PKG löschen: Schlüssel mit Anhang abgelehnt" || bad "PKG löschen Anhang" "$code"
+code=$(post "{\"keys\":\"$PK\"}" pkg/delete)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = True ] && [ ! -e "$W/mnt/usb0/ps4/CUSA00001/app.pkg" ] && [ ! -d "$W/mnt/usb0/ps4/CUSA00001" ] && [ -f "$W/mnt/usb1/ps4/CUSA00001/app.pkg" ]     && ok "PKG löschen: Datei weg, leerer Titel-Ordner mit entfernt, Kopie am Ziel unberührt" || bad "PKG löschen" "$code $(cat "$W/body" "$W/st")"
+code=$(post "{\"keys\":\"$PK\"}" pkg/delete)
+[ "$code" = 404 ] && ok "PKG löschen: schon gelöschte Datei: nicht gefunden" || bad "PKG doppelt löschen" "$code"
+
 # ---------------------------------------------------------------- Kopieren mit Prüfen
 code=$(post "{\"keys\":\"$K\",\"device\":\"$DEV2\",\"verify\":true}" move)
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["kind"] == "move"' <"$W/st")" = True ] \

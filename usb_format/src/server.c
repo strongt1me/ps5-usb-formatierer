@@ -282,9 +282,9 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE };
+       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore", "save_backup", "move"};
+                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete"};
 
 /* Spiel zum Löschen (aus der Bibliothek übernommen) */
 typedef struct {
@@ -315,6 +315,7 @@ typedef struct {
     char    *saves_list; /* Spielstände: Schlüssel bzw. Pfade, getrennt durch Zeilenumbruch */
     char     resume_part[720];   /* Image-Sicherung fortsetzen: die .part-Datei */
     int      thorough;           /* ... mit gründlicher Prüfung der Quelle */
+    int      pkgmode;            /* Verschieben/Löschen betrifft .pkg-Dateien statt Spiele */
     char     saves_dest[300];
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
@@ -1333,7 +1334,7 @@ static void api_library(int c, int refresh) {
         for (int k = 0; k < lib_snap[i].r.npkglist; k++) {
             const lib_pkg_t *pk = &lib_snap[i].r.pkglist[k];
             const char *nm = strrchr(pk->path, '/');
-            sb_add(&b, "%s{\"path\":", first ? "" : ",");
+            sb_add(&b, "%s{\"key\":\"%08x\",\"path\":", first ? "" : ",", path_key(pk->path));
             first = 0;
             sb_str(&b, pk->path);
             sb_add(&b, ",\"name\":");
@@ -4145,7 +4146,7 @@ static void *move_worker(void *arg) {
             fail_n++;
             continue;
         }
-        snprintf(m.step, sizeof(m.step), T("%s: %s (%d von %d)"), T("Spiel kopieren"), it->name, i + 1, j->nitems);
+        snprintf(m.step, sizeof(m.step), T("%s: %s (%d von %d)"), j->pkgmode ? T("Paket kopieren") : T("Spiel kopieren"), it->name, i + 1, j->nitems);
         mv_progress(&m, 1);
         const uint64_t done0 = m.done;
         const int first = m.n;
@@ -4183,7 +4184,8 @@ static void *move_worker(void *arg) {
         sb_add(&items, "%s%08x", items.len ? "," : "", path_key(it->path));   /* Schlüssel der kopierten Originale (für "Originale löschen") */
     }
     if (ok_n) {
-        sb_tr(&msg, "Spiele kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.", m.verify ? T(" und geprüft") : "", ok_n, j->dev.name);
+        if (j->pkgmode) sb_tr(&msg, "Pakete kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.", m.verify ? T(" und geprüft") : "", ok_n, j->dev.name);
+        else sb_tr(&msg, "Spiele kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.", m.verify ? T(" und geprüft") : "", ok_n, j->dev.name);
         if (fail_n) sb_tr(&msg, " Nicht kopiert: %d – %s", fail_n, errs.p ? errs.p : "");
     } else {
         sb_tr(&msg, "Nichts kopiert: %s", errs.p ? errs.p : "");
@@ -4207,6 +4209,9 @@ static void api_move(int c, const char *body) {
     kv_t kv[KV_MAX];
     int n = json_parse(body, kv, KV_MAX);
     const char *keys0 = n > 0 ? kv_get(kv, n, "keys") : NULL, *dev = n > 0 ? kv_get(kv, n, "device") : NULL;
+    const char *pkgs0 = n > 0 ? kv_get(kv, n, "pkgs") : NULL;   /* Schlüssel von .pkg-Dateien (/api/library: pkgfiles) statt von Spielen */
+    const int pkgmode = pkgs0 && pkgs0[0] && (!keys0 || !keys0[0]);
+    if (pkgmode) keys0 = pkgs0;
     if (!keys0 || !keys0[0] || !dev) { respond_error(c, 400, "keys und device sind erforderlich"); return; }
     char keys[MAX_DELETE * 9 + 16];
     snprintf(keys, sizeof(keys), "%s", keys0);
@@ -4219,6 +4224,7 @@ static void api_move(int c, const char *body) {
     job_t *j = new_job(c, JOB_MOVE);
     if (!j) return;
     j->verify = kv_true(kv, n, "verify");
+    j->pkgmode = pkgmode;
     j->items = calloc(MAX_DELETE, sizeof(*j->items));
     if (!j->items) { job_free(j); respond_error(c, 500, "Kein Speicher"); return; }
     int ambiguous = 0, badkey = 0, same_dev = 0, have_target = 0;
@@ -4234,11 +4240,30 @@ static void api_move(int c, const char *body) {
         uint32_t want = (uint32_t)strtoul(tok, &kend, 16);
         if (kend == tok || *kend) { badkey = 1; break; }
         int hits = 0;
-        for (int i = 0; i < lib_n; i++)
-            for (int t = 0; t < lib_snap[i].r.ntitles; t++) hits += path_key(lib_snap[i].r.titles[t].path) == want;
+        for (int i = 0; i < lib_n; i++) {
+            if (pkgmode) for (int t = 0; t < lib_snap[i].r.npkglist; t++) hits += path_key(lib_snap[i].r.pkglist[t].path) == want;
+            else for (int t = 0; t < lib_snap[i].r.ntitles; t++) hits += path_key(lib_snap[i].r.titles[t].path) == want;
+        }
         if (hits > 1) { ambiguous = 1; break; }
         for (int i = 0; i < lib_n && j->nitems < MAX_DELETE; i++) {
             if (!lib_snap[i].usb || !lib_snap[i].device[0]) continue;
+            if (pkgmode) {
+                for (int t = 0; t < lib_snap[i].r.npkglist && j->nitems < MAX_DELETE; t++) {
+                    const lib_pkg_t *pk = &lib_snap[i].r.pkglist[t];
+                    if (path_key(pk->path) != want) continue;
+                    if (!strcmp(lib_snap[i].device, dev)) { same_dev = 1; continue; }
+                    const char *nm = strrchr(pk->path, '/');
+                    del_item_t *it = &j->items[j->nitems++];
+                    snprintf(it->id, sizeof(it->id), "%s", pk->title_id);
+                    snprintf(it->name, sizeof(it->name), "%.127s", nm ? nm + 1 : pk->path);
+                    snprintf(it->path, sizeof(it->path), "%s", pk->path);
+                    snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
+                    snprintf(it->device, sizeof(it->device), "%s", lib_snap[i].device);
+                    it->size = pk->size;
+                    it->dev = lib_snap[i].dev;
+                }
+                continue;
+            }
             for (int t = 0; t < lib_snap[i].r.ntitles && j->nitems < MAX_DELETE; t++) {
                 const lib_title_t *tt = &lib_snap[i].r.titles[t];
                 if (path_key(tt->path) != want) continue;
@@ -4265,6 +4290,112 @@ static void api_move(int c, const char *body) {
         return;
     }
     start_job(c, j, move_worker);
+}
+
+
+/* ------------------------------------------------------------ .pkg-Dateien löschen
+ * POST /api/pkg/delete {"keys":"1a2b3c4d,…"} - Schlüssel aus /api/library (pkgfiles); gelöscht wird nur, was die Suche fand, nur auf USB-Laufwerken.
+ * Ein danach leerer Titel-Ordner (ps4/<CUSA…>, PS5-Updates/<Titel>, pkg/<Name>) wird mit entfernt. */
+static void *pkgdel_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0}, errs = {0};
+    int ok_n = 0, fail_n = 0;
+    for (int i = 0; i < j->nitems; i++) {
+        const del_item_t *it = &j->items[i];
+        char step[360];
+        snprintf(step, sizeof(step), T("%s: %s (%d von %d)"), T("Pakete löschen"), it->name, i + 1, j->nitems);
+        on_progress(step, 1 + i * 98 / j->nitems);
+        struct stat sb;
+        const size_t rl = strlen(it->root);
+        if (root_dev(it->root) != it->dev || strncmp(it->path, it->root, rl) != 0 || it->path[rl] != '/' || lstat(it->path, &sb) != 0 || !S_ISREG(sb.st_mode) ||
+            (uint64_t)sb.st_size != it->size) {   /* Stick getauscht oder Datei seit der Suche verändert */
+            sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("hat sich seit der Suche geändert – nichts gelöscht. Liste neu laden."));
+            fail_n++;
+            continue;
+        }
+        if (unlink(it->path) != 0) {
+            sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, strerror(errno));
+            fail_n++;
+            continue;
+        }
+        ok_n++;
+        char dir[300];
+        snprintf(dir, sizeof(dir), "%s", it->path);
+        char *sl = strrchr(dir, '/');
+        if (sl) {
+            *sl = 0;
+            const char *rel = dir + rl + 1;
+            if (strlen(dir) > rl && (!strncmp(rel, "ps4/", 4) || !strncmp(rel, "PS5-Updates/", 12) || !strncmp(rel, "pkg/", 4))) (void)rmdir(dir);   /* nur, wenn leer */
+        }
+    }
+    if (ok_n) {
+        sb_tr(&msg, "Pakete gelöscht: %d.", ok_n);
+        if (fail_n) sb_tr(&msg, " Nicht gelöscht: %d – %s", fail_n, errs.p ? errs.p : "");
+    } else {
+        sb_tr(&msg, "Nichts gelöscht: %s", errs.p ? errs.p : "");
+    }
+    sb_add(&res, "{\"deleted\":%d,\"failed\":%d}", ok_n, fail_n);
+    free(errs.p);
+    free(j->items);
+    j->items = NULL;
+    job_done(j, ok_n > 0 && fail_n == 0, &msg, &res, 1);
+    return NULL;
+}
+
+static void api_pkg_delete(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    const char *keys0 = n > 0 ? kv_get(kv, n, "keys") : NULL;
+    if (!keys0 || !keys0[0]) { respond_error(c, 400, "keys ist erforderlich"); return; }
+    char keys[MAX_DELETE * 9 + 16];
+    snprintf(keys, sizeof(keys), "%s", keys0);
+    int nkeys = 1;
+    for (const char *p = keys; *p; p++) nkeys += *p == ',';
+    if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Dateien auf einmal"); return; }
+    char gid[16], gerr[320];
+    if (game_running(gid, sizeof(gid))) { game_error(gid, gerr, sizeof(gerr)); respond_error(c, 409, gerr); return; }
+    job_t *j = new_job(c, JOB_PKGDEL);
+    if (!j) return;
+    j->pkgmode = 1;
+    j->items = calloc(MAX_DELETE, sizeof(*j->items));
+    if (!j->items) { job_free(j); respond_error(c, 500, "Kein Speicher"); return; }
+    int ambiguous = 0, badkey = 0;
+    pthread_mutex_lock(&lib_lock);
+    for (char *p = keys, *save = NULL, *tok; (tok = strtok_r(p, ",", &save)); p = NULL) {
+        char *kend;
+        uint32_t want = (uint32_t)strtoul(tok, &kend, 16);
+        if (kend == tok || *kend) { badkey = 1; break; }
+        int hits = 0;
+        for (int i = 0; i < lib_n; i++)
+            for (int t = 0; t < lib_snap[i].r.npkglist; t++) hits += path_key(lib_snap[i].r.pkglist[t].path) == want;
+        if (hits > 1) { ambiguous = 1; break; }
+        for (int i = 0; i < lib_n && j->nitems < MAX_DELETE; i++) {
+            if (!lib_snap[i].usb || !lib_snap[i].device[0]) continue;
+            for (int t = 0; t < lib_snap[i].r.npkglist && j->nitems < MAX_DELETE; t++) {
+                const lib_pkg_t *pk = &lib_snap[i].r.pkglist[t];
+                if (path_key(pk->path) != want) continue;
+                const char *nm = strrchr(pk->path, '/');
+                del_item_t *it = &j->items[j->nitems++];
+                snprintf(it->id, sizeof(it->id), "%s", pk->title_id);
+                snprintf(it->name, sizeof(it->name), "%.127s", nm ? nm + 1 : pk->path);
+                snprintf(it->path, sizeof(it->path), "%s", pk->path);
+                snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
+                snprintf(it->device, sizeof(it->device), "%s", lib_snap[i].device);
+                it->size = pk->size;
+                it->dev = lib_snap[i].dev;
+            }
+        }
+    }
+    pthread_mutex_unlock(&lib_lock);
+    if (ambiguous || badkey || !j->nitems) {
+        job_free(j);
+        respond_error(c, ambiguous ? 409 : 404, ambiguous ? N_("Auswahl nicht eindeutig – nichts gelöscht. Liste neu laden.")
+                                                          : N_("Pakete nicht gefunden – Liste neu laden"));
+        return;
+    }
+    snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
+    start_job(c, j, pkgdel_worker);
 }
 
 static void handle(int c) {
@@ -4363,6 +4494,8 @@ static void handle(int c) {
         api_devices(c);
     else if (strcmp(path, "/api/move") == 0 && is_post)
         api_move(c, body);
+    else if (strcmp(path, "/api/pkg/delete") == 0 && is_post)
+        api_pkg_delete(c, body);
     else if (strcmp(path, "/api/library/sizes") == 0 && is_get)
         api_library_sizes(c);
     else if (strcmp(path, "/api/library/sizes") == 0 && is_post)

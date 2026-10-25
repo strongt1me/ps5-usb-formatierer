@@ -1030,11 +1030,11 @@ class App(tk.Tk):
         self.saves_tree.heading("console", text=_("Konsole"), anchor="w")
         self.saves_tree.heading("size", text=_("Größe"), anchor="w")
         self.saves_tree.heading("backup", text=_("Sicherung"), anchor="w")
-        self.saves_tree.column("#0", width=px(210), minwidth=120, anchor="w", stretch=True)
-        self.saves_tree.column("user", width=px(100), minwidth=70, anchor="w", stretch=False)
-        self.saves_tree.column("console", width=px(60), minwidth=45, anchor="w", stretch=False)
-        self.saves_tree.column("size", width=px(80), minwidth=60, anchor="w", stretch=False)
-        self.saves_tree.column("backup", width=px(190), minwidth=100, anchor="w", stretch=False)
+        self.saves_tree.column("#0", width=px(190), minwidth=130, anchor="w", stretch=True)
+        self.saves_tree.column("user", width=px(84), minwidth=72, anchor="w", stretch=False)
+        self.saves_tree.column("console", width=px(74), minwidth=66, anchor="w", stretch=False)
+        self.saves_tree.column("size", width=px(74), minwidth=64, anchor="w", stretch=False)
+        self.saves_tree.column("backup", width=px(176), minwidth=110, anchor="w", stretch=False)
         self.saves_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
         self.saves_tree.grid(row=1, column=0, sticky="nsew")
         ssb = ttk.Scrollbar(sf, orient="vertical", command=self.saves_tree.yview)
@@ -1509,6 +1509,9 @@ class App(tk.Tk):
         self.saves_checked &= {x["key"] for x in self._saves_data}   # nicht mehr vorhandene sind nicht mehr angehakt
         shown = [x for x in self._saves_data if not uid_filter or x.get("uid") == uid_filter]
         self._saves_keys = [x["key"] for x in shown]
+        # eine Spalte "Benutzer" lohnt nur bei mehreren Benutzern: sonst bekommt der Spielname den Platz
+        multi = len({x.get("uid") for x in shown}) > 1
+        tree.configure(displaycolumns=("user", "console", "size", "backup") if multi else ("console", "size", "backup"))
         groups = {}   # ein Spiel mit mehreren Containern: Kopfzeile mit den Containern darunter
         for x in shown:
             groups.setdefault((x.get("uid"), x.get("title_id"), x.get("platform")), []).append(x)
@@ -1519,18 +1522,18 @@ class App(tk.Tk):
             who = first.get("username") or first.get("uid", "")
             st1 = [save_backup_state(x, self._saves_backups) for x in items]
             if len(items) == 1:
-                tree.insert("", "end", iid=first["key"], text=name,
+                tree.insert("", "end", iid=first["key"], text="  " + name,
                             values=(who, plat or "PS5", fmt_size(first["size"]) if first.get("size") else "", st1[0][0] if st1[0] else ""),
                             image=self.check_imgs[first["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
             else:
                 gid = f"g:{uid}/{tid}/{plat}"
-                tree.insert("", "end", iid=gid, text=name, open=False,
+                tree.insert("", "end", iid=gid, text="  " + name, open=False,
                             values=(who, plat or "PS5", fmt_size(sum(x.get("size", 0) for x in items)),
                                     "" if st1[0] is None else (_("{n} ohne aktuelle Sicherung", n=sum(1 for z in st1 if z[1])) if any(z[1] for z in st1) else _("alle gesichert"))),
                             image=self.check_imgs[all(x["key"] in self.saves_checked for x in items)],
                             tags=("odd",) if n % 2 else ())
                 for x, sx in zip(items, st1):
-                    tree.insert(gid, "end", iid=x["key"], text=x["save_dir"].removeprefix("sdimg_"),
+                    tree.insert(gid, "end", iid=x["key"], text="  " + x["save_dir"].removeprefix("sdimg_"),
                                 values=("", "", fmt_size(x["size"]) if x.get("size") else "", sx[0] if sx else ""),
                                 image=self.check_imgs[x["key"] in self.saves_checked], tags=("odd",) if n % 2 else ())
             n += 1

@@ -2824,5 +2824,65 @@
   "it": "Manca il punto di ripresa del backup parziale – scartalo ed esegui di nuovo il backup.",
   "es": "Falta el punto de reanudación de la copia parcial – descártala y vuelve a copiar.",
   "fr": "Le point de reprise de la sauvegarde partielle est absent – supprimez-la et refaites la sauvegarde."
+ },
+ "Paket kopieren": {
+  "en": "Copying package",
+  "it": "Copia del pacchetto",
+  "es": "Copiando paquete",
+  "fr": "Copie du paquet"
+ },
+ "Pakete kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.": {
+  "en": "Packages copied%s: %d (to %s). The originals are still there.",
+  "it": "Pacchetti copiati%s: %d (su %s). Gli originali ci sono ancora.",
+  "es": "Paquetes copiados%s: %d (a %s). Los originales siguen ahí.",
+  "fr": "Paquets copiés%s : %d (vers %s). Les originaux sont toujours là."
+ },
+ "Pakete löschen": {
+  "en": "Deleting packages",
+  "it": "Eliminazione dei pacchetti",
+  "es": "Borrando paquetes",
+  "fr": "Suppression des paquets"
+ },
+ "hat sich seit der Suche geändert – nichts gelöscht. Liste neu laden.": {
+  "en": "changed since the search – nothing deleted. Reload the list.",
+  "it": "è cambiato dopo la ricerca – nulla eliminato. Ricarica l'elenco.",
+  "es": "ha cambiado desde la búsqueda – no se borró nada. Recarga la lista.",
+  "fr": "a changé depuis la recherche – rien supprimé. Rechargez la liste."
+ },
+ "Pakete gelöscht: %d.": {
+  "en": "Packages deleted: %d.",
+  "it": "Pacchetti eliminati: %d.",
+  "es": "Paquetes borrados: %d.",
+  "fr": "Paquets supprimés : %d."
+ },
+ " Nicht gelöscht: %d – %s": {
+  "en": " Not deleted: %d – %s",
+  "it": " Non eliminati: %d – %s",
+  "es": " No borrados: %d – %s",
+  "fr": " Non supprimés : %d – %s"
+ },
+ "Nichts gelöscht: %s": {
+  "en": "Nothing deleted: %s",
+  "it": "Nulla eliminato: %s",
+  "es": "No se borró nada: %s",
+  "fr": "Rien supprimé : %s"
+ },
+ "keys ist erforderlich": {
+  "en": "keys is required",
+  "it": "keys è obbligatorio",
+  "es": "Se requiere keys",
+  "fr": "keys est requis"
+ },
+ "Höchstens 256 Dateien auf einmal": {
+  "en": "At most 256 files at once",
+  "it": "Al massimo 256 file alla volta",
+  "es": "Como máximo 256 archivos a la vez",
+  "fr": "256 fichiers au maximum à la fois"
+ },
+ "Pakete nicht gefunden – Liste neu laden": {
+  "en": "Packages not found – reload the list",
+  "it": "Pacchetti non trovati – ricarica l'elenco",
+  "es": "Paquetes no encontrados – recarga la lista",
+  "fr": "Paquets introuvables – rechargez la liste"
  }
 }
