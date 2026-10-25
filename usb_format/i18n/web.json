@@ -2080,5 +2080,77 @@
   "it": "Pacchetti PS5: un fPKG ha una firma di debug nell'intestazione, un PKG ufficiale quella ufficiale. Nei pacchetti PS4 fPKG e PKG non si distinguono nell'intestazione – vengono mostrati solo come PKG.",
   "es": "Paquetes de PS5: un fPKG tiene una firma de depuración en la cabecera y un PKG oficial la oficial. En los paquetes de PS4 fPKG y PKG no se distinguen en la cabecera: solo se muestra PKG.",
   "fr": "Paquets PS5 : un fPKG a une signature de débogage dans l'en-tête, un PKG officiel la signature officielle. Pour les paquets PS4, fPKG et PKG ne diffèrent pas dans l'en-tête : seul PKG est affiché."
+ },
+ "Pakete zum Verschieben oder Löschen anhaken": {
+  "en": "Tick packages to move or delete",
+  "it": "Seleziona i pacchetti da spostare o eliminare",
+  "es": "Marca los paquetes que quieras mover o borrar",
+  "fr": "Cochez les paquets à déplacer ou supprimer"
+ },
+ "{n} Pakete löschen": {
+  "en": "Delete {n} packages",
+  "it": "Elimina {n} pacchetti",
+  "es": "Borrar {n} paquetes",
+  "fr": "Supprimer {n} paquets"
+ },
+ "Paket verschieben": {
+  "en": "Move package",
+  "it": "Sposta pacchetto",
+  "es": "Mover paquete",
+  "fr": "Déplacer le paquet"
+ },
+ "{n} Pakete verschieben": {
+  "en": "Move {n} packages",
+  "it": "Sposta {n} pacchetti",
+  "es": "Mover {n} paquetes",
+  "fr": "Déplacer {n} paquets"
+ },
+ "Dieses Paket wird von {dev} auf das gewählte Laufwerk kopiert:": {
+  "en": "This package is copied from {dev} to the chosen drive:",
+  "it": "Questo pacchetto viene copiato da {dev} sull'unità scelta:",
+  "es": "Este paquete se copia de {dev} a la unidad elegida:",
+  "fr": "Ce paquet est copié de {dev} vers le lecteur choisi :"
+ },
+ "Diese Pakete werden von {dev} auf das gewählte Laufwerk kopiert:": {
+  "en": "These packages are copied from {dev} to the chosen drive:",
+  "it": "Questi pacchetti vengono copiati da {dev} sull'unità scelta:",
+  "es": "Estos paquetes se copian de {dev} a la unidad elegida:",
+  "fr": "Ces paquets sont copiés de {dev} vers le lecteur choisi :"
+ },
+ "Paket löschen": {
+  "en": "Delete package",
+  "it": "Elimina pacchetto",
+  "es": "Borrar paquete",
+  "fr": "Supprimer le paquet"
+ },
+ "Dieses Paket wird von {dev} gelöscht:": {
+  "en": "This package is deleted from {dev}:",
+  "it": "Questo pacchetto viene eliminato da {dev}:",
+  "es": "Este paquete se borra de {dev}:",
+  "fr": "Ce paquet est supprimé de {dev} :"
+ },
+ "Diese Pakete werden von {dev} gelöscht:": {
+  "en": "These packages are deleted from {dev}:",
+  "it": "Questi pacchetti vengono eliminati da {dev}:",
+  "es": "Estos paquetes se borran de {dev}:",
+  "fr": "Ces paquets sont supprimés de {dev} :"
+ },
+ "Pakete kopiert": {
+  "en": "Packages copied",
+  "it": "Pacchetti copiati",
+  "es": "Paquetes copiados",
+  "fr": "Paquets copiés"
+ },
+ "Pakete gelöscht": {
+  "en": "Packages deleted",
+  "it": "Pacchetti eliminati",
+  "es": "Paquetes borrados",
+  "fr": "Paquets supprimés"
+ },
+ "Die Originale bleiben zunächst erhalten. Nach dem Kopieren und Prüfen wirst du gefragt, ob sie gelöscht werden sollen.": {
+  "en": "The originals are kept for now. After copying and checking you will be asked whether to delete them.",
+  "it": "Gli originali restano per ora. Dopo la copia e la verifica ti verrà chiesto se eliminarli.",
+  "es": "Los originales se conservan por ahora. Tras copiar y comprobar se te preguntará si quieres borrarlos.",
+  "fr": "Les originaux sont conservés pour l'instant. Après la copie et la vérification, il vous sera demandé de les supprimer."
  }
 }

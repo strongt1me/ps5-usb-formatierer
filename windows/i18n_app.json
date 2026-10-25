@@ -3088,5 +3088,83 @@
   "it": "Consentiti solo A–Z, 0–9, spazio, - e _ (max. {n} caratteri).",
   "es": "Solo se permiten A–Z, 0–9, espacio, - y _ (máx. {n} caracteres).",
   "fr": "Seuls A–Z, 0–9, espace, - et _ sont autorisés ({n} caractères max.)."
+ },
+ "Angehakte Pakete löschen …": {
+  "en": "Delete ticked packages …",
+  "it": "Elimina i pacchetti selezionati …",
+  "es": "Borrar paquetes marcados …",
+  "fr": "Supprimer les paquets cochés …"
+ },
+ "Angehakte Pakete verschieben …": {
+  "en": "Move ticked packages …",
+  "it": "Sposta i pacchetti selezionati …",
+  "es": "Mover paquetes marcados …",
+  "fr": "Déplacer les paquets cochés …"
+ },
+ "Die angehakten Pakete auf ein anderes Laufwerk kopieren": {
+  "en": "Copy the ticked packages to another drive",
+  "it": "Copia i pacchetti selezionati su un'altra unità",
+  "es": "Copiar los paquetes marcados a otra unidad",
+  "fr": "Copier les paquets cochés vers un autre lecteur"
+ },
+ "Die angehakten Pakete vom Laufwerk löschen": {
+  "en": "Delete the ticked packages from the drive",
+  "it": "Elimina i pacchetti selezionati dall'unità",
+  "es": "Borrar del disco los paquetes marcados",
+  "fr": "Supprimer les paquets cochés du lecteur"
+ },
+ "Erst Pakete anhaken.": {
+  "en": "Tick packages first.",
+  "it": "Seleziona prima i pacchetti.",
+  "es": "Marca primero los paquetes.",
+  "fr": "Cochez d'abord des paquets."
+ },
+ "Dieses Paket wird von {name} ({dev}) gelöscht:": {
+  "en": "This package is deleted from {name} ({dev}):",
+  "it": "Questo pacchetto viene eliminato da {name} ({dev}):",
+  "es": "Este paquete se borra de {name} ({dev}):",
+  "fr": "Ce paquet est supprimé de {name} ({dev}) :"
+ },
+ "Diese Pakete werden von {name} ({dev}) gelöscht:": {
+  "en": "These packages are deleted from {name} ({dev}):",
+  "it": "Questi pacchetti vengono eliminati da {name} ({dev}):",
+  "es": "Estos paquetes se borran de {name} ({dev}):",
+  "fr": "Ces paquets sont supprimés de {name} ({dev}) :"
+ },
+ "Pakete löschen": {
+  "en": "Delete packages",
+  "it": "Elimina pacchetti",
+  "es": "Borrar paquetes",
+  "fr": "Supprimer des paquets"
+ },
+ "Pakete gelöscht.": {
+  "en": "Packages deleted.",
+  "it": "Pacchetti eliminati.",
+  "es": "Paquetes borrados.",
+  "fr": "Paquets supprimés."
+ },
+ "Pakete kopiert.": {
+  "en": "Packages copied.",
+  "it": "Pacchetti copiati.",
+  "es": "Paquetes copiados.",
+  "fr": "Paquets copiés."
+ },
+ "Pakete verschieben": {
+  "en": "Move packages",
+  "it": "Sposta pacchetti",
+  "es": "Mover paquetes",
+  "fr": "Déplacer des paquets"
+ },
+ "Dieses Paket wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:": {
+  "en": "This package is copied from {name} ({dev}) to the chosen drive:",
+  "it": "Questo pacchetto viene copiato da {name} ({dev}) sull'unità scelta:",
+  "es": "Este paquete se copia de {name} ({dev}) a la unidad elegida:",
+  "fr": "Ce paquet est copié de {name} ({dev}) vers le lecteur choisi :"
+ },
+ "Diese {n} Pakete werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:": {
+  "en": "These {n} packages are copied from {name} ({dev}) to the chosen drive:",
+  "it": "Questi {n} pacchetti vengono copiati da {name} ({dev}) sull'unità scelta:",
+  "es": "Estos {n} paquetes se copian de {name} ({dev}) a la unidad elegida:",
+  "fr": "Ces {n} paquets sont copiés de {name} ({dev}) vers le lecteur choisi :"
  }
 }

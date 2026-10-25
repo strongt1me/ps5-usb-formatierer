@@ -158,6 +158,13 @@ class Api:
     def set_label(self, dev, label):
         return self._call("/api/label", dict(self._dev(dev), label=label))
 
+    def move_pkgs(self, keys, device, verify):
+        """.pkg-Dateien auf ein anderes Laufwerk kopieren (Auftrag "move"); die Originale bleiben"""
+        return self._call("/api/move", {"pkgs": ",".join(keys), "device": device, "verify": verify})
+
+    def delete_pkgs(self, keys):
+        return self._call("/api/pkg/delete", {"keys": ",".join(keys)})
+
     def move_games(self, keys, device, verify):
         """Spiele auf ein anderes Laufwerk kopieren (Auftrag "move"); die Originale bleiben"""
         return self._call("/api/move", {"keys": ",".join(keys), "device": device, "verify": verify})
@@ -363,7 +370,7 @@ def port_open(host, port, timeout=1.0):
         return False
 
 
-def ask_move(root, dev, targets, names):
+def ask_move(root, dev, targets, names, pkg=False):
     """Ziel-Laufwerk und Prüfung wählen. Liefert (Laufwerk, prüfen) oder None (abgebrochen)"""
     px = ui_theme.px
     win = tk.Toplevel(root)
@@ -373,9 +380,9 @@ def ask_move(root, dev, targets, names):
     frm = ttk.Frame(win, padding=(18, 14, 18, 14))
     frm.pack(fill="both", expand=True)
     shown = "\n".join("• " + n for n in names[:10]) + ("\n" + _("… und {n} weitere", n=len(names) - 10) if len(names) > 10 else "")
-    ttk.Label(frm, text=(_("Dieses Spiel wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:", name=dev_title(dev), dev=dev["name"])
-                         if len(names) == 1 else _("Diese {n} Spiele werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:",
-                                                  n=len(names), name=dev_title(dev), dev=dev["name"])),
+    one = _("Dieses Paket wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:", name=dev_title(dev), dev=dev["name"]) if pkg else         _("Dieses Spiel wird von {name} ({dev}) auf das gewählte Laufwerk kopiert:", name=dev_title(dev), dev=dev["name"])
+    many = _("Diese {n} Pakete werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:", n=len(names), name=dev_title(dev), dev=dev["name"]) if pkg else         _("Diese {n} Spiele werden von {name} ({dev}) auf das gewählte Laufwerk kopiert:", n=len(names), name=dev_title(dev), dev=dev["name"])
+    ttk.Label(frm, text=(one if len(names) == 1 else many),
               wraplength=px(460), justify="left").pack(anchor="w")
     ttk.Label(frm, text=shown, justify="left").pack(anchor="w", pady=(px(6), px(10)))
     items = []
@@ -976,8 +983,11 @@ class App(tk.Tk):
         pk.rowconfigure(1, weight=1)
         self.pkg_caption = ttk.Label(pk, text=_("PKG-Dateien auf diesem Datenträger:"), style="Bold.TLabel")
         self.pkg_caption.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, px(8)))
-        self.pkg_tree = ttk.Treeview(pk, columns=("meta",), show="tree", height=8, selectmode="browse",
+        self.pkg_checked = set()
+        self.pkg_tree = ttk.Treeview(pk, columns=("meta",), show="tree", height=8, selectmode="none",
                                      style="Games.Treeview")
+        self.pkg_tree.bind("<Button-1>", self._pkg_click)
+        self.pkg_tree.bind("<space>", lambda e: self._pkg_toggle(self.pkg_tree.focus()))
         self.pkg_tree.column("#0", width=px(260), minwidth=120, stretch=True)
         self.pkg_tree.column("meta", width=px(240), minwidth=120, anchor="e", stretch=False)
         self.pkg_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
@@ -986,10 +996,20 @@ class App(tk.Tk):
         psb = ttk.Scrollbar(pk, orient="vertical", command=self.pkg_tree.yview)
         psb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
         self.pkg_tree.configure(yscrollcommand=psb.set)
+        pbar = ttk.Frame(pk)
+        pbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(px(8), 0))
+        self.pkg_del_btn = ttk.Button(pbar, text=_("Angehakte Pakete löschen …"), style="Danger.TButton", command=self._pkg_delete)
+        self.pkg_del_btn.pack(side="right")
+        self.pkg_move_btn = ttk.Button(pbar, text=_("Angehakte Pakete verschieben …"), command=self._pkg_move)
+        self.pkg_move_btn.pack(side="right", padx=(0, px(8)))
+        self.pkg_sum = ttk.Label(pbar, style="Muted.TLabel")
+        self.pkg_sum.pack(side="left")
+        Tooltip(self.pkg_move_btn, lambda: self._why(self.pkg_move_btn) or _("Die angehakten Pakete auf ein anderes Laufwerk kopieren"))
+        Tooltip(self.pkg_del_btn, lambda: self._why(self.pkg_del_btn) or _("Die angehakten Pakete vom Laufwerk löschen"))
         self.pkg_hint = ttk.Label(pk, style="Hint.TLabel", wraplength=px(440), justify="left",
                                   text=_("PS5-Pakete: fPKG hat eine Debug-Signatur im Kopf, ein offizielles PKG die offizielle. "
                                          "Bei PS4-Paketen unterscheiden sich fPKG und PKG im Kopf nicht – dort steht nur PKG."))
-        self.pkg_hint.grid(row=2, column=0, columnspan=2, sticky="w", pady=(px(8), 0))
+        self.pkg_hint.grid(row=3, column=0, columnspan=2, sticky="w", pady=(px(8), 0))
 
         # ---- Spielstände
         sc = self.saves_card = ui_theme.card(right)
@@ -1237,6 +1257,8 @@ class App(tk.Tk):
             return _("Erst ein Laufwerk wählen.")
         if btn in (self.del_btn, self.move_btn):
             return _("Erst Spiele anhaken.")
+        if btn in (self.pkg_del_btn, self.pkg_move_btn):
+            return _("Erst Pakete anhaken.")
         if btn in (self.img_verify_btn, self.img_del_btn):
             return _("Erst eine Sicherung in der Liste wählen.")
         if btn is self.rename_btn:
@@ -1859,6 +1881,8 @@ class App(tk.Tk):
         enable(self.part_resume_btn, idle and not pc and self.api and self._part_selected())
         enable(self.part_discard_btn, idle and not pc and self.api and self._part_selected())
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
+        enable(self.pkg_del_btn, idle and not pc and self.api and self.pkg_checked)
+        enable(self.pkg_move_btn, idle and not pc and self.api and self.pkg_checked and len(self.ps5_devices) > 1)
         enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.ps5_devices) > 1)
         for w in (self.backup_btn, self.restore_btn):
             enable(w, idle and not pc and self.api and dev and not dev.get("locked"))
@@ -1967,18 +1991,116 @@ class App(tk.Tk):
             typ = pk.get("type") or "PKG"
             bits = [typ] + [x for x in (pk.get("platform"), _("Update") if pk.get("update") else "", pk.get("title_id")) if x]
             bits.append(fmt_size(pk.get("size", 0)))
-            rows.append((pk["path"], "  " + (pk.get("name") or pk["path"]), " · ".join(bits), typ == "fPKG"))
+            rows.append((pk.get("key") or pk["path"], "  " + (pk.get("name") or pk["path"]), " · ".join(bits), typ == "fPKG"))
+        self._pkg_by_key = {(pk.get("key") or pk["path"]): pk for pk in pkgs}
+        self.pkg_checked &= set(self._pkg_by_key)   # nicht mehr vorhandene sind nicht mehr angehakt
         if rows != getattr(self, "_pkgs_shown", None):
             self.pkg_tree.delete(*self.pkg_tree.get_children())
             for i, (iid, name, meta, fake) in enumerate(rows):
                 tags = (("odd",) if i % 2 else ()) + (("fpkg",) if fake else ())
-                self.pkg_tree.insert("", "end", iid=iid, text=name, values=(meta,), tags=tags)
+                self.pkg_tree.insert("", "end", iid=iid, text=name, values=(meta,), tags=tags,
+                                     image=self.check_imgs[iid in self.pkg_checked])
             self._pkgs_shown = rows
+        picked = [self._pkg_by_key[k] for k in self.pkg_checked if k in self._pkg_by_key]
+        self.pkg_sum.configure(text=_("{n} angehakt · {size}", n=len(picked), size=fmt_size(sum(x.get("size", 0) for x in picked)))
+                               if picked else "")
         self.pkg_caption.configure(text=_("PKG-Dateien auf diesem Datenträger: {n}", n=len(rows)) if rows
                                    else _("Keine PKG-Dateien auf diesem Datenträger."))
         games = self.games.get(dev["name"], []) if dev and dev.get("name") else []
         self.tab_btns["games"].configure(text=_("Spiele") + (f" ({len(games)})" if games else ""))
         self.tab_btns["pkg"].configure(text=_("PKG") + (f" ({len(rows)})" if rows else ""))
+
+    def _pkg_click(self, e):
+        if self.pkg_tree.identify_region(e.x, e.y) in ("tree", "cell"):
+            self._pkg_toggle(self.pkg_tree.identify_row(e.y))
+        return "break"
+
+    def _pkg_toggle(self, iid):
+        if not iid or not self.pkg_tree.exists(iid) or self.busy:
+            return
+        self.pkg_tree.focus(iid)
+        (self.pkg_checked.discard if iid in self.pkg_checked else self.pkg_checked.add)(iid)
+        self.pkg_tree.item(iid, image=self.check_imgs[iid in self.pkg_checked])
+        self._show_pkgs()
+        self._update()
+
+    def _pkg_selection(self):
+        dev = self._selected_device()
+        picked = [self._pkg_by_key[k] for k in self.pkg_checked if k in getattr(self, "_pkg_by_key", {})]
+        return dev, sorted(picked, key=lambda x: (x.get("name") or "").lower())
+
+    def _pkg_delete(self):
+        dev, picked = self._pkg_selection()
+        if self.busy or not dev or not picked or not self.api:
+            return
+        names = [f"• {x.get('name')} ({fmt_size(x.get('size', 0))})" for x in picked]
+        shown = "\n".join(names[:10]) + ("\n" + _("… und {n} weitere", n=len(names) - 10) if len(names) > 10 else "")
+        head = _("Dieses Paket wird von {name} ({dev}) gelöscht:", name=dev_title(dev), dev=dev["name"]) if len(picked) == 1 else \
+            _("Diese Pakete werden von {name} ({dev}) gelöscht:", name=dev_title(dev), dev=dev["name"])
+        if not messagebox.askokcancel(_("Pakete löschen"), f"{head}\n\n{shown}\n\n" + _("Laufende Spiele vorher beenden. Das lässt sich "
+                                                                                          "nicht rückgängig machen."),
+                                      icon="warning", default="cancel", parent=self):
+            return
+        self._pkg_delete_keys([x.get("key") or x["path"] for x in picked])
+
+    def _pkg_delete_keys(self, keys):
+        if self.busy or not self.api:
+            return
+        api = self.api
+
+        def work():
+            try:
+                api.delete_pkgs(keys)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Löschen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Pakete gelöscht."))
+
+        self.pkg_checked.clear()
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _pkg_move(self):
+        dev, picked = self._pkg_selection()
+        if self.busy or not dev or not picked or not self.api:
+            return
+        targets = [d for d in self.ps5_devices if d["name"] != dev["name"] and d.get("mounts")]
+        if not targets:
+            messagebox.showinfo(_("Pakete verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
+            return
+        res = ask_move(self, dev, targets, [x.get("name") for x in picked], pkg=True)
+        if not res or self.busy or not self.api:
+            return
+        target, verify = res
+        api = self.api
+        keys = [x.get("key") or x["path"] for x in picked]
+        by_key = dict(zip(keys, picked))
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+            if not result.get("copied"):
+                messagebox.showerror(_("Pakete verschieben"), msg, parent=self)
+                return
+            copied = [k for k in (result.get("keys") or "").split(",") if k in by_key]
+            shown = "\n".join("• " + by_key[k].get("name", "") for k in copied[:10])
+            if len(copied) > 10:
+                shown += "\n" + _("… und {n} weitere", n=len(copied) - 10)
+            if copied and messagebox.askyesno(_("Kopie fertig – Originale löschen?"),
+                                              msg + "\n\n" + shown + "\n\n" + _("Originale jetzt von {name} ({dev}) löschen?",
+                                                                                 name=dev_title(dev), dev=dev["name"]),
+                                              icon="warning", default="no", parent=self):
+                self._pkg_delete_keys(copied)
+
+        def work():
+            try:
+                api.move_pkgs(keys, target["name"], verify)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Verschieben konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Pakete kopiert."), after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
 
     def _show_games(self):
         """Spiele des gewählten PS5-Datenträgers in der Liste darunter. Während die PS5 sucht, kommt die Liste jede
