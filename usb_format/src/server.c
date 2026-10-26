@@ -258,8 +258,14 @@ static void update_detail(int pct) {
     const double el = now - st.step_t0;
     const int dp = pct - st.step_p0;
     if (dp >= 2 && el >= 8) {   /* erst nach einer brauchbaren Messung schätzen */
+        char rate[40] = "";
+        if (st.total_ptr && *st.total_ptr) {   /* Tempo aus der bisher bearbeiteten Menge dieses Schritts */
+            char sp[24];
+            size_text((uint64_t)((double)*st.total_ptr * dp / 100 / el), sp, sizeof(sp));
+            snprintf(rate, sizeof(rate), "%s/s · ", sp);
+        }
         snprintf(part, sizeof(part), T("noch etwa %s"), eta_text((long)(el * (100 - pct) / dp), eta, sizeof(eta)));
-        snprintf(st.detail + at, sizeof(st.detail) - at, "%s%s", at ? " · " : "", part);
+        snprintf(st.detail + at, sizeof(st.detail) - at, "%s%s%s", at ? " · " : "", rate, part);
     }
 }
 
@@ -1472,9 +1478,24 @@ static void api_library_sizes(int c) {
     respond_json(c, 200, &b);
 }
 
+/* Versionen wie "01.02", "01.010.000" oder "9.00" vergleichen: Zahlen je Abschnitt, fehlende Abschnitte zählen als 0 */
+static int ver_cmp(const char *a, const char *b) {
+    while (*a || *b) {
+        unsigned long x = 0, y = 0;
+        while (*a && *a != '.') { if (*a >= '0' && *a <= '9') x = x * 10 + (unsigned long)(*a - '0'); a++; }
+        while (*b && *b != '.') { if (*b >= '0' && *b <= '9') y = y * 10 + (unsigned long)(*b - '0'); b++; }
+        if (x != y) return x > y ? 1 : -1;
+        if (*a) a++;
+        if (*b) b++;
+    }
+    return 0;
+}
+
 static void api_library(int c, int refresh) {
     if (refresh) lib_refresh();
     sbuf_t b = {0};
+    char fw[16];
+    plat_fw_version(fw, sizeof(fw));
     pthread_mutex_lock(&lib_lock);
     if (!lib_snap && !lib_busy) {   /* erste Anfrage: Suche anstoßen */
         pthread_mutex_unlock(&lib_lock);
@@ -1516,6 +1537,8 @@ static void api_library(int c, int refresh) {
             sb_str(&b, t->path);
             sb_add(&b, ",\"ext\":");
             sb_str(&b, t->ext);
+            sb_add(&b, ",\"version\":");
+            sb_str(&b, t->version);
             sb_add(&b, ",\"key\":\"%08x\",\"size\":%llu,\"root\":", path_key(t->path), (unsigned long long)t->size);
             sb_str(&b, lib_snap[i].r.root);
             sb_add(&b, ",\"device\":");
@@ -1564,6 +1587,22 @@ static void api_library(int c, int refresh) {
             sb_str(&b, pk->title_id);
             sb_add(&b, ",\"update\":%s,\"size\":%llu,\"device\":", pk->update ? "true" : "false", (unsigned long long)pk->size);
             sb_str(&b, lroot_name(&lib_snap[i]));
+            /* Vergleich mit dem, was schon auf der PS5 liegt: installierte Version (bei Spielen als Ordner) und Firmware */
+            int found = 0;
+            const char *inst = "";
+            if (pk->title_id[0] && strcmp(pk->cat, "dlc") != 0)
+                for (int i2 = 0; i2 < lib_n; i2++)
+                    for (int k2 = 0; k2 < lib_snap[i2].r.ntitles; k2++) {
+                        const lib_title_t *tt = &lib_snap[i2].r.titles[k2];
+                        if (strcmp(tt->id, pk->title_id) != 0) continue;
+                        found = 1;
+                        if (tt->version[0] && (!inst[0] || ver_cmp(tt->version, inst) > 0)) inst = tt->version;
+                    }
+            int vc = inst[0] && pk->version[0] ? ver_cmp(pk->version, inst) : 0;
+            sb_add(&b, ",\"installed\":%s,\"inst\":", found ? "true" : "false");
+            sb_str(&b, inst);
+            sb_add(&b, ",\"vs\":\"%s\",\"fwhigh\":%s", !inst[0] || !pk->version[0] ? "" : vc > 0 ? "newer" : vc < 0 ? "older" : "same",
+                   !strcmp(pk->platform, "PS5") && pk->minfw[0] && fw[0] && ver_cmp(pk->minfw, fw) > 0 ? "true" : "false");
             sb_add(&b, "}");
         }
     /* Duplikate: jede Titel-ID, die mehr als einmal vorkommt, einmal mit allen Fundorten */
@@ -1597,7 +1636,9 @@ static void api_library(int c, int refresh) {
                     }
             sb_add(&b, "]}");
         }
-    sb_add(&b, "]}");
+    sb_add(&b, "],\"fw\":");
+    sb_str(&b, fw);
+    sb_add(&b, "}");
     pthread_mutex_unlock(&lib_lock);
     respond_json(c, 200, &b);
     free(b.p);
@@ -4212,6 +4253,44 @@ static void api_delete(int c, const char *body) {
 
 typedef struct { char *rel; uint8_t sha[32]; uint64_t size; } mfile_t;
 
+/* Größe je Eintrag (Ordner: alle Dateien ansehen, dazu die zugehörigen Dateien) und Summe */
+static uint64_t move_sizes(const job_t *j, uint64_t *sizes) {
+    uint64_t total = 0;
+    for (int i = 0; i < j->nitems; i++) {
+        const del_item_t *it = &j->items[i];
+        sizes[i] = it->size ? it->size : tree_bytes(it->path, 0);
+        for (int x = 0; j->extras && x < it->nex; x++) sizes[i] += tree_bytes(it->ex[x], 0);
+        total += sizes[i];
+    }
+    return total;
+}
+
+/* Dateien über 4 GB (FAT32 nimmt sie nicht auf): Namen in b als JSON-Liste, höchstens 5 */
+static void big_walk(const char *path, int depth, sbuf_t *b, int *cnt) {
+    struct stat sb;
+    if (depth > 32 || *cnt >= 5 || lstat(path, &sb) != 0) return;
+    if (S_ISREG(sb.st_mode)) {
+        if ((uint64_t)sb.st_size > 0xFFFFFFFFull) {
+            const char *nm = strrchr(path, '/');
+            sb_add(b, "%s", *cnt ? "," : "");
+            sb_str(b, nm ? nm + 1 : path);
+            (*cnt)++;
+        }
+        return;
+    }
+    if (!S_ISDIR(sb.st_mode)) return;
+    DIR *d = opendir(path);
+    if (!d) return;
+    char *sub = malloc(1024);
+    struct dirent *e;
+    while (sub && *cnt < 5 && (e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (snprintf(sub, 1024, "%s/%s", path, e->d_name) < 1024) big_walk(sub, depth + 1, b, cnt);
+    }
+    free(sub);
+    closedir(d);
+}
+
 typedef struct {
     mfile_t *f;
     int      n, cap;
@@ -4407,13 +4486,11 @@ static void *move_worker(void *arg) {
     /* Gesamtgröße (Ordner: alle Dateien ansehen) und Platz am Ziel */
     on_progress(N_("Größe ermitteln"), 1);
     uint64_t sizes[MAX_DELETE];
-    for (int i = 0; i < j->nitems; i++) {
-        const del_item_t *it = &j->items[i];
-        sizes[i] = it->size ? it->size : tree_bytes(it->path, 0);
-        for (int x = 0; j->extras && x < it->nex; x++) sizes[i] += tree_bytes(it->ex[x], 0);
-        m.total += sizes[i];
-    }
+    m.total = move_sizes(j, sizes);
     m.weight = m.verify ? m.total * 2 : m.total;
+    pthread_mutex_lock(&lock);
+    st.total_ptr = &m.weight;   /* Menge und Tempo unter dem Balken */
+    pthread_mutex_unlock(&lock);
     struct statvfs vf;
     if (statvfs(troot, &vf) != 0 || (uint64_t)vf.f_bavail * vf.f_frsize < m.total + MOVE_RESERVE) {
         sb_tr(&msg, "Auf dem Ziel ist nicht genug Platz: gebraucht werden %s, frei sind %s.", size_text(m.total + MOVE_RESERVE, s1, sizeof(s1)),
@@ -4559,6 +4636,9 @@ static void *move_worker(void *arg) {
     }
 fin:
     (void)rmdir(stage);   /* nur, wenn leer */
+    pthread_mutex_lock(&lock);
+    st.total_ptr = NULL;   /* m lebt nur in diesem Thread */
+    pthread_mutex_unlock(&lock);
     set_flags(0, 0);
     sb_add(&res, "{\"copied\":%d,\"failed\":%d,\"keys\":\"%s\"}", ok_n, fail_n, items.p ? items.p : "");
     free(m.buf);
@@ -4570,6 +4650,26 @@ fin:
     j->items = NULL;
     job_done(j, ok_n > 0 && fail_n == 0 && !was_cancel, &msg, &res, 1);
     return NULL;
+}
+
+/* "check":true: nichts kopieren, nur sagen, ob es passt (Platz am Ziel, FAT32 und Dateien über 4 GB) */
+static void move_check(int c, const job_t *j) {
+    uint64_t sizes[MAX_DELETE];
+    const uint64_t total = move_sizes(j, sizes);
+    struct statvfs vf;
+    const uint64_t freeb = statvfs(j->path, &vf) == 0 ? (uint64_t)vf.f_bavail * vf.f_frsize : 0;
+    const int fat = plat_path_fat32(j->path);
+    sbuf_t b = {0};
+    sb_add(&b, "{\"need\":%llu,\"free\":%llu,\"reserve\":%llu,\"fits\":%s,\"fat32\":%s,\"big\":[", (unsigned long long)total,
+           (unsigned long long)freeb, (unsigned long long)MOVE_RESERVE, total + MOVE_RESERVE <= freeb ? "true" : "false", fat ? "true" : "false");
+    int cnt = 0;
+    for (int i = 0; fat && i < j->nitems; i++) {
+        big_walk(j->items[i].path, 0, &b, &cnt);
+        for (int x = 0; j->extras && x < j->items[i].nex; x++) big_walk(j->items[i].ex[x], 0, &b, &cnt);
+    }
+    sb_add(&b, "]}");
+    respond_json(c, 200, &b);
+    free(b.p);
 }
 
 /* POST /api/move {"keys":"1a2b3c4d,…","device":"da2","verify":true} - Schlüssel aus /api/library; kopiert nach <Ziel-Wurzel>/<gleicher Pfad> */
@@ -4676,6 +4776,11 @@ static void api_move(int c, const char *body) {
                                   : N_("Spiele nicht gefunden – Liste neu laden"));
         return;
     }
+    if (kv_true(kv, n, "check")) {
+        move_check(c, j);
+        job_free(j);
+        return;
+    }
     start_job(c, j, move_worker);
 }
 
@@ -4688,9 +4793,15 @@ static void *pkgdel_worker(void *arg) {
     i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0}, errs = {0};
     int ok_n = 0, fail_n = 0;
+    set_flags(1, 0);
     for (int i = 0; i < j->nitems; i++) {
         const del_item_t *it = &j->items[i];
         char step[360];
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {   /* Rest bleibt unangetastet */
+            sb_add(&errs, "%s%s", errs.len ? "; " : "", T("Abgebrochen."));
+            fail_n += j->nitems - i;
+            break;
+        }
         snprintf(step, sizeof(step), T("%s: %s (%d von %d)"), T("Pakete löschen"), it->name, i + 1, j->nitems);
         on_progress(step, 1 + i * 98 / j->nitems);
         struct stat sb;
@@ -4723,6 +4834,7 @@ static void *pkgdel_worker(void *arg) {
         sb_tr(&msg, "Nichts gelöscht: %s", errs.p ? errs.p : "");
     }
     sb_add(&res, "{\"deleted\":%d,\"failed\":%d}", ok_n, fail_n);
+    set_flags(0, 0);
     free(errs.p);
     free(j->items);
     j->items = NULL;

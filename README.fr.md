@@ -39,7 +39,7 @@ Le formateur déconnecte par logiciel les lecteurs montés et les reprend avant 
 <td width="33%" valign="top">
 
 ### 🕹️ Les jeux en un coup d'œil
-Jeux (dossiers et images avec ID de titre), fichiers PKG et occupation. Détecte les jeux en double, supprime les jeux avec leur vignette via « Supprimer des jeux … ». Les jeux peuvent aussi être copiés ou déplacés entre lecteurs et le stockage interne de la PS5, avec leurs fichiers associés (dossier backport, sommes de contrôle) ; les fichiers PKG peuvent aussi être déplacés et supprimés.
+Jeux (dossiers et images avec ID de titre), fichiers PKG et occupation. Détecte les jeux en double, supprime les jeux avec leur vignette via « Supprimer des jeux … ». Les jeux peuvent aussi être copiés ou déplacés entre lecteurs et le stockage interne de la PS5, avec leurs fichiers associés (dossier backport, sommes de contrôle) ; les fichiers PKG peuvent aussi être déplacés et supprimés. Avant la copie, la destination est vérifiée (place libre ; FAT32 et fichiers de plus de 4 Go) ; les fichiers PKG indiquent la version du jeu et le firmware requis par rapport à ce qui est installé sur la PS5.
 
 </td>
 </tr>

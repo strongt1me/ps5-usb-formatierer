@@ -39,7 +39,7 @@ El formateador desconecta por software las unidades montadas y las toma antes de
 <td width="33%" valign="top">
 
 ### 🕹️ Juegos a la vista
-Juegos (carpetas e imágenes con ID de título), archivos PKG y ocupación. Detecta juegos duplicados y quita juegos junto con su icono con «Borrar juegos …». Los juegos también se pueden copiar o mover entre unidades y el almacenamiento interno de la PS5, con sus archivos relacionados (carpeta backport, sumas de verificación); los archivos PKG también se pueden mover y borrar.
+Juegos (carpetas e imágenes con ID de título), archivos PKG y ocupación. Detecta juegos duplicados y quita juegos junto con su icono con «Borrar juegos …». Los juegos también se pueden copiar o mover entre unidades y el almacenamiento interno de la PS5, con sus archivos relacionados (carpeta backport, sumas de verificación); los archivos PKG también se pueden mover y borrar. Antes de copiar se comprueba el destino (espacio libre; FAT32 y archivos de más de 4 GB); los archivos PKG muestran la versión del juego y el firmware necesario en comparación con lo instalado en la PS5.
 
 </td>
 </tr>

@@ -14,6 +14,7 @@ typedef struct {
     char     kind[8];      /* "Ordner", "exFAT", "UFS2", "PFS" */
     char     ext[8];       /* Abbild: Dateiendung ohne Punkt ("exfat", "ffpkg", "ffpfs", "ffpfsc"), sonst leer */
     uint64_t size;         /* Abbild: Dateigröße; Ordner: 0 */
+    char     version[16];  /* installierte Version laut param.json/param.sfo, leer wenn unbekannt */
 } lib_title_t;
 
 /* .pkg-Datei (Installationspaket) */

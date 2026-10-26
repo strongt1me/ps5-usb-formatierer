@@ -141,6 +141,16 @@ void plat_local_ip(char *buf, size_t len) {
 /* Test: USBFMT_SANDBOX=<ordner> - ein Unterordner "PPSA12345_000" darin gilt als laufendes Spiel */
 const char *plat_sandbox_dir(void) { return getenv("USBFMT_SANDBOX"); }
 
+void plat_fw_version(char *out, size_t n) {
+    const char *e = getenv("USBFMT_FW");
+    snprintf(out, n, "%s", e ? e : "");
+}
+
+int plat_path_fat32(const char *path) {
+    (void)path;
+    return getenv("USBFMT_TARGET_FAT32") != NULL;
+}
+
 const char *plat_data_dir(void) {
     const char *d = getenv("USBFMT_DATA");
     return d ? d : "/tmp/usbfmt";

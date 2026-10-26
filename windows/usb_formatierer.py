@@ -183,6 +183,12 @@ class Api:
         """.pkg-Dateien auf ein anderes Laufwerk kopieren (Auftrag "move"); die Originale bleiben"""
         return self._call("/api/move", {"pkgs": ",".join(keys), "device": device, "verify": verify})
 
+    def move_check(self, device, keys=None, pkgs=None, extras=False):
+        """Vorabprüfung eines Kopiervorgangs (nichts wird kopiert): Platz am Ziel, FAT32 und Dateien über 4 GB"""
+        body = {"device": device, "check": True, "extras": extras}
+        body.update({"pkgs": ",".join(pkgs)} if pkgs else {"keys": ",".join(keys or [])})
+        return self._call("/api/move", body, timeout=40)
+
     def delete_pkgs(self, keys):
         return self._call("/api/pkg/delete", {"keys": ",".join(keys)})
 
@@ -391,9 +397,41 @@ def port_open(host, port, timeout=1.0):
         return False
 
 
-def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False):
+def move_check_text(r):
+    """Text zur Vorabprüfung (leer = passt)"""
+    out = []
+    if not r.get("fits", True):
+        out.append(_("Auf dem Ziel ist nicht genug Platz: gebraucht werden {need}, frei sind {free}.",
+                     need=fmt_size(r.get("need", 0) + r.get("reserve", 0)), free=fmt_size(r.get("free", 0))))
+    if r.get("fat32") and r.get("big"):
+        out.append(_("Das Ziel ist FAT32: Dateien über 4 GB passen dort nicht ({files}). Das Ziel mit exFAT formatieren oder ein anderes wählen.",
+                     files=", ".join(r["big"])))
+    return " ".join(out)
+
+
+def pkg_hints(pk, fw):
+    """Hinweise zu einem Paket aus dem Vergleich mit der PS5: Liste (Art "bad"/"warn"/"ok", Text)"""
+    out = []
+    if pk.get("fwhigh"):
+        out.append(("bad", _("braucht Firmware {fw}, die PS5 hat {have}", fw=pk.get("minfw", ""), have=fw or "?")))
+    if pk.get("cat") == "dlc":
+        return out
+    vs = pk.get("vs")
+    if vs == "newer":
+        out.append(("ok", _("neuer als die installierte Version {v}", v=pk.get("inst", ""))))
+    elif vs == "same":
+        out.append(("warn", _("diese Version ist schon installiert")))
+    elif vs == "older":
+        out.append(("warn", _("älter als die installierte Version {v}", v=pk.get("inst", ""))))
+    elif pk.get("installed"):
+        out.append(("warn", _("Spiel ist schon vorhanden")))
+    return out
+
+
+def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, check=None):
     """Ziel-Laufwerk und Prüfung wählen. Liefert (Laufwerk, prüfen, zugehörige Dateien mitkopieren) oder None (abgebrochen).
-    extras: Aufzählung der zugehörigen Dateien; leer = es gibt keine, der Haken fehlt"""
+    extras: Aufzählung der zugehörigen Dateien; leer = es gibt keine, der Haken fehlt.
+    check(ziel, mit_extras) -> Text: Vorabprüfung des Ziels (leer = passt); läuft beim Wechsel im Hintergrund und vor dem Kopieren"""
     px = ui_theme.px
     win = tk.Toplevel(root)
     win.withdraw()
@@ -420,8 +458,42 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False):
     ttk.Checkbutton(frm, variable=verify, style="Switch.TCheckbutton",
                     text=_("Kopie nach dem Schreiben prüfen (empfohlen)")).pack(anchor="w", pady=(px(10), 0))
     with_extras = tk.BooleanVar(value=True)
+    note = ttk.Label(frm, style="Danger.TLabel", wraplength=px(460), justify="left")
+    state = {"seq": 0, "res": {}}
+
+    def run_check(*_a):
+        """Vorabprüfung im Hintergrund; die Antwort holt ein Takt im Hauptfaden ab (Tk ist nicht threadsicher)"""
+        if not check:
+            return
+        state["seq"] += 1
+        my, target, ex = state["seq"], targets[max(0, box.current())], bool(extras and with_extras.get())
+
+        def work():
+            try:
+                state["res"][my] = check(target, ex)
+            except Exception:
+                state["res"][my] = ""
+
+        threading.Thread(target=work, daemon=True).start()
+
+        def poll():
+            if not win.winfo_exists() or my != state["seq"]:
+                return
+            if my in state["res"]:
+                txt = state["res"].pop(my)
+                if txt:
+                    note.configure(text=txt)
+                    note.pack(anchor="w", pady=(px(8), 0), before=btns)
+                else:
+                    note.pack_forget()
+            else:
+                win.after(120, poll)
+
+        win.after(120, poll)
+
+    box.bind("<<ComboboxSelected>>", run_check)
     if extras:
-        ttk.Checkbutton(frm, variable=with_extras, style="Switch.TCheckbutton",
+        ttk.Checkbutton(frm, variable=with_extras, style="Switch.TCheckbutton", command=run_check,
                         text=_("Zugehörige Dateien mitkopieren")).pack(anchor="w", pady=(px(6), 0))
         ttk.Label(frm, text=_("Backport-Ordner des Spiels, Prüfsummen und Dump-Infos:") + "\n" + extras,
                   style="Hint.TLabel", wraplength=px(460), justify="left").pack(anchor="w", pady=(px(2), 0))
@@ -443,9 +515,20 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False):
     btns = ttk.Frame(frm)
     btns.pack(fill="x", pady=(16, 0))
     ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(None)).pack(side="right")
-    ttk.Button(btns, text=_("Kopieren"), style="Accent.TButton",
-               command=lambda: done((targets[max(0, box.current())], bool(verify.get()),
-                                     bool(extras and with_extras.get())))).pack(side="right", padx=(0, 6))
+
+    def go():
+        target, ex = targets[max(0, box.current())], bool(extras and with_extras.get())
+        if check:   # frisch prüfen: passt es nicht, bleibt der Dialog offen
+            try:
+                bad = check(target, ex)
+            except Exception:
+                bad = ""
+            if bad:
+                messagebox.showerror(win.title(), bad, parent=win)
+                return
+        done((target, bool(verify.get()), ex))
+
+    ttk.Button(btns, text=_("Kopieren"), style="Accent.TButton", command=go).pack(side="right", padx=(0, 6))
     win.bind("<Escape>", lambda e: done(None))
     win.protocol("WM_DELETE_WINDOW", lambda: done(None))
     win.update_idletasks()
@@ -456,6 +539,7 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False):
     win.deiconify()
     ui_theme.dark_titlebar(win)
     pc_common.grab(win)
+    run_check()
     root.wait_window(win)
     return result["v"]
 
@@ -660,6 +744,7 @@ class App(tk.Tk):
         self.host_var = tk.StringVar(value=self.settings.get("host", ""))
         self.page = self.settings.get("page") if self.settings.get("page") in dict(TABS) else "games"
         self.pkgs = {}             # Pakete je Laufwerk (aus /api/library: pkgfiles)
+        self.ps5_fw = ""           # Firmware der PS5 (aus /api/library), für den Vergleich mit den Paketen
         self.fs_var = tk.StringVar(value="exFAT")
         self.cluster_var = tk.StringVar()
         saved_label = self.settings.get("label", "")   # die Eingabeprüfung greift nur beim Tippen
@@ -1043,6 +1128,8 @@ class App(tk.Tk):
         self.pkg_del_btn.pack(side="right")
         self.pkg_sum = ttk.Label(pbar, style="Muted.TLabel")   # eigene Zeile über den Knöpfen: sonst wird er abgeschnitten
         self.pkg_sum.pack(side="top", anchor="w", pady=(0, px(6)))
+        self.pkg_hint = ttk.Label(pbar, style="Warn.TLabel", justify="left", wraplength=px(640))   # Hinweise zu Update und Firmware
+        self.pkg_hint.pack(side="top", anchor="w", pady=(0, px(6)))
         self.pkg_del_btn.pack_forget()
         self.pkg_del_btn.pack(side="right")
         self.pkg_move_btn = ttk.Button(pbar, text=_("Angehakte Pakete verschieben …"), command=self._pkg_move)
@@ -2106,7 +2193,9 @@ class App(tk.Tk):
                                         "v" + pk["version"] if pk.get("version") else "",
                                         "FW " + pk["minfw"] if pk.get("minfw") else "") if x]
             bits.append(fmt_size(pk.get("size", 0)))
-            rows.append((pk.get("key") or pk["path"], "  " + (pk.get("title") or pk.get("name") or pk["path"]), " · ".join(bits), typ == "fPKG"))
+            warn = any(k != "ok" for k, _t in pkg_hints(pk, self.ps5_fw))   # Warnzeichen vor dem Namen, Einzelheiten unter der Liste
+            rows.append((pk.get("key") or pk["path"], ("⚠ " if warn else "  ") + (pk.get("title") or pk.get("name") or pk["path"]),
+                         " · ".join(bits), typ == "fPKG"))
         self._pkg_by_key = {(pk.get("key") or pk["path"]): pk for pk in pkgs}
         self.pkg_checked &= set(self._pkg_by_key)   # nicht mehr vorhandene sind nicht mehr angehakt
         if rows != getattr(self, "_pkgs_shown", None):
@@ -2119,6 +2208,11 @@ class App(tk.Tk):
         picked = [self._pkg_by_key[k] for k in self.pkg_checked if k in self._pkg_by_key]
         self.pkg_sum.configure(text=_("{n} angehakt · {size}", n=len(picked), size=fmt_size(sum(x.get("size", 0) for x in picked)))
                                if picked else "")
+        focus = self.pkg_tree.focus()   # Hinweise: zu den angehakten Paketen, sonst zur gewählten Zeile
+        hint_src = picked or ([self._pkg_by_key[focus]] if focus in self._pkg_by_key else [])
+        lines = [f"{pk.get('name') or pk.get('title')}: " + "; ".join(t for _k, t in pkg_hints(pk, self.ps5_fw))
+                 for pk in hint_src if pkg_hints(pk, self.ps5_fw)]
+        self.pkg_hint.configure(text="\n".join(lines[:3]) + ("\n…" if len(lines) > 3 else ""))
         self.pkg_caption.configure(text=_("PKG-Dateien auf diesem Datenträger: {n}", n=len(rows)) if rows
                                    else _("Keine PKG-Dateien auf diesem Datenträger."))
         games = self.games.get(dev["name"], []) if dev and dev.get("name") else []
@@ -2183,7 +2277,10 @@ class App(tk.Tk):
         if not targets:
             messagebox.showinfo(_("Pakete verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
             return
-        res = ask_move(self, dev, targets, [x.get("name") for x in picked], pkg=True, copy_only=copy_only)
+        api0 = self.api
+        pkg_keys = [x.get("key") or x["path"] for x in picked]
+        res = ask_move(self, dev, targets, [x.get("name") for x in picked], pkg=True, copy_only=copy_only,
+                       check=lambda t, ex: move_check_text(api0.move_check(t["name"], pkgs=pkg_keys)))
         if not res or self.busy or not self.api:
             return
         target, verify, _extras = res
@@ -2806,7 +2903,9 @@ class App(tk.Tk):
         if not names or not targets:
             messagebox.showinfo(_("Spiele verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
             return
-        res = ask_move(self, dev, targets, names, extras=extras_text([games[k] for k in keys if k in games]), copy_only=copy_only)
+        api0, chk_keys = self.api, list(keys)
+        res = ask_move(self, dev, targets, names, extras=extras_text([games[k] for k in keys if k in games]), copy_only=copy_only,
+                       check=lambda t, ex: move_check_text(api0.move_check(t["name"], keys=chk_keys, extras=ex)))
         if not res or self.busy or not self.api:
             return
         target, verify, with_extras = res
@@ -3575,6 +3674,7 @@ class App(tk.Tk):
                     if pk.get("device"):
                         pkgs.setdefault(pk["device"], []).append(pk)
                 self.pkgs = pkgs
+                self.ps5_fw = data.get("fw") or ""
                 known = self.__dict__.setdefault("_game_sizes_known", {})
                 for lst in games.values():
                     for g in lst:

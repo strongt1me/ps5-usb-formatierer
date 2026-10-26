@@ -75,4 +75,10 @@ int  plat_open_browser(const char *url, char *err, size_t errlen);
 /* Ordner mit den Benutzern und ihren Spielständen (PS5: /user/home); NULL = keiner (Host ohne USBFMT_SAVES) */
 const char *plat_saves_dir(void);
 
+/* Firmware der PS5 als "9.00"; leer, wenn unbekannt (Host: USBFMT_FW) */
+void plat_fw_version(char *out, size_t n);
+
+/* Liegt path auf einem FAT32-Datenträger (einzelne Dateien höchstens 4 GB)? (Host: USBFMT_TARGET_FAT32 gesetzt) */
+int  plat_path_fat32(const char *path);
+
 #endif

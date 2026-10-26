@@ -77,6 +77,17 @@ const char *plat_data_dir(void) { return DATA_DIR; }
 
 const char *plat_sandbox_dir(void) { return "/mnt/sandbox"; }
 
+void plat_fw_version(char *out, size_t n) {
+    const uint32_t v = kernel_get_fw_version();   /* 0x09000000 = 9.00 */
+    if (v) snprintf(out, n, "%x.%02x", (unsigned)((v >> 24) & 0xff), (unsigned)((v >> 16) & 0xff));
+    else if (n) out[0] = 0;
+}
+
+int plat_path_fat32(const char *path) {
+    struct statfs sf;
+    return statfs(path, &sf) == 0 && strstr(sf.f_fstypename, "msdos") != NULL;
+}
+
 /* Symbol aus einer Sony-Bibliothek suchen statt fest binden: Fehlt eines unter dem erwarteten Namen, bricht der
  * Lader sonst schon vor main() ab und der Payload stirbt ohne Meldung. Die Bibliothek bleibt gelinkt (geladen),
  * gesucht wird zur Laufzeit auf vier Wegen (wie im PS5 Temperatur Studio, dynsym.c). */

@@ -347,21 +347,40 @@ static int copy_str(char *dst, size_t n, const char *src) {
     return 0;
 }
 
+static int sfo_val(const uint8_t *b, size_t len, const char *key, char *out, size_t n, int is_num);
+
+/* Version aus param.json (contentVersion) bzw. param.sfo (VERSION, sonst APP_VER) */
+static void param_version(const char *buf, size_t n, int json, char *out, size_t on) {
+    out[0] = 0;
+    char v[32];
+    if (json) {
+        if (lib_json_str(buf, n, "contentVersion", v, sizeof(v)) == 0) (void)copy_str(out, on, v);
+    } else if (sfo_val((const uint8_t *)buf, n, "VERSION", v, sizeof(v), 0) == 0 ||
+               sfo_val((const uint8_t *)buf, n, "APP_VER", v, sizeof(v), 0) == 0) {
+        (void)copy_str(out, on, v);
+    }
+}
+
 static void folder_game(lib_root_t *r, const char *path, const char *dname, char *buf) {
-    char p[sizeof(((lib_title_t *)0)->path) + 32], id[16], name[128];
+    char p[sizeof(((lib_title_t *)0)->path) + 32], id[16], name[128], ver[16] = "";
     long n;
     int ok = -1;
     if (snprintf(p, sizeof(p), "%s/sce_sys/param.json", path) < (int)sizeof(p) &&
-        (n = read_file(p, buf, PARAM_MAX)) > 0)
+        (n = read_file(p, buf, PARAM_MAX)) > 0) {
         ok = lib_parse_param_json(buf, (size_t)n, id, sizeof(id), name, sizeof(name));
+        if (ok == 0) param_version(buf, (size_t)n, 1, ver, sizeof(ver));
+    }
     if (ok != 0 && snprintf(p, sizeof(p), "%s/sce_sys/param.sfo", path) < (int)sizeof(p) &&
-        (n = read_file(p, buf, PARAM_MAX)) > 0)
+        (n = read_file(p, buf, PARAM_MAX)) > 0) {
         ok = lib_parse_param_sfo((const uint8_t *)buf, (size_t)n, id, sizeof(id), name, sizeof(name));
+        if (ok == 0) param_version(buf, (size_t)n, 0, ver, sizeof(ver));
+    }
     if (ok != 0) return;   /* kein Spiel */
     lib_title_t *t = add_title(r);
     if (!t) return;
     copy_str(t->id, sizeof(t->id), id);
     copy_str(t->path, sizeof(t->path), path);
+    copy_str(t->version, sizeof(t->version), ver);
     if (copy_str(t->name, sizeof(t->name), name[0] ? name : dname)) t->name[0] = 0;
     copy_str(t->kind, sizeof(t->kind), "Ordner");
 }
@@ -384,8 +403,11 @@ static void image_game(lib_root_t *r, const char *path, const char *fname, uint6
         snprintf(t->kind, sizeof(t->kind), "%s", fsr_type(f));
         if ((n = fsr_read_file(f, "sce_sys/param.json", buf, PARAM_MAX)) <= 0 ||
             lib_parse_param_json(buf, (size_t)n, t->id, sizeof(t->id), name, sizeof(name)) != 0) {
-            if ((n = fsr_read_file(f, "sce_sys/param.sfo", buf, PARAM_MAX)) > 0)
-                lib_parse_param_sfo((const uint8_t *)buf, (size_t)n, t->id, sizeof(t->id), name, sizeof(name));
+            if ((n = fsr_read_file(f, "sce_sys/param.sfo", buf, PARAM_MAX)) > 0 &&
+                lib_parse_param_sfo((const uint8_t *)buf, (size_t)n, t->id, sizeof(t->id), name, sizeof(name)) == 0)
+                param_version(buf, (size_t)n, 0, t->version, sizeof(t->version));
+        } else {
+            param_version(buf, (size_t)n, 1, t->version, sizeof(t->version));
         }
         fsr_close(f);
     }

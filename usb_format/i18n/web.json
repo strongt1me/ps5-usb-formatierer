@@ -2302,5 +2302,47 @@
   "it": "Nessuna destinazione trovata per il backup.",
   "es": "No se encontró destino para la copia.",
   "fr": "Aucune destination trouvée pour la sauvegarde."
+ },
+ "Auf dem Ziel ist nicht genug Platz: gebraucht werden {need}, frei sind {free}.": {
+  "en": "Not enough space on the target: {need} needed, {free} free.",
+  "it": "Spazio insufficiente sulla destinazione: servono {need}, liberi {free}.",
+  "es": "No hay espacio suficiente en el destino: se necesitan {need}, hay {free} libres.",
+  "fr": "Pas assez de place sur la destination : {need} nécessaires, {free} libres."
+ },
+ "Das Ziel ist FAT32: Dateien über 4 GB passen dort nicht ({files}). Das Ziel mit exFAT formatieren oder ein anderes wählen.": {
+  "en": "The target is FAT32: files over 4 GB do not fit there ({files}). Format the target as exFAT or choose another one.",
+  "it": "La destinazione è FAT32: i file oltre 4 GB non ci stanno ({files}). Formatta la destinazione in exFAT o scegline un'altra.",
+  "es": "El destino es FAT32: los archivos de más de 4 GB no caben ({files}). Formatea el destino como exFAT o elige otro.",
+  "fr": "La destination est en FAT32 : les fichiers de plus de 4 Go n'y tiennent pas ({files}). Formatez la destination en exFAT ou choisissez-en une autre."
+ },
+ "braucht Firmware {fw}, die PS5 hat {have}": {
+  "en": "needs firmware {fw}, the PS5 has {have}",
+  "it": "richiede il firmware {fw}, la PS5 ha {have}",
+  "es": "requiere el firmware {fw}, la PS5 tiene {have}",
+  "fr": "nécessite le firmware {fw}, la PS5 a {have}"
+ },
+ "neuer als die installierte Version {v}": {
+  "en": "newer than the installed version {v}",
+  "it": "più recente della versione installata {v}",
+  "es": "más reciente que la versión instalada {v}",
+  "fr": "plus récent que la version installée {v}"
+ },
+ "diese Version ist schon installiert": {
+  "en": "this version is already installed",
+  "it": "questa versione è già installata",
+  "es": "esta versión ya está instalada",
+  "fr": "cette version est déjà installée"
+ },
+ "älter als die installierte Version {v}": {
+  "en": "older than the installed version {v}",
+  "it": "più vecchia della versione installata {v}",
+  "es": "más antigua que la versión instalada {v}",
+  "fr": "plus ancien que la version installée {v}"
+ },
+ "Spiel ist schon vorhanden": {
+  "en": "game is already present",
+  "it": "il gioco è già presente",
+  "es": "el juego ya existe",
+  "fr": "le jeu est déjà présent"
  }
 }
