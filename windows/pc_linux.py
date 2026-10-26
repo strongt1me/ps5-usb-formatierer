@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -55,6 +56,9 @@ class LinuxJob:
         if not exe:
             raise RuntimeError(_("Der Helfer {name} fehlt neben dem Programm.", name="usbfmt_linux"))
         digest = digest or helper_digest()
+        if getattr(sys, "frozen", False) and not digest:   # ausgeliefert, aber ohne Prüfsumme: nicht ungeprüft als root starten
+            raise RuntimeError(_("Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. "
+                                 "Bitte das Programm neu herunterladen."))
         # eigener Ordner (nur für diesen Benutzer): die Ausgabedatei legt der Helfer als root darin an
         self.tmpdir = tempfile.mkdtemp(prefix=TEMP_PREFIX + "-")
         self.out = os.path.join(self.tmpdir, "auftrag.txt")

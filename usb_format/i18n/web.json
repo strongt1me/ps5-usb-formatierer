@@ -2296,5 +2296,11 @@
   "it": "DLC",
   "es": "DLC",
   "fr": "DLC"
+ },
+ "Kein Ziel für die Sicherung gefunden.": {
+  "en": "No destination for the backup found.",
+  "it": "Nessuna destinazione trovata per il backup.",
+  "es": "No se encontró destino para la copia.",
+  "fr": "Aucune destination trouvée pour la sauvegarde."
  }
 }

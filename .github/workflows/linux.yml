@@ -73,6 +73,7 @@ jobs:
           bash src/linux/build.sh /tmp/usbfmt_linux_test -DUSBFMT_TEST
           bash src/linux/build.sh /tmp/usbfmt_linux
           file /tmp/usbfmt_linux
+          file /tmp/usbfmt_linux | grep -q "statically linked" || { echo "Helfer ist nicht statisch gelinkt (läuft nicht auf älteren Systemen)"; exit 1; }
 
       - name: Helfer an Abbild-Dateien
         working-directory: usb_format

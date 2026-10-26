@@ -24,6 +24,7 @@
 #define FAT32_MAX_CLUSTERS 0x0FFFFFF4u
 #define EXFAT_MAX_CLUSTERS 0xFFFFFFF5u
 
+static int sync_dev(blkdev_t *d);   /* weiter unten: vor dem Bootsektor alles andere auf den Datenträger bringen */
 static char errbuf[256];
 static char sumbuf[256];
 static uint8_t *zbuf;
@@ -94,8 +95,10 @@ static int dev_zero(blkdev_t *d, uint64_t sec, uint64_t nsec, const char *step) 
     if (report_it) report(d, step, 0);
 
     if (!zbuf) {
-        if (posix_memalign((void **)&zbuf, 4096, MIB)) return fail("Kein Speicher");
-        memset(zbuf, 0, MIB);
+        void *z = NULL;
+        if (posix_memalign(&z, 4096, MIB)) return fail("Kein Speicher");
+        memset(z, 0, MIB);
+        zbuf = z;   /* erst jetzt sichtbar: nie ein noch nicht genullter Puffer */
     }
     while (done < nsec) {
         uint64_t n = nsec - done < chunk ? nsec - done : chunk;
@@ -333,7 +336,7 @@ int mkfs_fat32(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
     }
     if (cluster && clusters < FAT32_MIN_CLUSTERS)
         return fail("Zuordnungseinheit %u KB ist für diese Datenträgergröße zu groß (FAT32 braucht mind. 65.525 Cluster). "
-                    "Bitte eine kleinere wählen.", csize / 1024);
+                    "Bitte eine kleinere wählen.", (csize + 1023) / 1024);
     if (cluster && clusters > FAT32_MAX_CLUSTERS)
         return fail("Zuordnungseinheit ist für diese Datenträgergröße zu klein (zu viele Cluster für FAT32). "
                     "Bitte eine größere wählen.");
@@ -442,6 +445,7 @@ int mkfs_fat32(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
         dev_write(d, 1, fsi, 1) ||
         dev_write(d, 7, fsi, 1) ||
         dev_write(d, 6, bs, 1) ||
+        sync_dev(d) ||                  /* FAT und Verzeichnis sicher geschrieben, erst dann der Bootsektor */
         dev_write(d, 0, bs, 1))         /* Bootsektor zuletzt */
         goto out;
     report(d, "Dateisystem schreiben", 100);
@@ -693,6 +697,7 @@ int mkfs_exfat(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
         dev_write(d, CLUSTER_SEC(c_up), up, up_secs) ||
         dev_write(d, CLUSTER_SEC(c_root), root, dirbytes / ss) ||
         dev_write(d, 12, br, 12) ||
+        sync_dev(d) ||                  /* alles andere sicher geschrieben, erst dann der Haupt-Bootbereich */
         dev_write(d, 0, br, 12))        /* Haupt-Bootbereich zuletzt */
         goto out;
     report(d, "Dateisystem schreiben", 100);

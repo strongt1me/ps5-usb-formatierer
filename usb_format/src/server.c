@@ -570,6 +570,7 @@ static void job_done(job_t *j, int ok, sbuf_t *msg, sbuf_t *res, int refresh) {
     history_job(j, ok, cancelled, msg->p);
     free(msg->p);
     free(res->p);
+    free(j->saves_list);
     free(j);
     if (refresh) lib_refresh();
 }
@@ -2309,6 +2310,13 @@ static int part_checkpoint(void *ctx, const ib_ckpt_t *c) {
 }
 
 
+/* Gibt es zu dieser Image-Datei schon eine behaltene Teilsicherung (<Datei>.part)? */
+static int part_taken(const char *file) {
+    char p[1100];
+    snprintf(p, sizeof(p), "%s.part", file);
+    return access(p, F_OK) == 0;
+}
+
 static void *backup_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
@@ -2354,7 +2362,7 @@ static void *backup_worker(void *arg) {
         }
         /* derselbe Name in derselben Minute schon da: Nummer anhängen */
         snprintf(file, sizeof(file), "%s/%s", j->path, name);
-        for (int k = 2; k < 100 && access(file, F_OK) == 0; k++)
+        for (int k = 2; k < 100 && (access(file, F_OK) == 0 || part_taken(file)); k++)
             snprintf(file, sizeof(file), "%s/%.*s_%d%s", j->path, (int)(strlen(name) - strlen(IMG_EXT)), name, k, IMG_EXT);
         snprintf(name, sizeof(name), "%s", strrchr(file, '/') + 1);
         snprintf(part, sizeof(part), "%s.part", file);
@@ -3621,7 +3629,8 @@ static char *json_text(const char *body, const char *key) {
 /* "a\nb\nc" -> Schlüssel in Teilen; liefert die Anzahl, -1 bei mehr als max; schneidet s an den Zeilenenden ab */
 static int split_lines(char *s, char **part, int max) {
     int n = 0;
-    for (char *t = strtok(s, "\n"); t; t = strtok(NULL, "\n")) {
+    char *save = NULL;
+    for (char *t = strtok_r(s, "\n", &save); t; t = strtok_r(NULL, "\n", &save)) {
         if (!*t) continue;
         if (n == max) return -1;   /* zu viele */
         part[n++] = t;
@@ -3919,7 +3928,8 @@ fin:
 /* Sicherung direkt in <Ort>/game_saves/<Benutzer>_<uid>/<Datei>.zip (keine Verknüpfung hinaus)? */
 static int saves_path_ok(const char *path, const imgloc_t *loc, int n) {
     size_t l = strlen(path);
-    if (l < 5 || strcmp(path + l - 4, ".zip") != 0 || strstr(path, "/../") || strrchr(path, '/')[1] == '.') return 0;
+    const char *last = strrchr(path, '/');   /* NULL bei Pfaden ohne Schrägstrich: nie dereferenzieren */
+    if (l < 5 || strcmp(path + l - 4, ".zip") != 0 || strstr(path, "/../") || !last || last[1] == '.') return 0;
     char *rp = realpath(path, NULL);
     int hit = 0;
     struct stat sb;
@@ -3947,6 +3957,10 @@ static void api_saves_times(int c, const char *body) {
     const char *kmt = n > 0 ? kv_get(kv, n, "key_mtime") : NULL;
     if (!key || !mt || strspn(mt, "0123456789") != strlen(mt) || (kmt && strspn(kmt, "0123456789") != strlen(kmt))) {
         respond_error(c, 400, "key und mtime erforderlich");
+        return;
+    }
+    if (kmt && (!*kmt || strtoll(kmt, NULL, 10) < 946684800LL || strtoll(kmt, NULL, 10) > 4102444800LL)) {   /* 2000 bis 2100 */
+        respond_error(c, 400, "key_mtime ungültig");
         return;
     }
     if (saves_game_check(c)) return;

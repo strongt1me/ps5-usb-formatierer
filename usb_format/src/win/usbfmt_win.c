@@ -476,7 +476,8 @@ int plat_session_open(session_t *s, const char *diskid, uint64_t size, int mode,
         return -1;
     }
     DWORD r;
-    if (write && !DeviceIoControl(s->p->disk, IOCTL_DISK_IS_WRITABLE, NULL, 0, NULL, 0, &r, NULL)) {
+    if (write && !DeviceIoControl(s->p->disk, IOCTL_DISK_IS_WRITABLE, NULL, 0, NULL, 0, &r, NULL) &&
+        GetLastError() == ERROR_WRITE_PROTECT) {   /* nur dieser Fehler heißt "schreibgeschützt" (andere: z. B. Kartenleser ohne die Abfrage) */
         snprintf(err, n, "%s", T("Der Datenträger ist schreibgeschützt (Schalter am Stick oder an der SD-Karte?)."));
         plat_session_close(s, 0);
         return -1;

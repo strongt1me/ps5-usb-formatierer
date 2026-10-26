@@ -25,7 +25,7 @@ static int complete(const char *buf, size_t n) {
         while (k < sizeof(key) - 1 && (p[k] | 0x20) == key[k]) k++;   /* ohne Groß-/Kleinschreibung */
         if (k < sizeof(key) - 1 || (p != buf && p[-1] != '\n')) continue;
         unsigned long long want = strtoull(p + k, NULL, 10);
-        return (size_t)(end - buf) + want <= n;
+        return want <= n && (size_t)(end - buf) + (size_t)want <= n;   /* kein Überlauf bei absurden Längen */
     }
     return 0;
 }

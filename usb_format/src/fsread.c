@@ -60,6 +60,7 @@ void fsr_utf16_to_utf8(const uint8_t *u16, int n, char *out, size_t outlen) {
             uint32_t lo = le16(u16 + 2 * (i + 1));
             if (lo >= 0xDC00 && lo < 0xE000) { c = 0x10000 + ((c - 0xD800) << 10) + (lo - 0xDC00); i++; }
         }
+        if (c >= 0xD800 && c < 0xE000) c = 0xFFFD;   /* einzelnes Surrogat: kein gültiges Unicode-Zeichen */
         char t[4];
         int k = 0;
         if (c < 0x80) t[k++] = (char)c;

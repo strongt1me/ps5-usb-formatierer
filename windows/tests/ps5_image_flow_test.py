@@ -82,7 +82,7 @@ def run(fn):
     return msgs[-1] if pump(lambda: len(msgs) > n and not app.busy) else ("timeout", "")
 
 
-check("mit dem Testserver verbunden", pump(lambda: app.api is not None and len(app.devices) == 3 and not app.busy, 60),
+check("mit dem Testserver verbunden", pump(lambda: app.api is not None and len([d for d in app.devices if not d.get('place')]) == 3 and not app.busy, 60),
       len(app.devices))
 
 # Sichern auf den PC (Download) - Dateiname mit Leerzeichen

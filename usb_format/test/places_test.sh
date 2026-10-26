@@ -128,6 +128,12 @@ code=$(post "{\"keys\":\"$(key "$H/D3")\"}" delete)
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q 'teilweise gelöscht' "$W/st" && [ -d "$H/D3" ]     && ok "Löschen bricht mittendrin ab: Meldung nennt \"nur teilweise gelöscht\"" || bad "teilweise gelöscht" "$code $(cat "$W/st")"
 chmod 755 "$H/D3/gesperrt"
 
+# ---------------------------------------------------------------- Pfad ohne Schrägstrich darf den Server nicht abstürzen lassen
+code=$(post '{"paths":"a.zip"}' saves/restore)
+[ "$code" = 400 ] && curl -s "$U/api/info" >/dev/null && ok "Sicherung ohne Schrägstrich im Pfad: abgelehnt, Server lebt" || bad "Pfad ohne Schrägstrich" "$code"
+code=$(post '{"key":"x","mtime":"1700000000","key_mtime":""}' saves/times)
+[ "$code" = 400 ] && ok "key_mtime leer: abgelehnt" || bad "key_mtime leer" "$code"
+
 # ---------------------------------------------------------------- der Formatierer selbst
 library
 code=$(post "{\"keys\":\"$(key "$IH/PPSA86920")\"}" delete)

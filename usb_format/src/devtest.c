@@ -397,7 +397,7 @@ void dt_scrub(int fd, uint64_t size) {
     memset(z, 0, MIB);
     (void)io_rw(fd, 1, z, MIB, 0);
     (void)io_rw(fd, 1, z, MIB, MIB);
-    if (size >= 4ull * MIB) (void)io_rw(fd, 1, z, MIB, (size - MIB) / MIB * MIB);   /* GPT-Sicherungskopie */
+    if (size >= 4ull * MIB) (void)io_rw(fd, 1, z, MIB, (size - MIB) / 512 * 512);   /* GPT-Sicherungskopie: das letzte MiB bis ans Ende */
     dev_sync(fd);
     free(z);
 }

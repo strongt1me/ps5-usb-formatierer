@@ -758,12 +758,12 @@ int saves_backup_file(const save_info_t *s, const char *root, char *out, size_t 
         snprintf(err, errsz, "%s", T("Pfad zu lang"));
         goto done;
     }
+    mkdirs(root);   /* erst anlegen: ohne den Ordner kann der freie Platz nicht gemessen werden */
+    mkdirs(dir);
     if (!space_ok(root, s->size + 4096)) {
         snprintf(err, errsz, "%s", T("Am Ziel ist nicht mehr genug Platz frei."));
         goto done;
     }
-    mkdirs(root);
-    mkdirs(dir);
     fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         snprintf(err, errsz, T("Zieldatei konnte nicht angelegt werden: %s"), strerror(errno));
@@ -1003,6 +1003,8 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
     gid_t own_g = (gid_t)-1;
     int rc = -1, dfd = -1;
     uint8_t *buf = NULL;
+    char kold[1000] = "";   /* der bisherige Schlüssel (PS4), bis der Container ersetzt ist */
+    int had_old = 0;
     /* Zeiten: die Datei behält ihre Änderungszeit (die Datenbank der PS5 führt sie mit); gibt es sie noch nicht, gilt die
      * Zeit aus der Sicherung */
     struct timespec ts[2], kts[2];
@@ -1084,16 +1086,25 @@ static int rexec(int zfd, rjob_t *r, saves_prog_fn prog, void *pctx, uint64_t ba
             snprintf(err, errsz, "%s", T("Die Schlüsseldatei des PS4-Spielstands konnte nicht geschrieben werden"));
             goto done;
         }
+        snprintf(kold, sizeof(kold), "%s.vor", r->kdest);
+        had_old = rename(r->kdest, kold) == 0;   /* alten Schlüssel zur Seite legen, nicht überschreiben */
         if (rename(r->ktmp, r->kdest) != 0) {
+            if (had_old) rename(kold, r->kdest);
             unlink(r->ktmp);
             snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
             goto done;
         }
     }
     if (rename(r->tmp, r->dest) != 0) {
-        snprintf(err, errsz, T("Schreibfehler: %s"), strerror(errno));
+        const int e = errno;
+        if (r->ps4) {   /* neuer Schlüssel zum alten Container passt nicht: den alten Stand wiederherstellen */
+            if (had_old) rename(kold, r->kdest);
+            else unlink(r->kdest);
+        }
+        snprintf(err, errsz, T("Schreibfehler: %s"), strerror(e));
         goto done;
     }
+    if (had_old) unlink(kold);
     r->tmp[0] = 0;
     rc = 0;
 done:
@@ -1141,6 +1152,10 @@ int saves_restore_file(const char *zip_path, int *count, saves_prog_fn prog, voi
     }
     uint64_t total = 0, base = 0;
     for (int i = 0; i < nj; i++) total += jobs[i].img->size;
+    if (nj && !space_ok(jobs[0].tdir, total + 1048576ull)) {   /* jeder einzeln passte, zusammen nicht: lieber vorher ablehnen als bis ENOSPC schreiben */
+        snprintf(err, errsz, "%s", T("Nicht genug freier Speicher auf der PS5"));
+        goto done;
+    }
     for (int i = 0; i < nj; i++) {
         if (rexec(zfd, &jobs[i], prog, pctx, base, total, err, errsz)) {
             if (i) {   /* schon zurückgeschriebene sind fertig - dem Anwender sagen, wie viele */
