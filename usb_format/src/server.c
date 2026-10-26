@@ -3960,7 +3960,7 @@ static void api_saves_times(int c, const char *body) {
         return;
     }
     if (kmt && (!*kmt || strtoll(kmt, NULL, 10) < 946684800LL || strtoll(kmt, NULL, 10) > 4102444800LL)) {   /* 2000 bis 2100 */
-        respond_error(c, 400, "key_mtime ungültig");
+        respond_error(c, 400, N_("key_mtime ungültig"));
         return;
     }
     if (saves_game_check(c)) return;

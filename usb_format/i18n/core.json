@@ -1415,12 +1415,6 @@
   "es": "ShadowMountPlus aún no conoce este juego – espera un momento e inténtalo de nuevo",
   "fr": "ShadowMountPlus ne connaît pas encore ce jeu – patientez un instant et réessayez"
  },
- "Pfad liegt nicht auf dem USB-Laufwerk": {
-  "en": "Path is not on the USB drive",
-  "it": "Il percorso non è sull'unità USB",
-  "es": "La ruta no está en la unidad USB",
-  "fr": "Le chemin n'est pas sur le lecteur USB"
- },
  "Löschen fehlgeschlagen: %s": {
   "en": "Delete failed: %s",
   "it": "Eliminazione non riuscita: %s",
@@ -2956,5 +2950,11 @@
   "it": "Eliminato solo in parte – il resto rimane, elimina di nuovo (%s)",
   "es": "Borrado solo en parte – el resto permanece, vuelve a borrar (%s)",
   "fr": "Supprimé en partie seulement – le reste demeure, supprimez à nouveau (%s)"
+ },
+ "key_mtime ungültig": {
+  "en": "key_mtime invalid",
+  "it": "key_mtime non valido",
+  "es": "key_mtime no válido",
+  "fr": "key_mtime invalide"
  }
 }

@@ -467,6 +467,7 @@ const i18n_entry_t i18n_table[] = {
     {{"keine Partition", "no partition", "nessuna partizione", "sin partición", "aucune partition"}},
     {{"key fehlt", "key missing", "key mancante", "Falta key", "key manquant"}},
     {{"key und mtime erforderlich", "key and mtime required", "key e mtime obbligatori", "Se requieren key y mtime", "key et mtime requis"}},
+    {{"key_mtime ungültig", "key_mtime invalid", "key_mtime non valido", "key_mtime no válido", "key_mtime invalide"}},
     {{"keys ist erforderlich", "keys is required", "keys è obbligatorio", "Se requiere keys", "keys est requis"}},
     {{"keys ist erforderlich (höchstens 256 Spiele auf einmal)", "keys is required (at most 256 games at once)", "keys è obbligatorio (al massimo 256 giochi alla volta)", "keys es obligatorio (como máximo 256 juegos a la vez)", "keys est obligatoire (256 jeux au maximum à la fois)"}},
     {{"keys und dest erforderlich", "keys and dest required", "keys e dest obbligatori", "Se requieren keys y dest", "keys et dest requis"}},
@@ -495,4 +496,4 @@ const i18n_entry_t i18n_table[] = {
     {{"unbekannter Fehler", "unknown error", "errore sconosciuto", "error desconocido", "erreur inconnue"}},
     {{"Übernehmen am Ziel fehlgeschlagen: %s", "Adopting on the target failed: %s", "Adozione sulla destinazione non riuscita: %s", "Falló la adopción en el destino: %s", "Échec de la reprise sur la destination : %s"}},
 };
-const unsigned i18n_count = 492;
+const unsigned i18n_count = 493;
