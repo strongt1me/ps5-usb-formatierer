@@ -48,9 +48,13 @@ echo patch >"$IH/backports/PPSA05555/a.bin"
 echo fremd >"$IH/backports/PPSA07777/c.bin"
 echo patch2 >"$H/backports/PPSA01325 Astro Name/b.bin"
 game "$IH/PPSA86920" PPSA86920
+game "$H/D1" PPSA09090
+game "$H/D2" PPSA09090   # zweite Kopie derselben Titel-ID, teilt sich den Backport-Ordner
+mkdir -p "$H/backports/PPSA09090"; echo b >"$H/backports/PPSA09090/x.bin"
 cat >"$W/games.json" <<EOT
 [{"title_id":"PPSA01325","path":"$H/Astro"},{"title_id":"PPSA05555","path":"$IH/Intern"},
- {"title_id":"PPSA07777","path":"$IH/Fremd"},{"title_id":"PPSA86920","path":"$IH/PPSA86920"}]
+ {"title_id":"PPSA07777","path":"$IH/Fremd"},{"title_id":"PPSA86920","path":"$IH/PPSA86920"},
+ {"title_id":"PPSA09090","path":"$H/D1"}]
 EOT
 python3 test/smp_mock.py $SMP_PORT "$W/games.json" "$W/smp.log" &
 MPID=$!
@@ -98,6 +102,23 @@ library
 code=$(post "{\"keys\":\"$(key "$H/Astro")\",\"extras\":true}" delete)
 [ "$code" = 202 ] && wait_job && [ ! -e "$H/Astro" ] && [ ! -e "$H/Astro.sha256" ] && [ ! -e "$H/Astro.dump-info.json" ] && [ -d "$IH/Astro" ] \
     && ok "USB-Spiel: Spiel und Begleitdateien weg, die Kopie intern bleibt" || bad "USB löschen" "$code $(cat "$W/st"; ls "$H")"
+
+# ---------------------------------------------------------------- Geteiltes bleibt stehen, doppelte Schlüssel
+library
+KD2=$(key "$H/D2")
+code=$(post "{\"keys\":\"$KD2\",\"extras\":true}" delete)
+[ "$code" = 202 ] && wait_job && [ ! -e "$H/D2" ] && [ -d "$H/backports/PPSA09090" ]     && ok "zweite Kopie gelöscht: der gemeinsame Backport-Ordner der bleibenden Kopie bleibt" || bad "geteilter Backport" "$code $(cat "$W/st"; ls "$H/backports")"
+library
+KD1=$(key "$H/D1")
+code=$(post "{\"keys\":\"$KD1\",\"extras\":true}" delete)
+[ "$code" = 202 ] && wait_job && [ ! -e "$H/D1" ] && [ ! -e "$H/backports/PPSA09090" ]     && ok "letzte Kopie gelöscht: der Backport-Ordner geht mit" || bad "letzter Backport" "$code $(cat "$W/st"; ls "$H/backports")"
+game "$H/E1" PPSA09191
+library
+KE=$(key "$H/E1")
+code=$(post "{\"keys\":\"$KE,$KE\",\"device\":\"intern\",\"verify\":true}" move)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["result"]["copied"] == 1 and d["result"]["failed"] == 0' <"$W/st")" = True ]     && ok "doppelter Schlüssel: nur einmal kopiert, kein Fehler" || bad "doppelter Schlüssel" "$code $(cat "$W/st")"
+code=$(post "{\"keys\":\"$KE\",\"device\":\"ext9\"}" move)
+[ "$code" = 404 ] && ok "Ziel extN ohne eingehängtes Laufwerk abgelehnt" || bad "ext9" "$code $(cat "$W/body")"
 
 # ---------------------------------------------------------------- der Formatierer selbst
 library

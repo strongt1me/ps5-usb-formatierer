@@ -3244,5 +3244,23 @@
   "it": "Gli originali restano. Chiudi prima i giochi in esecuzione.",
   "es": "Los originales se conservan. Cierra antes los juegos en ejecución.",
   "fr": "Les originaux sont conservés. Quittez d'abord les jeux en cours."
+ },
+ "Angehakte Pakete kopieren …": {
+  "en": "Copy ticked packages …",
+  "it": "Copia i pacchetti selezionati …",
+  "es": "Copiar los paquetes marcados …",
+  "fr": "Copier les paquets cochés …"
+ },
+ "Die angehakten Pakete auf ein anderes Laufwerk kopieren; die Originale bleiben": {
+  "en": "Copy the ticked packages to another drive; the originals stay",
+  "it": "Copia i pacchetti selezionati su un'altra unità; gli originali restano",
+  "es": "Copiar los paquetes marcados a otra unidad; los originales se conservan",
+  "fr": "Copier les paquets cochés vers un autre lecteur ; les originaux restent"
+ },
+ "Pakete kopieren": {
+  "en": "Copy packages",
+  "it": "Copia pacchetti",
+  "es": "Copiar paquetes",
+  "fr": "Copier des paquets"
  }
 }

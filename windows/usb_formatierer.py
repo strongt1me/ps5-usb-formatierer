@@ -397,7 +397,7 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False):
     px = ui_theme.px
     win = tk.Toplevel(root)
     win.withdraw()
-    win.title(_("Spiele kopieren") if copy_only else _("Spiele verschieben"))
+    win.title((_("Pakete kopieren") if pkg else _("Spiele kopieren")) if copy_only else _("Spiele verschieben"))
     win.transient(root)
     frm = ttk.Frame(win, padding=(18, 14, 18, 14))
     frm.pack(fill="both", expand=True)
@@ -996,6 +996,7 @@ class App(tk.Tk):
         # unvollständige Sicherungen dieses Laufwerks (abgebrochen mit "behalten", Fehler, Neustart): fortsetzen oder verwerfen
         self.ps5_partials = []
         self._part_key = None
+        self._games_shown = self._pkgs_shown = self._tabs_shown = None   # neue (leere) Listen und Reiter: alles neu eintragen
         self.part_box = ttk.Frame(ic)
         self.part_box.grid(row=8, column=0, sticky="ew", pady=(px(14), 0))
         self.part_box.columnconfigure(0, weight=1)
@@ -1040,10 +1041,15 @@ class App(tk.Tk):
         pbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(px(8), 0))
         self.pkg_del_btn = ttk.Button(pbar, text=_("Angehakte Pakete löschen …"), style="Danger.TButton", command=self._pkg_delete)
         self.pkg_del_btn.pack(side="right")
+        self.pkg_sum = ttk.Label(pbar, style="Muted.TLabel")   # eigene Zeile über den Knöpfen: sonst wird er abgeschnitten
+        self.pkg_sum.pack(side="top", anchor="w", pady=(0, px(6)))
+        self.pkg_del_btn.pack_forget()
+        self.pkg_del_btn.pack(side="right")
         self.pkg_move_btn = ttk.Button(pbar, text=_("Angehakte Pakete verschieben …"), command=self._pkg_move)
         self.pkg_move_btn.pack(side="right", padx=(0, px(8)))
-        self.pkg_sum = ttk.Label(pbar, style="Muted.TLabel")
-        self.pkg_sum.pack(side="left")
+        self.pkg_copy_btn = ttk.Button(pbar, text=_("Angehakte Pakete kopieren …"), command=lambda: self._pkg_move(copy_only=True))
+        self.pkg_copy_btn.pack(side="right", padx=(0, px(8)))
+        Tooltip(self.pkg_copy_btn, lambda: self._why(self.pkg_copy_btn) or _("Die angehakten Pakete auf ein anderes Laufwerk kopieren; die Originale bleiben"))
         Tooltip(self.pkg_move_btn, lambda: self._why(self.pkg_move_btn) or _("Die angehakten Pakete auf ein anderes Laufwerk kopieren"))
         Tooltip(self.pkg_del_btn, lambda: self._why(self.pkg_del_btn) or _("Die angehakten Pakete vom Laufwerk löschen"))
         self.pkg_hint = ttk.Label(pk, style="Hint.TLabel", wraplength=px(440), justify="left",
@@ -1143,17 +1149,19 @@ class App(tk.Tk):
             self.mode_var.set(key)
             self._mode_changed()
 
-    def _set_tab(self, name):
-        """Reiter wechseln (An der PS5); steht ein anderer Modus, zuerst dorthin"""
+    def _set_tab(self, name, persist=True):
+        """Reiter wechseln (An der PS5); steht ein anderer Modus, zuerst dorthin. persist: merken (nicht beim automatischen Rückfall)"""
         if name not in dict(TABS) or name not in self._tab_keys():
             return
         self.page = name
-        self.settings["page"] = self.page
+        if persist:
+            self.settings["page"] = self.page
         if self.mode_var.get() != "ps5":
             self.mode_var.set("ps5")
             self._mode_changed()
         else:
-            save_settings(self.settings)
+            if persist:
+                save_settings(self.settings)
             self._show_page()
 
     def _place_selected(self):
@@ -1292,6 +1300,35 @@ class App(tk.Tk):
         entry.placeholder = (state, text)
         show()
 
+    def _call_bg(self, fn):
+        """fn() im Hintergrund ausführen und dabei das Fenster bedienbar halten (statt es bei langsamer PS5 bis zu 30 s
+        einzufrieren). Ausnahmen kommen beim Aufrufer an; währenddessen gilt das Programm als beschäftigt."""
+        box = {}
+
+        def run():
+            try:
+                box["v"] = fn()
+            except Exception as e:   # an den Aufrufer weiterreichen
+                box["e"] = e
+
+        was_busy = self.busy
+        self.busy = True
+        self._update()
+        self.configure(cursor="watch")
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        try:
+            while t.is_alive():
+                self.update()
+                time.sleep(0.03)
+        finally:
+            self.configure(cursor="")
+            self.busy = was_busy
+            self._update()
+        if "e" in box:
+            raise box["e"]
+        return box.get("v")
+
     def _game_query(self):
         st, text = self.game_search.placeholder
         return "" if st["on"] else self.game_filter.get().strip().lower()
@@ -1309,7 +1346,7 @@ class App(tk.Tk):
             return _("Erst ein Laufwerk wählen.")
         if btn in (self.del_btn, self.move_btn, self.copy_btn):
             return _("Erst Spiele anhaken.")
-        if btn in (self.pkg_del_btn, self.pkg_move_btn):
+        if btn in (self.pkg_del_btn, self.pkg_move_btn, self.pkg_copy_btn):
             return _("Erst Pakete anhaken.")
         if btn in (self.img_verify_btn, self.img_del_btn):
             return _("Erst eine Sicherung in der Liste wählen.")
@@ -1688,7 +1725,7 @@ class App(tk.Tk):
             return
         api = self.api
         try:
-            locs = api.saves_locations()
+            locs = self._call_bg(api.saves_locations)
         except (ConnectionError, ApiError) as e:
             messagebox.showerror(_("Spielstände sichern"), str(e), parent=self)
             return
@@ -1743,7 +1780,7 @@ class App(tk.Tk):
             return
         api = self.api
         try:
-            backups, locations = api.saves_backups()
+            backups, locations = self._call_bg(api.saves_backups)
         except (ConnectionError, ApiError) as e:
             messagebox.showerror(_("Spielstand wiederherstellen"), str(e), parent=self)
             return
@@ -1840,7 +1877,7 @@ class App(tk.Tk):
         consoles = list(self.consoles.values())
         picked = self.consoles.get(self.host_var.get().strip())
         status = self.status_var.get()
-        sel, checked, search = self._selected_device(), set(self.games_checked), self.game_filter.get()
+        sel, checked, search = self._selected_device(), set(self.games_checked), self._game_query()
         self.outer.destroy()
         self._build_ui()
         self.consoles = {self._console_text(c): c for c in consoles}   # Anzeigetexte ggf. in der neuen Sprache
@@ -1910,7 +1947,7 @@ class App(tk.Tk):
                     self.tab_btns[k].pack(side="right" if k == "format" else "left", padx=0 if k == "format" else (0, ui_theme.px(4)))
             self._tabs_shown = keys
         if self.mode_var.get() == "ps5" and self.page not in keys:
-            self._set_tab("games")
+            self._set_tab("games", persist=False)
         fdev = self._selected_device()
         self.fmt_drive_lbl.configure(text=(f"{dev_title(fdev)} ({fdev.get('name') or fdev.get('disk', '')}, {fmt_size(fdev['size'])})"
                                            if fdev and fdev.get("size") else _("Erst ein Laufwerk wählen.")))
@@ -1947,6 +1984,7 @@ class App(tk.Tk):
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
         enable(self.pkg_del_btn, idle and not pc and self.api and self.pkg_checked)
         enable(self.pkg_move_btn, idle and not pc and self.api and self.pkg_checked and len(self.devices) > 1)
+        enable(self.pkg_copy_btn, idle and not pc and self.api and self.pkg_checked and len(self.devices) > 1)
         enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
         enable(self.copy_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
         for w in (self.backup_btn, self.restore_btn):
@@ -2134,7 +2172,7 @@ class App(tk.Tk):
         self.pbar["value"] = 0
         self._run(work)
 
-    def _pkg_move(self):
+    def _pkg_move(self, copy_only=False):
         dev, picked = self._pkg_selection()
         if self.busy or not dev or not picked or not self.api:
             return
@@ -2142,7 +2180,7 @@ class App(tk.Tk):
         if not targets:
             messagebox.showinfo(_("Pakete verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
             return
-        res = ask_move(self, dev, targets, [x.get("name") for x in picked], pkg=True)
+        res = ask_move(self, dev, targets, [x.get("name") for x in picked], pkg=True, copy_only=copy_only)
         if not res or self.busy or not self.api:
             return
         target, verify, _extras = res
@@ -2154,6 +2192,9 @@ class App(tk.Tk):
             self.status_var.set(msg)
             if not result.get("copied"):
                 messagebox.showerror(_("Pakete verschieben"), msg, parent=self)
+                return
+            if copy_only:
+                messagebox.showinfo(_("Pakete kopieren"), msg, parent=self)
                 return
             copied = [k for k in (result.get("keys") or "").split(",") if k in by_key]
             shown = "\n".join("• " + by_key[k].get("name", "") for k in copied[:10])
@@ -2202,8 +2243,7 @@ class App(tk.Tk):
         if rows != getattr(self, "_games_shown", None):
             top = self.games_tree.yview()[0]
             self.games_tree.delete(*self.games_tree.get_children())
-            keys = {iid for iid, _n, _m in rows if iid}
-            self.games_checked &= keys   # nicht mehr vorhandene Spiele sind nicht mehr angehakt
+            self.games_checked &= {g.get("key") for g in games}   # nicht mehr vorhandene Spiele sind nicht mehr angehakt (der Filter blendet nur aus)
             for i, (iid, name, meta) in enumerate(rows):
                 self.games_tree.insert("", "end", iid=iid, text="  " + name, values=(meta,),
                                        image=self.check_imgs[iid in self.games_checked], tags=("odd",) if i % 2 else ())
@@ -2428,6 +2468,12 @@ class App(tk.Tk):
         save_settings(self.settings)
         self.api = None
         self.games = {}
+        self.pkgs = {}
+        self.place_devs = []
+        self.pkg_checked.clear()
+        self.__dict__["_sizes_asked"] = set()
+        self.__dict__["_game_sizes_known"] = {}
+        self._lib_fail = 0
         self.lib_known = self.lib_loading = False   # Spieleliste gehört zur alten PS5
         self._fill_devices([])
         return Api(host)
@@ -2459,6 +2505,12 @@ class App(tk.Tk):
                     return
                 except ConnectionError:
                     pass
+            if port_open(host, API_PORT):   # er läuft und antwortet nur langsam: nicht noch einmal senden
+                try:
+                    self.q.put(("connected", api, api.devices(timeout=25)))
+                except (ConnectionError, ApiError) as e:
+                    self.q.put(("error", str(e)))
+                return
 
             payload = find_payload()
             if not payload:
@@ -3394,6 +3446,8 @@ class App(tk.Tk):
             self.busy = False
             self._scan_finished()
             self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
+            hist = msg[2].get("history")
+            self.ps5_history = [e for e in hist if isinstance(e, dict)] if isinstance(hist, list) else []
             self._fill_devices(msg[2].get("devices") or [])
             self._load_library()
             self._check_version(msg[1])
@@ -3422,9 +3476,10 @@ class App(tk.Tk):
             self._fill_saves(msg[1], msg[2])
         elif kind == "game_sizes":
             if msg[4] is self.api:
+                known = self.__dict__.setdefault("_game_sizes_known", {})
                 for g in self.games.get(msg[1], []):
                     if g.get("kind") == "Ordner" and g.get("key") in msg[2]:
-                        g["size"] = msg[2][g["key"]]
+                        g["size"] = known[g["key"]] = msg[2][g["key"]]
                 self._show_games()
         elif kind == "saves_backups":
             self._saves_backups = msg[1]
@@ -3442,6 +3497,9 @@ class App(tk.Tk):
         elif kind == "devices_quiet":
             # leise nachgeladen (nach einem Auftrag): nur übernehmen, wenn inzwischen nichts anderes läuft
             if msg[1] is self.api and not self.busy and not self.formatting and self.mode_var.get() == "ps5":
+                hist = msg[2].get("history")
+                if isinstance(hist, list):
+                    self.ps5_history = [e for e in hist if isinstance(e, dict)]
                 self._fill_devices(msg[2].get("devices") or [])
                 self._load_library()
                 self._update()
@@ -3514,23 +3572,42 @@ class App(tk.Tk):
                     if pk.get("device"):
                         pkgs.setdefault(pk["device"], []).append(pk)
                 self.pkgs = pkgs
+                known = self.__dict__.setdefault("_game_sizes_known", {})
+                for lst in games.values():
+                    for g in lst:
+                        if g.get("kind") == "Ordner" and not g.get("size") and known.get(g.get("key")):
+                            g["size"] = known[g["key"]]
                 self.games = games
+                self._lib_fail = 0
                 places = place_devices(data.get("roots"))
                 if [d["name"] for d in places] != [d["name"] for d in self.place_devs]:
                     self.place_devs = places
-                    if self.mode_var.get() == "ps5" and self.ps5_devices:
+                    if self.mode_var.get() == "ps5" and self.api:
                         self.devices = self.ps5_devices + places
                 self.lib_known = True
                 if data.get("scanning"):
                     self.lib_loading = True   # Anzeige "werden gesucht" bis zum nächsten Abruf
-                    self._library_progress(data.get("progress") or {})
+                    try:
+                        self._library_progress(data.get("progress") or {})
+                    except (TypeError, ValueError):
+                        pass
                     self.after(1000, lambda a=self.api: self._relibrary(a))
                 elif self.lib_bar:
                     self.lib_bar = False
                     if not self.busy and self.mode_var.get() == "ps5":
                         self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
                         self._scan_finished()
-            if self.mode_var.get() == "ps5" and self.ps5_devices:
+            elif self.api:   # keine Antwort (PS5 sucht gerade, Platte läuft an): Balken freigeben, später erneut fragen
+                if self.lib_bar:
+                    self.lib_bar = False
+                    if not self.busy and self.mode_var.get() == "ps5":
+                        self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
+                        self._scan_finished()
+                fails = getattr(self, "_lib_fail", 0)
+                if fails < 3:
+                    self._lib_fail = fails + 1
+                    self.after(3000, lambda a=self.api: self._relibrary(a))
+            if self.mode_var.get() == "ps5" and self.api:
                 self.devices = self.ps5_devices + self.place_devs
                 self.dev_combo.refresh([self._ps5_drive_item(d) for d in self.devices])
             self._show_games()

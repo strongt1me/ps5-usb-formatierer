@@ -313,6 +313,7 @@ typedef struct {
     del_item_t *items;
     int      nitems, uninstall;
     int      extras;             /* zugehörige Dateien (Backport, Prüfsummen) mitkopieren bzw. mitlöschen */
+    dev_t    tdev;               /* Verschieben: st_dev der Ziel-Wurzel bei der Auswahl */
     /* Image sichern (path: Zielordner) bzw. wiederherstellen (path: Image-Datei, schon geöffnet in img/rd) */
     char     path[512];
     FILE    *img;
@@ -877,6 +878,19 @@ static uint32_t path_key(const char *p) {
 
 static int find_extras(const char *root, const char *path, const char *id, char (*out)[300], int max);
 
+/* Zwischengespeicherte zugehörige Dateien (Zeilenumbruch-getrennt) in einen Auftragseintrag übernehmen */
+static int xtra_has(const char *xt, const char *ex) {
+    const size_t el = strlen(ex);
+    for (const char *a = xt; a && *a;) {
+        const char *e = strchr(a, 10);
+        const size_t l = e ? (size_t)(e - a) : strlen(a);
+        if (l == el && !memcmp(a, ex, el)) return 1;
+        if (!e) break;
+        a = e + 1;
+    }
+    return 0;
+}
+
 static void libroot_free(libroot_t *r) {
     for (int i = 0; r->xtra && i < r->r.ntitles; i++) free(r->xtra[i]);
     free(r->xtra);
@@ -885,6 +899,7 @@ static void libroot_free(libroot_t *r) {
 }
 
 /* Zugehörige Dateien aller Titel der Wurzel suchen und merken */
+static void item_extras(del_item_t *it, const char *xt);
 static void libroot_fill_extras(libroot_t *r) {
     char (*ex)[300] = malloc(sizeof(char[300]) * LIB_EXTRAS_MAX);
     r->xtra = r->r.ntitles > 0 ? calloc((size_t)r->r.ntitles, sizeof(*r->xtra)) : NULL;
@@ -899,6 +914,45 @@ static void libroot_fill_extras(libroot_t *r) {
         r->xtra[k] = joined;
     }
     free(ex);
+}
+
+static void item_extras(del_item_t *it, const char *xt) {
+    it->nex = 0;
+    for (const char *a = xt; a && *a && it->nex < LIB_EXTRAS_MAX;) {
+        const char *e = strchr(a, 10);
+        const size_t l = e ? (size_t)(e - a) : strlen(a);
+        if (l < sizeof(it->ex[0])) {
+            memcpy(it->ex[it->nex], a, l);
+            it->ex[it->nex][l] = 0;
+            it->nex++;
+        }
+        if (!e) break;
+        a = e + 1;
+    }
+}
+
+/* Löschen: was auch ein anderer, bleibender Titel nutzt (zweite Kopie derselben Titel-ID, gemeinsame Prüfsumme), bleibt stehen.
+ * Aufruf unter lib_lock. */
+static void drop_shared_extras(job_t *j) {
+    for (int i = 0; i < j->nitems; i++) {
+        del_item_t *it = &j->items[i];
+        int keep = 0;
+        for (int x = 0; x < it->nex; x++) {
+            int shared = 0;
+            for (int r = 0; r < lib_n && !shared; r++)
+                for (int t = 0; t < lib_snap[r].r.ntitles && !shared; t++) {
+                    const char *tp = lib_snap[r].r.titles[t].path;
+                    int selected = 0;
+                    for (int q = 0; q < j->nitems; q++) selected |= !strcmp(j->items[q].path, tp);
+                    if (!selected && lib_snap[r].xtra && lib_snap[r].xtra[t] && xtra_has(lib_snap[r].xtra[t], it->ex[x])) shared = 1;
+                }
+            if (!shared) {
+                if (keep != x) memcpy(it->ex[keep], it->ex[x], sizeof(it->ex[0]));
+                keep++;
+            }
+        }
+        it->nex = keep;
+    }
 }
 
 static void lib_free_all(libroot_t *r, int n) {
@@ -1064,8 +1118,11 @@ static int find_extras(const char *root, const char *path, const char *id, char 
         snprintf(b2, sizeof(b2), "%s/etaHEN/games", root);
         snprintf(b3, sizeof(b3), "%s/homebrew", ib);
         snprintf(b4, sizeof(b4), "%s/etaHEN/games", ib);
-        const char *bases[] = {dir, root, b1, b2, ib, b3, b4, NULL};
-        for (int b = 0; bases[b]; b++) n = backport_in(bases[b], id, out, n, max);
+        const size_t il = strlen(ib);
+        const int is_internal = !strncmp(root, ib, il) && root[il] == '/';   /* nur interne Spiele nutzen die internen Backports mit */
+        const char *bases[] = {dir, root, b1, b2, is_internal ? ib : NULL, b3, b4, NULL};
+        for (int b = 0; b < 7; b++)
+            if (bases[b] && (b < 4 || is_internal)) n = backport_in(bases[b], id, out, n, max);
     }
     return n;
 }
@@ -3259,10 +3316,10 @@ static void *delete_worker(void *arg) {
                                        "versuchen"));
         } else {
             /* nicht von ShadowMountPlus genutzt (z. B. zweite Kopie): selbst löschen - nur innerhalb der Wurzel des
-             * USB-Laufwerks, auf dem die Suche es fand (api_delete übernimmt nur Spiele von USB-Laufwerken) */
+             * Suchordners, in dem die Suche es fand */
             if (!path_inside(it->path, it->root)) {
                 rc = -1;
-                snprintf(err, sizeof(err), "%s", T("Pfad liegt nicht auf dem USB-Laufwerk"));
+                snprintf(err, sizeof(err), "%s", T("Pfad liegt nicht im durchsuchten Ordner"));
             } else {
                 on_progress(del_step, base > 0 ? base : 1);
                 rm_prog_t rp = {tree_weight(it->path, 0), 0, base, span, -1};
@@ -3284,7 +3341,14 @@ static void *delete_worker(void *arg) {
         if (rc == 0) {
             ok_n++;
             sb_add(&done_names, "%s%s", done_names.len ? ", " : "", it->name);
+            char xb[128];
+            const char *xbase = move_base(it->root, xb, sizeof(xb));
             for (int x = 0; j->extras && x < it->nex; x++) {   /* Backport-Ordner, Prüfsummen: sonst gälten sie beim nächsten Mal wieder */
+                if (!path_inside(it->ex[x], xbase)) {   /* Verknüpfung o. ä. führt aus dem Suchbereich hinaus: nichts anfassen */
+                    sb_add(&errs, "%s", errs.len ? "; " : "");
+                    sb_tr(&errs, "%s: Zugehöriges liegt außerhalb des Ordners – nicht gelöscht", it->name);
+                    continue;
+                }
                 if (remove_tree(it->ex[x], 0, NULL) == 0) extras_n++;
                 else if (errno != ENOENT) {
                     sb_add(&errs, "%s", errs.len ? "; " : "");
@@ -4082,11 +4146,12 @@ static void api_delete(int c, const char *body) {
                 snprintf(it->device, sizeof(it->device), "%s", lroot_name(&lib_snap[i]));
                 it->size = tt->size;
                 it->dev = lib_snap[i].dev;
-                if (with_extras) it->nex = find_extras(lib_snap[i].r.root, tt->path, tt->id, it->ex, LIB_EXTRAS_MAX);
+                if (with_extras && lib_snap[i].xtra) item_extras(it, lib_snap[i].xtra[t]);
                 if (!strcmp(tt->id, APP_TITLE)) own = 1;
             }
         }
     }
+    if (with_extras) drop_shared_extras(j);
     pthread_mutex_unlock(&lib_lock);
     if (own) {   /* der Formatierer läuft aus diesem Ordner */
         free(j->items);
@@ -4132,7 +4197,8 @@ static void mv_progress(mv_t *m, int force) {
     time_t now = time(NULL);
     if (!force && now == m->last) return;
     m->last = now;
-    int pct = m->weight ? (int)(m->done * 98 / m->weight) : 1;
+    const uint64_t dn = m->done > m->weight ? m->weight : m->done;
+    int pct = m->weight ? (int)(dn * 98 / m->weight) : 1;
     on_progress(m->step, pct < 1 ? 1 : pct);
 }
 
@@ -4172,6 +4238,7 @@ static int mv_copy_file(mv_t *m, const char *src, const char *dst, const char *r
     out = open(dst, O_WRONLY | O_CREAT | O_EXCL, sb->st_mode & 0777 ? sb->st_mode & 0777 : 0644);
     if (out < 0) { snprintf(m->err, sizeof(m->err), T("Die Datei %s lässt sich nicht anlegen: %s"), dst, strerror(errno)); close(in); return -1; }
     sha256_t sh;
+    uint64_t copied = 0;
     sha256_init(&sh);
     for (;;) {
         if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { snprintf(m->err, sizeof(m->err), "%s", T("Abgebrochen.")); goto out; }
@@ -4187,8 +4254,13 @@ static int mv_copy_file(mv_t *m, const char *src, const char *dst, const char *r
             off += w;
         }
         m->done += (uint64_t)r;
+        copied += (uint64_t)r;
         mv_progress(m, 0);
         plat_throttle();   /* Tests (USBFMT_SLOW): Kopieren bremsen, damit "Abbrechen" sicher mitten drin ankommt */
+    }
+    if (copied != (uint64_t)sb->st_size) {   /* Datei wuchs oder schrumpfte beim Kopieren (z. B. noch beschrieben): Kopie wäre unvollständig */
+        snprintf(m->err, sizeof(m->err), T("Die Quelle hat sich während des Kopierens geändert: %s"), src);
+        goto out;
     }
     if (fsync(out) != 0 && errno != EINVAL) { write_error(errno, m->err, sizeof(m->err)); goto out; }
     if (sb->st_size > 0 && getenv("USBFMT_MOVE_CORRUPT")) {   /* Test: ein beschädigtes Byte in der Kopie muss die Prüfung bemerken */
@@ -4207,9 +4279,20 @@ out:
 }
 
 /* rel: Pfad des Eintrags unterhalb des Spiels ("" für das Spiel selbst) */
+/* Liegt ep direkt in einem Ordner "backports" bzw. "backport"? (nur der Elternordnername zählt, nicht irgendein Pfadteil) */
+static int is_backport_dir(const char *ep) {
+    const char *sl = strrchr(ep, 47);
+    if (!sl || sl == ep) return 0;
+    const char *q = sl - 1;
+    while (q > ep && *q != 47) q--;
+    if (*q == 47) q++;
+    const size_t l = (size_t)(sl - q);
+    return (l == 9 && !strncmp(q, "backports", 9)) || (l == 8 && !strncmp(q, "backport", 8));
+}
+
 static int mv_copy_tree(mv_t *m, const char *src, const char *dst, const char *rel, int depth) {
     struct stat sb;
-    if (depth > 32 || lstat(src, &sb) != 0) { snprintf(m->err, sizeof(m->err), T("%s lässt sich nicht lesen: %s"), src, strerror(errno ? errno : ELOOP)); return -1; }
+    if (depth > 32 ? (errno = ELOOP, 1) : lstat(src, &sb) != 0) { snprintf(m->err, sizeof(m->err), T("%s lässt sich nicht lesen: %s"), src, strerror(errno)); return -1; }
     if (S_ISREG(sb.st_mode)) return mv_copy_file(m, src, dst, rel, &sb);
     if (!S_ISDIR(sb.st_mode)) { snprintf(m->err, sizeof(m->err), T("Nicht unterstützte Datei (Verknüpfung oder Sonderdatei): %s"), src); return -1; }
     if (mkdir(dst, 0777) != 0 && errno != EEXIST) { snprintf(m->err, sizeof(m->err), T("Der Ordner %s lässt sich nicht anlegen: %s"), dst, strerror(errno)); return -1; }
@@ -4279,14 +4362,14 @@ static void *move_worker(void *arg) {
     i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0}, items = {0}, errs = {0}, xwarn = {0};
     char s1[24], s2[24], stage[640];
-    int ok_n = 0, fail_n = 0;
+    int ok_n = 0, fail_n = 0, was_cancel = 0;
     mv_t m;
     memset(&m, 0, sizeof(m));
     m.verify = j->verify;
     m.buf = malloc(MV_BUF);
     const char *troot = j->path;   /* Wurzel des Ziel-Laufwerks */
     snprintf(stage, sizeof(stage), "%s/%s", troot, MOVE_DIR);
-    if (!m.buf) { sb_tr(&msg, "Kein Speicher"); job_done(j, 0, &msg, &res, 0); return NULL; }
+    if (!m.buf) { sb_tr(&msg, "Kein Speicher"); free(j->items); j->items = NULL; job_done(j, 0, &msg, &res, 0); return NULL; }
     set_flags(1, 0);
 
     /* Gesamtgröße (Ordner: alle Dateien ansehen) und Platz am Ziel */
@@ -4306,6 +4389,7 @@ static void *move_worker(void *arg) {
         goto fin;
     }
     if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { sb_tr(&msg, "Abgebrochen – nichts kopiert."); goto fin; }
+    if (root_dev(troot) != j->tdev) { sb_tr(&msg, "Das Ziel hat sich seit der Auswahl geändert – nichts kopiert. Liste neu laden."); goto fin; }
     (void)remove_tree(stage, 0, NULL);   /* Reste eines früheren, abgebrochenen Laufs */
     if (mkdirs_to(stage) != 0) { sb_tr(&msg, "Der Ordner %s lässt sich nicht anlegen: %s", stage, strerror(errno)); goto fin; }
 
@@ -4315,7 +4399,12 @@ static void *move_worker(void *arg) {
         char bbuf[128];
         const char *mbase = move_base(it->root, bbuf, sizeof(bbuf));
         const size_t rl = strlen(mbase);
-        if (strncmp(it->path, mbase, rl) != 0 || it->path[rl] != '/') { sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("Pfad liegt nicht auf dem USB-Laufwerk")); fail_n++; continue; }
+        if (root_dev(it->root) != it->dev || (!j->pkgmode && !lib_same_game(it->path, it->id, it->size))) {
+            sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("Spiel hat sich seit der Suche geändert – nichts kopiert. Liste neu laden."));
+            fail_n++;
+            continue;
+        }
+        if (strncmp(it->path, mbase, rl) != 0 || it->path[rl] != '/') { sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("Pfad liegt nicht im durchsuchten Ordner")); fail_n++; continue; }
         snprintf(rel, sizeof(rel), "%s", it->path + rl + 1);
         if (!j->pkgmode && !strcmp(troot, internal_base()) && strncmp(rel, "homebrew/", 9) != 0 && strncmp(rel, "etaHEN/games/", 13) != 0) {
             const char *nm = strrchr(it->path, '/');   /* intern liegen Spiele nur in homebrew/ bzw. etaHEN/games/ */
@@ -4345,7 +4434,11 @@ static void *move_worker(void *arg) {
             snprintf(parent, sizeof(parent), "%s", final_path);
             char *sl = strrchr(parent, '/');
             if (sl) *sl = 0;
-            if (mkdirs_to(parent) != 0 || rename(gstage, final_path) != 0) {
+            struct stat late;
+            if (lstat(final_path, &late) == 0) {   /* erst während des Kopierens entstanden: rename würde eine Datei still ersetzen */
+                snprintf(m.err, sizeof(m.err), "%s", T("liegt am Ziel schon vor – nichts überschrieben"));
+                rc = -1;
+            } else if (mkdirs_to(parent) != 0 || rename(gstage, final_path) != 0) {
                 snprintf(m.err, sizeof(m.err), T("Übernehmen am Ziel fehlgeschlagen: %s"), strerror(errno));
                 rc = -1;
             }
@@ -4357,7 +4450,7 @@ static void *move_worker(void *arg) {
             char xfinal[1024], xstage[800];
             en = en ? en + 1 : ep;
             struct stat xs;
-            if (strstr(ep, "/backport")) {   /* .../backports/<Name>: neben dem Spiel, sonst im homebrew-Ordner des Ziels */
+            if (is_backport_dir(ep)) {   /* .../backports/<Name>: neben dem Spiel, sonst im homebrew-Ordner des Ziels */
                 char par[1024], gpar[1024];
                 snprintf(par, sizeof(par), "%s", ep);
                 for (int up = 0; up < 2; up++) { char *s2 = strrchr(par, '/'); if (s2) *s2 = 0; }
@@ -4389,7 +4482,11 @@ static void *move_worker(void *arg) {
                 snprintf(xparent, sizeof(xparent), "%s", xfinal);
                 char *sl3 = strrchr(xparent, '/');
                 if (sl3) *sl3 = 0;
-                if (mkdirs_to(xparent) != 0 || rename(xstage, xfinal) != 0) {
+                struct stat xlate;
+                if (lstat(xfinal, &xlate) == 0) {
+                    snprintf(m.err, sizeof(m.err), "%s", T("liegt am Ziel schon vor – nichts überschrieben"));
+                    xrc = -1;
+                } else if (mkdirs_to(xparent) != 0 || rename(xstage, xfinal) != 0) {
                     snprintf(m.err, sizeof(m.err), T("Übernehmen am Ziel fehlgeschlagen: %s"), strerror(errno));
                     xrc = -1;
                 }
@@ -4405,6 +4502,7 @@ static void *move_worker(void *arg) {
             (void)remove_tree(gstage, 0, NULL);
             if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
                 sb_tr(&msg, "Abgebrochen – kopiert und geprüft: %d von %d.", ok_n, j->nitems);
+                was_cancel = 1;
                 goto fin;
             }
             sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, m.err[0] ? m.err : T("Kopieren fehlgeschlagen"));
@@ -4416,7 +4514,10 @@ static void *move_worker(void *arg) {
         ok_n++;
         sb_add(&items, "%s%08x", items.len ? "," : "", path_key(it->path));   /* Schlüssel der kopierten Originale (für "Originale löschen") */
     }
-    if (ok_n) {
+    if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) was_cancel = 1;   /* auch ein Abbruch beim Kopieren der zugehörigen Dateien */
+    if (was_cancel && ok_n) {
+        sb_tr(&msg, "Abgebrochen – kopiert und geprüft: %d von %d.", ok_n, j->nitems);
+    } else if (ok_n) {
         if (j->pkgmode) sb_tr(&msg, "Pakete kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.", m.verify ? T(" und geprüft") : "", ok_n, j->dev.name);
         else sb_tr(&msg, "Spiele kopiert%s: %d (nach %s). Die Originale sind noch vorhanden.", m.verify ? T(" und geprüft") : "", ok_n, j->dev.name);
         if (fail_n) sb_tr(&msg, " Nicht kopiert: %d – %s", fail_n, errs.p ? errs.p : "");
@@ -4435,7 +4536,7 @@ fin:
     free(xwarn.p);
     free(j->items);
     j->items = NULL;
-    job_done(j, ok_n > 0 && fail_n == 0, &msg, &res, 1);
+    job_done(j, ok_n > 0 && fail_n == 0 && !was_cancel, &msg, &res, 1);
     return NULL;
 }
 
@@ -4473,7 +4574,7 @@ static void api_move(int c, const char *body) {
         struct stat xs;
         snprintf(j->path, sizeof(j->path), "/mnt/%.8s", dev);
         snprintf(j->dev.name, sizeof(j->dev.name), "%.8s", dev);
-        have_target = stat(j->path, &xs) == 0 && S_ISDIR(xs.st_mode);
+        have_target = stat(j->path, &xs) == 0 && S_ISDIR(xs.st_mode) && root_dev(j->path) != root_dev("/mnt");   /* eingehängt, nicht nur ein leerer Ordner */
     }
     for (int i = 0; i < lib_n; i++)   /* Ziel: eingebundenes USB-Laufwerk dieses Namens */
         if (lib_snap[i].usb && !strcmp(lib_snap[i].device, dev) && !have_target) {
@@ -4499,6 +4600,9 @@ static void api_move(int c, const char *body) {
                     if (path_key(pk->path) != want) continue;
                     if (!strcmp(lroot_name(&lib_snap[i]), dev)) { same_dev = 1; continue; }
                     const char *nm = strrchr(pk->path, '/');
+                    int dup = 0;
+                    for (int d2 = 0; d2 < j->nitems; d2++) dup |= !strcmp(j->items[d2].path, pk->path);
+                    if (dup) continue;
                     del_item_t *it = &j->items[j->nitems++];
                     snprintf(it->id, sizeof(it->id), "%s", pk->title_id);
                     snprintf(it->name, sizeof(it->name), "%.127s", nm ? nm + 1 : pk->path);
@@ -4514,8 +4618,11 @@ static void api_move(int c, const char *body) {
                 const lib_title_t *tt = &lib_snap[i].r.titles[t];
                 if (path_key(tt->path) != want) continue;
                 if (!strcmp(lroot_name(&lib_snap[i]), dev)) { same_dev = 1; continue; }
+                int dup = 0;
+                for (int d2 = 0; d2 < j->nitems; d2++) dup |= !strcmp(j->items[d2].path, tt->path);
+                if (dup) continue;
                 del_item_t *it = &j->items[j->nitems++];
-                if (j->extras) it->nex = find_extras(lib_snap[i].r.root, tt->path, tt->id, it->ex, LIB_EXTRAS_MAX);
+                if (j->extras && lib_snap[i].xtra) item_extras(it, lib_snap[i].xtra[t]);
                 snprintf(it->id, sizeof(it->id), "%s", tt->id);
                 snprintf(it->name, sizeof(it->name), "%s", tt->name[0] ? tt->name : tt->id);
                 snprintf(it->path, sizeof(it->path), "%s", tt->path);
@@ -4526,6 +4633,7 @@ static void api_move(int c, const char *body) {
             }
         }
     }
+    j->tdev = have_target ? root_dev(j->path) : (dev_t)-1;
     pthread_mutex_unlock(&lib_lock);
     if (!have_target || ambiguous || badkey || same_dev || !j->nitems) {
         job_free(j);

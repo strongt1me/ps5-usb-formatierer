@@ -2920,5 +2920,35 @@
   "it": "%s: elemento collegato non copiato (%s)",
   "es": "%s: elemento relacionado no copiado (%s)",
   "fr": "%s : élément associé non copié (%s)"
+ },
+ "Pfad liegt nicht im durchsuchten Ordner": {
+  "en": "Path is not inside the searched folder",
+  "it": "Il percorso non è nella cartella analizzata",
+  "es": "La ruta no está dentro de la carpeta analizada",
+  "fr": "Le chemin n'est pas dans le dossier analysé"
+ },
+ "Spiel hat sich seit der Suche geändert – nichts kopiert. Liste neu laden.": {
+  "en": "Game changed since the search – nothing copied. Reload the list.",
+  "it": "Il gioco è cambiato dopo la ricerca – nulla copiato. Ricarica l'elenco.",
+  "es": "El juego cambió desde la búsqueda – no se copió nada. Recarga la lista.",
+  "fr": "Le jeu a changé depuis la recherche – rien copié. Rechargez la liste."
+ },
+ "Das Ziel hat sich seit der Auswahl geändert – nichts kopiert. Liste neu laden.": {
+  "en": "The destination changed since the selection – nothing copied. Reload the list.",
+  "it": "La destinazione è cambiata dopo la selezione – nulla copiato. Ricarica l'elenco.",
+  "es": "El destino cambió desde la selección – no se copió nada. Recarga la lista.",
+  "fr": "La destination a changé depuis la sélection – rien copié. Rechargez la liste."
+ },
+ "Die Quelle hat sich während des Kopierens geändert: %s": {
+  "en": "The source changed while copying: %s",
+  "it": "L'origine è cambiata durante la copia: %s",
+  "es": "El origen cambió durante la copia: %s",
+  "fr": "La source a changé pendant la copie : %s"
+ },
+ "%s: Zugehöriges liegt außerhalb des Ordners – nicht gelöscht": {
+  "en": "%s: related item lies outside the folder – not deleted",
+  "it": "%s: l'elemento collegato è fuori dalla cartella – non eliminato",
+  "es": "%s: el elemento relacionado está fuera de la carpeta – no borrado",
+  "fr": "%s : l'élément associé est en dehors du dossier – non supprimé"
  }
 }

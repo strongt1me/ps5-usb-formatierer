@@ -2248,5 +2248,47 @@
   "it": "Copia non riuscita",
   "es": "Error al copiar",
   "fr": "Échec de la copie"
+ },
+ "Es läuft bereits ein Auftrag.": {
+  "en": "A job is already running.",
+  "it": "È già in corso un'operazione.",
+  "es": "Ya hay una tarea en curso.",
+  "fr": "Une tâche est déjà en cours."
+ },
+ "Backport": {
+  "en": "Backport",
+  "it": "Backport",
+  "es": "Backport",
+  "fr": "Backport"
+ },
+ "wird durchsucht …": {
+  "en": "searching …",
+  "it": "ricerca in corso …",
+  "es": "buscando …",
+  "fr": "recherche en cours …"
+ },
+ "Keine PKG-Dateien an diesem Ort.": {
+  "en": "No PKG files in this location.",
+  "it": "Nessun file PKG in questa posizione.",
+  "es": "No hay archivos PKG en esta ubicación.",
+  "fr": "Aucun fichier PKG à cet emplacement."
+ },
+ "Paket kopieren": {
+  "en": "Copy package",
+  "it": "Copia pacchetto",
+  "es": "Copiar paquete",
+  "fr": "Copier le paquet"
+ },
+ "{n} Pakete kopieren": {
+  "en": "Copy {n} packages",
+  "it": "Copia {n} pacchetti",
+  "es": "Copiar {n} paquetes",
+  "fr": "Copier {n} paquets"
+ },
+ "Die Originale bleiben erhalten.": {
+  "en": "The originals are kept.",
+  "it": "Gli originali restano.",
+  "es": "Los originales se conservan.",
+  "fr": "Les originaux sont conservés."
  }
 }

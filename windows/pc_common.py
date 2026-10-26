@@ -165,6 +165,10 @@ def lock_helper(exe):
     except OSError as e:
         k32.CloseHandle(ctypes.c_void_p(h))
         raise OSError(_("Der Helfer usbfmt_win.exe lässt sich nicht lesen: {e}", e=e)) from None
+    if getattr(sys, "frozen", False) and not HELPER_SHA256:   # ausgeliefert, aber ohne Prüfsumme: Helfer nicht ungeprüft starten
+        k32.CloseHandle(ctypes.c_void_p(h))
+        raise OSError(_("Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. "
+                        "Bitte das Programm neu herunterladen."))
     if HELPER_SHA256 and digest != HELPER_SHA256:
         k32.CloseHandle(ctypes.c_void_p(h))
         raise OSError(_("Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. "
@@ -191,11 +195,13 @@ def pc_list(progress=None):
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     got, errors, started = {}, [], time.time()
     last = {"pct": 0, "pending": [], "at": started, "top": 0}
+    show_lock = threading.Lock()
 
     def show(pct, pending):
-        last["top"] = pct = max(pct, last["top"])   # der Balken geht nie zurück
-        if progress:
-            progress(pct, pc_scan_text(pending, time.time() - started))
+        with show_lock:   # Lesethread und Wartschleife melden beide: Höchstwert und Meldung gehören zusammen
+            last["top"] = pct = max(pct, last["top"])   # der Balken geht nie zurück
+            if progress:
+                progress(pct, pc_scan_text(pending, time.time() - started))
 
     def report(pct, pending):
         last.update(pct=pct, pending=pending, at=time.time())
@@ -410,6 +416,9 @@ class _WinJob:
                 break
             except FileExistsError:
                 continue
+            except OSError:
+                ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(lock))
+                raise
         if not self.tmpdir:
             ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(lock))
             raise OSError(_("Arbeitsordner im Temp-Verzeichnis ließ sich nicht anlegen."))
