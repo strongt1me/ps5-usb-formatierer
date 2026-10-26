@@ -54,7 +54,7 @@ mkdir -p "$H/backports/PPSA09090"; echo b >"$H/backports/PPSA09090/x.bin"
 cat >"$W/games.json" <<EOT
 [{"title_id":"PPSA01325","path":"$H/Astro"},{"title_id":"PPSA05555","path":"$IH/Intern"},
  {"title_id":"PPSA07777","path":"$IH/Fremd"},{"title_id":"PPSA86920","path":"$IH/PPSA86920"},
- {"title_id":"PPSA09090","path":"$H/D1"}]
+ {"title_id":"PPSA09090","path":"$H/D1"},{"title_id":"PPSA09292","path":"$H/D3verwaltet"}]
 EOT
 python3 test/smp_mock.py $SMP_PORT "$W/games.json" "$W/smp.log" &
 MPID=$!
@@ -119,6 +119,14 @@ code=$(post "{\"keys\":\"$KE,$KE\",\"device\":\"intern\",\"verify\":true}" move)
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"] and d["result"]["copied"] == 1 and d["result"]["failed"] == 0' <"$W/st")" = True ]     && ok "doppelter Schlüssel: nur einmal kopiert, kein Fehler" || bad "doppelter Schlüssel" "$code $(cat "$W/st")"
 code=$(post "{\"keys\":\"$KE\",\"device\":\"ext9\"}" move)
 [ "$code" = 404 ] && ok "Ziel extN ohne eingehängtes Laufwerk abgelehnt" || bad "ext9" "$code $(cat "$W/body")"
+
+# ---------------------------------------------------------------- teilweise gelöscht wird gemeldet
+game "$H/D3" PPSA09292   # zweite Kopie (ShadowMountPlus führt die ID woanders): wird selbst gelöscht
+mkdir -p "$H/D3/gesperrt"; echo x >"$H/D3/gesperrt/f"; chmod 555 "$H/D3/gesperrt"
+library
+code=$(post "{\"keys\":\"$(key "$H/D3")\"}" delete)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q 'teilweise gelöscht' "$W/st" && [ -d "$H/D3" ]     && ok "Löschen bricht mittendrin ab: Meldung nennt \"nur teilweise gelöscht\"" || bad "teilweise gelöscht" "$code $(cat "$W/st")"
+chmod 755 "$H/D3/gesperrt"
 
 # ---------------------------------------------------------------- der Formatierer selbst
 library

@@ -2950,5 +2950,11 @@
   "it": "%s: l'elemento collegato è fuori dalla cartella – non eliminato",
   "es": "%s: el elemento relacionado está fuera de la carpeta – no borrado",
   "fr": "%s : l'élément associé est en dehors du dossier – non supprimé"
+ },
+ "Nur teilweise gelöscht – der Rest bleibt, bitte erneut löschen (%s)": {
+  "en": "Only partly deleted – the rest remains, please delete again (%s)",
+  "it": "Eliminato solo in parte – il resto rimane, elimina di nuovo (%s)",
+  "es": "Borrado solo en parte – el resto permanece, vuelve a borrar (%s)",
+  "fr": "Supprimé en partie seulement – le reste demeure, supprimez à nouveau (%s)"
  }
 }

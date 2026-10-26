@@ -3324,6 +3324,16 @@ static void *delete_worker(void *arg) {
                 on_progress(del_step, base > 0 ? base : 1);
                 rm_prog_t rp = {tree_weight(it->path, 0), 0, base, span, -1};
                 rc = remove_tree(it->path, 0, &rp);
+                if (rc != 0) {
+                    const int e = errno;
+                    struct stat ps;
+                    /* ein Teil ist schon weg, der Rest blieb: das Spiel ist jetzt unvollständig - das gehört in die Meldung */
+                    if (lstat(it->path, &ps) == 0 && tree_weight(it->path, 0) < rp.total) {
+                        snprintf(err, sizeof(err), T("Nur teilweise gelöscht – der Rest bleibt, bitte erneut löschen (%s)"), strerror(e));
+                    } else {
+                        errno = e;
+                    }
+                }
             }
             if (rc != 0 && !err[0]) {
                 snprintf(err, sizeof(err), T("Löschen fehlgeschlagen: %s"), strerror(errno));

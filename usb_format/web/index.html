@@ -390,29 +390,29 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
 
    <div class="pane">
     <div class="sec">Laufwerk</div>
-    <div id="devs"><div class="empty">Suche USB-Geräte …</div></div>
+    <div id="devs" role="radiogroup" aria-label="Laufwerk"><div class="empty">Suche USB-Geräte …</div></div>
     <!-- Warnung unter den Laufwerken: nur die eine Zeile, dezent; die Erklärung steht in der Anleitung (Wichtig vorab) -->
     <div class="hwarn" role="note">Während der Nutzung keine USB-Datenträger abziehen oder neu anschließen</div>
    </div>
 
    <div class="tabbar" id="tabbar" role="tablist">
-     <button type="button" role="tab" data-tab="games" aria-selected="true">Spiele<span class="n" id="n-games"></span></button>
-     <button type="button" role="tab" data-tab="pkg" aria-selected="false">PKG<span class="n" id="n-pkg"></span></button>
-     <button type="button" role="tab" data-tab="saves" aria-selected="false">Spielstände auf der PS5</button>
-     <button type="button" role="tab" data-tab="tools" aria-selected="false">Werkzeuge</button>
-     <button type="button" role="tab" data-tab="format" aria-selected="false" class="dz-tab">Formatieren</button>
+     <button type="button" role="tab" data-tab="games" aria-controls="tp-games" aria-selected="true">Spiele<span class="n" id="n-games"></span></button>
+     <button type="button" role="tab" data-tab="pkg" aria-controls="tp-pkg" aria-selected="false">PKG<span class="n" id="n-pkg"></span></button>
+     <button type="button" role="tab" data-tab="saves" aria-controls="savespane" aria-selected="false">Spielstände auf der PS5</button>
+     <button type="button" role="tab" data-tab="tools" aria-controls="tp-tools" aria-selected="false">Werkzeuge</button>
+     <button type="button" role="tab" data-tab="format" aria-controls="tp-format" aria-selected="false" class="dz-tab">Formatieren</button>
    </div>
 
-   <div class="pane tabpane" id="tp-games">
+   <div class="pane tabpane" id="tp-games" role="tabpanel">
     <button class="link" id="more" type="button" hidden></button>
     <div id="content"></div>
    </div>
 
-   <div class="pane tabpane" id="tp-pkg" hidden>
+   <div class="pane tabpane" id="tp-pkg" role="tabpanel" hidden>
     <div id="pkglist"></div>
    </div>
 
-   <div class="pane tabpane" id="savespane" hidden>
+   <div class="pane tabpane" id="savespane" role="tabpanel" hidden>
     <div class="sec">Spielstände</div>
     <div id="savesbox">
       <div class="inline" style="margin-top:0;gap:8px">
@@ -432,7 +432,7 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
     </div>
    </div>
 
-   <div class="pane tabpane" id="tp-tools" hidden>
+   <div class="pane tabpane" id="tp-tools" role="tabpanel" hidden>
     <div id="checkinfo"></div>
     <div class="tools">
       <button class="tool" id="bspeed" type="button"><svg viewBox="0 0 24 24"><path d="M12 13l4-4"/><path d="M3.5 17a9 9 0 1 1 17 0"/></svg>Tempo messen</button>
@@ -462,7 +462,7 @@ html.tv button:focus, html.tv select:focus, html.tv input:focus, html.tv .dev:fo
     <div class="hint" id="checkhint"></div>
    </div>
 
-   <div class="pane tabpane dz" id="tp-format" hidden>
+   <div class="pane tabpane dz" id="tp-format" role="tabpanel" hidden>
     <div class="dzbanner" role="note">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v5"/><path d="M12 18.2v.1"/></svg>
       <div><b>Formatieren löscht alle Daten auf diesem Laufwerk.</b>
@@ -862,6 +862,8 @@ function renderDevices() {
   for (const pl of places()) {   /* feste Orte: nur zum Ansehen, Kopieren, Verschieben und Löschen von Spielen */
     const row = el("div", "dev place" + (selectedPlace === pl.name ? " sel" : ""));
     row.tabIndex = 0;
+    row.setAttribute("role", "radio");
+    row.setAttribute("aria-checked", selectedPlace === pl.name ? "true" : "false");
     row.dataset.dev = pl.name;
     const radio = el("input");
     radio.type = "radio";
@@ -895,6 +897,9 @@ function renderDevices() {
     const blocked = !formattable(d);
     const row = el("div", "dev" + (blocked ? " locked" : "") + (selected === devKey(d) && !selectedPlace ? " sel" : ""));
     row.tabIndex = blocked ? -1 : 0;
+    row.setAttribute("role", "radio");
+    row.setAttribute("aria-checked", selected === devKey(d) && !selectedPlace ? "true" : "false");
+    if (blocked) row.setAttribute("aria-disabled", "true");
     row.dataset.dev = d.name;
     const radio = el("input");
     radio.type = "radio";
