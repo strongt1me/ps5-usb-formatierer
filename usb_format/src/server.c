@@ -1551,6 +1551,14 @@ static void api_library(int c, int refresh) {
             sb_str(&b, pk->platform);
             sb_add(&b, ",\"type\":");
             sb_str(&b, pk->type);
+            sb_add(&b, ",\"title\":");
+            sb_str(&b, pk->title);
+            sb_add(&b, ",\"version\":");
+            sb_str(&b, pk->version);
+            sb_add(&b, ",\"cat\":");
+            sb_str(&b, pk->cat);
+            sb_add(&b, ",\"minfw\":");
+            sb_str(&b, pk->minfw);
             sb_add(&b, ",\"title_id\":");
             sb_str(&b, pk->title_id);
             sb_add(&b, ",\"update\":%s,\"size\":%llu,\"device\":", pk->update ? "true" : "false", (unsigned long long)pk->size);

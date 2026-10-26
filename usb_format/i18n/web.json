@@ -2290,5 +2290,11 @@
   "it": "Gli originali restano.",
   "es": "Los originales se conservan.",
   "fr": "Les originaux sont conservés."
+ },
+ "DLC": {
+  "en": "DLC",
+  "it": "DLC",
+  "es": "DLC",
+  "fr": "DLC"
  }
 }

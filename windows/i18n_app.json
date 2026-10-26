@@ -3262,5 +3262,11 @@
   "it": "Copia pacchetti",
   "es": "Copiar paquetes",
   "fr": "Copier des paquets"
+ },
+ "DLC": {
+  "en": "DLC",
+  "it": "DLC",
+  "es": "DLC",
+  "fr": "DLC"
  }
 }

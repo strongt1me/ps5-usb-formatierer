@@ -24,6 +24,11 @@ typedef struct {
     char     title_id[12]; /* aus der Content-ID im Kopf (PS4) bzw. dem Dateinamen, sonst leer */
     int      update;       /* PS4: Patch laut Inhalts-Flags (0x40000000 = Folgepatch, 0x00100000 = erster Patch) */
     uint64_t size;
+    /* aus den Metadaten im Paket (PS4: param.sfo, PS5: param.json); leer, wenn sie nicht lesbar sind */
+    char     title[96];    /* Spielname */
+    char     version[16];  /* Inhaltsversion, z. B. "01.02" bzw. "01.010.000" */
+    char     cat[8];       /* "game", "update" oder "dlc" */
+    char     minfw[12];    /* mindestens nötige Firmware, z. B. "9.00" */
 } lib_pkg_t;
 
 typedef struct {

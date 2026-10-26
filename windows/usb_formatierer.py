@@ -1029,8 +1029,8 @@ class App(tk.Tk):
                                      style="Games.Treeview")
         self.pkg_tree.bind("<Button-1>", self._pkg_click)
         self.pkg_tree.bind("<space>", lambda e: self._pkg_toggle(self.pkg_tree.focus()))
-        self.pkg_tree.column("#0", width=px(260), minwidth=120, stretch=True)
-        self.pkg_tree.column("meta", width=px(240), minwidth=120, anchor="e", stretch=False)
+        self.pkg_tree.column("#0", width=px(240), minwidth=140, stretch=True)
+        self.pkg_tree.column("meta", width=px(395), minwidth=160, anchor="e", stretch=False)   # Typ, Plattform, Art, Titel-ID, Version, Firmware, Größe
         self.pkg_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
         self.pkg_tree.tag_configure("fpkg", foreground=ui_theme.colors()["warn"])
         self.pkg_tree.grid(row=1, column=0, sticky="nsew")
@@ -2101,9 +2101,12 @@ class App(tk.Tk):
         rows = []
         for pk in pkgs:
             typ = pk.get("type") or "PKG"
-            bits = [typ] + [x for x in (pk.get("platform"), _("Update") if pk.get("update") else "", pk.get("title_id")) if x]
+            kind = _("Update") if pk.get("cat") == "update" or pk.get("update") else _("DLC") if pk.get("cat") == "dlc" else ""
+            bits = [typ] + [x for x in (pk.get("platform"), kind, pk.get("title_id"),
+                                        "v" + pk["version"] if pk.get("version") else "",
+                                        "FW " + pk["minfw"] if pk.get("minfw") else "") if x]
             bits.append(fmt_size(pk.get("size", 0)))
-            rows.append((pk.get("key") or pk["path"], "  " + (pk.get("name") or pk["path"]), " · ".join(bits), typ == "fPKG"))
+            rows.append((pk.get("key") or pk["path"], "  " + (pk.get("title") or pk.get("name") or pk["path"]), " · ".join(bits), typ == "fPKG"))
         self._pkg_by_key = {(pk.get("key") or pk["path"]): pk for pk in pkgs}
         self.pkg_checked &= set(self._pkg_by_key)   # nicht mehr vorhandene sind nicht mehr angehakt
         if rows != getattr(self, "_pkgs_shown", None):
