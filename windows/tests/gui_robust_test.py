@@ -108,6 +108,10 @@ except Exception as e:
 
 # 4. Programm: Taktgeber und Tastenkürzel bei aufgeklappter Liste
 import usb_formatierer as uf  # noqa: E402
+import i18n  # noqa: E402
+
+if os.environ.get("GUI_TEST_LANG"):   # z. B. en: wie auf dem CI-Rechner prüfen
+    i18n.set_lang(os.environ["GUI_TEST_LANG"])
 
 root.destroy()
 app = uf.App()
@@ -133,7 +137,7 @@ except Exception as e:
 top.destroy()
 app.update()
 
-# 5. Kopierdialog: Vorabprüfung meldet "passt nicht" - Hinweiszeile erscheint, "Kopieren" zeigt die Meldung und bleibt offen
+# 5. Kopierdialog (Knöpfe über den übersetzten Text suchen: auf dem CI-Rechner läuft die Oberfläche englisch): Vorabprüfung meldet "passt nicht" - Hinweiszeile erscheint, "Kopieren" zeigt die Meldung und bleibt offen
 dev = {"name": "da0", "model": "Quelle", "size": 1 << 30, "mounts": [{"free": 1 << 20}]}
 dst = {"name": "da1", "model": "Ziel", "size": 1 << 30, "mounts": [{"free": 1 << 20}]}
 seen = {}
@@ -172,10 +176,10 @@ def drive(step=0):
             return
     if "msg" not in seen:
         app.after(500, drive, step + 1)   # "Kopieren" zeigt eine modale Meldung: der nächste Schritt muss schon geplant sein
-        texts["Kopieren"].invoke()
+        texts[uf._("Kopieren")].invoke()
         return
     seen["still_open"] = win.winfo_exists()
-    texts["Abbrechen"].invoke()
+    texts[uf._("Abbrechen")].invoke()
 
 
 app.after(300, drive)
