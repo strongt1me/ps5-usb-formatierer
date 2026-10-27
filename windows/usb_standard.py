@@ -37,9 +37,9 @@ class StandardApp(tk.Tk):
         self.after(100, self.panel.activate)
         self._sys_id = self.after(5000, self._follow_system)
         self.bind_all("<F1>", lambda e: open_help(i18n.lang(), self))
-        self.bind_all("<F5>", lambda e: not (self.panel.busy or self.grab_current()) and self.panel.reload())
+        self.bind_all("<F5>", lambda e: not (self.panel.busy or ui_theme.grab_of(self, True)) and self.panel.reload())
         for seq in ("<Control-h>", "<Control-H>"):   # nicht in Eingabefeldern: dort ist Strg+H der Rückschritt
-            self.bind_all(seq, lambda e: not isinstance(e.widget, (tk.Entry, ttk.Entry)) and not self.grab_current()
+            self.bind_all(seq, lambda e: not isinstance(e.widget, (tk.Entry, ttk.Entry)) and not ui_theme.grab_of(self, True)
                           and self._history())
 
     def _build(self):
@@ -83,7 +83,7 @@ class StandardApp(tk.Tk):
     def _follow_system(self):
         """Design "Automatisch": dem System folgen, auch wenn es im laufenden Betrieb umschaltet"""
         self._sys_id = self.after(5000, self._follow_system)
-        if self.settings.get("theme", "auto") != "auto" or self.panel.busy or self.grab_current() \
+        if self.settings.get("theme", "auto") != "auto" or self.panel.busy or ui_theme.grab_of(self, True) \
                 or any(isinstance(w, tk.Toplevel) for w in self.winfo_children()):
             return   # offener Dialog: sein Auftrag hinge sonst an der abgebauten Oberfläche
         if ("dark" if ui_theme.system_dark() else "light") != ui_theme.mode():

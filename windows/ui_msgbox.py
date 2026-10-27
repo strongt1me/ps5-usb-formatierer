@@ -63,7 +63,7 @@ def _dialog(title, message, kind, buttons, parent=None, default=0, cancel=None):
     win.deiconify()
     ui_theme.dark_titlebar(win)
     widgets[default].focus_set()
-    old = win.grab_current()   # z. B. ein modaler Dialog, der diese Meldung zeigt - danach wieder modal machen
+    old = ui_theme.grab_of(win)   # z. B. ein modaler Dialog, der diese Meldung zeigt - danach wieder modal machen
     try:
         win.wait_visibility()   # Linux: grab_set scheitert sonst, solange die Maustaste noch gedrückt ist
         win.grab_set()

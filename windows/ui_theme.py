@@ -183,6 +183,16 @@ def system_dark():
     return False
 
 
+def grab_of(win, default=None):
+    """Widget mit dem Tk-Fokusfang (grab) oder default. Ist die Auswahlliste eines Combobox aufgeklappt, hält deren
+    interner Dropdown-Toplevel den Fang: Tk kennt ihn nicht als Widget und grab_current() wirft einen KeyError - dann
+    ist ein Dialog offen (default True für Abfragen, None zum Zurückgeben)"""
+    try:
+        return win.grab_current()
+    except (KeyError, tk.TclError):
+        return default
+
+
 def dark_titlebar(win):
     """Windows 10/11: Titelleiste passend zum Theme (dunkel bzw. hell)"""
     if not IS_WIN:

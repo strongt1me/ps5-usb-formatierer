@@ -1311,14 +1311,14 @@ class App(tk.Tk):
         self.bind_all("<Control-f>", lambda e: self._key_ok() and self._find_game())
         self.bind_all("<Control-F>", lambda e: self._key_ok() and self._find_game())
         for seq in ("<Control-h>", "<Control-H>"):
-            self.bind_all(seq, lambda e: not isinstance(e.widget, (tk.Entry, ttk.Entry)) and not self.grab_current()
+            self.bind_all(seq, lambda e: not isinstance(e.widget, (tk.Entry, ttk.Entry)) and not ui_theme.grab_of(self, True)
                           and self._history())
 
     def _key_ok(self):
         """Tastenkürzel, die umschalten oder neu einlesen, nur wenn die Knöpfe dafür auch frei wären: kein Auftrag
         (sonst ließe sich z. B. derselbe Datenträger in einem anderen Bereich ein zweites Mal formatieren) und kein
         offener Dialog (der bestätigte Auftrag ginge sonst verloren)"""
-        return not (self.busy or self.formatting or self.std_busy or self.grab_current())
+        return not (self.busy or self.formatting or self.std_busy or ui_theme.grab_of(self, True))
 
     def _history(self):
         """Fenster "Verlauf": Aufträge am PC und - wenn verbunden - die des Formatierers auf der PS5 (im Hintergrund
@@ -1951,7 +1951,7 @@ class App(tk.Tk):
         """Design "Automatisch": dem System folgen, auch wenn es im laufenden Betrieb umschaltet"""
         self._sys_id = self.after(5000, self._follow_system)
         if self.settings.get("theme", "auto") != "auto" or self.busy or self.formatting or self.std_busy \
-                or self.grab_current() or any(isinstance(w, tk.Toplevel) for w in self.winfo_children()):
+                or ui_theme.grab_of(self, True) or any(isinstance(w, tk.Toplevel) for w in self.winfo_children()):
             return   # offener Dialog: sein Auftrag hinge sonst an der abgebauten Oberfläche
         want = "dark" if ui_theme.system_dark() else "light"
         if want != ui_theme.mode():
