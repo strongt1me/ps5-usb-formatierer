@@ -48,7 +48,7 @@ def _dialog(title, message, kind, buttons, parent=None, default=0, cancel=None):
     win.bind("<Escape>", lambda e: done(cancel))
 
     def enter(e):   # Enter löst den Knopf mit dem Fokus aus (mit Tab gewählt), sonst den vorgewählten
-        w = e.widget if e.widget in widgets else win.focus_get()
+        w = e.widget if e.widget in widgets else ui_theme.focus_of(win)
         if w in widgets:
             w.invoke()
         else:

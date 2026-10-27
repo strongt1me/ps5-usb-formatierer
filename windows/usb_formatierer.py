@@ -3837,7 +3837,7 @@ class App(tk.Tk):
         self.destroy()
 
     def _on_exception(self, exc, val, tb):
-        messagebox.showerror(self.title(), _("Unerwarteter Fehler: {e}", e=val), parent=self)
+        ui_theme.report_error(self, self.title(), _("Unerwarteter Fehler: {e}", e=val), (exc, val, tb))
 
 
 if __name__ == "__main__":

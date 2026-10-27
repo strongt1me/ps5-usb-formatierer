@@ -193,6 +193,29 @@ def grab_of(win, default=None):
         return default
 
 
+def focus_of(win):
+    """Widget mit dem Tastaturfokus oder None. Steht der Fokus in der aufgeklappten Liste eines Combobox, wirft
+    focus_get() aus demselben Grund wie grab_current() einen KeyError ("popdown")"""
+    try:
+        return win.focus_get()
+    except (KeyError, tk.TclError):
+        return None
+
+
+def report_error(win, title, text, exc_info=None):
+    """Fehlermeldung aus einem abgefangenen Programmfehler: darf selbst nie scheitern (sonst bleibt nur der Tk-Traceback
+    und die Ursache geht unter). Erst als Dialog, sonst auf die Fehlerausgabe."""
+    import traceback
+    if exc_info:
+        traceback.print_exception(*exc_info)   # Ursache bleibt in der Fehlerausgabe, auch wenn der Dialog scheitert
+    try:
+        import ui_msgbox
+        ui_msgbox.showerror(title, text, parent=win)
+    except Exception:   # z. B. Fenster schon zerstört oder Dialog nicht möglich
+        traceback.print_exc()
+        print(title + ": " + text, file=sys.stderr)
+
+
 def dark_titlebar(win):
     """Windows 10/11: Titelleiste passend zum Theme (dunkel bzw. hell)"""
     if not IS_WIN:

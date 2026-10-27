@@ -44,6 +44,10 @@ jobs:
       - name: Update-Hinweis und Image prüfen (ohne Administratorrechte)
         run: python windows/tests/pc_tools_test.py windows/usbfmt_win_test.exe
 
+      - name: Oberfläche bei aufgeklappter Liste prüfen (Fokusfang, Meldungen, Kopierdialog)
+        timeout-minutes: 3
+        run: python windows/tests/gui_robust_test.py
+
       - name: Programme bauen
         working-directory: windows
         shell: cmd
