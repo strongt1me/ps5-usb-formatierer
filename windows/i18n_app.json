@@ -3310,5 +3310,89 @@
   "it": "il gioco è già presente",
   "es": "el juego ya existe",
   "fr": "le jeu est déjà présent"
+ },
+ "Der Fehler steht in: {path}": {
+  "en": "The error is logged in: {path}",
+  "it": "L'errore è registrato in: {path}",
+  "es": "El error está registrado en: {path}",
+  "fr": "L'erreur est consignée dans : {path}"
+ },
+ "Bericht kopieren": {
+  "en": "Copy report",
+  "it": "Copia rapporto",
+  "es": "Copiar informe",
+  "fr": "Copier le rapport"
+ },
+ "Bericht kopiert": {
+  "en": "Report copied",
+  "it": "Rapporto copiato",
+  "es": "Informe copiado",
+  "fr": "Rapport copié"
+ },
+ "Der Bericht liegt in der Zwischenablage – bitte zusammen mit der Fehlermeldung weitergeben.": {
+  "en": "The report is on the clipboard – please send it along with the error message.",
+  "it": "Il rapporto è negli appunti – inviarlo insieme al messaggio di errore.",
+  "es": "El informe está en el portapapeles; envíalo junto con el mensaje de error.",
+  "fr": "Le rapport est dans le presse-papiers – merci de le transmettre avec le message d'erreur."
+ },
+ "Danach frei auf dem Ziel: {free}": {
+  "en": "Free on the target afterwards: {free}",
+  "it": "Spazio libero sulla destinazione dopo: {free}",
+  "es": "Libre en el destino después: {free}",
+  "fr": "Libre sur la destination ensuite : {free}"
+ },
+ "Danach frei auf {name}: {free}": {
+  "en": "Free on {name} afterwards: {free}",
+  "it": "Spazio libero su {name} dopo: {free}",
+  "es": "Libre en {name} después: {free}",
+  "fr": "Libre sur {name} ensuite : {free}"
+ },
+ "Abbilder der angehakten Spiele gegen ihre Prüfsummen-Datei (.sha256) prüfen; es wird nichts verändert": {
+  "en": "Check the images of the ticked games against their checksum file (.sha256); nothing is changed",
+  "it": "Controlla le immagini dei giochi selezionati con il loro file di checksum (.sha256); non viene modificato nulla",
+  "es": "Comprobar las imágenes de los juegos marcados con su archivo de suma (.sha256); no se cambia nada",
+  "fr": "Vérifier les images des jeux cochés avec leur fichier de somme (.sha256) ; rien n'est modifié"
+ },
+ "Spiele prüfen": {
+  "en": "Check games",
+  "it": "Controlla giochi",
+  "es": "Comprobar juegos",
+  "fr": "Vérifier les jeux"
+ },
+ "Diese Spiele auf {name} ({dev}) werden geprüft:": {
+  "en": "These games on {name} ({dev}) will be checked:",
+  "it": "Questi giochi su {name} ({dev}) verranno controllati:",
+  "es": "Estos juegos en {name} ({dev}) se comprobarán:",
+  "fr": "Ces jeux sur {name} ({dev}) seront vérifiés :"
+ },
+ "Das Abbild wird ganz gelesen und mit der Prüfsummen-Datei (.sha256) daneben verglichen – bei großen Spielen dauert das. Ordner-Spiele haben keine Prüfsumme. Es wird nichts verändert.": {
+  "en": "The image is read completely and compared with the checksum file (.sha256) next to it – this takes a while for large games. Folder games have no checksum. Nothing is changed.",
+  "it": "L'immagine viene letta per intero e confrontata con il file di checksum (.sha256) accanto – per i giochi grandi ci vuole tempo. I giochi in cartella non hanno checksum. Non viene modificato nulla.",
+  "es": "La imagen se lee por completo y se compara con el archivo de suma (.sha256) que hay al lado; con juegos grandes tarda. Los juegos en carpeta no tienen suma. No se cambia nada.",
+  "fr": "L'image est lue en entier et comparée au fichier de somme (.sha256) voisin – long pour les gros jeux. Les jeux en dossier n'ont pas de somme. Rien n'est modifié."
+ },
+ "Spiele geprüft.": {
+  "en": "Games checked.",
+  "it": "Giochi controllati.",
+  "es": "Juegos comprobados.",
+  "fr": "Jeux vérifiés."
+ },
+ "doppelt": {
+  "en": "duplicate",
+  "it": "doppio",
+  "es": "duplicado",
+  "fr": "en double"
+ },
+ "doppelt, ältere Version {v}": {
+  "en": "duplicate, older version {v}",
+  "it": "doppio, versione più vecchia {v}",
+  "es": "duplicado, versión más antigua {v}",
+  "fr": "en double, version plus ancienne {v}"
+ },
+ "doppelt, neueste Version {v}": {
+  "en": "duplicate, newest version {v}",
+  "it": "doppio, versione più recente {v}",
+  "es": "duplicado, versión más reciente {v}",
+  "fr": "en double, version la plus récente {v}"
  }
 }

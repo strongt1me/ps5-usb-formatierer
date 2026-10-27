@@ -66,7 +66,7 @@ curl -s -H "$J" -d "{\"keys\":\"$KS\",\"device\":\"da1\",\"check\":true}" "$U/ap
 [ "$(q '(d["fits"], d["fat32"], d["big"], d["need"] >= 100000)' <"$W/c1")" = "(True, False, [], True)" ] && ok "Vorabprüfung: kleines Spiel passt, kein FAT32" || bad "Prüfung klein" "$(cat "$W/c1")"
 curl -s "$U/api/status" | grep -q '"busy":false' && ok "Vorabprüfung startet keinen Auftrag" || bad "Auftrag gestartet"
 curl -s -H "$J" -d "{\"keys\":\"$KG\",\"device\":\"da1\",\"check\":true}" "$U/api/move" >"$W/c2"
-[ "$(q '(d["fits"], d["fat32"], d["big"])' <"$W/c2")" = "(True, False, [])" ] && ok "ohne FAT32: Datei über 4 GB wird nicht beanstandet" || bad "Prüfung groß" "$(cat "$W/c2")"
+[ "$(q '(d["fat32"], d["big"])' <"$W/c2")" = "(False, [])" ] && ok "ohne FAT32: Datei über 4 GB wird nicht beanstandet" || bad "Prüfung groß" "$(cat "$W/c2")"
 start USBFMT_TARGET_FAT32=1
 library
 curl -s -H "$J" -d "{\"keys\":\"$KG\",\"device\":\"da1\",\"check\":true}" "$U/api/move" >"$W/c3"

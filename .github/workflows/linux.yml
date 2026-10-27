@@ -214,6 +214,14 @@ jobs:
         working-directory: usb_format
         run: node --version && node test/web_logic_test.js web/index.html
 
+      - name: Weboberfläche im Browser (Playwright, alle Reiter und Dialoge, keine JavaScript-Fehler)
+        working-directory: usb_format
+        run: |
+          python3 -m pip install --user playwright
+          python3 -m playwright install --with-deps chromium
+          bash test/host_build.sh /tmp/websrv -DSERVER_PORT=18124
+          python3 test/web_smoke_test.py /tmp/websrv
+
       - name: Payload-Tests (Host)
         working-directory: usb_format
         run: |
@@ -221,7 +229,7 @@ jobs:
           for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
                    test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
                    test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh \
-                   test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh test/history_test.sh test/saves_test.sh test/move_test.sh; do
+                   test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh test/history_test.sh test/saves_test.sh test/move_test.sh \n                   test/places_test.sh test/pkginfo_test.sh test/precheck_test.sh test/gverify_test.sh; do
             echo "== $t"
             bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
           done

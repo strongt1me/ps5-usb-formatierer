@@ -117,7 +117,7 @@ class StandardApp(tk.Tk):
             self.destroy()
 
     def _on_exception(self, exc, val, tb):
-        ui_theme.report_error(self, _("USB-Datenträger formatieren"), _("Unerwarteter Fehler: {e}", e=val), (exc, val, tb))
+        ui_theme.report_error(self, _("USB-Datenträger formatieren"), _("Unerwarteter Fehler: {e}", e=val), (exc, val, tb), APP_NAME)
 
 
 if __name__ == "__main__":

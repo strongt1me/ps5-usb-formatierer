@@ -107,6 +107,46 @@ def save_settings(app_name, data):
                 pass
 
 
+def error_log_file(app_name):
+    """fehler.log neben den Einstellungen"""
+    return os.path.join(os.path.dirname(settings_file(app_name)), "fehler.log")
+
+
+def log_error(app_name, exc_info, note=""):
+    """Unerwarteten Fehler (Zeit, Version, Ablauf) an fehler.log anhängen; die Datei bleibt klein. Darf nie selbst scheitern."""
+    try:
+        import traceback
+        path = error_log_file(app_name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        text = "".join(traceback.format_exception(*exc_info)) if exc_info else ""
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("--- %s %s%s\n%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), APP_VERSION, (" " + note) if note else "", text))
+        if os.path.getsize(path) > 200000:   # nur das Neueste behalten
+            with open(path, "rb") as f:
+                f.seek(-100000, os.SEEK_END)
+                tail = f.read()
+            with open(path, "wb") as f:
+                f.write(tail[tail.find(b"\n--- ") + 1:] if b"\n--- " in tail else tail)
+    except Exception:
+        pass
+
+
+def error_report(app_name, extra=""):
+    """Text zum Weitergeben: Version, System, Sprache, Zusatzangaben und die letzten Fehler aus fehler.log (keine Zugangsdaten)"""
+    lines = ["%s %s" % (app_name, APP_VERSION), "System: %s · Python %s" % (platform.platform(), platform.python_version()),
+             "Sprache: %s" % lang()]
+    if extra:
+        lines.append(extra)
+    try:
+        with open(error_log_file(app_name), "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 6000))
+            lines += ["", "Letzte Fehler:", f.read().decode("utf-8", "replace")]
+    except OSError:
+        lines.append("(keine Fehler protokolliert)")
+    return "\n".join(lines)
+
+
 def fmt_size(b):
     units = ["Bytes", "KB", "MB", "GB", "TB"]
     v, i = float(b), 0

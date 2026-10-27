@@ -288,9 +288,9 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL };
+       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete"};
+                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify"};
 
 #define LIB_EXTRAS_MAX 8
 
@@ -4343,8 +4343,47 @@ static void mv_free_list(mv_t *m) {
 
 #define MV_BUF (1 << 20)
 
+/* SHA-256 einer ganzen Datei; 0 = ok, -1 = Lesefehler, -2 = abgebrochen */
+static int mv_hash_file(mv_t *m, const char *path, uint8_t out[32], uint64_t *n) {
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return -1;
+    sha256_t sh;
+    sha256_init(&sh);
+    *n = 0;
+    for (;;) {
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { close(fd); return -2; }
+        ssize_t r = read(fd, m->buf, MV_BUF);
+        if (r < 0 && errno == EINTR) continue;
+        if (r < 0) { close(fd); return -1; }
+        if (r == 0) break;
+        sha256_update(&sh, m->buf, (size_t)r);
+        *n += (uint64_t)r;
+    }
+    close(fd);
+    sha256_final(&sh, out);
+    return 0;
+}
+
 static int mv_copy_file(mv_t *m, const char *src, const char *dst, const char *rel, const struct stat *sb) {
-    int in = open(src, O_RDONLY), out = -1, rc = -1;
+    int in, out = -1, rc = -1;
+    struct stat ds;
+    if (lstat(dst, &ds) == 0) {   /* Rest eines früheren Laufs: nur eine gleiche Datei (Größe und Prüfsumme) wird übernommen, sonst neu kopiert */
+        if (S_ISREG(ds.st_mode) && ds.st_size == sb->st_size) {
+            uint8_t a[32], b[32];
+            uint64_t na = 0, nb = 0;
+            int ra = mv_hash_file(m, src, a, &na), rb = ra == 0 ? mv_hash_file(m, dst, b, &nb) : -1;
+            if (ra == -2 || rb == -2) { snprintf(m->err, sizeof(m->err), "%s", T("Abgebrochen.")); return -1; }
+            if (ra == 0 && rb == 0 && na == (uint64_t)sb->st_size && nb == na && memcmp(a, b, 32) == 0) {
+                if (mv_add(m, rel, a, na)) { snprintf(m->err, sizeof(m->err), "%s", T("Kein Speicher")); return -1; }
+                m->done += na;
+                mv_progress(m, 0);
+                mv_set_times(dst, sb);
+                return 0;
+            }
+        }
+        if (unlink(dst) != 0) { snprintf(m->err, sizeof(m->err), T("Die Datei %s lässt sich nicht anlegen: %s"), dst, strerror(errno)); return -1; }
+    }
+    in = open(src, O_RDONLY);
     if (in < 0) { snprintf(m->err, sizeof(m->err), T("%s lässt sich nicht lesen: %s"), src, strerror(errno)); return -1; }
     out = open(dst, O_WRONLY | O_CREAT | O_EXCL, sb->st_mode & 0777 ? sb->st_mode & 0777 : 0644);
     if (out < 0) { snprintf(m->err, sizeof(m->err), T("Die Datei %s lässt sich nicht anlegen: %s"), dst, strerror(errno)); close(in); return -1; }
@@ -4468,12 +4507,51 @@ static int mkdirs_to(const char *path) {   /* alle Ordner bis einschließlich pa
     return mkdir(t, 0777) != 0 && errno != EEXIST ? -1 : 0;
 }
 
+/* Rest-Ordner früherer Läufe im Zwischenordner: Name = Schlüssel des Spiels (8 Hex-Ziffern), ggf. "_x<N>" für Zugehöriges */
+static int stage_name_key(const char *name, uint32_t *key) {
+    if (strlen(name) < 8) return 0;
+    for (int i = 0; i < 8; i++) if (!isxdigit((unsigned char)name[i])) return 0;
+    if (name[8] && name[8] != '_') return 0;
+    char hex[9];
+    memcpy(hex, name, 8);
+    hex[8] = 0;
+    *key = (uint32_t)strtoul(hex, NULL, 16);
+    return 1;
+}
+
+/* Alles im Zwischenordner entfernen, was nicht zu den Spielen dieses Auftrags gehört */
+static void stage_cleanup(const char *stage, const job_t *j) {
+    DIR *d = opendir(stage);
+    if (!d) return;
+    struct dirent *e;
+    char p[1100];
+    while ((e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        uint32_t key = 0;
+        int mine = 0;
+        if (stage_name_key(e->d_name, &key))
+            for (int i = 0; i < j->nitems; i++) mine |= path_key(j->items[i].path) == key;
+        if (mine && strchr(e->d_name, '_')) mine = 0;   /* Zugehöriges wird immer neu kopiert */
+        if (!mine && snprintf(p, sizeof(p), "%s/%s", stage, e->d_name) < (int)sizeof(p)) (void)remove_tree(p, 0, NULL);
+    }
+    closedir(d);
+}
+
+/* Bytes, die ein früherer Lauf für diese Spiele schon am Ziel liegen hat (zählen beim Platzbedarf nicht doppelt) */
+static uint64_t staged_bytes(const char *troot, const job_t *j) {
+    uint64_t sum = 0;
+    char p[1100];
+    for (int i = 0; i < j->nitems; i++)
+        if (snprintf(p, sizeof(p), "%s/%s/%08x", troot, MOVE_DIR, path_key(j->items[i].path)) < (int)sizeof(p)) sum += tree_bytes(p, 0);
+    return sum;
+}
+
 static void *move_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0}, items = {0}, errs = {0}, xwarn = {0};
     char s1[24], s2[24], stage[640];
-    int ok_n = 0, fail_n = 0, was_cancel = 0;
+    int ok_n = 0, fail_n = 0, was_cancel = 0, kept = 0;
     mv_t m;
     memset(&m, 0, sizeof(m));
     m.verify = j->verify;
@@ -4492,14 +4570,15 @@ static void *move_worker(void *arg) {
     st.total_ptr = &m.weight;   /* Menge und Tempo unter dem Balken */
     pthread_mutex_unlock(&lock);
     struct statvfs vf;
-    if (statvfs(troot, &vf) != 0 || (uint64_t)vf.f_bavail * vf.f_frsize < m.total + MOVE_RESERVE) {
+    const uint64_t have = staged_bytes(troot, j);
+    if (statvfs(troot, &vf) != 0 || (uint64_t)vf.f_bavail * vf.f_frsize + have < m.total + MOVE_RESERVE) {
         sb_tr(&msg, "Auf dem Ziel ist nicht genug Platz: gebraucht werden %s, frei sind %s.", size_text(m.total + MOVE_RESERVE, s1, sizeof(s1)),
               size_text(statvfs(troot, &vf) == 0 ? (uint64_t)vf.f_bavail * vf.f_frsize : 0, s2, sizeof(s2)));
         goto fin;
     }
     if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { sb_tr(&msg, "Abgebrochen – nichts kopiert."); goto fin; }
     if (root_dev(troot) != j->tdev) { sb_tr(&msg, "Das Ziel hat sich seit der Auswahl geändert – nichts kopiert. Liste neu laden."); goto fin; }
-    (void)remove_tree(stage, 0, NULL);   /* Reste eines früheren, abgebrochenen Laufs */
+    stage_cleanup(stage, j);   /* Reste anderer Spiele weg; die der jetzigen Auswahl bleiben und werden fortgesetzt */
     if (mkdirs_to(stage) != 0) { sb_tr(&msg, "Der Ordner %s lässt sich nicht anlegen: %s", stage, strerror(errno)); goto fin; }
 
     for (int i = 0; i < j->nitems; i++) {
@@ -4520,7 +4599,7 @@ static void *move_worker(void *arg) {
             snprintf(rel, sizeof(rel), "homebrew/%s", nm ? nm + 1 : it->path);
         }
         snprintf(final_path, sizeof(final_path), "%s/%s", troot, rel);
-        snprintf(gstage, sizeof(gstage), "%s/%d_%08x", stage, i, path_key(it->path));
+        snprintf(gstage, sizeof(gstage), "%s/%08x", stage, path_key(it->path));
         struct stat sb;
         if (lstat(final_path, &sb) == 0) {
             sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("liegt am Ziel schon vor – nichts überschrieben"));
@@ -4531,12 +4610,14 @@ static void *move_worker(void *arg) {
         mv_progress(&m, 1);
         const uint64_t done0 = m.done;
         const int first = m.n;
+        int drop = 0;
         m.err[0] = 0;
         int rc = mv_copy_tree(&m, it->path, gstage, "", 0);
         if (rc == 0 && m.verify) {
             snprintf(m.step, sizeof(m.step), T("%s: %s (%d von %d)"), T("Kopie prüfen"), it->name, i + 1, j->nitems);
             mv_progress(&m, 1);
             rc = mv_verify(&m, gstage, first);
+            if (rc != 0 && !__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) drop = 1;   /* abweichende Kopie: nicht aufheben */
         }
         if (rc == 0) {
             char parent[1024];
@@ -4608,9 +4689,11 @@ static void *move_worker(void *arg) {
             }
         }
         if (rc != 0) {
-            (void)remove_tree(gstage, 0, NULL);
+            if (drop) (void)remove_tree(gstage, 0, NULL);
+            else kept = 1;   /* die Teilkopie bleibt liegen: derselbe Auftrag setzt dort fort */
             if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
                 sb_tr(&msg, "Abgebrochen – kopiert und geprüft: %d von %d.", ok_n, j->nitems);
+                sb_add(&msg, " %s", T("Die Teilkopie bleibt erhalten: dieselbe Auswahl erneut kopieren setzt fort."));
                 was_cancel = 1;
                 goto fin;
             }
@@ -4634,6 +4717,7 @@ static void *move_worker(void *arg) {
     } else {
         sb_tr(&msg, "Nichts kopiert: %s", errs.p ? errs.p : "");
     }
+    if (kept && !was_cancel) sb_add(&msg, " %s", T("Die Teilkopie bleibt erhalten: dieselbe Auswahl erneut kopieren setzt fort."));
 fin:
     (void)rmdir(stage);   /* nur, wenn leer */
     pthread_mutex_lock(&lock);
@@ -4657,7 +4741,7 @@ static void move_check(int c, const job_t *j) {
     uint64_t sizes[MAX_DELETE];
     const uint64_t total = move_sizes(j, sizes);
     struct statvfs vf;
-    const uint64_t freeb = statvfs(j->path, &vf) == 0 ? (uint64_t)vf.f_bavail * vf.f_frsize : 0;
+    const uint64_t freeb = (statvfs(j->path, &vf) == 0 ? (uint64_t)vf.f_bavail * vf.f_frsize : 0) + staged_bytes(j->path, j);   /* Reste eines früheren Laufs werden weiterverwendet */
     const int fat = plat_path_fat32(j->path);
     sbuf_t b = {0};
     sb_add(&b, "{\"need\":%llu,\"free\":%llu,\"reserve\":%llu,\"fits\":%s,\"fat32\":%s,\"big\":[", (unsigned long long)total,
@@ -4897,6 +4981,159 @@ static void api_pkg_delete(int c, const char *body) {
     start_job(c, j, pkgdel_worker);
 }
 
+/* ------------------------------------------------------------ Spiele prüfen
+ * POST /api/game/verify {"keys":"1a2b3c4d,…"} - Schlüssel aus /api/library (titles). Liest jedes Abbild ganz und vergleicht die SHA-256
+ * mit der Prüfsummen-Datei daneben (<Datei>.sha256 oder <Name>.sha256, erste 64 Hex-Zeichen). Ordner-Spiele haben keine; nichts wird verändert. */
+static int hexv(int ch) { return ch >= '0' && ch <= '9' ? ch - '0' : ch >= 'a' && ch <= 'f' ? ch - 'a' + 10 : ch >= 'A' && ch <= 'F' ? ch - 'A' + 10 : -1; }
+
+static int read_sha_file(const char *path, uint8_t out[32]) {
+    char buf[512];
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    buf[n] = 0;
+    const char *p = buf;
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+    for (int i = 0; i < 32; i++) {
+        int a = hexv(p[2 * i]), b = a < 0 ? -1 : hexv(p[2 * i + 1]);
+        if (a < 0 || b < 0) return -1;
+        out[i] = (uint8_t)(a << 4 | b);
+    }
+    return p[64] == 0 || p[64] == ' ' || p[64] == '\t' || p[64] == '\n' || p[64] == '\r' || p[64] == '*' ? 0 : -1;
+}
+
+static void *gverify_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0}, bad = {0};
+    int ok_n = 0, bad_n = 0, none_n = 0, was_cancel = 0, done_n = 0;
+    uint64_t total = 0, done = 0;
+    char *buf = malloc(MV_BUF);
+    for (int i = 0; i < j->nitems; i++) total += j->items[i].nex ? j->items[i].size : 0;
+    if (!buf) { sb_tr(&msg, "Kein Speicher"); goto fin; }
+    set_flags(1, 0);
+    pthread_mutex_lock(&lock);
+    st.total_ptr = &total;   /* Menge und Tempo unter dem Balken */
+    pthread_mutex_unlock(&lock);
+    time_t last = 0;
+    for (int i = 0; i < j->nitems && !was_cancel; i++) {
+        const del_item_t *it = &j->items[i];
+        char step[360];
+        uint8_t want[32], got[32];
+        snprintf(step, sizeof(step), T("%s: %s (%d von %d)"), T("Spiel prüfen"), it->name, i + 1, j->nitems);
+        on_progress(step, total ? 1 + (int)(done * 97 / total) : 1);
+        if (!it->nex || read_sha_file(it->ex[0], want) != 0) { none_n++; continue; }
+        struct stat sb;
+        int fd = root_dev(it->root) == it->dev && lstat(it->path, &sb) == 0 && S_ISREG(sb.st_mode) ? open(it->path, O_RDONLY) : -1;
+        if (fd < 0) { bad_n++; sb_add(&bad, "%s%s", bad.len ? ", " : "", it->name); continue; }
+        sha256_t sh;
+        sha256_init(&sh);
+        int rd_err = 0;
+        for (;;) {
+            if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { was_cancel = 1; break; }
+            ssize_t r = read(fd, buf, MV_BUF);
+            if (r < 0 && errno == EINTR) continue;
+            if (r < 0) { rd_err = 1; break; }
+            if (r == 0) break;
+            sha256_update(&sh, buf, (size_t)r);
+            done += (uint64_t)r;
+            time_t now = time(NULL);
+            if (now != last) { last = now; on_progress(step, total ? 1 + (int)((done > total ? total : done) * 97 / total) : 1); }
+            plat_throttle();
+        }
+        close(fd);
+        if (was_cancel) break;
+        sha256_final(&sh, got);
+        done_n++;
+        if (rd_err || memcmp(want, got, 32) != 0) { bad_n++; sb_add(&bad, "%s%s", bad.len ? ", " : "", it->name); }
+        else ok_n++;
+    }
+    if (was_cancel) sb_tr(&msg, "Abgebrochen – geprüft: %d von %d.", done_n, j->nitems);
+    else {
+        if (ok_n) sb_tr(&msg, "Prüfsumme stimmt: %d.", ok_n);
+        if (bad_n) sb_tr(&msg, " Weicht ab oder nicht lesbar: %d – %s.", bad_n, bad.p ? bad.p : "");
+        if (none_n) sb_tr(&msg, " Keine Prüfsummen-Datei (.sha256) gefunden: %d.", none_n);
+    }
+    pthread_mutex_lock(&lock);
+    st.total_ptr = NULL;   /* total lebt nur in diesem Thread */
+    pthread_mutex_unlock(&lock);
+    set_flags(0, 0);
+fin:
+    sb_add(&res, "{\"ok\":%d,\"bad\":%d,\"none\":%d}", ok_n, bad_n, none_n);
+    free(buf);
+    free(bad.p);
+    free(j->items);
+    j->items = NULL;
+    job_done(j, ok_n > 0 && !bad_n && !was_cancel, &msg, &res, 0);
+    return NULL;
+}
+
+static void api_game_verify(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    const char *keys0 = n > 0 ? kv_get(kv, n, "keys") : NULL;
+    if (!keys0 || !keys0[0]) { respond_error(c, 400, "keys ist erforderlich"); return; }
+    char keys[MAX_DELETE * 9 + 16];
+    snprintf(keys, sizeof(keys), "%s", keys0);
+    int nkeys = 1;
+    for (const char *p = keys; *p; p++) nkeys += *p == ',';
+    if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Spiele auf einmal"); return; }
+    job_t *j = new_job(c, JOB_GVERIFY);
+    if (!j) return;
+    j->items = calloc(MAX_DELETE, sizeof(*j->items));
+    if (!j->items) { job_free(j); respond_error(c, 500, "Kein Speicher"); return; }
+    int ambiguous = 0, badkey = 0;
+    pthread_mutex_lock(&lib_lock);
+    for (char *p = keys, *save = NULL, *tok; (tok = strtok_r(p, ",", &save)); p = NULL) {
+        char *kend;
+        uint32_t want = (uint32_t)strtoul(tok, &kend, 16);
+        if (kend == tok || *kend) { badkey = 1; break; }
+        int hits = 0;
+        for (int i = 0; i < lib_n; i++)
+            for (int t = 0; t < lib_snap[i].r.ntitles; t++) hits += path_key(lib_snap[i].r.titles[t].path) == want;
+        if (hits > 1) { ambiguous = 1; break; }
+        for (int i = 0; i < lib_n && j->nitems < MAX_DELETE; i++) {
+            if (!lroot_name(&lib_snap[i])[0]) continue;
+            for (int t = 0; t < lib_snap[i].r.ntitles && j->nitems < MAX_DELETE; t++) {
+                const lib_title_t *tt = &lib_snap[i].r.titles[t];
+                if (path_key(tt->path) != want) continue;
+                del_item_t *it = &j->items[j->nitems++];
+                snprintf(it->id, sizeof(it->id), "%s", tt->id);
+                snprintf(it->name, sizeof(it->name), "%s", tt->name[0] ? tt->name : tt->id);
+                snprintf(it->path, sizeof(it->path), "%s", tt->path);
+                snprintf(it->root, sizeof(it->root), "%s", lib_snap[i].r.root);
+                snprintf(it->device, sizeof(it->device), "%s", lroot_name(&lib_snap[i]));
+                it->dev = lib_snap[i].dev;
+                struct stat fs;
+                if (tt->ext[0] && lstat(tt->path, &fs) == 0 && S_ISREG(fs.st_mode)) {   /* nur Abbilder haben eine Prüfsumme daneben */
+                    it->size = (uint64_t)fs.st_size;
+                    char sc[320], bare[300];
+                    snprintf(sc, sizeof(sc), "%s.sha256", tt->path);
+                    snprintf(bare, sizeof(bare), "%s", tt->path);
+                    char *dot = strrchr(bare, '.');
+                    if (dot && dot > strrchr(bare, '/')) *dot = 0;
+                    struct stat xs;
+                    if (stat(sc, &xs) == 0 && S_ISREG(xs.st_mode)) { snprintf(it->ex[0], sizeof(it->ex[0]), "%.299s", sc); it->nex = 1; }
+                    else {
+                        snprintf(sc, sizeof(sc), "%s.sha256", bare);
+                        if (stat(sc, &xs) == 0 && S_ISREG(xs.st_mode)) { snprintf(it->ex[0], sizeof(it->ex[0]), "%.299s", sc); it->nex = 1; }
+                    }
+                }
+            }
+        }
+    }
+    pthread_mutex_unlock(&lib_lock);
+    if (ambiguous || badkey || !j->nitems) {
+        job_free(j);
+        respond_error(c, ambiguous ? 409 : 404, ambiguous ? N_("Auswahl nicht eindeutig – Liste neu laden.") : N_("Spiele nicht gefunden – Liste neu laden"));
+        return;
+    }
+    snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
+    start_job(c, j, gverify_worker);
+}
+
+
 static void handle(int c) {
     char *req = malloc(REQ_MAX + 1);
     size_t len = 0;
@@ -4995,6 +5232,8 @@ static void handle(int c) {
         api_move(c, body);
     else if (strcmp(path, "/api/pkg/delete") == 0 && is_post)
         api_pkg_delete(c, body);
+    else if (strcmp(path, "/api/game/verify") == 0 && is_post)
+        api_game_verify(c, body);
     else if (strcmp(path, "/api/library/sizes") == 0 && is_get)
         api_library_sizes(c);
     else if (strcmp(path, "/api/library/sizes") == 0 && is_post)

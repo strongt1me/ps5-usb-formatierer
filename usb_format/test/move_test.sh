@@ -134,8 +134,22 @@ code=$(post "{\"keys\":\"$KG\",\"device\":\"$DEV2\",\"verify\":true}" move)
 for _ in $(seq 1 100); do curl -s "$U/api/status" >"$W/st"; [ "$(q 'd["percent"] > 1' <"$W/st")" = True ] && break; sleep 0.1; done
 curl -s -H "$J" -d '{}' "$U/api/cancel" >/dev/null
 wait_job
-[ "$code" = 202 ] && [ "$(q 'd["ok"]' <"$W/st")" = False ] && [ ! -e "$B/homebrew/Gross" ] && [ ! -e "$B/.usbfmt-move" ] && [ -f "$A/Gross/riesig.bin" ] \
-    && ok "Abbrechen: nichts am Ziel, Zwischenordner weg, Original unberührt" || bad "Abbrechen" "$code $(cat "$W/st") $(ls -a "$B" "$B/homebrew" 2>&1)"
+[ "$code" = 202 ] && [ "$(q 'd["ok"]' <"$W/st")" = False ] && [ ! -e "$B/homebrew/Gross" ] && [ -d "$B/.usbfmt-move" ] && [ -f "$A/Gross/riesig.bin" ] && grep -q 'Teilkopie bleibt' "$W/st" \
+    && ok "Abbrechen: nichts am Ziel übernommen, Teilkopie bleibt im Zwischenordner, Original unberührt" || bad "Abbrechen" "$code $(cat "$W/st") $(ls -a "$B" "$B/homebrew" 2>&1)"
+
+# ---------------------------------------------------------------- Fortsetzen: gleiche Auswahl nimmt die Teilkopie weiter, Abweichendes wird neu kopiert
+STG=$(ls -d "$B/.usbfmt-move"/* 2>/dev/null | head -1)
+[ -n "$STG" ] && ok "Teilkopie liegt im Zwischenordner ($(basename "$STG"))" || bad "Teilkopie fehlt"
+mkdir -p "$STG/sce_sys"
+cp "$A/Gross/sce_sys/param.json" "$STG/sce_sys/param.json"
+printf 'XX' | dd of="$STG/sce_sys/param.json" bs=1 seek=3 conv=notrunc 2>/dev/null   # gleich groß, aber anders: muss neu kopiert werden
+start
+library
+code=$(post "{\"keys\":\"$KG\",\"device\":\"$DEV2\",\"verify\":true}" move)
+[ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = True ] && [ ! -e "$B/.usbfmt-move" ] && cmp -s "$A/Gross/riesig.bin" "$B/homebrew/Gross/riesig.bin" \
+    && cmp -s "$A/Gross/sce_sys/param.json" "$B/homebrew/Gross/sce_sys/param.json" \
+    && ok "Fortsetzen: Spiel vollständig und gleich am Ziel (abweichende Teildatei neu kopiert), Zwischenordner weg" || bad "Fortsetzen" "$code $(cat "$W/st") $(ls -a "$B" "$B/homebrew" 2>&1)"
+rm -rf "$B/homebrew/Gross"
 
 # ---------------------------------------------------------------- beschädigte Kopie wird erkannt
 start USBFMT_MOVE_CORRUPT=1

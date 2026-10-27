@@ -189,6 +189,10 @@ class Api:
         body.update({"pkgs": ",".join(pkgs)} if pkgs else {"keys": ",".join(keys or [])})
         return self._call("/api/move", body, timeout=40)
 
+    def verify_games(self, keys):
+        """Abbilder gegen ihre .sha256-Datei prüfen (nur lesen; Auftrag "game_verify")"""
+        return self._call("/api/game/verify", {"keys": ",".join(keys)})
+
     def delete_pkgs(self, keys):
         return self._call("/api/pkg/delete", {"keys": ",".join(keys)})
 
@@ -397,8 +401,28 @@ def port_open(host, port, timeout=1.0):
         return False
 
 
+def ver_key(v):
+    """Version wie "01.02" oder "01.010.000" zum Vergleichen"""
+    return tuple(int(x) if x.isdigit() else 0 for x in (v or "").split(".") if x)
+
+
+def dup_marks(data):
+    """Aus /api/library: je doppeltem Spiel (gleiche Titel-ID an mehreren Orten) pfadweise ("older"|"newest"|"dup", Version).
+    "older" nur, wenn die Versionen verschieden sind und diese die ältere ist"""
+    ver = {t.get("path"): t.get("version") or "" for t in data.get("titles", []) or []}
+    out = {}
+    for x in data.get("duplicates", []) or []:
+        known = [ver.get(p, "") for p in x.get("paths", []) if ver.get(p)]
+        newest = max(known, key=ver_key) if known else ""
+        differ = len(set(known)) > 1
+        for p in x.get("paths", []):
+            v = ver.get(p, "")
+            out[p] = ("older" if differ and v and v != newest else "newest" if differ and v == newest else "dup", v)
+    return out
+
+
 def move_check_text(r):
-    """Text zur Vorabprüfung (leer = passt)"""
+    """Vorabprüfung als (Fehlertext, Hinweis): Fehlertext leer = passt; der Hinweis nennt dann den freien Platz danach"""
     out = []
     if not r.get("fits", True):
         out.append(_("Auf dem Ziel ist nicht genug Platz: gebraucht werden {need}, frei sind {free}.",
@@ -406,7 +430,9 @@ def move_check_text(r):
     if r.get("fat32") and r.get("big"):
         out.append(_("Das Ziel ist FAT32: Dateien über 4 GB passen dort nicht ({files}). Das Ziel mit exFAT formatieren oder ein anderes wählen.",
                      files=", ".join(r["big"])))
-    return " ".join(out)
+    after = r.get("free", 0) - r.get("need", 0)
+    info = _("Danach frei auf dem Ziel: {free}", free=fmt_size(after)) if r.get("fits", True) and after >= 0 and "free" in r else ""
+    return " ".join(out), info
 
 
 def pkg_hints(pk, fw):
@@ -458,7 +484,7 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
     ttk.Checkbutton(frm, variable=verify, style="Switch.TCheckbutton",
                     text=_("Kopie nach dem Schreiben prüfen (empfohlen)")).pack(anchor="w", pady=(px(10), 0))
     with_extras = tk.BooleanVar(value=True)
-    note = ttk.Label(frm, style="Danger.TLabel", wraplength=px(460), justify="left")
+    note = ttk.Label(frm, style="Danger.TLabel", wraplength=px(460), justify="left")   # Fehlertext rot, sonst der Hinweis grau
     state = {"seq": 0, "res": {}}
 
     def run_check(*_a):
@@ -472,7 +498,7 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
             try:
                 state["res"][my] = check(target, ex)
             except Exception:
-                state["res"][my] = ""
+                state["res"][my] = ("", "")
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -480,9 +506,9 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
             if not win.winfo_exists() or my != state["seq"]:
                 return
             if my in state["res"]:
-                txt = state["res"].pop(my)
-                if txt:
-                    note.configure(text=txt)
+                bad_txt, info_txt = state["res"].pop(my)
+                if bad_txt or info_txt:
+                    note.configure(text=bad_txt or info_txt, style="Danger.TLabel" if bad_txt else "Muted.TLabel")
                     note.pack(anchor="w", pady=(px(8), 0), before=btns)
                 else:
                     note.pack_forget()
@@ -520,7 +546,7 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
         target, ex = targets[max(0, box.current())], bool(extras and with_extras.get())
         if check:   # frisch prüfen: passt es nicht, bleibt der Dialog offen
             try:
-                bad = check(target, ex)
+                bad = check(target, ex)[0]
             except Exception:
                 bad = ""
             if bad:
@@ -743,6 +769,7 @@ class App(tk.Tk):
         self.folders_var = tk.BooleanVar(value=self.settings.get("folders", True))
         self.host_var = tk.StringVar(value=self.settings.get("host", ""))
         self.page = self.settings.get("page") if self.settings.get("page") in dict(TABS) else "games"
+        self.dup_marks = {}        # Pfad -> (Art, Version) für doppelte Spiele (aus /api/library: duplicates)
         self.pkgs = {}             # Pakete je Laufwerk (aus /api/library: pkgfiles)
         self.ps5_fw = ""           # Firmware der PS5 (aus /api/library), für den Vergleich mit den Paketen
         self.fs_var = tk.StringVar(value="exFAT")
@@ -970,6 +997,8 @@ class App(tk.Tk):
         self.sort_combo.current(0)
         self.sort_combo.grid(row=1, column=2, sticky="e", padx=(px(6), 0))
         self.sort_combo.bind("<<ComboboxSelected>>", lambda e: self._show_games())
+        self.verify_btn = ttk.Button(ghead, text=_("Prüfen …"), command=self._verify_games)   # neben der Suche: in der Knopfleiste unten ist kein Platz mehr
+        self.verify_btn.grid(row=1, column=3, sticky="e", padx=(px(6), 0))
         Tooltip(self.game_search, _("Spiele filtern (Strg+F)"))
         Tooltip(self.sort_combo, _("Sortieren nach"))
         style = ttk.Style(self)
@@ -1001,6 +1030,7 @@ class App(tk.Tk):
         self.move_btn.pack(side="right", padx=(0, px(8)))
         self.copy_btn = ttk.Button(gbar, text=_("Angehakte Spiele kopieren …"), command=lambda: self._move_games(copy_only=True))
         self.copy_btn.pack(side="right", padx=(0, px(8)))
+        Tooltip(self.verify_btn, lambda: self._why(self.verify_btn) or _("Abbilder der angehakten Spiele gegen ihre Prüfsummen-Datei (.sha256) prüfen; es wird nichts verändert"))
         Tooltip(self.copy_btn, lambda: self._why(self.copy_btn) or _("Die angehakten Spiele auf ein anderes Laufwerk kopieren; die Originale bleiben"))
         Tooltip(self.move_btn, lambda: self._why(self.move_btn) or _("Die angehakten Spiele auf ein anderes Laufwerk kopieren"))
         Tooltip(self.del_btn, lambda: self._why(self.del_btn) or _("Die angehakten Spiele vom Laufwerk löschen"))
@@ -1313,6 +1343,7 @@ class App(tk.Tk):
         for seq in ("<Control-h>", "<Control-H>"):
             self.bind_all(seq, lambda e: not isinstance(e.widget, (tk.Entry, ttk.Entry)) and not ui_theme.grab_of(self, True)
                           and self._history())
+        self.bind_all("<Control-Shift-B>", lambda e: not ui_theme.grab_of(self, True) and self._copy_report())   # Fehlerbericht kopieren
 
     def _key_ok(self):
         """Tastenkürzel, die umschalten oder neu einlesen, nur wenn die Knöpfe dafür auch frei wären: kein Auftrag
@@ -1431,7 +1462,7 @@ class App(tk.Tk):
         dev = self._selected_device()
         if need_dev and not dev:
             return _("Erst ein Laufwerk wählen.")
-        if btn in (self.del_btn, self.move_btn, self.copy_btn):
+        if btn in (self.del_btn, self.move_btn, self.copy_btn, self.verify_btn):
             return _("Erst Spiele anhaken.")
         if btn in (self.pkg_del_btn, self.pkg_move_btn, self.pkg_copy_btn):
             return _("Erst Pakete anhaken.")
@@ -2074,6 +2105,7 @@ class App(tk.Tk):
         enable(self.pkg_copy_btn, idle and not pc and self.api and self.pkg_checked and len(self.devices) > 1)
         enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
         enable(self.copy_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
+        enable(self.verify_btn, idle and not pc and self.api and self.games_checked)
         for w in (self.backup_btn, self.restore_btn):
             enable(w, idle and not pc and self.api and dev and not dev.get("locked") and not dev.get("place"))
         has_img = bool(self.img_tree.selection())
@@ -2339,7 +2371,10 @@ class App(tk.Tk):
         for g in sorted(shown, key=key):
             kind = game_type_label(g)
             meta = " · ".join(x for x in (g["id"], kind, fmt_size(g["size"]) if g["size"] else "") if x)
-            rows.append((g.get("key") or None, g["name"] or g["id"], meta))
+            mark = self.dup_marks.get(g.get("path"))   # doppelt: Hinweis hinter dem Namen, bei der älteren Version "zuerst entfernen"
+            tag = "" if not mark else "  · " + (_("doppelt, ältere Version {v}", v=mark[1]) if mark[0] == "older"
+                                                else _("doppelt, neueste Version {v}", v=mark[1]) if mark[0] == "newest" else _("doppelt"))
+            rows.append((g.get("key") or None, (g["name"] or g["id"]) + tag, meta))
         if rows != getattr(self, "_games_shown", None):
             top = self.games_tree.yview()[0]
             self.games_tree.delete(*self.games_tree.get_children())
@@ -2865,10 +2900,14 @@ class App(tk.Tk):
                                       name=dev_title(dev), dev=dev["name"])
         tiles = _("Die Kacheln werden auch von der PS5-Startseite entfernt.") if uninstall else \
             _("Die Kacheln bleiben auf der Startseite (ohne Spiel).")
+        free = next((m.get("free") for m in dev.get("mounts", []) if m.get("free") is not None), None)
+        sizes = [games[k].get("size") or 0 for k in keys if k in games]
+        after = (_("Danach frei auf {name}: {free}", name=dev_title(dev), free=fmt_size(free + sum(sizes))) + "\n\n") \
+            if free is not None and sizes and all(sizes) else ""   # nur, wenn alle Größen bekannt sind
         if not messagebox.askokcancel(
                 _("Spiele löschen"),
-                f"{head}\n\n{shown}\n\n{tiles}\n\n" + _("Laufende Spiele vorher beenden. Das lässt sich nicht "
-                                                        "rückgängig machen."),
+                f"{head}\n\n{shown}\n\n{tiles}\n\n{after}" + _("Laufende Spiele vorher beenden. Das lässt sich nicht "
+                                                               "rückgängig machen."),
                 icon="warning", default="cancel", parent=self):
             return
         if self.busy or not self.api:
@@ -2885,6 +2924,42 @@ class App(tk.Tk):
                 self.q.put(("error", _("Löschen konnte nicht gestartet werden: {e}", e=e)))
                 return
             self._follow(api, foreign=False, done_title=_("Spiele gelöscht."))
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _verify_games(self):
+        """Angehakte Abbilder gegen ihre .sha256-Datei prüfen (nur lesen); das Ergebnis steht in der Meldung"""
+        dev = self._selected_device()
+        all_keys = {g.get("key") for g in self.games.get(dev["name"], [])} if dev else set()
+        keys = [k for k in self.games_checked if k in all_keys]
+        if self.busy or not dev or not keys or not self.api:
+            return
+        games = {g.get("key"): g for g in self.games.get(dev["name"], [])}
+        names = sorted((games[k]["name"] or games[k]["id"]) for k in keys if k in games)
+        shown = "\n".join("• " + n for n in names[:10]) + ("\n" + _("… und {n} weitere", n=len(names) - 10) if len(names) > 10 else "")
+        if not messagebox.askokcancel(
+                _("Spiele prüfen"),
+                _("Diese Spiele auf {name} ({dev}) werden geprüft:", name=dev_title(dev), dev=dev["name"]) + f"\n\n{shown}\n\n" +
+                _("Das Abbild wird ganz gelesen und mit der Prüfsummen-Datei (.sha256) daneben verglichen – bei großen Spielen dauert das. "
+                  "Ordner-Spiele haben keine Prüfsumme. Es wird nichts verändert."), parent=self):
+            return
+        if self.busy or not self.api:
+            return
+        api = self.api
+        key_list = list(keys)
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+            (messagebox.showinfo if ok else messagebox.showwarning)(_("Spiele prüfen"), msg, parent=self)
+
+        def work():
+            try:
+                api.verify_games(key_list)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Prüfen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Spiele geprüft."), after=done)
 
         self.pbar["value"] = 0
         self._run(work)
@@ -3675,6 +3750,7 @@ class App(tk.Tk):
                         pkgs.setdefault(pk["device"], []).append(pk)
                 self.pkgs = pkgs
                 self.ps5_fw = data.get("fw") or ""
+                self.dup_marks = dup_marks(data)
                 known = self.__dict__.setdefault("_game_sizes_known", {})
                 for lst in games.values():
                     for g in lst:
@@ -3837,7 +3913,18 @@ class App(tk.Tk):
         self.destroy()
 
     def _on_exception(self, exc, val, tb):
-        ui_theme.report_error(self, self.title(), _("Unerwarteter Fehler: {e}", e=val), (exc, val, tb))
+        ui_theme.report_error(self, self.title(), _("Unerwarteter Fehler: {e}", e=val), (exc, val, tb), APP_NAME, self._report_extra())
+
+    def _report_extra(self):
+        """Angaben für den Fehlerbericht: Betriebsart, Gegenstelle, Laufwerke (nur Namen und Modelle)"""
+        try:
+            devs = ", ".join("%s (%s)" % (d.get("name", "?"), d.get("model") or d.get("format") or "?") for d in self.devices[:12])
+            return "Betriebsart: %s · Gegenstelle: %s · Laufwerke: %s" % (self.mode_var.get(), self.host_var.get(), devs or "-")
+        except Exception:
+            return ""
+
+    def _copy_report(self):
+        ui_theme.copy_report(self, APP_NAME, self._report_extra())
 
 
 if __name__ == "__main__":

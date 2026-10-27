@@ -2344,5 +2344,113 @@
   "it": "il gioco è già presente",
   "es": "el juego ya existe",
   "fr": "le jeu est déjà présent"
+ },
+ "Suchen: Name oder Titel-ID …": {
+  "en": "Search: name or title ID …",
+  "it": "Cerca: nome o ID titolo …",
+  "es": "Buscar: nombre o ID de título …",
+  "fr": "Rechercher : nom ou ID de titre …"
+ },
+ "Suchen": {
+  "en": "Search",
+  "it": "Cerca",
+  "es": "Buscar",
+  "fr": "Rechercher"
+ },
+ "Keine Treffer": {
+  "en": "No matches",
+  "it": "Nessun risultato",
+  "es": "Sin resultados",
+  "fr": "Aucun résultat"
+ },
+ "Version {v}": {
+  "en": "Version {v}",
+  "it": "Versione {v}",
+  "es": "Versión {v}",
+  "fr": "Version {v}"
+ },
+ "neueste Version {v}": {
+  "en": "newest version {v}",
+  "it": "versione più recente {v}",
+  "es": "versión más reciente {v}",
+  "fr": "version la plus récente {v}"
+ },
+ "ältere Version {v} – diese zuerst entfernen": {
+  "en": "older version {v} – remove this one first",
+  "it": "versione più vecchia {v} – rimuovi prima questa",
+  "es": "versión más antigua {v} – quitar esta primero",
+  "fr": "version plus ancienne {v} – supprimer celle-ci en premier"
+ },
+ "Danach frei auf dem Ziel: {free}": {
+  "en": "Free on the target afterwards: {free}",
+  "it": "Spazio libero sulla destinazione dopo: {free}",
+  "es": "Libre en el destino después: {free}",
+  "fr": "Libre sur la destination ensuite : {free}"
+ },
+ "Danach frei auf {dev}: {free}": {
+  "en": "Free on {dev} afterwards: {free}",
+  "it": "Spazio libero su {dev} dopo: {free}",
+  "es": "Libre en {dev} después: {free}",
+  "fr": "Libre sur {dev} ensuite : {free}"
+ },
+ "Spiele zum Prüfen anhaken": {
+  "en": "Tick games to check",
+  "it": "Seleziona i giochi da controllare",
+  "es": "Marca los juegos para comprobar",
+  "fr": "Cochez les jeux à vérifier"
+ },
+ "Spiele prüfen …": {
+  "en": "Check games …",
+  "it": "Controlla giochi …",
+  "es": "Comprobar juegos …",
+  "fr": "Vérifier les jeux …"
+ },
+ "Spiel prüfen": {
+  "en": "Check game",
+  "it": "Controlla gioco",
+  "es": "Comprobar juego",
+  "fr": "Vérifier le jeu"
+ },
+ "{n} Spiele prüfen": {
+  "en": "Check {n} games",
+  "it": "Controlla {n} giochi",
+  "es": "Comprobar {n} juegos",
+  "fr": "Vérifier {n} jeux"
+ },
+ "Dieses Spiel auf {dev} wird geprüft:": {
+  "en": "This game on {dev} will be checked:",
+  "it": "Questo gioco su {dev} verrà controllato:",
+  "es": "Este juego en {dev} se comprobará:",
+  "fr": "Ce jeu sur {dev} sera vérifié :"
+ },
+ "Diese Spiele auf {dev} werden geprüft:": {
+  "en": "These games on {dev} will be checked:",
+  "it": "Questi giochi su {dev} verranno controllati:",
+  "es": "Estos juegos en {dev} se comprobarán:",
+  "fr": "Ces jeux sur {dev} seront vérifiés :"
+ },
+ "Das Abbild wird ganz gelesen und mit der Prüfsummen-Datei (.sha256) daneben verglichen – bei großen Spielen dauert das. Ordner-Spiele haben keine Prüfsumme. Es wird nichts verändert.": {
+  "en": "The image is read completely and compared with the checksum file (.sha256) next to it – this takes a while for large games. Folder games have no checksum. Nothing is changed.",
+  "it": "L'immagine viene letta per intero e confrontata con il file di checksum (.sha256) accanto – per i giochi grandi ci vuole tempo. I giochi in cartella non hanno checksum. Non viene modificato nulla.",
+  "es": "La imagen se lee por completo y se compara con el archivo de suma (.sha256) que hay al lado; con juegos grandes tarda. Los juegos en carpeta no tienen suma. No se cambia nada.",
+  "fr": "L'image est lue en entier et comparée au fichier de somme (.sha256) voisin – long pour les gros jeux. Les jeux en dossier n'ont pas de somme. Rien n'est modifié."
+ },
+ "Spiele geprüft: alles in Ordnung": {
+  "en": "Games checked: all fine",
+  "it": "Giochi controllati: tutto a posto",
+  "es": "Juegos comprobados: todo correcto",
+  "fr": "Jeux vérifiés : tout est en ordre"
+ },
+ "Prüfsumme weicht ab": {
+  "en": "Checksum differs",
+  "it": "Il checksum non corrisponde",
+  "es": "La suma no coincide",
+  "fr": "La somme ne correspond pas"
+ },
+ "Nicht geprüft": {
+  "en": "Not checked",
+  "it": "Non controllato",
+  "es": "No comprobado",
+  "fr": "Non vérifié"
  }
 }

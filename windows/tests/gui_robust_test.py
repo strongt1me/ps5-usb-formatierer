@@ -106,6 +106,60 @@ try:
 except Exception as e:
     bad("report_error wirft selbst", repr(e))
 
+# 3b. Fehlerbericht: Fehler kommt in fehler.log, der Dialog bietet "Bericht kopieren", der Bericht enthält Version und Fehler
+import pc_common  # noqa: E402
+
+probe = tk.Toplevel(root)
+box2 = ttk.Combobox(probe, values=["a"], state="readonly")
+box2.pack()
+probe.update()
+
+
+def press_copy():
+    tops = [w for w in root.winfo_children() + probe.winfo_children() if isinstance(w, tk.Toplevel)]
+    btns = []
+
+    def walk(w):
+        for c in w.winfo_children():
+            if isinstance(c, ttk.Button):
+                btns.append(c)
+            walk(c)
+    for t in tops:
+        walk(t)
+    copy = [b for b in btns if str(b.cget("text")) == uf_text("Bericht kopieren")]
+    ok_btn = [b for b in btns if str(b.cget("text")) == uf_text("OK")]
+    state["copy_seen"] = state.get("copy_seen", 0) + 1
+    if state["copy_seen"] > 60:
+        for t in tops:
+            t.destroy()
+        return
+    if copy and "copied" not in state:
+        state["copied"] = True
+        root.after(150, press_copy)   # danach die Bestätigung schließen (modal: Aufruf blockiert bis dahin)
+        copy[0].invoke()
+    elif "copied" in state and ok_btn:
+        ok_btn[0].invoke()
+    else:
+        root.after(100, press_copy)
+
+
+from i18n import _ as uf_text  # noqa: E402
+
+root.after(300, press_copy)
+try:
+    try:
+        raise ValueError("Testfehler fuer den Bericht")
+    except ValueError:
+        info = sys.exc_info()
+    ui_theme.report_error(probe, "Test", "Unerwarteter Fehler: Test", info, "GuiRobustTest", "Betriebsart: test")
+    log = open(pc_common.error_log_file("GuiRobustTest"), encoding="utf-8").read()
+    clip = root.clipboard_get()
+    check_ok = "Testfehler fuer den Bericht" in log and "Testfehler fuer den Bericht" in clip and "GuiRobustTest" in clip and "Betriebsart: test" in clip
+    ok("Fehlerbericht: fehler.log und Zwischenablage enthalten Version, Angaben und Fehler") if check_ok else bad("Fehlerbericht", clip[:200])
+except Exception as e:
+    bad("Fehlerbericht wirft", repr(e))
+probe.destroy()
+
 # 4. Programm: Taktgeber und Tastenkürzel bei aufgeklappter Liste
 import usb_formatierer as uf  # noqa: E402
 import i18n  # noqa: E402
@@ -185,7 +239,7 @@ def drive(step=0):
 app.after(300, drive)
 app.after(40000, lambda: [w.destroy() for w in app.winfo_children() if isinstance(w, tk.Toplevel)])   # Wächter
 try:
-    r = uf.ask_move(app, dev, [dst], ["Spiel"], check=lambda t, ex: "Zu wenig Platz auf dem Ziel")
+    r = uf.ask_move(app, dev, [dst], ["Spiel"], check=lambda t, ex: ("Zu wenig Platz auf dem Ziel", ""))
     if seen.get("note") and seen.get("msg") and seen.get("still_open") and r is None:
         ok("Kopierdialog: Hinweiszeile, Meldung beim Kopieren, Dialog bleibt offen, Abbrechen liefert nichts")
     else:

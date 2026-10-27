@@ -354,9 +354,56 @@ def cmd_update(host, dry_run, ignore_running, resend, backup):
             "neu anmelden mit: python tools/ps5_deploy.py tile")
     elif tile and tile.get("registered"):
         say(f"Kachel: {tile['registered']} - aktuell")
+    broken = selftest(host, version)
+    if broken:
+        say(f"Selbsttest: {broken} Fehler - der Formatierer läuft, aber nicht alles antwortet wie erwartet (Exit-Code 3).")
+    else:
+        say("Selbsttest: alles antwortet.")
     say("Fertig." if not bad else "Fertig - aber das Kernel-Log ist auffällig (Exit-Code 2).")
     if bad:
         sys.exit(2)
+    if broken:
+        sys.exit(3)
+
+
+def selftest(host, version):
+    """Nach dem Update alle Lesewege des Formatierers einmal abfragen (nichts wird verändert): Zahl der Fehler"""
+    say("Selbsttest (nur Lesen):")
+    bad = 0
+
+    def check(name, ok, detail=""):
+        nonlocal bad
+        bad += 0 if ok else 1
+        say(f"  {'ok     ' if ok else 'FEHLER '} {name}" + (f" - {detail}" if detail else ""))
+
+    info = api(host, "/api/info")
+    check("/api/info", bool(info) and info.get("version") == version, str(info and info.get("version")))
+    st = api(host, "/api/status")
+    check("/api/status", bool(st) and "busy" in st and not st.get("busy"), "bereit" if st and not st.get("busy") else str(st))
+    dv = api(host, "/api/devices")
+    check("/api/devices", bool(dv) and isinstance(dv.get("devices"), list), f"{len(dv.get('devices', []))} Laufwerk(e)" if dv else "keine Antwort")
+    lib = api(host, "/api/library?refresh=1", timeout=15)
+    for _ in range(90):   # die Suche über alle Laufwerke läuft im Hintergrund
+        if lib and not lib.get("scanning"):
+            break
+        time.sleep(1)
+        lib = api(host, "/api/library", timeout=15)
+    good = bool(lib) and not lib.get("scanning") and all(k in lib for k in ("titles", "pkgfiles", "duplicates", "roots", "fw"))
+    check("/api/library", good, (f"{len(lib['titles'])} Spiele, {len(lib['pkgfiles'])} PKG, Firmware {lib.get('fw') or '?'}" if good else "unvollständig oder Suche nicht fertig"))
+    if lib and lib.get("titles"):
+        check("Spielversionen und Größen im Datensatz", all("version" in t for t in lib["titles"]))
+    hist = api(host, "/api/history")
+    check("/api/history", hist is not None and "entries" in hist, f"{len(hist.get('entries', []))} Einträge" if hist and "entries" in hist else str(hist))
+    check("/api/tile", bool(api(host, "/api/tile")) and "registered" in api(host, "/api/tile"))
+    sv = api(host, "/api/saves")
+    check("/api/saves", sv is not None and ("saves" in sv or sv.get("status") in (400, 404)), f"{len(sv.get('saves', []))} Spielstände" if sv and "saves" in sv else str(sv))
+    try:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(f"http://{host}:{API_PORT}/", timeout=15) as r:
+            page = r.read().decode("utf-8", "replace")
+        check("Weboberfläche (HTML)", "I18N" in page and "</html>" in page and len(page) > 100000, f"{len(page) // 1024} KB")
+    except OSError as e:
+        check("Weboberfläche (HTML)", False, str(e))
+    return bad
 
 
 def cmd_tile(host, yes):

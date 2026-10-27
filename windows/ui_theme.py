@@ -202,18 +202,41 @@ def focus_of(win):
         return None
 
 
-def report_error(win, title, text, exc_info=None):
+def report_error(win, title, text, exc_info=None, app_name=None, extra=""):
     """Fehlermeldung aus einem abgefangenen Programmfehler: darf selbst nie scheitern (sonst bleibt nur der Tk-Traceback
-    und die Ursache geht unter). Erst als Dialog, sonst auf die Fehlerausgabe."""
+    und die Ursache geht unter). Mit app_name: der Fehler kommt in fehler.log, und der Dialog bietet "Bericht kopieren"
+    (Version, System, letzte Fehler) zum Weitergeben an. Erst als Dialog, sonst auf die Fehlerausgabe."""
     import traceback
     if exc_info:
         traceback.print_exception(*exc_info)   # Ursache bleibt in der Fehlerausgabe, auch wenn der Dialog scheitert
     try:
+        import pc_common
         import ui_msgbox
-        ui_msgbox.showerror(title, text, parent=win)
+        from i18n import _
+        if not app_name:
+            ui_msgbox.showerror(title, text, parent=win)
+            return
+        pc_common.log_error(app_name, exc_info)
+        msg = text + "\n\n" + _("Der Fehler steht in: {path}", path=pc_common.error_log_file(app_name))
+        buttons = [(_("Bericht kopieren"), "copy", "TButton"), (_("OK"), "ok", "Accent.TButton")]
+        if ui_msgbox._dialog(title, msg, "error", buttons, win, default=1, cancel="ok") == "copy":
+            copy_report(win, app_name, extra)
     except Exception:   # z. B. Fenster schon zerstört oder Dialog nicht möglich
         traceback.print_exc()
         print(title + ": " + text, file=sys.stderr)
+
+
+def copy_report(win, app_name, extra=""):
+    """Bericht in die Zwischenablage (zum Einfügen in eine Nachricht) und kurz bestätigen"""
+    import pc_common
+    import ui_msgbox
+    from i18n import _
+    report = pc_common.error_report(app_name, extra)
+    win.clipboard_clear()
+    win.clipboard_append(report)
+    win.update()
+    ui_msgbox.showinfo(_("Bericht kopiert"), _("Der Bericht liegt in der Zwischenablage – bitte zusammen mit der Fehlermeldung weitergeben."),
+                       parent=win)
 
 
 def dark_titlebar(win):

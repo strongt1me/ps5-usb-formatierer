@@ -2956,5 +2956,47 @@
   "it": "key_mtime non valido",
   "es": "key_mtime no válido",
   "fr": "key_mtime invalide"
+ },
+ "Die Teilkopie bleibt erhalten: dieselbe Auswahl erneut kopieren setzt fort.": {
+  "en": "The partial copy is kept: copying the same selection again resumes it.",
+  "it": "La copia parziale viene conservata: ricopiando la stessa selezione si riprende.",
+  "es": "La copia parcial se conserva: copiar de nuevo la misma selección la reanuda.",
+  "fr": "La copie partielle est conservée : recopier la même sélection la reprend."
+ },
+ "Spiel prüfen": {
+  "en": "Check game",
+  "it": "Controlla gioco",
+  "es": "Comprobar juego",
+  "fr": "Vérifier le jeu"
+ },
+ "Prüfsumme stimmt: %d.": {
+  "en": "Checksum matches: %d.",
+  "it": "Checksum corretto: %d.",
+  "es": "La suma de comprobación coincide: %d.",
+  "fr": "La somme de contrôle correspond : %d."
+ },
+ " Weicht ab oder nicht lesbar: %d – %s.": {
+  "en": " Differs or unreadable: %d – %s.",
+  "it": " Diverso o illeggibile: %d – %s.",
+  "es": " Difiere o no se puede leer: %d – %s.",
+  "fr": " Différente ou illisible : %d – %s."
+ },
+ " Keine Prüfsummen-Datei (.sha256) gefunden: %d.": {
+  "en": " No checksum file (.sha256) found: %d.",
+  "it": " Nessun file di checksum (.sha256) trovato: %d.",
+  "es": " No se encontró ningún archivo de suma (.sha256): %d.",
+  "fr": " Aucun fichier de somme (.sha256) trouvé : %d."
+ },
+ "Abgebrochen – geprüft: %d von %d.": {
+  "en": "Cancelled – checked: %d of %d.",
+  "it": "Annullato – controllati: %d su %d.",
+  "es": "Cancelado – comprobados: %d de %d.",
+  "fr": "Annulé – vérifiés : %d sur %d."
+ },
+ "Auswahl nicht eindeutig – Liste neu laden.": {
+  "en": "Selection is ambiguous – reload the list.",
+  "it": "Selezione ambigua – ricarica l'elenco.",
+  "es": "Selección ambigua – recarga la lista.",
+  "fr": "Sélection ambiguë – rechargez la liste."
  }
 }
