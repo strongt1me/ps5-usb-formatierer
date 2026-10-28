@@ -66,8 +66,8 @@ jobs:
           foreach ($a in "PS5-USB-Formatierer", "USB-Formatierer") {
               $f = Join-Path $env:RUNNER_TEMP "selftest-$a.txt"
               $p = Start-Process -PassThru -Wait "dist\$a.exe" -ArgumentList "--selftest", $f
-              if (Test-Path $f) { Get-Content $f } else { Write-Host "$a: keine Ausgabe" }
-              if ($p.ExitCode -ne 0) { Write-Host "$a: Selbsttest fehlgeschlagen (Exit $($p.ExitCode))"; exit 1 }
+              if (Test-Path $f) { Get-Content $f } else { Write-Host "${a}: keine Ausgabe" }
+              if ($p.ExitCode -ne 0) { Write-Host "${a}: Selbsttest fehlgeschlagen (Exit $($p.ExitCode))"; exit 1 }
           }
 
       - name: Programme prüfen und starten
