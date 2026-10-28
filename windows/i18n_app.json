@@ -3365,12 +3365,6 @@
   "es": "Estos juegos en {name} ({dev}) se comprobarán:",
   "fr": "Ces jeux sur {name} ({dev}) seront vérifiés :"
  },
- "Das Abbild wird ganz gelesen und mit der Prüfsummen-Datei (.sha256) daneben verglichen – bei großen Spielen dauert das. Ordner-Spiele haben keine Prüfsumme. Es wird nichts verändert.": {
-  "en": "The image is read completely and compared with the checksum file (.sha256) next to it – this takes a while for large games. Folder games have no checksum. Nothing is changed.",
-  "it": "L'immagine viene letta per intero e confrontata con il file di checksum (.sha256) accanto – per i giochi grandi ci vuole tempo. I giochi in cartella non hanno checksum. Non viene modificato nulla.",
-  "es": "La imagen se lee por completo y se compara con el archivo de suma (.sha256) que hay al lado; con juegos grandes tarda. Los juegos en carpeta no tienen suma. No se cambia nada.",
-  "fr": "L'image est lue en entier et comparée au fichier de somme (.sha256) voisin – long pour les gros jeux. Les jeux en dossier n'ont pas de somme. Rien n'est modifié."
- },
  "Spiele geprüft.": {
   "en": "Games checked.",
   "it": "Giochi controllati.",
@@ -3515,18 +3509,6 @@
   "es": "Crear suma de comprobación",
   "fr": "Créer la somme de contrôle"
  },
- "Für diese Abbilder auf {name} ({dev}) wird eine Prüfsummen-Datei (.sha256) neben dem Abbild angelegt:": {
-  "en": "A checksum file (.sha256) will be created next to each of these images on {name} ({dev}):",
-  "it": "Accanto a queste immagini su {name} ({dev}) verrà creato un file di checksum (.sha256):",
-  "es": "Junto a estas imágenes en {name} ({dev}) se creará un archivo de suma (.sha256):",
-  "fr": "Un fichier de somme (.sha256) sera créé à côté de ces images sur {name} ({dev}) :"
- },
- "Das Abbild wird ganz gelesen. Vorhandene Prüfsummen-Dateien bleiben unberührt; Ordner-Spiele werden übersprungen. Geschrieben wird nur die neue .sha256-Datei.": {
-  "en": "The image is read completely. Existing checksum files stay untouched; folder games are skipped. Only the new .sha256 file is written.",
-  "it": "L'immagine viene letta per intero. I file di checksum esistenti restano intatti; i giochi in cartella vengono saltati. Viene scritto solo il nuovo file .sha256.",
-  "es": "La imagen se lee por completo. Los archivos de suma existentes no se tocan; los juegos en carpeta se omiten. Solo se escribe el nuevo archivo .sha256.",
-  "fr": "L'image est lue en entier. Les fichiers de somme existants restent intacts ; les jeux en dossier sont ignorés. Seul le nouveau fichier .sha256 est écrit."
- },
  "Anlegen konnte nicht gestartet werden: {e}": {
   "en": "Creating could not be started: {e}",
   "it": "Impossibile avviare la creazione: {e}",
@@ -3538,5 +3520,143 @@
   "it": "Checksum creato.",
   "es": "Suma de comprobación creada.",
   "fr": "Somme de contrôle créée."
+ },
+ "Aufräumen …": {
+  "en": "Clean up …",
+  "it": "Pulisci …",
+  "es": "Limpiar …",
+  "fr": "Nettoyer …"
+ },
+ "Aufräumen": {
+  "en": "Clean up",
+  "it": "Pulisci",
+  "es": "Limpiar",
+  "fr": "Nettoyer"
+ },
+ "Nichts zum Aufräumen": {
+  "en": "Nothing to clean up",
+  "it": "Niente da pulire",
+  "es": "Nada que limpiar",
+  "fr": "Rien à nettoyer"
+ },
+ "Auf {name} ({dev}) wurde nichts Verwaistes gefunden.": {
+  "en": "Nothing orphaned was found on {name} ({dev}).",
+  "it": "Su {name} ({dev}) non è stato trovato nulla di orfano.",
+  "es": "No se encontró nada huérfano en {name} ({dev}).",
+  "fr": "Rien d'orphelin n'a été trouvé sur {name} ({dev})."
+ },
+ "Aufräumen konnte nicht gestartet werden: {e}": {
+  "en": "Cleaning up could not be started: {e}",
+  "it": "Impossibile avviare la pulizia: {e}",
+  "es": "No se pudo iniciar la limpieza: {e}",
+  "fr": "Le nettoyage n'a pas pu démarrer : {e}"
+ },
+ "Aufgeräumt.": {
+  "en": "Cleaned up.",
+  "it": "Pulito.",
+  "es": "Limpiado.",
+  "fr": "Nettoyé."
+ },
+ "Prüfsumme/Info ohne Spiel": {
+  "en": "checksum/info without game",
+  "it": "checksum/info senza gioco",
+  "es": "suma/info sin juego",
+  "fr": "somme/info sans jeu"
+ },
+ "Backport-Ordner ohne Spiel": {
+  "en": "backport folder without game",
+  "it": "cartella backport senza gioco",
+  "es": "carpeta backport sin juego",
+  "fr": "dossier backport sans jeu"
+ },
+ "leerer Spielordner": {
+  "en": "empty game folder",
+  "it": "cartella di gioco vuota",
+  "es": "carpeta de juego vacía",
+  "fr": "dossier de jeu vide"
+ },
+ "Diese Reste auf {name} ({dev}) gehören zu keinem gefundenen Spiel. Anhaken, was gelöscht werden soll:": {
+  "en": "These leftovers on {name} ({dev}) do not belong to any game found. Tick what should be deleted:",
+  "it": "Questi resti su {name} ({dev}) non appartengono a nessun gioco trovato. Seleziona cosa eliminare:",
+  "es": "Estos restos en {name} ({dev}) no pertenecen a ningún juego encontrado. Marca lo que se debe borrar:",
+  "fr": "Ces restes sur {name} ({dev}) n'appartiennent à aucun jeu trouvé. Cochez ce qu'il faut supprimer :"
+ },
+ "Nichts ist vorgewählt. Backports gehören womöglich zu einem Spiel auf einem gerade nicht angesteckten Laufwerk – dann bleiben sie besser stehen.": {
+  "en": "Nothing is preselected. Backports may belong to a game on a drive that is not plugged in right now – then better leave them.",
+  "it": "Nulla è preselezionato. I backport potrebbero appartenere a un gioco su un'unità non collegata al momento – meglio lasciarli.",
+  "es": "No hay nada preseleccionado. Los backports pueden pertenecer a un juego de una unidad que ahora no está conectada; mejor dejarlos.",
+  "fr": "Rien n'est présélectionné. Les backports peuvent appartenir à un jeu d'un lecteur actuellement débranché – mieux vaut alors les garder."
+ },
+ "Ausgewählte löschen": {
+  "en": "Delete selected",
+  "it": "Elimina selezionati",
+  "es": "Borrar seleccionados",
+  "fr": "Supprimer la sélection"
+ },
+ "Für diese Spiele auf {name} ({dev}) wird eine Prüfsummen-Datei neben dem Abbild bzw. Ordner angelegt:": {
+  "en": "A checksum file will be created next to each of these games (image or folder) on {name} ({dev}):",
+  "it": "Accanto a questi giochi (immagine o cartella) su {name} ({dev}) verrà creato un file di checksum:",
+  "es": "Junto a estos juegos (imagen o carpeta) en {name} ({dev}) se creará un archivo de suma:",
+  "fr": "Un fichier de somme sera créé à côté de ces jeux (image ou dossier) sur {name} ({dev}) :"
+ },
+ "Abbilder: <Name>.sha256; Ordner-Spiele: <Name>.manifest.sha256 mit einer Prüfsumme je Datei. Alles wird ganz gelesen. Vorhandene Prüfsummen-Dateien bleiben unberührt; geschrieben wird nur die neue Datei neben dem Spiel.": {
+  "en": "Images: <name>.sha256; folder games: <name>.manifest.sha256 with one checksum per file. Everything is read completely. Existing checksum files stay untouched; only the new file next to the game is written.",
+  "it": "Immagini: <nome>.sha256; giochi in cartella: <nome>.manifest.sha256 con un checksum per file. Viene letto tutto per intero. I file di checksum esistenti restano intatti; viene scritto solo il nuovo file accanto al gioco.",
+  "es": "Imágenes: <nombre>.sha256; juegos en carpeta: <nombre>.manifest.sha256 con una suma por archivo. Se lee todo por completo. Los archivos de suma existentes no se tocan; solo se escribe el nuevo archivo junto al juego.",
+  "fr": "Images : <nom>.sha256 ; jeux en dossier : <nom>.manifest.sha256 avec une somme par fichier. Tout est lu en entier. Les fichiers de somme existants restent intacts ; seul le nouveau fichier à côté du jeu est écrit."
+ },
+ "Das Spiel wird ganz gelesen und mit der Prüfsummen-Datei daneben verglichen (Abbild: .sha256, Ordner: .manifest.sha256) – bei großen Spielen dauert das. Bei Ordnern werden geänderte, fehlende und neue Dateien gezählt. Es wird nichts verändert.": {
+  "en": "The game is read completely and compared with the checksum file next to it (image: .sha256, folder: .manifest.sha256) – this takes a while for large games. For folders, changed, missing and new files are counted. Nothing is changed.",
+  "it": "Il gioco viene letto per intero e confrontato con il file di checksum accanto (immagine: .sha256, cartella: .manifest.sha256) – per i giochi grandi ci vuole tempo. Per le cartelle vengono contati i file modificati, mancanti e nuovi. Non viene modificato nulla.",
+  "es": "El juego se lee por completo y se compara con el archivo de suma que hay al lado (imagen: .sha256, carpeta: .manifest.sha256); con juegos grandes tarda. En las carpetas se cuentan los archivos cambiados, ausentes y nuevos. No se cambia nada.",
+  "fr": "Le jeu est lu en entier et comparé au fichier de somme voisin (image : .sha256, dossier : .manifest.sha256) – long pour les gros jeux. Pour les dossiers, les fichiers modifiés, manquants et nouveaux sont comptés. Rien n'est modifié."
+ },
+ "In die Warteschlange": {
+  "en": "Add to queue",
+  "it": "Aggiungi alla coda",
+  "es": "Añadir a la cola",
+  "fr": "Ajouter à la file d'attente"
+ },
+ "Zur Warteschlange hinzugefügt.": {
+  "en": "Added to the queue.",
+  "it": "Aggiunto alla coda.",
+  "es": "Añadido a la cola.",
+  "fr": "Ajouté à la file d'attente."
+ },
+ "Warteschlange läuft – noch {n} danach": {
+  "en": "Queue running – {n} more after this",
+  "it": "Coda in corso – ancora {n} dopo questo",
+  "es": "Cola en curso: {n} más después de este",
+  "fr": "File d'attente en cours – encore {n} après celui-ci"
+ },
+ "Warteschlange: {n} Aufträge": {
+  "en": "Queue: {n} jobs",
+  "it": "Coda: {n} lavori",
+  "es": "Cola: {n} trabajos",
+  "fr": "File d'attente : {n} travaux"
+ },
+ "Warteschlange starten": {
+  "en": "Start queue",
+  "it": "Avvia coda",
+  "es": "Iniciar cola",
+  "fr": "Démarrer la file d'attente"
+ },
+ "Leeren": {
+  "en": "Clear",
+  "it": "Svuota",
+  "es": "Vaciar",
+  "fr": "Vider"
+ },
+ "Kopiert.": {
+  "en": "Copied.",
+  "it": "Copiato.",
+  "es": "Copiado.",
+  "fr": "Copié."
+ },
+ "Warteschlange abgearbeitet": {
+  "en": "Queue finished",
+  "it": "Coda completata",
+  "es": "Cola terminada",
+  "fr": "File d'attente terminée"
  }
 }

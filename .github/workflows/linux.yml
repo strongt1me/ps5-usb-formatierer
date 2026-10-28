@@ -126,6 +126,16 @@ jobs:
             cd "$GITHUB_WORKSPACE"
           done
 
+      - name: Selbsttest der gebauten Programme (Übersetzungen, ELF, alle Reiter; Xvfb)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          for prog in PS5-USB-Formatierer USB-Formatierer PS5-USB-Formatierer-${{ matrix.arch }}.AppImage \
+                      USB-Formatierer-${{ matrix.arch }}.AppImage; do
+            timeout 120 xvfb-run -a "windows/dist/$prog" --selftest /tmp/selftest.txt || { cat /tmp/selftest.txt 2>/dev/null; echo "$prog: Selbsttest fehlgeschlagen"; exit 1; }
+            echo "== $prog"; cat /tmp/selftest.txt
+          done
+
       - name: Gebaute Programme starten (Xvfb, ohne Datenträger)
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1   # Läufer ohne FUSE
@@ -229,7 +239,7 @@ jobs:
           for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
                    test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
                    test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh \
-                   test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh test/history_test.sh test/saves_test.sh test/move_test.sh \n                   test/places_test.sh test/pkginfo_test.sh test/precheck_test.sh test/gverify_test.sh test/partials_test.sh; do
+                   test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh test/history_test.sh test/saves_test.sh test/move_test.sh \n                   test/places_test.sh test/pkginfo_test.sh test/precheck_test.sh test/gverify_test.sh test/partials_test.sh test/orphans_test.sh test/manifest_test.sh; do
             echo "== $t"
             bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
           done

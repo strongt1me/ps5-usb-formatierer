@@ -31,8 +31,8 @@ library
 
 # ---- Prüfsumme anlegen
 KN=$(key neu.ffpfs); KA=$(key alt.ffpfs); KO=$(key Ordner)
-[ "$(post "{\"keys\":\"$KN,$KA,$KO\"}" game/checksum)" = 202 ] && wait_job && [ "$(q 'd["result"]["ok"], d["result"]["have"], d["result"]["none"]' <"$W/st")" = "(1, 1, 1)" ] \
-    && ok "Prüfsumme anlegen: 1 angelegt, 1 schon vorhanden, 1 Ordner-Spiel übersprungen" || bad "Prüfsumme anlegen" "$(cat "$W/st")"
+[ "$(post "{\"keys\":\"$KN,$KA,$KO\"}" game/checksum)" = 202 ] && wait_job && [ "$(q 'd["result"]["ok"], d["result"]["have"], d["result"]["none"]' <"$W/st")" = "(2, 1, 0)" ] \
+    && [ -f "$H/Ordner.manifest.sha256" ] && ok "Prüfsumme anlegen: Abbild und Ordner-Spiel (Liste) angelegt, 1 schon vorhanden" || bad "Prüfsumme anlegen" "$(cat "$W/st")"
 [ -f "$H/neu.ffpfs.sha256" ] && [ "$(cut -d' ' -f1 "$H/neu.ffpfs.sha256")" = "$(sha256sum "$H/neu.ffpfs" | cut -d' ' -f1)" ] && grep -q '  neu.ffpfs$' "$H/neu.ffpfs.sha256" \
     && ok "neu.ffpfs.sha256 im Format von sha256sum, Summe stimmt" || bad "Datei" "$(cat "$H/neu.ffpfs.sha256" 2>&1)"
 [ ! -e "$H/neu.ffpfs.sha256.tmp" ] && ok "keine Zwischendatei übrig" || bad "tmp übrig"

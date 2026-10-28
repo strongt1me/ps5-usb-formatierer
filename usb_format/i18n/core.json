@@ -2981,12 +2981,6 @@
   "es": " Difiere o no se puede leer: %d – %s.",
   "fr": " Différente ou illisible : %d – %s."
  },
- " Keine Prüfsummen-Datei (.sha256) gefunden: %d.": {
-  "en": " No checksum file (.sha256) found: %d.",
-  "it": " Nessun file di checksum (.sha256) trovato: %d.",
-  "es": " No se encontró ningún archivo de suma (.sha256): %d.",
-  "fr": " Aucun fichier de somme (.sha256) trouvé : %d."
- },
  "Abgebrochen – geprüft: %d von %d.": {
   "en": "Cancelled – checked: %d of %d.",
   "it": "Annullato – controllati: %d su %d.",
@@ -3022,12 +3016,6 @@
   "it": " Già presente: %d.",
   "es": " Ya existe: %d.",
   "fr": " Déjà présente : %d."
- },
- " Kein Abbild (Ordner-Spiele haben keine Prüfsumme): %d.": {
-  "en": " Not an image (folder games have no checksum): %d.",
-  "it": " Non è un'immagine (i giochi in cartella non hanno checksum): %d.",
-  "es": " No es una imagen (los juegos en carpeta no tienen suma): %d.",
-  "fr": " Pas une image (les jeux en dossier n'ont pas de somme) : %d."
  },
  " Nicht angelegt: %d – %s.": {
   "en": " Not created: %d – %s.",
@@ -3070,5 +3058,47 @@
   "it": "device è obbligatorio",
   "es": "device es obligatorio",
   "fr": "device est obligatoire"
+ },
+ "Aufräumen": {
+  "en": "Clean up",
+  "it": "Pulisci",
+  "es": "Limpiar",
+  "fr": "Nettoyer"
+ },
+ "Aufgeräumt: %d, %s wieder frei.": {
+  "en": "Cleaned up: %d, %s free again.",
+  "it": "Pulito: %d, %s di nuovo liberi.",
+  "es": "Limpiado: %d, %s libres de nuevo.",
+  "fr": "Nettoyé : %d, %s de nouveau libres."
+ },
+ " Nicht entfernt: %d.": {
+  "en": " Not removed: %d.",
+  "it": " Non rimossi: %d.",
+  "es": " No eliminados: %d.",
+  "fr": " Non supprimés : %d."
+ },
+ "Nichts Verwaistes gefunden – Liste neu laden": {
+  "en": "Nothing orphaned found – reload the list",
+  "it": "Nessun elemento orfano trovato – ricarica l'elenco",
+  "es": "No se encontró nada huérfano – recarga la lista",
+  "fr": "Rien d'orphelin trouvé – rechargez la liste"
+ },
+ " Kein Abbild und kein Ordner: %d.": {
+  "en": " Neither an image nor a folder: %d.",
+  "it": " Né un'immagine né una cartella: %d.",
+  "es": " Ni una imagen ni una carpeta: %d.",
+  "fr": " Ni une image ni un dossier : %d."
+ },
+ " Keine Prüfsummen-Datei gefunden: %d.": {
+  "en": " No checksum file found: %d.",
+  "it": " Nessun file di checksum trovato: %d.",
+  "es": " No se encontró ningún archivo de suma: %d.",
+  "fr": " Aucun fichier de somme trouvé : %d."
+ },
+ "%s (%d geändert, %d fehlen, %d neu)": {
+  "en": "%s (%d changed, %d missing, %d new)",
+  "it": "%s (%d modificati, %d mancanti, %d nuovi)",
+  "es": "%s (%d cambiados, %d faltan, %d nuevos)",
+  "fr": "%s (%d modifiés, %d manquants, %d nouveaux)"
  }
 }

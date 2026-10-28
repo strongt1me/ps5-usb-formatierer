@@ -12,6 +12,7 @@ import os
 import queue
 import re
 import socket
+import sys
 import subprocess
 import threading
 import time
@@ -192,6 +193,13 @@ class Api:
     def checksum_games(self, keys):
         """Für Abbilder ohne .sha256 daneben eine anlegen (Auftrag "game_checksum")"""
         return self._call("/api/game/checksum", {"keys": ",".join(keys)})
+
+    def orphans(self):
+        """Verwaiste Reste (Prüfsummen ohne Abbild, Backport-Ordner ohne Spiel, leere Spielordner) aller Laufwerke"""
+        return self._call("/api/orphans", timeout=60)
+
+    def delete_orphans(self, keys):
+        return self._call("/api/orphans/delete", {"keys": ",".join(keys)})
 
     def game_info(self, key):
         """Einzelheiten zu einem Spiel (nur lesen)"""
@@ -554,7 +562,7 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
     btns.pack(fill="x", pady=(16, 0))
     ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(None)).pack(side="right")
 
-    def go():
+    def go(queued=False):
         target, ex = targets[max(0, box.current())], bool(extras and with_extras.get())
         if check:   # frisch prüfen: passt es nicht, bleibt der Dialog offen
             try:
@@ -564,9 +572,11 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
             if bad:
                 messagebox.showerror(win.title(), bad, parent=win)
                 return
-        done((target, bool(verify.get()), ex))
+        done((target, bool(verify.get()), ex, queued))
 
     ttk.Button(btns, text=_("Kopieren"), style="Accent.TButton", command=go).pack(side="right", padx=(0, 6))
+    if copy_only:   # mehrere Kopieraufträge einstellen und nacheinander laufen lassen
+        ttk.Button(btns, text=_("In die Warteschlange"), command=lambda: go(True)).pack(side="right", padx=(0, 6))
     win.bind("<Escape>", lambda e: done(None))
     win.protocol("WM_DELETE_WINDOW", lambda: done(None))
     win.update_idletasks()
@@ -578,6 +588,64 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
     ui_theme.dark_titlebar(win)
     pc_common.grab(win)
     run_check()
+    root.wait_window(win)
+    return result["v"]
+
+
+def ask_orphans(root, dev, items):
+    """Liste verwaister Reste mit Kästchen (nichts vorgewählt): liefert die Schlüssel der angehakten oder None"""
+    px = ui_theme.px
+    win = tk.Toplevel(root)
+    win.withdraw()
+    win.title(_("Aufräumen"))
+    win.transient(root)
+    frm = ttk.Frame(win, padding=(18, 14, 18, 14))
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text=_("Diese Reste auf {name} ({dev}) gehören zu keinem gefundenen Spiel. Anhaken, was gelöscht werden soll:",
+                          name=dev_title(dev), dev=dev["name"]), wraplength=px(560), justify="left").pack(anchor="w")
+    kinds = {"sidecar": _("Prüfsumme/Info ohne Spiel"), "backport": _("Backport-Ordner ohne Spiel"), "empty": _("leerer Spielordner")}
+    imgs = check_images(win)
+    tree = ttk.Treeview(frm, columns=("meta",), show="tree", height=min(12, max(4, len(items))), selectmode="none", style="Games.Treeview")
+    tree.column("#0", width=px(380), stretch=True)
+    tree.column("meta", width=px(220), anchor="e", stretch=False)
+    tree.pack(fill="both", expand=True, pady=(px(8), px(8)))
+    checked = set()
+    for it in items:
+        short = re.sub(r"^/mnt/(usb|ext)\d+/", "", it["path"])
+        tree.insert("", "end", iid=it["key"], text="  " + short, values=(f"{kinds.get(it['kind'], it['kind'])} · {fmt_size(it['bytes'])}",),
+                    image=imgs[False])
+
+    def toggle(e):
+        iid = tree.identify_row(e.y)
+        if iid:
+            (checked.discard if iid in checked else checked.add)(iid)
+            tree.item(iid, image=imgs[iid in checked])
+        return "break"
+
+    tree.bind("<Button-1>", toggle)
+    ttk.Label(frm, text=_("Nichts ist vorgewählt. Backports gehören womöglich zu einem Spiel auf einem gerade nicht angesteckten "
+                          "Laufwerk – dann bleiben sie besser stehen."), style="Hint.TLabel", wraplength=px(560), justify="left").pack(anchor="w")
+    result = {"v": None}
+
+    def done(v):
+        result["v"] = v
+        win.destroy()
+
+    btns = ttk.Frame(frm)
+    btns.pack(fill="x", pady=(16, 0))
+    ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(None)).pack(side="right")
+    ttk.Button(btns, text=_("Ausgewählte löschen"), style="Danger.TButton",
+               command=lambda: done(sorted(checked) or None)).pack(side="right", padx=(0, 6))
+    win.bind("<Escape>", lambda e: done(None))
+    win.protocol("WM_DELETE_WINDOW", lambda: done(None))
+    win.update_idletasks()
+    top = root.winfo_toplevel()
+    x = top.winfo_rootx() + (top.winfo_width() - win.winfo_reqwidth()) // 2
+    y = top.winfo_rooty() + (top.winfo_height() - win.winfo_reqheight()) // 3
+    win.geometry(pc_common._inside(win, top, x, y))
+    win.deiconify()
+    ui_theme.dark_titlebar(win)
+    pc_common.grab(win)
     root.wait_window(win)
     return result["v"]
 
@@ -783,6 +851,10 @@ class App(tk.Tk):
         self.page = self.settings.get("page") if self.settings.get("page") in dict(TABS) else "games"
         self.dup_marks = {}        # Pfad -> (Art, Version) für doppelte Spiele (aus /api/library: duplicates)
         self.partials = {}         # Laufwerk -> Bytes einer liegengebliebenen Teilkopie (aus /api/library: partials)
+        self.copy_queue = []       # eingestellte Kopieraufträge (laufen nacheinander); Abbrechen leert den Rest
+        self.queue_running = False
+        self.queue_log = []
+        self.queue_ok = True
         self.pkgs = {}             # Pakete je Laufwerk (aus /api/library: pkgfiles)
         self.ps5_fw = ""           # Firmware der PS5 (aus /api/library), für den Vergleich mit den Paketen
         self.fs_var = tk.StringVar(value="exFAT")
@@ -1017,7 +1089,17 @@ class App(tk.Tk):
         self.partial_lbl = ttk.Label(self.hint_row, style="Warn.TLabel")
         self.partial_btn = ttk.Button(self.hint_row, text=_("Teilkopie verwerfen …"), command=self._discard_partial)
         self.older_btn = ttk.Button(self.hint_row, text=_("Ältere Duplikate anhaken"), command=self._check_older)
+        self.clean_btn = ttk.Button(self.hint_row, text=_("Aufräumen …"), command=self._cleanup)
         self.hint_row.grid_remove()
+        self.queue_row = ttk.Frame(ghead)   # Warteschlange: nur sichtbar, wenn Aufträge eingestellt sind
+        self.queue_row.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(px(6), 0))
+        self.queue_lbl = ttk.Label(self.queue_row, style="Warn.TLabel")
+        self.queue_lbl.pack(side="left")
+        self.queue_clear_btn = ttk.Button(self.queue_row, text=_("Leeren"), command=self._queue_clear)
+        self.queue_clear_btn.pack(side="right")
+        self.queue_go_btn = ttk.Button(self.queue_row, text=_("Warteschlange starten"), style="Accent.TButton", command=self._queue_start)
+        self.queue_go_btn.pack(side="right", padx=(0, px(8)))
+        self.queue_row.grid_remove()
         Tooltip(self.game_search, _("Spiele filtern (Strg+F)"))
         Tooltip(self.sort_combo, _("Sortieren nach"))
         style = ttk.Style(self)
@@ -2336,7 +2418,12 @@ class App(tk.Tk):
                        check=lambda t, ex: move_check_text(api0.move_check(t["name"], pkgs=pkg_keys)))
         if not res or self.busy or not self.api:
             return
-        target, verify, _extras = res
+        target, verify, _extras, queued = res
+        if queued and copy_only:
+            self._queue_add(True, [x.get("key") or x["path"] for x in picked], target, verify, False, [x.get("name") for x in picked])
+            self.pkg_checked.clear()
+            self._show_pkgs()
+            return
         api = self.api
         keys = [x.get("key") or x["path"] for x in picked]
         by_key = dict(zip(keys, picked))
@@ -2951,22 +3038,131 @@ class App(tk.Tk):
         self.pbar["value"] = 0
         self._run(work)
 
+    def _queue_add(self, pkg, keys, target, verify, extras, names):
+        label = ", ".join(n for n in names[:2] if n) + (" …" if len(names) > 2 else "") + " → " + target["name"]
+        self.copy_queue.append({"pkg": pkg, "keys": keys, "device": target["name"], "verify": verify, "extras": extras, "label": label})
+        self.status_var.set(_("Zur Warteschlange hinzugefügt."))
+        self._show_queue()
+
+    def _show_queue(self):
+        n = len(self.copy_queue)
+        if not n and not self.queue_running:
+            self.queue_row.grid_remove()
+            return
+        self.queue_lbl.configure(text=(_("Warteschlange läuft – noch {n} danach", n=n) if self.queue_running
+                                       else _("Warteschlange: {n} Aufträge", n=n)) + "   " + "; ".join(i["label"] for i in self.copy_queue[:2]) + (" …" if n > 2 else ""))
+        if self.queue_running or self.busy:
+            self.queue_go_btn.pack_forget()
+        elif not self.queue_go_btn.winfo_ismapped():
+            self.queue_go_btn.pack(side="right", padx=(0, ui_theme.px(8)))
+        self.queue_row.grid()
+
+    def _queue_clear(self):
+        self.copy_queue.clear()
+        self._show_queue()
+
+    def _queue_start(self):
+        if self.busy or self.queue_running or not self.copy_queue or not self.api:
+            return
+        self.queue_running, self.queue_log, self.queue_ok = True, [], True
+        self._queue_next()
+
+    def _queue_next(self):
+        """Nächsten eingestellten Kopierauftrag starten; am Ende ein Bericht über alle"""
+        if not self.queue_running:
+            return
+        if self.busy:
+            self.after(500, self._queue_next)
+            return
+        if not self.copy_queue or not self.api:
+            self._queue_finish()
+            return
+        it = self.copy_queue.pop(0)
+        self._show_queue()
+        api = self.api
+        try:
+            self._call_bg(lambda: (api.move_pkgs(it["keys"], it["device"], it["verify"]) if it["pkg"]
+                                   else api.move_games(it["keys"], it["device"], it["verify"], it["extras"])))
+        except (ConnectionError, ApiError) as e:   # nicht gestartet (Ziel weg, Fehler): vermerken, mit dem nächsten weitermachen
+            self.queue_log.append(f"{it['label']}: {e}")
+            self.queue_ok = False
+            self.after(500, self._queue_next)
+            return
+
+        def done(ok, msg, result):
+            self.queue_log.append(f"{it['label']}: {msg}")
+            self.queue_ok = self.queue_ok and bool(ok)
+            self.status_var.set(msg)
+            self.after(1000, self._queue_next)
+
+        def work():
+            self._follow(api, foreign=False, done_title=_("Kopiert."), after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _queue_finish(self):
+        log, ok = self.queue_log, self.queue_ok
+        self.queue_running = False
+        self.queue_log = []
+        self._show_queue()
+        self._games_shown = None
+        self._show_games()
+        (messagebox.showinfo if ok else messagebox.showwarning)(_("Warteschlange abgearbeitet"), "\n\n".join(log) or "-", parent=self)
+
     def _show_hints(self, dev, games):
         """Teilkopie und ältere Duplikate dieses Laufwerks: Hinweiszeile unter der Suche"""
         part = self.partials.get(dev["name"]) if dev else None
         older = [g for g in games if self.dup_marks.get(g.get("path"), ("",))[0] == "older"]
-        for w in (self.partial_lbl, self.partial_btn, self.older_btn):
+        for w in (self.partial_lbl, self.partial_btn, self.older_btn, self.clean_btn):
             w.pack_forget()
+        ps5 = self.mode_var.get() == "ps5" and bool(dev)
+        if ps5:
+            self.clean_btn.pack(side="right")   # immer da: Verwaistes suchen
         if part and self.mode_var.get() == "ps5":
             self.partial_lbl.configure(text=_("Teilkopie eines abgebrochenen Kopierens: {size}", size=fmt_size(part)))
             self.partial_lbl.pack(side="left")
             self.partial_btn.pack(side="left", padx=(ui_theme.px(8), 0))
         if older and self.mode_var.get() == "ps5":
-            self.older_btn.pack(side="right")
-        if (part or older) and self.mode_var.get() == "ps5":
+            self.older_btn.pack(side="right", padx=(0, ui_theme.px(8)))
+        if ps5:
             self.hint_row.grid()
         else:
             self.hint_row.grid_remove()
+
+    def _cleanup(self):
+        """Aufräumen: Reste suchen, die zu nichts mehr gehören; gelöscht wird nur, was angehakt wird (nichts ist vorgewählt)"""
+        dev = self._selected_device()
+        if self.busy or not dev or not self.api:
+            return
+        api, name = self.api, dev["name"]
+        try:
+            r = self._call_bg(api.orphans)
+        except (ConnectionError, ApiError) as e:
+            messagebox.showerror(_("Aufräumen"), str(e), parent=self)
+            return
+        items = [x for x in r.get("items", []) if x.get("device") == name]
+        if not items:
+            messagebox.showinfo(_("Nichts zum Aufräumen"), _("Auf {name} ({dev}) wurde nichts Verwaistes gefunden.", name=dev_title(dev), dev=name), parent=self)
+            return
+        keys = ask_orphans(self, dev, items)
+        if not keys or self.busy or not self.api:
+            return
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+            (messagebox.showinfo if ok else messagebox.showwarning)(_("Aufräumen"), msg, parent=self)
+
+        def work():
+            try:
+                api.delete_orphans(keys)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Aufräumen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Aufgeräumt."), after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
 
     def _discard_partial(self):
         dev = self._selected_device()
@@ -3052,10 +3248,10 @@ class App(tk.Tk):
         shown = "\n".join("• " + n for n in names[:10]) + ("\n" + _("… und {n} weitere", n=len(names) - 10) if len(names) > 10 else "")
         if not messagebox.askokcancel(
                 _("Prüfsumme erstellen"),
-                _("Für diese Abbilder auf {name} ({dev}) wird eine Prüfsummen-Datei (.sha256) neben dem Abbild angelegt:", name=dev_title(dev),
+                _("Für diese Spiele auf {name} ({dev}) wird eine Prüfsummen-Datei neben dem Abbild bzw. Ordner angelegt:", name=dev_title(dev),
                   dev=dev["name"]) + f"\n\n{shown}\n\n" +
-                _("Das Abbild wird ganz gelesen. Vorhandene Prüfsummen-Dateien bleiben unberührt; Ordner-Spiele werden übersprungen. "
-                  "Geschrieben wird nur die neue .sha256-Datei."), parent=self):
+                _("Abbilder: <Name>.sha256; Ordner-Spiele: <Name>.manifest.sha256 mit einer Prüfsumme je Datei. Alles wird ganz gelesen. "
+                  "Vorhandene Prüfsummen-Dateien bleiben unberührt; geschrieben wird nur die neue Datei neben dem Spiel."), parent=self):
             return
         if self.busy or not self.api:
             return
@@ -3090,8 +3286,8 @@ class App(tk.Tk):
         if not messagebox.askokcancel(
                 _("Spiele prüfen"),
                 _("Diese Spiele auf {name} ({dev}) werden geprüft:", name=dev_title(dev), dev=dev["name"]) + f"\n\n{shown}\n\n" +
-                _("Das Abbild wird ganz gelesen und mit der Prüfsummen-Datei (.sha256) daneben verglichen – bei großen Spielen dauert das. "
-                  "Ordner-Spiele haben keine Prüfsumme. Es wird nichts verändert."), parent=self):
+                _("Das Spiel wird ganz gelesen und mit der Prüfsummen-Datei daneben verglichen (Abbild: .sha256, Ordner: .manifest.sha256) – "
+                  "bei großen Spielen dauert das. Bei Ordnern werden geänderte, fehlende und neue Dateien gezählt. Es wird nichts verändert."), parent=self):
             return
         if self.busy or not self.api:
             return
@@ -3132,7 +3328,14 @@ class App(tk.Tk):
                        check=lambda t, ex: move_check_text(api0.move_check(t["name"], keys=chk_keys, extras=ex)))
         if not res or self.busy or not self.api:
             return
-        target, verify, with_extras = res
+        target, verify, with_extras, queued = res
+        if queued and copy_only:
+            self._queue_add(False, list(keys), target, verify, with_extras, names)
+            self.games_checked.clear()
+            self._games_shown = None
+            self._show_games()
+            self._update()
+            return
         api = self.api
         src_keys = list(keys)
 
@@ -3691,6 +3894,7 @@ class App(tk.Tk):
 
     def _cancel(self):
         """Abbrechen: am PC über die Abbruch-Datei des Helfers, an der PS5 über /api/cancel"""
+        self.copy_queue.clear()   # der Rest der Warteschlange entfällt
         keep = False
         if (not self.pc_job and self.api and self.mode_var.get() == "ps5" and self.ps5_flags.get("kind") == "backup"
                 and not getattr(self, "_img_to_pc", False)):
@@ -4077,7 +4281,19 @@ class App(tk.Tk):
         ui_theme.copy_report(self, APP_NAME, self._report_extra())
 
 
+def _payload_check():
+    """Selbsttest: die eingebaute ELF ist da und trägt die Version dieses Programms"""
+    p = find_payload()
+    if not p:
+        return False, "eingebaute ELF (usb_format.elf) nicht gefunden"
+    with open(p, "rb") as f:
+        return APP_VERSION.encode() in f.read(), "eingebaute ELF trägt Version %s" % APP_VERSION
+
+
 if __name__ == "__main__":
+    _st, _out = pc_common.selftest_arg()
+    if _st:
+        sys.exit(pc_common.run_selftest(APP_NAME, App, [_payload_check], [k for k, _t in TABS], _out))
     enable_dpi_awareness()
     enable_history(APP_NAME)
     App().mainloop()

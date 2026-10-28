@@ -70,6 +70,8 @@ with open(H + "/Gross/riesig.bin", "wb") as f:
 open(H + "/gut.ffpfs", "wb").write(os.urandom(2000000))
 import hashlib  # noqa: E402
 open(H + "/ohne.ffpfs", "wb").write(os.urandom(1000000))
+open(H + "/weg.ffpfs.sha256", "w").write("verwaist\n")      # Prüfsumme ohne Abbild
+os.makedirs(H + "/LeerOrdner/unter", exist_ok=True)            # leerer Spielordner
 os.makedirs(W + "/mnt/usb1/.usbfmt-move/deadbeef", exist_ok=True)
 open(W + "/mnt/usb1/.usbfmt-move/deadbeef/teil.bin", "wb").write(os.urandom(200000))   # liegengebliebene Teilkopie
 open(H + "/gut.ffpfs.sha256", "w").write(hashlib.sha256(open(H + "/gut.ffpfs", "rb").read()).hexdigest() + "\n")
@@ -257,6 +259,33 @@ try:
               "Prüfsumme erstellen: .sha256 neben dem Abbild, Summe stimmt")
         close_result()
 
+        # Prüfsumme für ein Ordner-Spiel (Liste neben dem Ordner)
+        page.click("#content button.tool:has-text('Prüfsumme erstellen')")
+        page.wait_for_timeout(300)
+        page.locator("#content label.game.pick", has_text="Beta").click()
+        page.click("#content .pickbar button.solid")
+        dlg_text()
+        dlg_click("Anlegen")
+        for _ in range(60):
+            if os.path.exists(H + "/Beta.manifest.sha256"):
+                break
+            page.wait_for_timeout(250)
+        check(os.path.exists(H + "/Beta.manifest.sha256") and "data.bin" in open(H + "/Beta.manifest.sha256").read(), "Ordner-Spiel: Prüfsummenliste neben dem Ordner angelegt")
+        close_result()
+
+        # Aufräumen: verwaiste Prüfsumme und leerer Ordner werden angeboten, gelöscht wird nur, was angehakt ist
+        page.click("#content button.tool:has-text('Aufräumen')")
+        t = dlg_text()
+        check("weg.ffpfs.sha256" in t and "LeerOrdner" in t and "Beta.manifest.sha256" not in t, "Aufräumen: Verwaistes aufgelistet, Zugehöriges nicht", t[:300])
+        page.locator("#dlg label.chk", has_text="weg.ffpfs.sha256").locator("input").check()
+        dlg_click("Ausgewählte löschen")
+        for _ in range(60):
+            if not os.path.exists(H + "/weg.ffpfs.sha256"):
+                break
+            page.wait_for_timeout(250)
+        check(not os.path.exists(H + "/weg.ffpfs.sha256") and os.path.isdir(H + "/LeerOrdner"), "Aufräumen: nur das Angehakte gelöscht")
+        close_result()
+
         # Teilkopie anzeigen und verwerfen (liegt auf da1)
         dev("da1")
         txt = page.inner_text("#content")
@@ -271,6 +300,39 @@ try:
         check(not os.path.exists(W + "/mnt/usb1/.usbfmt-move"), "Teilkopie verwerfen: Zwischenordner ist weg")
         close_result()
         dev("da0")
+
+        # Warteschlange: zwei Kopieraufträge einstellen, dann nacheinander abarbeiten lassen
+        for nm in ("Beta", "ohne"):
+            page.click("#content button.tool:has-text('Spiele kopieren')")
+            page.wait_for_timeout(300)
+            page.locator("#content label.game.pick", has_text=nm).click()
+            page.click("#content .pickbar button.solid")
+            dlg_text()
+            for _ in range(30):
+                if page.locator("#dlg .note").count() and "Danach frei" in page.inner_text("#dlg"):
+                    break
+                page.wait_for_timeout(200)
+            dlg_click("In die Warteschlange")
+            page.wait_for_timeout(400)
+        check("2 Aufträge" in page.inner_text("#queue") or "2 jobs" in page.inner_text("#queue"), "Warteschlange: zwei Aufträge eingestellt", page.inner_text("#queue"))
+        page.locator("#queue button", has_text="Warteschlange starten").click()
+        for _ in range(120):
+            if page.locator("#dlg:not([hidden])").count() and "Warteschlange abgearbeitet" in page.inner_text("#dlg"):
+                break
+            page.wait_for_timeout(500)
+        t = page.inner_text("#dlg") if page.locator("#dlg:not([hidden])").count() else ""
+        check("Warteschlange abgearbeitet" in t, "Warteschlange: beide Aufträge nacheinander abgearbeitet, ein Bericht am Ende", t[:200])
+        check(os.path.isdir(W + "/mnt/usb1/homebrew/Beta") and os.path.exists(W + "/mnt/usb1/homebrew/ohne.ffpfs"), "Warteschlange: Spiele liegen am Ziel (da1)")
+        close_result()
+        check(page.locator("#queue:not([hidden])").count() == 0, "Warteschlange danach leer und ausgeblendet")
+
+        # Diagnose-Bericht (Fußzeile)
+        page.click("#diag")
+        t = dlg_text()
+        val = page.locator("#dlg textarea").input_value()
+        check("PS5-USB-Formatierer" in val and "Drives:" in val and "da0" in val and "Last jobs:" in val and "Browser:" in val and "serial" not in val.lower(),
+              "Diagnose-Bericht: Version, Laufwerke, Aufträge, Browser (ohne Seriennummern)", val[:200])
+        dlg_click("Schließen")
 
         # PKG-Hinweise
         tab("pkg")

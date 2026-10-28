@@ -4,9 +4,11 @@ im Expertenmodus mehrere Partitionen. Ohne PS5-Funktionen. Sprachen: Deutsch, En
 Die eigentliche Arbeit erledigt der Helfer (usbfmt_win.exe bzw. usbfmt_linux) mit Administratorrechten (Abfrage je
 Auftrag: UAC bzw. pkexec); die Systemplatte und interne Laufwerke bietet er nie an."""
 import tkinter as tk
+import sys
 from tkinter import ttk
 
 import i18n
+import pc_common
 import ui_msgbox as messagebox
 import ui_theme
 from i18n import _
@@ -121,6 +123,9 @@ class StandardApp(tk.Tk):
 
 
 if __name__ == "__main__":
+    _st, _out = pc_common.selftest_arg()
+    if _st:
+        sys.exit(pc_common.run_selftest(APP_NAME, StandardApp, [], [], _out))
     enable_dpi_awareness()
     enable_history(APP_NAME)
     StandardApp().mainloop()

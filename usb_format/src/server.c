@@ -213,6 +213,7 @@ static struct {
     double step_t0;       /* Start dieses Schritts (Sekunden, monoton) */
     int  step_p0;         /* Fortschritt beim Start dieses Schritts */
     const uint64_t *total_ptr;   /* Gesamtbytes des laufenden Schritts (Bezug des Prozentwerts), NULL = unbekannt */
+    char step_seen[128];  /* Schrittname der letzten Messung: wechselt er (Kopieren -> Prüfen, nächstes Spiel), beginnt Tempo und Restzeit neu */
 } st;
 
 static unsigned job_seq;   /* zählt angenommene Aufträge (unter lock) - Download/Hochladen starten erst mit der Verbindung */
@@ -272,6 +273,10 @@ static void update_detail(int pct) {
 static void on_progress(const char *step, int pct) {
     step = T(step);
     pthread_mutex_lock(&lock);
+    if (strncmp(st.step_seen, step, sizeof(st.step_seen) - 1) != 0) {   /* anderer Schritt (Phase oder Spiel): Messung neu, sonst mischt sich das Schreibtempo ins Prüftempo */
+        st.step_t0 = 0;
+        snprintf(st.step_seen, sizeof(st.step_seen), "%s", step);
+    }
     snprintf(st.step, sizeof(st.step), "%s", step);
     st.percent = pct;
     update_detail(pct);
@@ -288,9 +293,9 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL };
+       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL, JOB_ORPHDEL };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard"};
+                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete"};
 
 #define LIB_EXTRAS_MAX 8
 
@@ -301,6 +306,7 @@ typedef struct {
     dev_t    dev;    /* st_dev der Wurzel laut Suche: noch derselbe eingehängte Datenträger? */
     int      nex;
     char     ex[LIB_EXTRAS_MAX][300];   /* zugehörige Dateien/Ordner (find_extras) */
+    int      isdir;     /* Spiele prüfen: Ordner-Spiel (Prüfsummenliste statt einer Prüfsumme) */
 } del_item_t;
 
 typedef struct {
@@ -1113,8 +1119,8 @@ static int find_extras(const char *root, const char *path, const char *id, char 
     snprintf(bare, sizeof(bare), "%s", base);
     char *dot = strrchr(bare, '.');
     if (dot && dot != bare) *dot = 0;
-    static const char *const sfx[] = {".sha256", ".dump-info.json"};
-    for (int k = 0; k < 2; k++) {
+    static const char *const sfx[] = {".sha256", ".dump-info.json", ".manifest.sha256"};
+    for (int k = 0; k < 3; k++) {
         snprintf(t, sizeof(t), "%s/%s%s", dir, base, sfx[k]);
         n = extra_add(out, n, max, t, 0);
         if (strcmp(bare, base) != 0) { snprintf(t, sizeof(t), "%s/%s%s", dir, bare, sfx[k]); n = extra_add(out, n, max, t, 0); }
@@ -5052,9 +5058,8 @@ static int read_sha_file(const char *path, uint8_t out[32]) {
 }
 
 /* Eine Datei ganz lesen und hashen; 0 = ok, -1 = nicht lesbar, -2 = abgebrochen */
-static int gv_hash(const del_item_t *it, char *buf, uint8_t out[32], uint64_t *done, uint64_t total, time_t *last, const char *step) {
-    struct stat sb;
-    int fd = root_dev(it->root) == it->dev && lstat(it->path, &sb) == 0 && S_ISREG(sb.st_mode) ? open(it->path, O_RDONLY) : -1;
+static int gv_hash_path(const char *path, char *buf, uint8_t out[32], uint64_t *done, uint64_t total, time_t *last, const char *step) {
+    int fd = open(path, O_RDONLY);
     if (fd < 0) return -1;
     sha256_t sh;
     sha256_init(&sh);
@@ -5074,6 +5079,137 @@ static int gv_hash(const del_item_t *it, char *buf, uint8_t out[32], uint64_t *d
     close(fd);
     if (rc == 0) sha256_final(&sh, out);
     return rc;
+}
+
+static int gv_hash(const del_item_t *it, char *buf, uint8_t out[32], uint64_t *done, uint64_t total, time_t *last, const char *step) {
+    struct stat sb;
+    if (root_dev(it->root) != it->dev || lstat(it->path, &sb) != 0 || !S_ISREG(sb.st_mode)) return -1;
+    return gv_hash_path(it->path, buf, out, done, total, last, step);
+}
+
+/* ---- Ordner-Spiele: Prüfsummenliste <Ordner>.manifest.sha256 neben dem Ordner, Zeilen "<hex>  <Pfad im Ordner>" (wie sha256sum) */
+typedef struct { char *rel; uint8_t h[32]; } mfe_t;
+typedef struct { FILE *out; char *buf; uint64_t *done; uint64_t total; time_t *last; const char *step; size_t base; } mfw_t;
+
+static int mf_name_cmp(const void *a, const void *b) { return strcmp(*(char *const *)a, *(char *const *)b); }
+static int mf_ent_cmp(const void *a, const void *b) { return strcmp(((const mfe_t *)a)->rel, ((const mfe_t *)b)->rel); }
+
+static char **mf_list(const char *dir, int *n) {   /* Namen eines Ordners, sortiert (für eine feste Reihenfolge der Liste) */
+    DIR *d = opendir(dir);
+    if (!d) return NULL;
+    int cap = 64, k = 0;
+    char **v = malloc((size_t)cap * sizeof(char *));
+    struct dirent *e;
+    while (v && (e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (k == cap) { char **nv = realloc(v, (size_t)cap * 2 * sizeof(char *)); if (!nv) break; v = nv; cap *= 2; }
+        v[k++] = strdup(e->d_name);
+    }
+    closedir(d);
+    if (v) qsort(v, (size_t)k, sizeof(char *), mf_name_cmp);
+    *n = k;
+    return v;
+}
+
+static void mf_free(char **v, int n) {
+    for (int i = 0; i < n; i++) free(v[i]);
+    free(v);
+}
+
+static void mf_hex(const uint8_t h[32], char hex[65]) { for (int i = 0; i < 32; i++) snprintf(hex + 2 * i, 3, "%02x", h[i]); }
+
+static int mf_build_walk(mfw_t *w, const char *dir, int depth) {
+    int n = 0, rc = 0;
+    if (depth > 32) return -1;
+    char **v = mf_list(dir, &n);
+    if (!v) return -1;
+    for (int i = 0; i < n && !rc; i++) {
+        char p[1024];
+        struct stat sb;
+        if (snprintf(p, sizeof(p), "%s/%s", dir, v[i]) >= (int)sizeof(p) || lstat(p, &sb) != 0) continue;
+        if (S_ISDIR(sb.st_mode)) rc = mf_build_walk(w, p, depth + 1);
+        else if (S_ISREG(sb.st_mode) && !strchr(v[i], '\n')) {
+            uint8_t h[32];
+            char hex[65];
+            rc = gv_hash_path(p, w->buf, h, w->done, w->total, w->last, w->step);
+            if (rc == 0) { mf_hex(h, hex); fprintf(w->out, "%s  %s\n", hex, p + w->base + 1); }
+        }
+    }
+    mf_free(v, n);
+    return rc;
+}
+
+/* Liste anlegen (erst als .tmp, dann umbenennen); 0 = ok, -1 = Fehler, -2 = abgebrochen */
+static int manifest_build(const del_item_t *it, char *buf, uint64_t *done, uint64_t total, time_t *last, const char *step) {
+    char mp[400], tmp[420];
+    snprintf(mp, sizeof(mp), "%.299s.manifest.sha256", it->path);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", mp);
+    if (root_dev(it->root) != it->dev || access(mp, F_OK) == 0) return -1;
+    FILE *f = fopen(tmp, "w");
+    if (!f) return -1;
+    mfw_t w = {f, buf, done, total, last, step, strlen(it->path)};
+    const int rc = mf_build_walk(&w, it->path, 0);
+    int bad = rc != 0 || fflush(f) != 0 || (fsync(fileno(f)) != 0 && errno != EINVAL);
+    if (fclose(f) != 0) bad = 1;
+    if (bad || rename(tmp, mp) != 0) { unlink(tmp); return rc == -2 ? -2 : -1; }
+    return 0;
+}
+
+static void mf_extra_walk(const char *dir, size_t base, const mfe_t *ents, int ne, int *extra, int depth) {
+    int n = 0;
+    if (depth > 32) return;
+    char **v = mf_list(dir, &n);
+    if (!v) return;
+    for (int i = 0; i < n; i++) {
+        char p[1024];
+        struct stat sb;
+        if (snprintf(p, sizeof(p), "%s/%s", dir, v[i]) >= (int)sizeof(p) || lstat(p, &sb) != 0) continue;
+        if (S_ISDIR(sb.st_mode)) mf_extra_walk(p, base, ents, ne, extra, depth + 1);
+        else if (S_ISREG(sb.st_mode)) {
+            mfe_t key = {p + base + 1, {0}};
+            if (!bsearch(&key, ents, (size_t)ne, sizeof(mfe_t), mf_ent_cmp)) (*extra)++;
+        }
+    }
+    mf_free(v, n);
+}
+
+/* Liste lesen und mit dem Ordner vergleichen: 0 = alles gleich, 1 = Abweichungen (chg geändert, miss fehlen, extra neu), -1 = Fehler, -2 = abgebrochen */
+static int manifest_check(const del_item_t *it, char *buf, uint64_t *done, uint64_t total, time_t *last, const char *step, int *chg, int *miss, int *extra) {
+    FILE *f = fopen(it->ex[0], "r");
+    if (!f) return -1;
+    mfe_t *ents = NULL;
+    int ne = 0, cap = 0, rc = 0;
+    char line[1300];
+    while (fgets(line, sizeof(line), f)) {
+        size_t l = strlen(line);
+        while (l && (line[l - 1] == '\n' || line[l - 1] == '\r')) line[--l] = 0;
+        uint8_t h[32];
+        int good = l > 66 && line[64] == ' ';
+        for (int i = 0; good && i < 32; i++) { int a = hexv(line[2 * i]), b = a < 0 ? -1 : hexv(line[2 * i + 1]); if (a < 0 || b < 0) good = 0; else h[i] = (uint8_t)(a << 4 | b); }
+        if (!good) continue;
+        const char *rel = line + 65 + (line[65] == ' ' || line[65] == '*');
+        if (ne == cap) { mfe_t *nv = realloc(ents, (size_t)(cap ? cap * 2 : 256) * sizeof(mfe_t)); if (!nv) { rc = -1; break; } ents = nv; cap = cap ? cap * 2 : 256; }
+        ents[ne].rel = strdup(rel);
+        memcpy(ents[ne].h, h, 32);
+        ne++;
+    }
+    fclose(f);
+    if (!rc) qsort(ents, (size_t)ne, sizeof(mfe_t), mf_ent_cmp);
+    for (int i = 0; !rc && i < ne; i++) {
+        char p[1400];
+        uint8_t h[32];
+        struct stat sb;
+        const char *rel = ents[i].rel;
+        const int unsafe = !*rel || rel[0] == '/' || strstr(rel, "../") == rel || strstr(rel, "/../") != NULL || (strlen(rel) >= 3 && !strcmp(rel + strlen(rel) - 3, "/.."));
+        if (unsafe || snprintf(p, sizeof(p), "%s/%s", it->path, rel) >= (int)sizeof(p) || lstat(p, &sb) != 0 || !S_ISREG(sb.st_mode)) { (*miss)++; continue; }
+        const int hr = gv_hash_path(p, buf, h, done, total, last, step);
+        if (hr == -2) rc = -2;
+        else if (hr != 0 || memcmp(h, ents[i].h, 32) != 0) (*chg)++;
+    }
+    if (!rc) mf_extra_walk(it->path, strlen(it->path), ents, ne, extra, 0);
+    for (int i = 0; i < ne; i++) free(ents[i].rel);
+    free(ents);
+    return rc ? rc : (*chg || *miss || *extra) ? 1 : 0;
 }
 
 /* <Abbild>.sha256 im Format von sha256sum ("<hex>  <Dateiname>") anlegen; 0 = angelegt, 1 = gibt es schon, -1 = Schreibfehler */
@@ -5110,18 +5246,29 @@ static void *gverify_worker(void *arg) {
         const del_item_t *it = &j->items[i];
         char step[360];
         uint8_t want[32], got[32];
+        int chg = 0, miss = 0, extra = 0, rc;
         snprintf(step, sizeof(step), T("%s: %s (%d von %d)"), j->sumgen ? T("Prüfsumme anlegen") : T("Spiel prüfen"), it->name, i + 1, j->nitems);
         on_progress(step, total ? 1 + (int)(done * 97 / total) : 1);
         if (j->sumgen) {
             if (it->nex) { have_n++; continue; }
-            if (!it->size) { none_n++; continue; }   /* Ordner-Spiele haben keine einzelne Datei zum Hashen */
-        } else if (!it->nex || read_sha_file(it->ex[0], want) != 0) { none_n++; continue; }
-        const int rc = gv_hash(it, buf, got, &done, total, &last, step);
+            if (!it->size && !it->isdir) { none_n++; continue; }   /* weder Abbild noch Ordner */
+        } else if (!it->nex || (!it->isdir && read_sha_file(it->ex[0], want) != 0)) { none_n++; continue; }
+        if (it->isdir) {
+            rc = j->sumgen ? manifest_build(it, buf, &done, total, &last, step) : manifest_check(it, buf, &done, total, &last, step, &chg, &miss, &extra);
+        } else rc = gv_hash(it, buf, got, &done, total, &last, step);
         if (rc == -2) { was_cancel = 1; break; }
         done_n++;
         if (j->sumgen) {
-            if (rc == 0 && write_sidecar(it->path, got) == 0) ok_n++;
+            if ((it->isdir && rc == 0) || (!it->isdir && rc == 0 && write_sidecar(it->path, got) == 0)) ok_n++;
             else { bad_n++; sb_add(&bad, "%s%s", bad.len ? ", " : "", it->name); }
+        } else if (it->isdir) {
+            if (rc == 0) ok_n++;
+            else {
+                bad_n++;
+                if (bad.len) sb_add(&bad, ", ");
+                if (rc == 1) sb_tr(&bad, "%s (%d geändert, %d fehlen, %d neu)", it->name, chg, miss, extra);
+                else sb_add(&bad, "%s", it->name);
+            }
         } else if (rc != 0 || memcmp(want, got, 32) != 0) { bad_n++; sb_add(&bad, "%s%s", bad.len ? ", " : "", it->name); }
         else ok_n++;
     }
@@ -5131,12 +5278,12 @@ static void *gverify_worker(void *arg) {
     } else if (j->sumgen) {
         if (ok_n) sb_tr(&msg, "Prüfsumme angelegt: %d.", ok_n);
         if (have_n) sb_tr(&msg, " Schon vorhanden: %d.", have_n);
-        if (none_n) sb_tr(&msg, " Kein Abbild (Ordner-Spiele haben keine Prüfsumme): %d.", none_n);
+        if (none_n) sb_tr(&msg, " Kein Abbild und kein Ordner: %d.", none_n);
         if (bad_n) sb_tr(&msg, " Nicht angelegt: %d – %s.", bad_n, bad.p ? bad.p : "");
     } else {
         if (ok_n) sb_tr(&msg, "Prüfsumme stimmt: %d.", ok_n);
         if (bad_n) sb_tr(&msg, " Weicht ab oder nicht lesbar: %d – %s.", bad_n, bad.p ? bad.p : "");
-        if (none_n) sb_tr(&msg, " Keine Prüfsummen-Datei (.sha256) gefunden: %d.", none_n);
+        if (none_n) sb_tr(&msg, " Keine Prüfsummen-Datei gefunden: %d.", none_n);
     }
     pthread_mutex_lock(&lock);
     st.total_ptr = NULL;   /* total lebt nur in diesem Thread */
@@ -5190,7 +5337,14 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
                 snprintf(it->device, sizeof(it->device), "%s", lroot_name(&lib_snap[i]));
                 it->dev = lib_snap[i].dev;
                 struct stat fs;
-                if (tt->ext[0] && lstat(tt->path, &fs) == 0 && S_ISREG(fs.st_mode)) {   /* nur Abbilder haben eine Prüfsumme daneben */
+                if (!tt->ext[0] && lstat(tt->path, &fs) == 0 && S_ISDIR(fs.st_mode)) {   /* Ordner-Spiel: Prüfsummenliste <Ordner>.manifest.sha256 daneben */
+                    it->isdir = 1;
+                    it->size = tree_bytes(tt->path, 0);
+                    char mp[400];
+                    snprintf(mp, sizeof(mp), "%.299s.manifest.sha256", tt->path);
+                    struct stat ms;
+                    if (stat(mp, &ms) == 0 && S_ISREG(ms.st_mode)) { snprintf(it->ex[0], sizeof(it->ex[0]), "%.299s", mp); it->nex = 1; }
+                } else if (tt->ext[0] && lstat(tt->path, &fs) == 0 && S_ISREG(fs.st_mode)) {   /* Abbild: .sha256 daneben */
                     it->size = (uint64_t)fs.st_size;
                     char sc[320], bare[300];
                     snprintf(sc, sizeof(sc), "%s.sha256", tt->path);
@@ -5215,6 +5369,216 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
     }
     snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
     start_job(c, j, gverify_worker);
+}
+
+
+/* ------------------------------------------------------------ Verwaistes aufräumen
+ * GET /api/orphans: Reste, die zu nichts mehr gehören - Prüfsummen- und Dump-Info-Dateien ohne Abbild/Spiel, Backport-Ordner (backports/<Titel-ID>)
+ * ohne installiertes Spiel, leere Spielordner. POST /api/orphans/delete {"keys":"…"}: löscht die gewählten (Schlüssel aus der Liste; es wird nur
+ * gelöscht, was die Suche jetzt selbst als verwaist findet). */
+typedef struct { char dev[16]; char kind[12]; char path[300]; uint64_t bytes; } orph_t;
+#define ORPH_MAX 300
+
+static int ends_with_str(const char *s, const char *suf) {
+    const size_t l = strlen(s), k = strlen(suf);
+    return l > k && strcmp(s + l - k, suf) == 0;
+}
+
+static int tree_has_file(const char *path, int depth) {
+    struct stat sb;
+    if (depth > 16 || lstat(path, &sb) != 0) return 0;
+    if (!S_ISDIR(sb.st_mode)) return 1;
+    DIR *d = opendir(path);
+    if (!d) return 1;   /* nicht lesbar: lieber als belegt ansehen */
+    int found = 0;
+    struct dirent *e;
+    char *sub = malloc(1024);
+    while (sub && !found && (e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (snprintf(sub, 1024, "%s/%s", path, e->d_name) < 1024) found = tree_has_file(sub, depth + 1);
+    }
+    free(sub);
+    closedir(d);
+    return found;
+}
+
+static void orph_add(orph_t *out, int *n, const char *dev, const char *kind, const char *path) {
+    if (*n >= ORPH_MAX) return;
+    snprintf(out[*n].dev, sizeof(out[*n].dev), "%.15s", dev);
+    snprintf(out[*n].kind, sizeof(out[*n].kind), "%s", kind);
+    snprintf(out[*n].path, sizeof(out[*n].path), "%.299s", path);
+    out[*n].bytes = tree_bytes(path, 0);
+    (*n)++;
+}
+
+/* Titel-ID am Anfang eines Backport-Ordnernamens ("PPSA01325 Name" -> "PPSA01325") */
+static void backport_id(const char *name, char *out, size_t n) {
+    size_t i = 0;
+    while (name[i] && name[i] != ' ' && i + 1 < n) { out[i] = name[i]; i++; }
+    out[i] = 0;
+}
+
+static int find_orphans(orph_t *out, int max) {
+    proot_t pr[24];
+    char (*ids)[16] = NULL;
+    int nids = 0, np;
+    (void)max;
+    pthread_mutex_lock(&lib_lock);
+    np = partial_roots(pr, 24);
+    for (int i = 0; i < lib_n; i++) nids += lib_snap[i].r.ntitles;
+    ids = calloc((size_t)nids + 1, sizeof(*ids));
+    int k = 0;
+    for (int i = 0; i < lib_n && ids; i++)
+        for (int t = 0; t < lib_snap[i].r.ntitles; t++) snprintf(ids[k++], sizeof(*ids), "%s", lib_snap[i].r.titles[t].id);
+    pthread_mutex_unlock(&lib_lock);
+    int n = 0;
+    for (int r = 0; r < np && ids; r++) {
+        const char *sub[2] = {"homebrew", "etaHEN/games"};
+        for (int sdx = 0; sdx < 2; sdx++) {
+            char dir[400];
+            snprintf(dir, sizeof(dir), "%.299s/%s", pr[r].path, sub[sdx]);
+            DIR *d = opendir(dir);
+            if (!d) continue;
+            char (*names)[120] = calloc(600, sizeof(*names));
+            int nn = 0;
+            struct dirent *e;
+            while (names && (e = readdir(d)) && nn < 600) {
+                if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..") || strlen(e->d_name) >= sizeof(*names)) continue;
+                snprintf(names[nn++], sizeof(*names), "%s", e->d_name);
+            }
+            closedir(d);
+            for (int a = 0; a < nn; a++) {
+                static const char *const sfx[] = {".manifest.sha256", ".sha256", ".dump-info.json"};
+                char full[520];
+                for (int x = 0; x < 3; x++) {
+                    if (!ends_with_str(names[a], sfx[x])) continue;
+                    char base[120];
+                    snprintf(base, sizeof(base), "%.*s", (int)(strlen(names[a]) - strlen(sfx[x])), names[a]);
+                    int has = 0;
+                    for (int b = 0; b < nn && !has; b++) {
+                        if (b == a || ends_with_str(names[b], ".sha256") || ends_with_str(names[b], ".dump-info.json")) continue;
+                        char bare[120];
+                        snprintf(bare, sizeof(bare), "%s", names[b]);
+                        char *dot = strrchr(bare, '.');
+                        if (dot && dot != bare) *dot = 0;
+                        has = !strcmp(names[b], base) || !strcmp(bare, base);
+                    }
+                    if (!has && snprintf(full, sizeof(full), "%s/%s", dir, names[a]) < (int)sizeof(full)) orph_add(out, &n, pr[r].dev, "sidecar", full);
+                    break;
+                }
+                if (!strcmp(names[a], "backports") || !strcmp(names[a], "backport")) {   /* Ordner je Spiel darin */
+                    char bdir[520];
+                    snprintf(bdir, sizeof(bdir), "%s/%s", dir, names[a]);
+                    DIR *bd = opendir(bdir);
+                    struct dirent *be;
+                    while (bd && (be = readdir(bd))) {
+                        if (!strcmp(be->d_name, ".") || !strcmp(be->d_name, "..")) continue;
+                        char id[16];
+                        backport_id(be->d_name, id, sizeof(id));
+                        int used = 0;
+                        for (int q = 0; q < nids && !used; q++) used = ids[q][0] && !strcasecmp(ids[q], id);
+                        if (!used && snprintf(full, sizeof(full), "%s/%s", bdir, be->d_name) < (int)sizeof(full)) orph_add(out, &n, pr[r].dev, "backport", full);
+                    }
+                    if (bd) closedir(bd);
+                    continue;
+                }
+                if (names[a][0] != '.' && snprintf(full, sizeof(full), "%s/%s", dir, names[a]) < (int)sizeof(full)) {
+                    struct stat sb;
+                    if (lstat(full, &sb) == 0 && S_ISDIR(sb.st_mode) && !tree_has_file(full, 0)) orph_add(out, &n, pr[r].dev, "empty", full);
+                }
+            }
+            free(names);
+        }
+    }
+    free(ids);
+    return n;
+}
+
+static void api_orphans(int c) {
+    orph_t *o = calloc(ORPH_MAX, sizeof(*o));
+    if (!o) { respond_error(c, 500, "Kein Speicher"); return; }
+    const int n = find_orphans(o, ORPH_MAX);
+    sbuf_t b = {0};
+    sb_add(&b, "{\"items\":[");
+    for (int i = 0; i < n; i++) {
+        sb_add(&b, "%s{\"key\":\"%08x\",\"device\":", i ? "," : "", path_key(o[i].path));
+        sb_str(&b, o[i].dev);
+        sb_add(&b, ",\"kind\":");
+        sb_str(&b, o[i].kind);
+        sb_add(&b, ",\"path\":");
+        sb_str(&b, o[i].path);
+        sb_add(&b, ",\"bytes\":%llu}", (unsigned long long)o[i].bytes);
+    }
+    sb_add(&b, "]}");
+    respond_json(c, 200, &b);
+    free(b.p);
+    free(o);
+}
+
+static void *orphdel_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0};
+    char s1[24];
+    int ok_n = 0, fail_n = 0;
+    uint64_t freed = 0;
+    for (int i = 0; i < j->nitems; i++) {
+        const del_item_t *it = &j->items[i];
+        char step[360];
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { fail_n += j->nitems - i; break; }
+        snprintf(step, sizeof(step), T("%s: %s (%d von %d)"), T("Aufräumen"), it->name, i + 1, j->nitems);
+        on_progress(step, 1 + i * 98 / j->nitems);
+        struct stat sb;
+        if (lstat(it->path, &sb) != 0) { ok_n++; continue; }
+        const uint64_t bytes = tree_bytes(it->path, 0);
+        const int rc = S_ISDIR(sb.st_mode) ? remove_tree(it->path, 0, NULL) : unlink(it->path);
+        if (S_ISDIR(sb.st_mode)) (void)rmdir(it->path);
+        if (rc == 0 || lstat(it->path, &sb) != 0) { ok_n++; freed += bytes; }
+        else fail_n++;
+    }
+    sb_tr(&msg, "Aufgeräumt: %d, %s wieder frei.", ok_n, size_text(freed, s1, sizeof(s1)));
+    if (fail_n) sb_tr(&msg, " Nicht entfernt: %d.", fail_n);
+    sb_add(&res, "{\"removed\":%d,\"failed\":%d,\"freed\":%llu}", ok_n, fail_n, (unsigned long long)freed);
+    free(j->items);
+    j->items = NULL;
+    job_done(j, ok_n > 0 && !fail_n, &msg, &res, 1);
+    return NULL;
+}
+
+static void api_orphans_delete(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    const char *keys0 = n > 0 ? kv_get(kv, n, "keys") : NULL;
+    if (!keys0 || !keys0[0]) { respond_error(c, 400, "keys ist erforderlich"); return; }
+    char keys[ORPH_MAX * 9 + 16];
+    snprintf(keys, sizeof(keys), "%s", keys0);
+    orph_t *o = calloc(ORPH_MAX, sizeof(*o));
+    job_t *j = new_job(c, JOB_ORPHDEL);
+    if (!o || !j) { free(o); if (j) job_free(j); if (!j) return; respond_error(c, 500, "Kein Speicher"); return; }
+    j->items = calloc(MAX_DELETE, sizeof(*j->items));
+    const int no = find_orphans(o, ORPH_MAX);   /* nur, was jetzt wirklich verwaist ist */
+    int badkey = 0;
+    for (char *p = keys, *save = NULL, *tok; j->items && (tok = strtok_r(p, ",", &save)); p = NULL) {
+        char *kend;
+        uint32_t want = (uint32_t)strtoul(tok, &kend, 16);
+        if (kend == tok || *kend) { badkey = 1; break; }
+        for (int i = 0; i < no && j->nitems < MAX_DELETE; i++) {
+            if (path_key(o[i].path) != want) continue;
+            del_item_t *it = &j->items[j->nitems++];
+            snprintf(it->path, sizeof(it->path), "%s", o[i].path);
+            const char *nm = strrchr(o[i].path, '/');
+            snprintf(it->name, sizeof(it->name), "%.127s", nm ? nm + 1 : o[i].path);
+            snprintf(it->device, sizeof(it->device), "%s", o[i].dev);
+        }
+    }
+    free(o);
+    if (!j->items || badkey || !j->nitems) {
+        job_free(j);
+        respond_error(c, 404, N_("Nichts Verwaistes gefunden – Liste neu laden"));
+        return;
+    }
+    snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
+    start_job(c, j, orphdel_worker);
 }
 
 static void api_game_verify(int c, const char *body) { api_game_verify_ex(c, body, 0); }
@@ -5320,6 +5684,10 @@ static void api_game_info(int c, const char *body) {
         snprintf(bare, sizeof(bare), "%s", t.path);
         char *dot = strrchr(bare, '.');
         if (dot && dot > strrchr(bare, '/')) { *dot = 0; snprintf(sc, sizeof(sc), "%s.sha256", bare); has_sum = stat(sc, &xs) == 0; }
+    }
+    if (!has_sum && is_dir) {   /* Ordner-Spiel: Prüfsummenliste neben dem Ordner */
+        snprintf(sc, sizeof(sc), "%.299s.manifest.sha256", t.path);
+        has_sum = stat(sc, &xs) == 0;
     }
     sb_add(&b, "],\"checksum\":%s}", has_sum ? "true" : "false");
     respond_json(c, 200, &b);
@@ -5467,6 +5835,10 @@ static void handle(int c) {
         api_pkg_delete(c, body);
     else if (strcmp(path, "/api/game/verify") == 0 && is_post)
         api_game_verify(c, body);
+    else if (strcmp(path, "/api/orphans") == 0 && is_get)
+        api_orphans(c);
+    else if (strcmp(path, "/api/orphans/delete") == 0 && is_post)
+        api_orphans_delete(c, body);
     else if (strcmp(path, "/api/game/checksum") == 0 && is_post)
         api_game_checksum(c, body);
     else if (strcmp(path, "/api/game/info") == 0 && is_post)

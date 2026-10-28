@@ -147,6 +147,89 @@ def error_report(app_name, extra=""):
     return "\n".join(lines)
 
 
+def run_selftest(app_name, factory, extra=(), tabs=(), out=None):
+    """Selbsttest des gebauten Programms (--selftest [Datei]): Version, Übersetzungstabelle (fehlt sie im Paket, fällt die Oberfläche
+    still auf Deutsch zurück), Helfer samt Prüfsumme, zusätzliche Prüfungen (extra: Aufrufe, die (ok, Text) liefern) und der Aufbau
+    der Oberfläche samt aller Reiter. Ergebnis in die Datei out (das Fenster-Programm hat keine Konsole) und als Rückgabe 0/1."""
+    lines, problems = [], []
+
+    def note(ok, text):
+        lines.append(("OK      " if ok else "FEHLER  ") + text)
+        if not ok:
+            problems.append(text)
+
+    note(bool(re.fullmatch(r"\d+\.\d+\.\d+", APP_VERSION or "")), "Version %s" % (APP_VERSION or "(leer)"))
+    try:
+        import i18n
+        cat = i18n._catalog()
+        note(len(cat) >= 400, "Übersetzungstabelle geladen (%d Texte)" % len(cat))
+        for code in ("en", "it", "es", "fr"):
+            t = (cat.get("Abbrechen") or {}).get(code)
+            note(bool(t) and t != "Abbrechen", "Übersetzung %s vorhanden: Abbrechen = %s" % (code, t))
+    except Exception as e:
+        note(False, "Übersetzungstabelle: %r" % e)
+    if IS_WIN:
+        h = find_helper()
+        note(bool(h), "Helfer usbfmt_win.exe gefunden")
+        if h and getattr(sys, "frozen", False):
+            note(bool(HELPER_SHA256), "Helfer-Prüfsumme eingebaut")
+            if HELPER_SHA256:
+                with open(h, "rb") as f:
+                    note(hashlib.sha256(f.read()).hexdigest() == HELPER_SHA256, "Helfer stimmt mit der eingebauten Prüfsumme überein")
+    for fn in extra:
+        try:
+            note(*fn())
+        except Exception as e:
+            note(False, "Zusatzprüfung: %r" % e)
+    # Oberfläche: eigene Einstellungen, keine Suche im Netz, kein Update-Hinweis
+    tmp = tempfile.mkdtemp(prefix="selftest-")
+    os.environ["APPDATA"] = os.environ["XDG_CONFIG_HOME"] = tmp
+    os.environ["USBFMT_NO_UPDATE_CHECK"] = os.environ["USBFMT_NO_DISCOVERY"] = "1"
+    app = None
+    try:
+        app = factory()
+        app.update()
+        count = 0
+        stack = [app]
+        while stack:
+            w = stack.pop()
+            count += 1
+            stack.extend(w.winfo_children())
+        note(count > 40, "Oberfläche aufgebaut (%d Bedienelemente)" % count)
+        for name in tabs:
+            app._set_tab(name, False)
+            app.update()
+        if tabs:
+            note(True, "alle %d Reiter lassen sich öffnen" % len(tabs))
+    except Exception as e:
+        note(False, "Oberfläche startet nicht: %r" % e)
+    finally:
+        try:
+            if app is not None:
+                app.destroy()
+        except Exception:
+            pass
+    text = "\n".join(lines + ["", "Selbsttest %s" % ("FEHLGESCHLAGEN: %d Problem(e)" % len(problems) if problems else "bestanden")]) + "\n"
+    try:
+        if out:
+            with open(out, "w", encoding="utf-8") as f:
+                f.write(text)
+        elif sys.stdout:
+            sys.stdout.write(text)
+    except OSError:
+        pass
+    return 1 if problems else 0
+
+
+def selftest_arg():
+    """Wert nach --selftest (Ausgabedatei) oder None, wenn das Programm nicht im Selbsttest läuft: (läuft, Datei)"""
+    if "--selftest" not in sys.argv:
+        return False, None
+    i = sys.argv.index("--selftest")
+    nxt = sys.argv[i + 1] if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("--") else None
+    return True, nxt
+
+
 def fmt_size(b):
     units = ["Bytes", "KB", "MB", "GB", "TB"]
     v, i = float(b), 0
