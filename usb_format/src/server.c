@@ -288,9 +288,9 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY };
+       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify"};
+                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard"};
 
 #define LIB_EXTRAS_MAX 8
 
@@ -328,6 +328,7 @@ typedef struct {
     char     resume_part[720];   /* Image-Sicherung fortsetzen: die .part-Datei */
     int      thorough;           /* ... mit gründlicher Prüfung der Quelle */
     int      pkgmode;            /* Verschieben/Löschen betrifft .pkg-Dateien statt Spiele */
+    int      sumgen;             /* Spiele prüfen: Prüfsummen-Dateien anlegen statt vergleichen */
     char     saves_dest[300];
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
@@ -1491,6 +1492,35 @@ static int ver_cmp(const char *a, const char *b) {
     return 0;
 }
 
+#define MOVE_DIR     ".usbfmt-move"
+
+/* Wurzeln, in denen Kopieren seinen Zwischenordner anlegt (wie api_move): eingebundene USB-Laufwerke, interner Speicher, M.2-Erweiterungen */
+typedef struct { char path[300]; char dev[16]; } proot_t;
+
+static int partial_roots(proot_t *out, int max) {   /* lib_lock muss gehalten werden */
+    int n = 0;
+    for (int i = 0; i < lib_n && n < max; i++) {
+        if (!lib_snap[i].usb || !lroot_name(&lib_snap[i])[0]) continue;
+        int dup = 0;
+        for (int k = 0; k < n; k++) dup |= !strcmp(out[k].path, lib_snap[i].r.root);
+        if (dup) continue;
+        snprintf(out[n].path, sizeof(out[n].path), "%s", lib_snap[i].r.root);
+        snprintf(out[n].dev, sizeof(out[n].dev), "%.15s", lroot_name(&lib_snap[i]));
+        n++;
+    }
+    if (n < max) { snprintf(out[n].path, sizeof(out[n].path), "%s", internal_base()); snprintf(out[n].dev, sizeof(out[n].dev), "intern"); n++; }
+    for (int x = 0; x < 10 && n < max; x++) {
+        struct stat xs;
+        char p[32];
+        snprintf(p, sizeof(p), "/mnt/ext%d", x);
+        if (stat(p, &xs) != 0 || !S_ISDIR(xs.st_mode) || root_dev(p) == root_dev("/mnt")) continue;
+        snprintf(out[n].path, sizeof(out[n].path), "%s", p);
+        snprintf(out[n].dev, sizeof(out[n].dev), "ext%d", x);
+        n++;
+    }
+    return n;
+}
+
 static void api_library(int c, int refresh) {
     if (refresh) lib_refresh();
     sbuf_t b = {0};
@@ -1636,6 +1666,25 @@ static void api_library(int c, int refresh) {
                     }
             sb_add(&b, "]}");
         }
+    /* liegengebliebene Teilkopien (abgebrochenes oder fehlgeschlagenes Kopieren): belegen Platz, den man sonst nirgends sieht */
+    sb_add(&b, "],\"partials\":[");
+    {
+        proot_t pr[24];
+        const int np = partial_roots(pr, 24);
+        int pf = 1;
+        for (int k = 0; k < np; k++) {
+            char stage[400];
+            struct stat ps;
+            snprintf(stage, sizeof(stage), "%.299s/%s", pr[k].path, MOVE_DIR);
+            if (lstat(stage, &ps) != 0 || !S_ISDIR(ps.st_mode)) continue;
+            const uint64_t bytes = tree_bytes(stage, 0);
+            if (!bytes) continue;
+            sb_add(&b, "%s{\"device\":", pf ? "" : ",");
+            pf = 0;
+            sb_str(&b, pr[k].dev);
+            sb_add(&b, ",\"bytes\":%llu}", (unsigned long long)bytes);
+        }
+    }
     sb_add(&b, "],\"fw\":");
     sb_str(&b, fw);
     sb_add(&b, "}");
@@ -4248,7 +4297,6 @@ static void api_delete(int c, const char *body) {
  * nicht), mit SHA-256 je Datei während des Kopierens, auf Wunsch danach von dort zurückgelesen und verglichen. Erst dann wird es an
  * dieselbe Stelle wie auf dem Quell-Laufwerk umbenannt. Das Original bleibt unberührt - gelöscht wird in einem eigenen Schritt. */
 
-#define MOVE_DIR     ".usbfmt-move"
 #define MOVE_RESERVE (256ull << 20)   /* so viel bleibt nach dem Kopieren auf dem Ziel frei */
 
 typedef struct { char *rel; uint8_t sha[32]; uint64_t size; } mfile_t;
@@ -5003,14 +5051,55 @@ static int read_sha_file(const char *path, uint8_t out[32]) {
     return p[64] == 0 || p[64] == ' ' || p[64] == '\t' || p[64] == '\n' || p[64] == '\r' || p[64] == '*' ? 0 : -1;
 }
 
+/* Eine Datei ganz lesen und hashen; 0 = ok, -1 = nicht lesbar, -2 = abgebrochen */
+static int gv_hash(const del_item_t *it, char *buf, uint8_t out[32], uint64_t *done, uint64_t total, time_t *last, const char *step) {
+    struct stat sb;
+    int fd = root_dev(it->root) == it->dev && lstat(it->path, &sb) == 0 && S_ISREG(sb.st_mode) ? open(it->path, O_RDONLY) : -1;
+    if (fd < 0) return -1;
+    sha256_t sh;
+    sha256_init(&sh);
+    int rc = 0;
+    for (;;) {
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { rc = -2; break; }
+        ssize_t r = read(fd, buf, MV_BUF);
+        if (r < 0 && errno == EINTR) continue;
+        if (r < 0) { rc = -1; break; }
+        if (r == 0) break;
+        sha256_update(&sh, buf, (size_t)r);
+        *done += (uint64_t)r;
+        time_t now = time(NULL);
+        if (now != *last) { *last = now; on_progress(step, total ? 1 + (int)((*done > total ? total : *done) * 97 / total) : 1); }
+        plat_throttle();
+    }
+    close(fd);
+    if (rc == 0) sha256_final(&sh, out);
+    return rc;
+}
+
+/* <Abbild>.sha256 im Format von sha256sum ("<hex>  <Dateiname>") anlegen; 0 = angelegt, 1 = gibt es schon, -1 = Schreibfehler */
+static int write_sidecar(const char *img, const uint8_t h[32]) {
+    char sc[320], tmp[330], hex[65];
+    for (int i = 0; i < 32; i++) snprintf(hex + 2 * i, 3, "%02x", h[i]);
+    snprintf(sc, sizeof(sc), "%s.sha256", img);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", sc);
+    const char *nm = strrchr(img, '/');
+    if (access(sc, F_OK) == 0) return 1;
+    FILE *f = fopen(tmp, "w");
+    if (!f) return -1;
+    int bad = fprintf(f, "%s  %s\n", hex, nm ? nm + 1 : img) < 0 || fflush(f) != 0 || (fsync(fileno(f)) != 0 && errno != EINVAL);
+    if (fclose(f) != 0) bad = 1;
+    if (bad || rename(tmp, sc) != 0) { unlink(tmp); return -1; }
+    return 0;
+}
+
 static void *gverify_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0}, bad = {0};
-    int ok_n = 0, bad_n = 0, none_n = 0, was_cancel = 0, done_n = 0;
+    int ok_n = 0, bad_n = 0, none_n = 0, have_n = 0, was_cancel = 0, done_n = 0;
     uint64_t total = 0, done = 0;
     char *buf = malloc(MV_BUF);
-    for (int i = 0; i < j->nitems; i++) total += j->items[i].nex ? j->items[i].size : 0;
+    for (int i = 0; i < j->nitems; i++) total += (j->sumgen ? !j->items[i].nex : j->items[i].nex != 0) ? j->items[i].size : 0;
     if (!buf) { sb_tr(&msg, "Kein Speicher"); goto fin; }
     set_flags(1, 0);
     pthread_mutex_lock(&lock);
@@ -5021,36 +5110,30 @@ static void *gverify_worker(void *arg) {
         const del_item_t *it = &j->items[i];
         char step[360];
         uint8_t want[32], got[32];
-        snprintf(step, sizeof(step), T("%s: %s (%d von %d)"), T("Spiel prüfen"), it->name, i + 1, j->nitems);
+        snprintf(step, sizeof(step), T("%s: %s (%d von %d)"), j->sumgen ? T("Prüfsumme anlegen") : T("Spiel prüfen"), it->name, i + 1, j->nitems);
         on_progress(step, total ? 1 + (int)(done * 97 / total) : 1);
-        if (!it->nex || read_sha_file(it->ex[0], want) != 0) { none_n++; continue; }
-        struct stat sb;
-        int fd = root_dev(it->root) == it->dev && lstat(it->path, &sb) == 0 && S_ISREG(sb.st_mode) ? open(it->path, O_RDONLY) : -1;
-        if (fd < 0) { bad_n++; sb_add(&bad, "%s%s", bad.len ? ", " : "", it->name); continue; }
-        sha256_t sh;
-        sha256_init(&sh);
-        int rd_err = 0;
-        for (;;) {
-            if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { was_cancel = 1; break; }
-            ssize_t r = read(fd, buf, MV_BUF);
-            if (r < 0 && errno == EINTR) continue;
-            if (r < 0) { rd_err = 1; break; }
-            if (r == 0) break;
-            sha256_update(&sh, buf, (size_t)r);
-            done += (uint64_t)r;
-            time_t now = time(NULL);
-            if (now != last) { last = now; on_progress(step, total ? 1 + (int)((done > total ? total : done) * 97 / total) : 1); }
-            plat_throttle();
-        }
-        close(fd);
-        if (was_cancel) break;
-        sha256_final(&sh, got);
+        if (j->sumgen) {
+            if (it->nex) { have_n++; continue; }
+            if (!it->size) { none_n++; continue; }   /* Ordner-Spiele haben keine einzelne Datei zum Hashen */
+        } else if (!it->nex || read_sha_file(it->ex[0], want) != 0) { none_n++; continue; }
+        const int rc = gv_hash(it, buf, got, &done, total, &last, step);
+        if (rc == -2) { was_cancel = 1; break; }
         done_n++;
-        if (rd_err || memcmp(want, got, 32) != 0) { bad_n++; sb_add(&bad, "%s%s", bad.len ? ", " : "", it->name); }
+        if (j->sumgen) {
+            if (rc == 0 && write_sidecar(it->path, got) == 0) ok_n++;
+            else { bad_n++; sb_add(&bad, "%s%s", bad.len ? ", " : "", it->name); }
+        } else if (rc != 0 || memcmp(want, got, 32) != 0) { bad_n++; sb_add(&bad, "%s%s", bad.len ? ", " : "", it->name); }
         else ok_n++;
     }
-    if (was_cancel) sb_tr(&msg, "Abgebrochen – geprüft: %d von %d.", done_n, j->nitems);
-    else {
+    if (was_cancel) {
+        if (j->sumgen) sb_tr(&msg, "Abgebrochen – Prüfsumme angelegt: %d von %d.", ok_n, j->nitems);
+        else sb_tr(&msg, "Abgebrochen – geprüft: %d von %d.", done_n, j->nitems);
+    } else if (j->sumgen) {
+        if (ok_n) sb_tr(&msg, "Prüfsumme angelegt: %d.", ok_n);
+        if (have_n) sb_tr(&msg, " Schon vorhanden: %d.", have_n);
+        if (none_n) sb_tr(&msg, " Kein Abbild (Ordner-Spiele haben keine Prüfsumme): %d.", none_n);
+        if (bad_n) sb_tr(&msg, " Nicht angelegt: %d – %s.", bad_n, bad.p ? bad.p : "");
+    } else {
         if (ok_n) sb_tr(&msg, "Prüfsumme stimmt: %d.", ok_n);
         if (bad_n) sb_tr(&msg, " Weicht ab oder nicht lesbar: %d – %s.", bad_n, bad.p ? bad.p : "");
         if (none_n) sb_tr(&msg, " Keine Prüfsummen-Datei (.sha256) gefunden: %d.", none_n);
@@ -5060,7 +5143,7 @@ static void *gverify_worker(void *arg) {
     pthread_mutex_unlock(&lock);
     set_flags(0, 0);
 fin:
-    sb_add(&res, "{\"ok\":%d,\"bad\":%d,\"none\":%d}", ok_n, bad_n, none_n);
+    sb_add(&res, "{\"ok\":%d,\"bad\":%d,\"none\":%d,\"have\":%d}", ok_n, bad_n, none_n, have_n);
     free(buf);
     free(bad.p);
     free(j->items);
@@ -5069,7 +5152,7 @@ fin:
     return NULL;
 }
 
-static void api_game_verify(int c, const char *body) {
+static void api_game_verify_ex(int c, const char *body, int sumgen) {
     kv_t kv[KV_MAX];
     int n = json_parse(body, kv, KV_MAX);
     const char *keys0 = n > 0 ? kv_get(kv, n, "keys") : NULL;
@@ -5079,8 +5162,9 @@ static void api_game_verify(int c, const char *body) {
     int nkeys = 1;
     for (const char *p = keys; *p; p++) nkeys += *p == ',';
     if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Spiele auf einmal"); return; }
-    job_t *j = new_job(c, JOB_GVERIFY);
+    job_t *j = new_job(c, sumgen ? JOB_GSUM : JOB_GVERIFY);
     if (!j) return;
+    j->sumgen = sumgen;
     j->items = calloc(MAX_DELETE, sizeof(*j->items));
     if (!j->items) { job_free(j); respond_error(c, 500, "Kein Speicher"); return; }
     int ambiguous = 0, badkey = 0;
@@ -5131,6 +5215,155 @@ static void api_game_verify(int c, const char *body) {
     }
     snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
     start_job(c, j, gverify_worker);
+}
+
+static void api_game_verify(int c, const char *body) { api_game_verify_ex(c, body, 0); }
+static void api_game_checksum(int c, const char *body) { api_game_verify_ex(c, body, 1); }
+
+/* ------------------------------------------------------------ Spiel-Einzelheiten
+ * POST /api/game/info {"key":"1a2b3c4d"} - Name, Titel-ID, Version, Art, Pfad, Größe, die größten Einträge im Spielordner, zugehörige
+ * Dateien und ob eine Prüfsummen-Datei daneben liegt (nur lesen). */
+static void api_game_info(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    const char *k0 = n > 0 ? kv_get(kv, n, "key") : NULL;
+    char *kend = NULL;
+    uint32_t want = k0 ? (uint32_t)strtoul(k0, &kend, 16) : 0;
+    if (!k0 || !*k0 || *kend) { respond_error(c, 400, "key ist erforderlich"); return; }
+    lib_title_t t;
+    char xtra[2048] = "";
+    int hits = 0;
+    pthread_mutex_lock(&lib_lock);
+    for (int i = 0; i < lib_n; i++)
+        for (int k = 0; k < lib_snap[i].r.ntitles; k++)
+            if (path_key(lib_snap[i].r.titles[k].path) == want) {
+                if (!hits) {
+                    t = lib_snap[i].r.titles[k];
+                    snprintf(xtra, sizeof(xtra), "%s", lib_snap[i].xtra && lib_snap[i].xtra[k] ? lib_snap[i].xtra[k] : "");
+                }
+                hits++;
+            }
+    pthread_mutex_unlock(&lib_lock);
+    if (hits != 1) { respond_error(c, hits ? 409 : 404, hits ? N_("Auswahl nicht eindeutig – Liste neu laden.") : N_("Spiele nicht gefunden – Liste neu laden")); return; }
+    struct stat sb;
+    sbuf_t b = {0};
+    sb_add(&b, "{\"name\":");
+    sb_str(&b, t.name);
+    sb_add(&b, ",\"id\":");
+    sb_str(&b, t.id);
+    sb_add(&b, ",\"version\":");
+    sb_str(&b, t.version);
+    sb_add(&b, ",\"kind\":");
+    sb_str(&b, t.kind);
+    sb_add(&b, ",\"ext\":");
+    sb_str(&b, t.ext);
+    sb_add(&b, ",\"path\":");
+    sb_str(&b, t.path);
+    const int is_dir = lstat(t.path, &sb) == 0 && S_ISDIR(sb.st_mode);
+    uint64_t total = 0;
+    int more = 0;
+    sb_add(&b, ",\"entries\":[");
+    if (is_dir) {   /* die größten Einträge der obersten Ebene */
+        DIR *d = opendir(t.path);
+        typedef struct { uint64_t size; char name[100]; int dir; } ent_t;
+        ent_t *ents = calloc(300, sizeof(ent_t));
+        int ne = 0;
+        struct dirent *e;
+        while (d && ents && (e = readdir(d))) {
+            if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+            char p[400];
+            struct stat es;
+            if (snprintf(p, sizeof(p), "%s/%s", t.path, e->d_name) >= (int)sizeof(p) || lstat(p, &es) != 0) continue;
+            if (ne >= 300) { more++; continue; }
+            ents[ne].dir = S_ISDIR(es.st_mode);
+            ents[ne].size = ents[ne].dir ? tree_bytes(p, 0) : (uint64_t)es.st_size;
+            snprintf(ents[ne].name, sizeof(ents[ne].name), "%.99s", e->d_name);
+            total += ents[ne].size;
+            ne++;
+        }
+        if (d) closedir(d);
+        if (ents) {
+            /* nach Größe absteigend (size an den Anfang gestellt: qsort über ent_t) */
+            for (int x = 0; x < ne; x++)
+                for (int y = x + 1; y < ne; y++)
+                    if (ents[y].size > ents[x].size) { ent_t tmp = ents[x]; ents[x] = ents[y]; ents[y] = tmp; }
+            const int shown = ne < 12 ? ne : 12;
+            for (int x = 0; x < shown; x++) {
+                sb_add(&b, "%s{\"name\":", x ? "," : "");
+                sb_str(&b, ents[x].name);
+                sb_add(&b, ",\"size\":%llu,\"dir\":%s}", (unsigned long long)ents[x].size, ents[x].dir ? "true" : "false");
+            }
+            more += ne - shown;
+            free(ents);
+        }
+    } else if (lstat(t.path, &sb) == 0) {
+        total = (uint64_t)sb.st_size;
+    }
+    sb_add(&b, "],\"more\":%d,\"size\":%llu,\"extras\":[", more, (unsigned long long)total);
+    int xf = 1;
+    for (const char *a = xtra; *a;) {
+        const char *e = strchr(a, '\n');
+        char one[300];
+        snprintf(one, sizeof(one), "%.*s", (int)(e ? (size_t)(e - a) : strlen(a)), a);
+        sb_add(&b, "%s", xf ? "" : ",");
+        xf = 0;
+        sb_str(&b, one);
+        if (!e) break;
+        a = e + 1;
+    }
+    char sc[320];
+    snprintf(sc, sizeof(sc), "%s.sha256", t.path);
+    struct stat xs;
+    int has_sum = stat(sc, &xs) == 0;
+    if (!has_sum && t.ext[0]) {
+        char bare[300];
+        snprintf(bare, sizeof(bare), "%s", t.path);
+        char *dot = strrchr(bare, '.');
+        if (dot && dot > strrchr(bare, '/')) { *dot = 0; snprintf(sc, sizeof(sc), "%s.sha256", bare); has_sum = stat(sc, &xs) == 0; }
+    }
+    sb_add(&b, "],\"checksum\":%s}", has_sum ? "true" : "false");
+    respond_json(c, 200, &b);
+    free(b.p);
+}
+
+/* ------------------------------------------------------------ Teilkopien verwerfen
+ * POST /api/partials/discard {"device":"da1"} - entfernt den Zwischenordner eines abgebrochenen Kopierens auf diesem Laufwerk. */
+static void *partdel_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0};
+    char s1[24];
+    const uint64_t bytes = tree_bytes(j->path, 0);
+    on_progress(N_("Teilkopie verwerfen"), 10);
+    const int rc = remove_tree(j->path, 0, NULL);
+    (void)rmdir(j->path);
+    if (rc == 0 || access(j->path, F_OK) != 0) sb_tr(&msg, "Teilkopie verworfen: %s wieder frei.", size_text(bytes, s1, sizeof(s1)));
+    else sb_tr(&msg, "Teilkopie nicht ganz entfernt: %s", strerror(errno));
+    sb_add(&res, "{\"freed\":%llu}", (unsigned long long)bytes);
+    job_done(j, rc == 0 || access(j->path, F_OK) != 0, &msg, &res, 1);
+    return NULL;
+}
+
+static void api_partials_discard(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    const char *dev = n > 0 ? kv_get(kv, n, "device") : NULL;
+    if (!dev || !dev[0]) { respond_error(c, 400, "device ist erforderlich"); return; }
+    proot_t pr[24];
+    pthread_mutex_lock(&lib_lock);
+    const int np = partial_roots(pr, 24);
+    pthread_mutex_unlock(&lib_lock);
+    int idx = -1;
+    for (int k = 0; k < np; k++) if (!strcmp(pr[k].dev, dev)) idx = k;
+    char stage[400];
+    struct stat ps;
+    if (idx >= 0) snprintf(stage, sizeof(stage), "%.299s/%s", pr[idx].path, MOVE_DIR);
+    if (idx < 0 || lstat(stage, &ps) != 0 || !S_ISDIR(ps.st_mode)) { respond_error(c, 404, N_("Keine Teilkopie auf diesem Laufwerk")); return; }
+    job_t *j = new_job(c, JOB_PARTDEL);
+    if (!j) return;
+    snprintf(j->path, sizeof(j->path), "%s", stage);
+    snprintf(j->dev.name, sizeof(j->dev.name), "%.15s", dev);
+    start_job(c, j, partdel_worker);
 }
 
 
@@ -5234,6 +5467,12 @@ static void handle(int c) {
         api_pkg_delete(c, body);
     else if (strcmp(path, "/api/game/verify") == 0 && is_post)
         api_game_verify(c, body);
+    else if (strcmp(path, "/api/game/checksum") == 0 && is_post)
+        api_game_checksum(c, body);
+    else if (strcmp(path, "/api/game/info") == 0 && is_post)
+        api_game_info(c, body);
+    else if (strcmp(path, "/api/partials/discard") == 0 && is_post)
+        api_partials_discard(c, body);
     else if (strcmp(path, "/api/library/sizes") == 0 && is_get)
         api_library_sizes(c);
     else if (strcmp(path, "/api/library/sizes") == 0 && is_post)

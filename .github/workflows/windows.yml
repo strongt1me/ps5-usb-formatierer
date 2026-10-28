@@ -47,6 +47,10 @@ jobs:
       - name: Logik der App (Versionen, Duplikate, Vorabprüfung, Paket-Hinweise)
         run: python windows/tests/app_logic_test.py
 
+      - name: Layout der App in allen Sprachen (nichts abgeschnitten, nichts über den Rand)
+        timeout-minutes: 8
+        run: python windows/tests/gui_layout_test.py
+
       - name: Oberfläche bei aufgeklappter Liste prüfen (Fokusfang, Meldungen, Kopierdialog)
         timeout-minutes: 3
         run: python windows/tests/gui_robust_test.py

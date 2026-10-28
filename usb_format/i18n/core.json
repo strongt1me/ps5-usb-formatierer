@@ -2998,5 +2998,77 @@
   "it": "Selezione ambigua – ricarica l'elenco.",
   "es": "Selección ambigua – recarga la lista.",
   "fr": "Sélection ambiguë – rechargez la liste."
+ },
+ "Prüfsumme anlegen": {
+  "en": "Create checksum",
+  "it": "Crea checksum",
+  "es": "Crear suma de comprobación",
+  "fr": "Créer la somme de contrôle"
+ },
+ "Abgebrochen – Prüfsumme angelegt: %d von %d.": {
+  "en": "Cancelled – checksum created: %d of %d.",
+  "it": "Annullato – checksum creato: %d su %d.",
+  "es": "Cancelado – suma creada: %d de %d.",
+  "fr": "Annulé – somme créée : %d sur %d."
+ },
+ "Prüfsumme angelegt: %d.": {
+  "en": "Checksum created: %d.",
+  "it": "Checksum creato: %d.",
+  "es": "Suma de comprobación creada: %d.",
+  "fr": "Somme de contrôle créée : %d."
+ },
+ " Schon vorhanden: %d.": {
+  "en": " Already present: %d.",
+  "it": " Già presente: %d.",
+  "es": " Ya existe: %d.",
+  "fr": " Déjà présente : %d."
+ },
+ " Kein Abbild (Ordner-Spiele haben keine Prüfsumme): %d.": {
+  "en": " Not an image (folder games have no checksum): %d.",
+  "it": " Non è un'immagine (i giochi in cartella non hanno checksum): %d.",
+  "es": " No es una imagen (los juegos en carpeta no tienen suma): %d.",
+  "fr": " Pas une image (les jeux en dossier n'ont pas de somme) : %d."
+ },
+ " Nicht angelegt: %d – %s.": {
+  "en": " Not created: %d – %s.",
+  "it": " Non creato: %d – %s.",
+  "es": " No creada: %d – %s.",
+  "fr": " Non créée : %d – %s."
+ },
+ "Teilkopie verwerfen": {
+  "en": "Discard partial copy",
+  "it": "Scarta copia parziale",
+  "es": "Descartar copia parcial",
+  "fr": "Abandonner la copie partielle"
+ },
+ "Teilkopie verworfen: %s wieder frei.": {
+  "en": "Partial copy discarded: %s free again.",
+  "it": "Copia parziale scartata: %s di nuovo liberi.",
+  "es": "Copia parcial descartada: %s libres de nuevo.",
+  "fr": "Copie partielle abandonnée : %s de nouveau libres."
+ },
+ "Teilkopie nicht ganz entfernt: %s": {
+  "en": "Partial copy not fully removed: %s",
+  "it": "Copia parziale non rimossa del tutto: %s",
+  "es": "La copia parcial no se eliminó del todo: %s",
+  "fr": "Copie partielle non entièrement supprimée : %s"
+ },
+ "Keine Teilkopie auf diesem Laufwerk": {
+  "en": "No partial copy on this drive",
+  "it": "Nessuna copia parziale su questa unità",
+  "es": "No hay copia parcial en esta unidad",
+  "fr": "Aucune copie partielle sur ce lecteur"
+ },
+ "key ist erforderlich": {
+  "en": "key is required",
+  "it": "key è obbligatorio",
+  "es": "key es obligatorio",
+  "fr": "key est obligatoire"
+ },
+ "device ist erforderlich": {
+  "en": "device is required",
+  "it": "device è obbligatorio",
+  "es": "device es obligatorio",
+  "fr": "device est obligatoire"
  }
 }

@@ -3394,5 +3394,149 @@
   "it": "doppio, versione più recente {v}",
   "es": "duplicado, versión más reciente {v}",
   "fr": "en double, version la plus récente {v}"
+ },
+ "Prüfsumme …": {
+  "en": "Checksum …",
+  "it": "Checksum …",
+  "es": "Suma …",
+  "fr": "Somme …"
+ },
+ "Teilkopie verwerfen …": {
+  "en": "Discard partial copy …",
+  "it": "Scarta copia parziale …",
+  "es": "Descartar copia parcial …",
+  "fr": "Abandonner la copie partielle …"
+ },
+ "Ältere Duplikate anhaken": {
+  "en": "Tick older duplicates",
+  "it": "Seleziona i doppioni più vecchi",
+  "es": "Marcar duplicados antiguos",
+  "fr": "Cocher les doublons anciens"
+ },
+ "Teilkopie eines abgebrochenen Kopierens: {size}": {
+  "en": "Partial copy of an interrupted copy: {size}",
+  "it": "Copia parziale di una copia interrotta: {size}",
+  "es": "Copia parcial de una copia interrumpida: {size}",
+  "fr": "Copie partielle d'une copie interrompue : {size}"
+ },
+ "Teilkopie verwerfen": {
+  "en": "Discard partial copy",
+  "it": "Scarta copia parziale",
+  "es": "Descartar copia parcial",
+  "fr": "Abandonner la copie partielle"
+ },
+ "Die unvollständige Kopie auf {name} ({dev}) ({size}) wird gelöscht. Die Originale bleiben unberührt.": {
+  "en": "The incomplete copy on {name} ({dev}) ({size}) will be deleted. The originals stay untouched.",
+  "it": "La copia incompleta su {name} ({dev}) ({size}) verrà eliminata. Gli originali restano intatti.",
+  "es": "La copia incompleta en {name} ({dev}) ({size}) se eliminará. Los originales no se tocan.",
+  "fr": "La copie incomplète sur {name} ({dev}) ({size}) sera supprimée. Les originaux restent intacts."
+ },
+ "Verwerfen konnte nicht gestartet werden: {e}": {
+  "en": "Discarding could not be started: {e}",
+  "it": "Impossibile avviare l'eliminazione: {e}",
+  "es": "No se pudo iniciar el descarte: {e}",
+  "fr": "L'abandon n'a pas pu démarrer : {e}"
+ },
+ "Teilkopie verworfen.": {
+  "en": "Partial copy discarded.",
+  "it": "Copia parziale scartata.",
+  "es": "Copia parcial descartada.",
+  "fr": "Copie partielle abandonnée."
+ },
+ "unbekannt": {
+  "en": "unknown",
+  "it": "sconosciuto",
+  "es": "desconocido",
+  "fr": "inconnu"
+ },
+ "Version": {
+  "en": "Version",
+  "it": "Versione",
+  "es": "Versión",
+  "fr": "Version"
+ },
+ "Art": {
+  "en": "Type",
+  "it": "Tipo",
+  "es": "Tipo",
+  "fr": "Type"
+ },
+ "Pfad": {
+  "en": "Path",
+  "it": "Percorso",
+  "es": "Ruta",
+  "fr": "Chemin"
+ },
+ "Prüfsumme": {
+  "en": "Checksum",
+  "it": "Checksum",
+  "es": "Suma de comprobación",
+  "fr": "Somme de contrôle"
+ },
+ "Prüfsummen-Datei (.sha256) vorhanden": {
+  "en": "checksum file (.sha256) present",
+  "it": "file di checksum (.sha256) presente",
+  "es": "archivo de suma (.sha256) presente",
+  "fr": "fichier de somme (.sha256) présent"
+ },
+ "keine Prüfsummen-Datei (.sha256) daneben": {
+  "en": "no checksum file (.sha256) next to it",
+  "it": "nessun file di checksum (.sha256) accanto",
+  "es": "ningún archivo de suma (.sha256) al lado",
+  "fr": "aucun fichier de somme (.sha256) à côté"
+ },
+ "Größte Einträge": {
+  "en": "Largest entries",
+  "it": "Elementi più grandi",
+  "es": "Elementos más grandes",
+  "fr": "Plus grandes entrées"
+ },
+ "Zugehörige Dateien": {
+  "en": "Related files",
+  "it": "File correlati",
+  "es": "Archivos relacionados",
+  "fr": "Fichiers associés"
+ },
+ "Gegen die Prüfsummen-Datei prüfen …": {
+  "en": "Check against the checksum file …",
+  "it": "Controlla con il file di checksum …",
+  "es": "Comprobar con el archivo de suma …",
+  "fr": "Vérifier avec le fichier de somme …"
+ },
+ "Prüfsumme erstellen …": {
+  "en": "Create checksum …",
+  "it": "Crea checksum …",
+  "es": "Crear suma de comprobación …",
+  "fr": "Créer la somme de contrôle …"
+ },
+ "Prüfsumme erstellen": {
+  "en": "Create checksum",
+  "it": "Crea checksum",
+  "es": "Crear suma de comprobación",
+  "fr": "Créer la somme de contrôle"
+ },
+ "Für diese Abbilder auf {name} ({dev}) wird eine Prüfsummen-Datei (.sha256) neben dem Abbild angelegt:": {
+  "en": "A checksum file (.sha256) will be created next to each of these images on {name} ({dev}):",
+  "it": "Accanto a queste immagini su {name} ({dev}) verrà creato un file di checksum (.sha256):",
+  "es": "Junto a estas imágenes en {name} ({dev}) se creará un archivo de suma (.sha256):",
+  "fr": "Un fichier de somme (.sha256) sera créé à côté de ces images sur {name} ({dev}) :"
+ },
+ "Das Abbild wird ganz gelesen. Vorhandene Prüfsummen-Dateien bleiben unberührt; Ordner-Spiele werden übersprungen. Geschrieben wird nur die neue .sha256-Datei.": {
+  "en": "The image is read completely. Existing checksum files stay untouched; folder games are skipped. Only the new .sha256 file is written.",
+  "it": "L'immagine viene letta per intero. I file di checksum esistenti restano intatti; i giochi in cartella vengono saltati. Viene scritto solo il nuovo file .sha256.",
+  "es": "La imagen se lee por completo. Los archivos de suma existentes no se tocan; los juegos en carpeta se omiten. Solo se escribe el nuevo archivo .sha256.",
+  "fr": "L'image est lue en entier. Les fichiers de somme existants restent intacts ; les jeux en dossier sont ignorés. Seul le nouveau fichier .sha256 est écrit."
+ },
+ "Anlegen konnte nicht gestartet werden: {e}": {
+  "en": "Creating could not be started: {e}",
+  "it": "Impossibile avviare la creazione: {e}",
+  "es": "No se pudo iniciar la creación: {e}",
+  "fr": "La création n'a pas pu démarrer : {e}"
+ },
+ "Prüfsumme angelegt.": {
+  "en": "Checksum created.",
+  "it": "Checksum creato.",
+  "es": "Suma de comprobación creada.",
+  "fr": "Somme de contrôle créée."
  }
 }

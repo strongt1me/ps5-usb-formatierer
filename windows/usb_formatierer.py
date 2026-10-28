@@ -189,6 +189,18 @@ class Api:
         body.update({"pkgs": ",".join(pkgs)} if pkgs else {"keys": ",".join(keys or [])})
         return self._call("/api/move", body, timeout=40)
 
+    def checksum_games(self, keys):
+        """Für Abbilder ohne .sha256 daneben eine anlegen (Auftrag "game_checksum")"""
+        return self._call("/api/game/checksum", {"keys": ",".join(keys)})
+
+    def game_info(self, key):
+        """Einzelheiten zu einem Spiel (nur lesen)"""
+        return self._call("/api/game/info", {"key": key}, timeout=40)
+
+    def discard_copy_partial(self, device):
+        """Liegengebliebene Teilkopie eines abgebrochenen Kopierens auf diesem Laufwerk verwerfen (Auftrag "partial_discard")"""
+        return self._call("/api/partials/discard", {"device": device})
+
     def verify_games(self, keys):
         """Abbilder gegen ihre .sha256-Datei prüfen (nur lesen; Auftrag "game_verify")"""
         return self._call("/api/game/verify", {"keys": ",".join(keys)})
@@ -770,6 +782,7 @@ class App(tk.Tk):
         self.host_var = tk.StringVar(value=self.settings.get("host", ""))
         self.page = self.settings.get("page") if self.settings.get("page") in dict(TABS) else "games"
         self.dup_marks = {}        # Pfad -> (Art, Version) für doppelte Spiele (aus /api/library: duplicates)
+        self.partials = {}         # Laufwerk -> Bytes einer liegengebliebenen Teilkopie (aus /api/library: partials)
         self.pkgs = {}             # Pakete je Laufwerk (aus /api/library: pkgfiles)
         self.ps5_fw = ""           # Firmware der PS5 (aus /api/library), für den Vergleich mit den Paketen
         self.fs_var = tk.StringVar(value="exFAT")
@@ -997,8 +1010,14 @@ class App(tk.Tk):
         self.sort_combo.current(0)
         self.sort_combo.grid(row=1, column=2, sticky="e", padx=(px(6), 0))
         self.sort_combo.bind("<<ComboboxSelected>>", lambda e: self._show_games())
-        self.verify_btn = ttk.Button(ghead, text=_("Prüfen …"), command=self._verify_games)   # neben der Suche: in der Knopfleiste unten ist kein Platz mehr
+        self.verify_btn = ttk.Button(ghead, text=_("Prüfsumme …"), command=self._verify_menu)   # neben der Suche: in der Knopfleiste unten ist kein Platz mehr
         self.verify_btn.grid(row=1, column=3, sticky="e", padx=(px(6), 0))
+        self.hint_row = ttk.Frame(ghead)   # Teilkopie / ältere Duplikate: nur sichtbar, wenn es das gibt
+        self.hint_row.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(px(6), 0))
+        self.partial_lbl = ttk.Label(self.hint_row, style="Warn.TLabel")
+        self.partial_btn = ttk.Button(self.hint_row, text=_("Teilkopie verwerfen …"), command=self._discard_partial)
+        self.older_btn = ttk.Button(self.hint_row, text=_("Ältere Duplikate anhaken"), command=self._check_older)
+        self.hint_row.grid_remove()
         Tooltip(self.game_search, _("Spiele filtern (Strg+F)"))
         Tooltip(self.sort_combo, _("Sortieren nach"))
         style = ttk.Style(self)
@@ -1011,6 +1030,8 @@ class App(tk.Tk):
         self.games_tree.tag_configure("odd", background=ui_theme.colors()["card2"])
         self.games_tree.bind("<Button-1>", self._game_click)
         self.games_tree.bind("<space>", lambda e: self._game_toggle(self.games_tree.focus()))
+        self.games_tree.bind("<Double-1>", lambda e: self._game_info(self.games_tree.identify_row(e.y)))   # Einzelheiten
+        self.games_tree.bind("<Return>", lambda e: self._game_info(self.games_tree.focus()))
         self.games_checked = set()
         self.games_tree.grid(row=1, column=0, sticky="nsew")
         sb = ttk.Scrollbar(gb, orient="vertical", command=self.games_tree.yview)
@@ -2354,6 +2375,7 @@ class App(tk.Tk):
         Sekunde neu: nur bei Änderungen neu aufbauen, Auswahl und Scrollstand bleiben"""
         dev = self._selected_device()
         if self.mode_var.get() != "ps5" or not dev:
+            self.hint_row.grid_remove()
             self.games_tree.delete(*self.games_tree.get_children())
             self.games_checked.clear()
             self._games_shown = None
@@ -2385,6 +2407,7 @@ class App(tk.Tk):
             self.games_tree.yview_moveto(top)
             self._games_shown = rows
         self._games_sum()
+        self._show_hints(dev, games)
         if games and q:
             text = _("Spiele auf diesem Datenträger: {shown} von {n}", shown=len(shown), n=len(games))
         elif games:
@@ -2543,7 +2566,7 @@ class App(tk.Tk):
         return f"{c['name']} – {c['ip']}{extra}"
 
     def _search(self):
-        if self.busy:
+        if self.busy or os.environ.get("USBFMT_NO_DISCOVERY"):   # Tests: nie die echte PS5 im Netz suchen
             return
 
         def work():
@@ -2924,6 +2947,132 @@ class App(tk.Tk):
                 self.q.put(("error", _("Löschen konnte nicht gestartet werden: {e}", e=e)))
                 return
             self._follow(api, foreign=False, done_title=_("Spiele gelöscht."))
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _show_hints(self, dev, games):
+        """Teilkopie und ältere Duplikate dieses Laufwerks: Hinweiszeile unter der Suche"""
+        part = self.partials.get(dev["name"]) if dev else None
+        older = [g for g in games if self.dup_marks.get(g.get("path"), ("",))[0] == "older"]
+        for w in (self.partial_lbl, self.partial_btn, self.older_btn):
+            w.pack_forget()
+        if part and self.mode_var.get() == "ps5":
+            self.partial_lbl.configure(text=_("Teilkopie eines abgebrochenen Kopierens: {size}", size=fmt_size(part)))
+            self.partial_lbl.pack(side="left")
+            self.partial_btn.pack(side="left", padx=(ui_theme.px(8), 0))
+        if older and self.mode_var.get() == "ps5":
+            self.older_btn.pack(side="right")
+        if (part or older) and self.mode_var.get() == "ps5":
+            self.hint_row.grid()
+        else:
+            self.hint_row.grid_remove()
+
+    def _discard_partial(self):
+        dev = self._selected_device()
+        part = self.partials.get(dev["name"]) if dev else None
+        if self.busy or not dev or not part or not self.api:
+            return
+        if not messagebox.askokcancel(
+                _("Teilkopie verwerfen"),
+                _("Die unvollständige Kopie auf {name} ({dev}) ({size}) wird gelöscht. Die Originale bleiben unberührt.",
+                  name=dev_title(dev), dev=dev["name"], size=fmt_size(part)), icon="warning", default="cancel", parent=self):
+            return
+        api, name = self.api, dev["name"]
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+
+        def work():
+            try:
+                api.discard_copy_partial(name)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Verwerfen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Teilkopie verworfen."), after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _check_older(self):
+        """Die älteren Versionen doppelter Spiele dieses Laufwerks anhaken (danach "Angehakte Spiele löschen …")"""
+        dev = self._selected_device()
+        games = self.games.get(dev["name"], []) if dev else []
+        keys = {g.get("key") for g in games if self.dup_marks.get(g.get("path"), ("",))[0] == "older" and g.get("key")}
+        if self.busy or not keys:
+            return
+        self.games_checked |= keys
+        self._games_shown = None   # Liste neu aufbauen: Häkchen setzen
+        self._show_games()
+        self._update()
+
+    def _game_info(self, iid):
+        """Einzelheiten zu einem Spiel (Doppelklick oder Enter): Titel-ID, Version, Art, Größe, größte Einträge, Prüfsumme"""
+        if not iid or self.busy or not self.api:
+            return
+        api = self.api
+        try:
+            r = self._call_bg(lambda: api.game_info(iid))
+        except (ConnectionError, ApiError) as e:
+            messagebox.showerror(_("Spiel"), str(e), parent=self)
+            return
+        lines = [_("Titel-ID") + ": " + (r.get("id") or _("unbekannt")), _("Version") + ": " + (r.get("version") or "–"),
+                 _("Art") + ": " + (r.get("kind", "") + (" (." + r["ext"] + ")" if r.get("ext") else "")),
+                 _("Größe") + ": " + fmt_size(r.get("size", 0)), _("Pfad") + ": " + r.get("path", ""),
+                 _("Prüfsumme") + ": " + (_("Prüfsummen-Datei (.sha256) vorhanden") if r.get("checksum")
+                                          else _("keine Prüfsummen-Datei (.sha256) daneben"))]
+        if r.get("entries"):
+            lines += ["", _("Größte Einträge") + ":"] + [("▸ " if e.get("dir") else "· ") + f"{e['name']} · {fmt_size(e['size'])}" for e in r["entries"]]
+            if r.get("more", 0) > 0:
+                lines.append(_("… und {n} weitere", n=r["more"]))
+        if r.get("extras"):
+            lines += ["", _("Zugehörige Dateien") + ":"] + ["· " + os.path.basename(x) for x in r["extras"]]
+        messagebox.showinfo(r.get("name") or _("Spiel"), "\n".join(lines), parent=self)
+
+    def _verify_menu(self):
+        """Knopf "Prüfsumme …": gegen vorhandene Datei prüfen oder eine anlegen"""
+        m = tk.Menu(self, tearoff=0)
+        m.add_command(label=_("Gegen die Prüfsummen-Datei prüfen …"), command=self._verify_games)
+        m.add_command(label=_("Prüfsumme erstellen …"), command=self._checksum_games)
+        b = self.verify_btn
+        try:
+            m.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
+        finally:
+            m.grab_release()
+
+    def _checksum_games(self):
+        """Für die angehakten Abbilder ohne .sha256 daneben eine anlegen (nur diese Datei wird geschrieben)"""
+        dev = self._selected_device()
+        all_keys = {g.get("key") for g in self.games.get(dev["name"], [])} if dev else set()
+        keys = [k for k in self.games_checked if k in all_keys]
+        if self.busy or not dev or not keys or not self.api:
+            return
+        games = {g.get("key"): g for g in self.games.get(dev["name"], [])}
+        names = sorted((games[k]["name"] or games[k]["id"]) for k in keys if k in games)
+        shown = "\n".join("• " + n for n in names[:10]) + ("\n" + _("… und {n} weitere", n=len(names) - 10) if len(names) > 10 else "")
+        if not messagebox.askokcancel(
+                _("Prüfsumme erstellen"),
+                _("Für diese Abbilder auf {name} ({dev}) wird eine Prüfsummen-Datei (.sha256) neben dem Abbild angelegt:", name=dev_title(dev),
+                  dev=dev["name"]) + f"\n\n{shown}\n\n" +
+                _("Das Abbild wird ganz gelesen. Vorhandene Prüfsummen-Dateien bleiben unberührt; Ordner-Spiele werden übersprungen. "
+                  "Geschrieben wird nur die neue .sha256-Datei."), parent=self):
+            return
+        if self.busy or not self.api:
+            return
+        api = self.api
+        key_list = list(keys)
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+            (messagebox.showinfo if ok else messagebox.showwarning)(_("Prüfsumme erstellen"), msg, parent=self)
+
+        def work():
+            try:
+                api.checksum_games(key_list)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Anlegen konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Prüfsumme angelegt."), after=done)
 
         self.pbar["value"] = 0
         self._run(work)
@@ -3751,6 +3900,7 @@ class App(tk.Tk):
                 self.pkgs = pkgs
                 self.ps5_fw = data.get("fw") or ""
                 self.dup_marks = dup_marks(data)
+                self.partials = {p.get("device"): p.get("bytes", 0) for p in data.get("partials", []) or []}
                 known = self.__dict__.setdefault("_game_sizes_known", {})
                 for lst in games.values():
                     for g in lst:

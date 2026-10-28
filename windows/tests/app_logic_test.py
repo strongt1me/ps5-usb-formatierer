@@ -64,5 +64,29 @@ if len(sys.argv) > 1:   # laufender Testserver: die neuen Aufrufe der App wirkli
         time.sleep(0.2)
     check(st.get("ok") and "stimmt" in st.get("message", ""), "verify_games: Prüfsumme stimmt", st.get("message"))
 
+    # neue Aufrufe: Einzelheiten, Prüfsumme anlegen, Teilkopie verwerfen (der Testserver hat dafür ohne.ffpfs und eine Teilkopie auf da1)
+    lib = api._call("/api/library")
+    keys = {t["path"].rsplit("/", 1)[-1]: t["key"] for t in lib["titles"]}
+    info = api.game_info(keys["Beta"])
+    check(info.get("id") == "PPSA00002" and "entries" in info and "checksum" in info, "game_info gegen den Server", info)
+    if "ohne.ffpfs" in keys:
+        api.checksum_games([keys["ohne.ffpfs"]])
+        for _ in range(100):
+            st = api._call("/api/status")
+            if not st.get("busy"):
+                break
+            time.sleep(0.2)
+        check(st.get("ok") and "angelegt" in st.get("message", ""), "checksum_games: Prüfsumme angelegt", st.get("message"))
+    if lib.get("partials"):
+        dev = lib["partials"][0]["device"]
+        api.discard_copy_partial(dev)
+        for _ in range(100):
+            st = api._call("/api/status")
+            if not st.get("busy"):
+                break
+            time.sleep(0.2)
+        lib2 = api._call("/api/library?refresh=1")
+        check(st.get("ok") and not lib2.get("partials"), "discard_copy_partial: Teilkopie verworfen", st.get("message"))
+
 print("Alle App-Logik-Tests bestanden." if not fails else "%d Fehler" % fails)
 sys.exit(1 if fails else 0)

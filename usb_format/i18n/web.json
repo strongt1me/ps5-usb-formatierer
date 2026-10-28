@@ -2452,5 +2452,161 @@
   "it": "Non controllato",
   "es": "No comprobado",
   "fr": "Non vérifié"
+ },
+ "Abbilder anhaken, für die eine Prüfsumme angelegt wird": {
+  "en": "Tick images to create a checksum for",
+  "it": "Seleziona le immagini per cui creare un checksum",
+  "es": "Marca las imágenes para las que crear una suma",
+  "fr": "Cochez les images pour lesquelles créer une somme"
+ },
+ "Anlegen": {
+  "en": "Create",
+  "it": "Crea",
+  "es": "Crear",
+  "fr": "Créer"
+ },
+ "Prüfsumme erstellen …": {
+  "en": "Create checksum …",
+  "it": "Crea checksum …",
+  "es": "Crear suma de comprobación …",
+  "fr": "Créer la somme de contrôle …"
+ },
+ "Prüfsumme erstellen": {
+  "en": "Create checksum",
+  "it": "Crea checksum",
+  "es": "Crear suma de comprobación",
+  "fr": "Créer la somme de contrôle"
+ },
+ "Prüfsummen für {n} Spiele erstellen": {
+  "en": "Create checksums for {n} games",
+  "it": "Crea checksum per {n} giochi",
+  "es": "Crear sumas para {n} juegos",
+  "fr": "Créer les sommes de {n} jeux"
+ },
+ "Für diese Abbilder auf {dev} wird eine Prüfsummen-Datei (.sha256) neben dem Abbild angelegt:": {
+  "en": "A checksum file (.sha256) will be created next to each of these images on {dev}:",
+  "it": "Accanto a queste immagini su {dev} verrà creato un file di checksum (.sha256):",
+  "es": "Junto a estas imágenes en {dev} se creará un archivo de suma (.sha256):",
+  "fr": "Un fichier de somme (.sha256) sera créé à côté de ces images sur {dev} :"
+ },
+ "Das Abbild wird ganz gelesen. Vorhandene Prüfsummen-Dateien bleiben unberührt; Ordner-Spiele werden übersprungen. Geschrieben wird nur die neue .sha256-Datei.": {
+  "en": "The image is read completely. Existing checksum files stay untouched; folder games are skipped. Only the new .sha256 file is written.",
+  "it": "L'immagine viene letta per intero. I file di checksum esistenti restano intatti; i giochi in cartella vengono saltati. Viene scritto solo il nuovo file .sha256.",
+  "es": "La imagen se lee por completo. Los archivos de suma existentes no se tocan; los juegos en carpeta se omiten. Solo se escribe el nuevo archivo .sha256.",
+  "fr": "L'image est lue en entier. Les fichiers de somme existants restent intacts ; les jeux en dossier sont ignorés. Seul le nouveau fichier .sha256 est écrit."
+ },
+ "Version": {
+  "en": "Version",
+  "it": "Versione",
+  "es": "Versión",
+  "fr": "Version"
+ },
+ "unbekannt": {
+  "en": "unknown",
+  "it": "sconosciuto",
+  "es": "desconocido",
+  "fr": "inconnu"
+ },
+ "Art": {
+  "en": "Type",
+  "it": "Tipo",
+  "es": "Tipo",
+  "fr": "Type"
+ },
+ "Pfad": {
+  "en": "Path",
+  "it": "Percorso",
+  "es": "Ruta",
+  "fr": "Chemin"
+ },
+ "Prüfsumme": {
+  "en": "Checksum",
+  "it": "Checksum",
+  "es": "Suma de comprobación",
+  "fr": "Somme de contrôle"
+ },
+ "Prüfsummen-Datei (.sha256) vorhanden": {
+  "en": "checksum file (.sha256) present",
+  "it": "file di checksum (.sha256) presente",
+  "es": "archivo de suma (.sha256) presente",
+  "fr": "fichier de somme (.sha256) présent"
+ },
+ "keine Prüfsummen-Datei (.sha256) daneben": {
+  "en": "no checksum file (.sha256) next to it",
+  "it": "nessun file di checksum (.sha256) accanto",
+  "es": "ningún archivo de suma (.sha256) al lado",
+  "fr": "aucun fichier de somme (.sha256) à côté"
+ },
+ "Größte Einträge": {
+  "en": "Largest entries",
+  "it": "Elementi più grandi",
+  "es": "Elementos más grandes",
+  "fr": "Plus grandes entrées"
+ },
+ "Zugehörige Dateien": {
+  "en": "Related files",
+  "it": "File correlati",
+  "es": "Archivos relacionados",
+  "fr": "Fichiers associés"
+ },
+ "Ältere Version auswählen …": {
+  "en": "Select older version …",
+  "it": "Seleziona la versione più vecchia …",
+  "es": "Seleccionar la versión más antigua …",
+  "fr": "Sélectionner la version plus ancienne …"
+ },
+ "Teilkopie eines abgebrochenen Kopierens: {size}": {
+  "en": "Partial copy of an interrupted copy: {size}",
+  "it": "Copia parziale di una copia interrotta: {size}",
+  "es": "Copia parcial de una copia interrumpida: {size}",
+  "fr": "Copie partielle d'une copie interrompue : {size}"
+ },
+ "Sie belegt Platz auf diesem Laufwerk. Dieselbe Auswahl erneut kopieren setzt sie fort; sonst lässt sie sich verwerfen.": {
+  "en": "It takes up space on this drive. Copying the same selection again resumes it; otherwise it can be discarded.",
+  "it": "Occupa spazio su questa unità. Ricopiando la stessa selezione si riprende; altrimenti si può scartare.",
+  "es": "Ocupa espacio en esta unidad. Copiar de nuevo la misma selección la reanuda; si no, se puede descartar.",
+  "fr": "Elle occupe de la place sur ce lecteur. Recopier la même sélection la reprend ; sinon on peut l'abandonner."
+ },
+ "Teilkopie verwerfen …": {
+  "en": "Discard partial copy …",
+  "it": "Scarta copia parziale …",
+  "es": "Descartar copia parcial …",
+  "fr": "Abandonner la copie partielle …"
+ },
+ "Teilkopie verwerfen": {
+  "en": "Discard partial copy",
+  "it": "Scarta copia parziale",
+  "es": "Descartar copia parcial",
+  "fr": "Abandonner la copie partielle"
+ },
+ "Die unvollständige Kopie auf {dev} ({size}) wird gelöscht. Die Originale bleiben unberührt.": {
+  "en": "The incomplete copy on {dev} ({size}) will be deleted. The originals stay untouched.",
+  "it": "La copia incompleta su {dev} ({size}) verrà eliminata. Gli originali restano intatti.",
+  "es": "La copia incompleta en {dev} ({size}) se eliminará. Los originales no se tocan.",
+  "fr": "La copie incomplète sur {dev} ({size}) sera supprimée. Les originaux restent intacts."
+ },
+ "Teilkopie verworfen": {
+  "en": "Partial copy discarded",
+  "it": "Copia parziale scartata",
+  "es": "Copia parcial descartada",
+  "fr": "Copie partielle abandonnée"
+ },
+ "Nicht ganz entfernt": {
+  "en": "Not fully removed",
+  "it": "Non rimossa del tutto",
+  "es": "No se eliminó del todo",
+  "fr": "Pas entièrement supprimée"
+ },
+ "Prüfsumme angelegt": {
+  "en": "Checksum created",
+  "it": "Checksum creato",
+  "es": "Suma de comprobación creada",
+  "fr": "Somme de contrôle créée"
+ },
+ "Keine Prüfsumme angelegt": {
+  "en": "No checksum created",
+  "it": "Nessun checksum creato",
+  "es": "No se creó ninguna suma",
+  "fr": "Aucune somme créée"
  }
 }
