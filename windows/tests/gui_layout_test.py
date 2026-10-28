@@ -3,6 +3,12 @@ Fenstergröße: kein Bedienelement ragt über den Fensterrand, und Knöpfe/Besch
 passt in die tatsächliche). Je Sprache läuft ein eigener Prozess (mehrere Tk-Fenster nacheinander gehen im selben Prozess nicht:
 die benannten Schriften sind dann weg). Ohne Anzeige wird übersprungen.
 Aufruf: python tests/gui_layout_test.py [sprache]"""
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):   # CI-Rechner geben oft in cp1252 aus: Umlaute und Ersatzzeichen dürfen nie zum Absturz führen
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 import os
 import subprocess
 import sys

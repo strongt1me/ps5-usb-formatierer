@@ -2,6 +2,12 @@
 Fokusfang und Fokus einen KeyError "popdown"): Taktgeber des Programms, Tastenkürzel, Meldungsfenster und der
 Fehlerdialog dürfen dann nicht scheitern. Ohne Anzeige wird übersprungen.
 Aufruf: python tests/gui_robust_test.py"""
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):   # CI-Rechner geben oft in cp1252 aus: Umlaute und Ersatzzeichen dürfen nie zum Absturz führen
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 import os
 import sys
 import tempfile

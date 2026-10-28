@@ -1,6 +1,12 @@
 """Logik der Windows-App ohne Fenster: Versionsvergleich, Duplikat-Kennzeichnung, Vorabprüfung (Fehlertext und "Danach frei"),
 Paket-Hinweise und - gegen einen laufenden Testserver (Host-Fassung, optional) - die API-Aufrufe move_check und verify_games.
 Aufruf: python tests/app_logic_test.py [host:port des Testservers]"""
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):   # CI-Rechner geben oft in cp1252 aus: Umlaute und Ersatzzeichen dürfen nie zum Absturz führen
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 import os
 import sys
 import tempfile
