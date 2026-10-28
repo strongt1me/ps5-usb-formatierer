@@ -104,10 +104,16 @@ def scan(app, where):
             continue
 
 
-i18n.set_lang(CODE)
+uf.save_settings({"lang": CODE})   # die App liest ihre Sprache beim Start aus den Einstellungen (set_lang allein würde überschrieben)
 app = uf.App()
+assert i18n.lang() == CODE, "Sprache nicht übernommen: %s" % i18n.lang()
 try:
     app.update()
+    if app.winfo_screenwidth() < app.winfo_reqwidth() + 40 or app.winfo_screenheight() < app.winfo_reqheight() + 60:
+        # Bildschirm kleiner als das Fenster (z. B. CI-Rechner mit 1024 x 768): das Fenster wird dann am Bildschirm abgeschnitten, nicht vom Layout
+        print("ÜBERSPRUNGEN (%s): Bildschirm %dx%d ist kleiner als das Fenster %dx%d" % (CODE, app.winfo_screenwidth(), app.winfo_screenheight(),
+                                                                                   app.winfo_reqwidth(), app.winfo_reqheight()))
+        sys.exit(0)
     if CODE == LANGS[0]:   # Gegenprobe: ein zu breiter und ein zu schmaler Knopf müssen auffallen
         pump(app)
         wide = ttk.Button(app, text="x" * 400)
