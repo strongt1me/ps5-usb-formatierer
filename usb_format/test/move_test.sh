@@ -158,6 +158,9 @@ rm -rf "$B/homebrew/Zwei"
 code=$(post "{\"keys\":\"$K2\",\"device\":\"$DEV2\",\"verify\":true}" move)
 [ "$code" = 202 ] && wait_job && [ "$(q 'd["ok"]' <"$W/st")" = False ] && grep -q 'weicht' "$W/st" && [ ! -e "$B/homebrew/Zwei" ] && [ ! -e "$B/.usbfmt-move" ]     && ok "beschädigte Kopie: Prüfung schlägt an, nichts übernommen, Zwischenordner weg" || bad "beschädigte Kopie" "$code $(cat "$W/st") $(ls -a "$B" "$B/homebrew" 2>&1)"
 
+# die PS5 zeigt am Ende jedes Auftrags eine Meldung (auf dem Host: Zeile im Log) - auch bei Fehlern
+[ "$(grep -c '^\[Benachrichtigung\]' "$W/log")" -ge 3 ] && grep -q '^\[Benachrichtigung\].*weicht' "$W/log"     && ok "Meldung am Ende jedes Auftrags (Erfolg und Fehler)" || bad "Meldung am Auftragsende" "$(grep '^\[Benachrichtigung\]' "$W/log" | head -5)"
+
 echo
 [ $fails -eq 0 ] && echo "Alle Verschieben-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."
 exit $((fails > 0))

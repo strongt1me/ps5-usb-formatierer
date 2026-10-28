@@ -237,6 +237,53 @@ def publish(version, title, notes, message):
     print("PS5 aktualisieren: python tools/ps5_deploy.py update --host <ps5> (danach ggf. tile)")
 
 
+# Dateien, die nach den CI-Läufen am Release hängen müssen
+EXPECTED_ASSETS = ["usb_format.elf", "PPSA86920.zip", "SHA256SUMS", "PS5-USB-Formatierer.exe", "USB-Formatierer.exe"] + [
+    f"{n}-{a}.AppImage" for n in ("PS5-USB-Formatierer", "USB-Formatierer") for a in ("x86_64", "aarch64")] + [
+    f"{n}-linux-{a}.tar.gz" for n in ("PS5-USB-Formatierer", "USB-Formatierer") for a in ("x86_64", "aarch64")]
+
+
+def gh_json(args):
+    r = subprocess.run(["gh", *args], capture_output=True, text=True, encoding="utf-8")
+    if r.returncode:
+        raise RuntimeError(r.stderr.strip() or "gh fehlgeschlagen")
+    return json.loads(r.stdout or "null")
+
+
+def wait_release(version, timeout=40 * 60, retries=2):
+    """Wartet auf die Release-Läufe der CI, startet einen gescheiterten höchstens `retries`-mal neu (meist ein Netzfehler beim
+    Laden von Quellen) und vergleicht danach die angehängten Dateien mit EXPECTED_ASSETS. Rückgabe: True, wenn alles da ist."""
+    tag = "v" + version
+    step(f"CI-Läufe zu {tag} abwarten")
+    end, tries = time.time() + timeout, {}
+    while time.time() < end:
+        runs = [r for r in gh_json(["run", "list", "--repo", REPO, "--event", "release", "--limit", "20", "--json",
+                                    "databaseId,status,conclusion,workflowName,headBranch"]) if r["headBranch"] == tag]
+        if runs and all(r["status"] == "completed" for r in runs):
+            bad = [r for r in runs if r["conclusion"] != "success"]
+            if not bad:
+                break
+            for r in bad:
+                n = tries.get(r["databaseId"], 0)
+                if n >= retries:
+                    print(f"{r['workflowName']}: nach {retries} Neustarts weiter fehlgeschlagen - Log: gh run view {r['databaseId']} --log-failed")
+                    return False
+                tries[r["databaseId"]] = n + 1
+                print(f"{r['workflowName']}: fehlgeschlagen - Neustart {n + 1}/{retries}")
+                run(["gh", "run", "rerun", str(r["databaseId"]), "--failed", "--repo", REPO])
+        time.sleep(30)
+    else:
+        print("Zeitüberschreitung beim Warten auf die CI")
+        return False
+    have = {a["name"] for a in gh_json(["release", "view", tag, "--repo", REPO, "--json", "assets"])["assets"]}
+    missing = [n for n in EXPECTED_ASSETS if n not in have]
+    if missing:
+        print("Am Release fehlen: " + ", ".join(missing))
+        return False
+    print(f"Alle {len(EXPECTED_ASSETS)} erwarteten Dateien hängen am Release.")
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("version", help="neue Version X.Y.Z")
@@ -246,7 +293,11 @@ def main():
     ap.add_argument("--skip-build", action="store_true", help="nicht bauen (schon gebaut)")
     ap.add_argument("--skip-images", action="store_true", help="README-Bilder nicht erneuern")
     ap.add_argument("--publish", action="store_true", help="einchecken, taggen, pushen und das Release anlegen")
+    ap.add_argument("--no-wait", action="store_true", help="nach --publish nicht auf die CI warten")
+    ap.add_argument("--check", action="store_true", help="nur die CI-Läufe und Dateien eines veröffentlichten Releases prüfen")
     a = ap.parse_args()
+    if a.check:
+        sys.exit(0 if wait_release(a.version) else 1)
     if a.publish and not (a.notes and os.path.isfile(a.notes)):
         fail("--publish braucht --notes <datei>")
     if a.publish and not (a.title or a.message):
@@ -261,6 +312,8 @@ def main():
     print(run(["git", "status", "--short"], capture=True) or "(nichts)")
     if a.publish:
         publish(a.version, a.title, a.notes, a.message)
+        if not a.no_wait and not wait_release(a.version):
+            fail("Release unvollständig - siehe oben")
     else:
         print("Vorbereitet - nichts eingecheckt. Prüfen, dann mit --title/--notes --publish --skip-build --skip-images "
               "veröffentlichen.")

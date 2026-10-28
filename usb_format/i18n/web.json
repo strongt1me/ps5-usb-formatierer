@@ -2770,5 +2770,29 @@
   "it": "Aggiungi alla coda",
   "es": "Añadir a la cola",
   "fr": "Ajouter à la file d'attente"
+ },
+ "zu wenig Platz": {
+  "en": "not enough space",
+  "it": "spazio insufficiente",
+  "es": "espacio insuficiente",
+  "fr": "pas assez de place"
+ },
+ "FAT32: keine Dateien über 4 GB": {
+  "en": "FAT32: no files over 4 GB",
+  "it": "FAT32: nessun file oltre 4 GB",
+  "es": "FAT32: sin archivos de más de 4 GB",
+  "fr": "FAT32 : pas de fichiers de plus de 4 Go"
+ },
+ "Gleiche Version und genau gleiche Größe – das sind sehr wahrscheinlich zwei Kopien desselben Spiels.": {
+  "en": "Same version and exactly the same size – these are very likely two copies of the same game.",
+  "it": "Stessa versione e stessa dimensione esatta: sono molto probabilmente due copie dello stesso gioco.",
+  "es": "Misma versión y exactamente el mismo tamaño: muy probablemente son dos copias del mismo juego.",
+  "fr": "Même version et taille exactement identique – il s'agit très probablement de deux copies du même jeu."
+ },
+ "Überzählige Kopie auswählen …": {
+  "en": "Select the surplus copy …",
+  "it": "Seleziona la copia in più …",
+  "es": "Seleccionar la copia sobrante …",
+  "fr": "Sélectionner la copie en trop …"
  }
 }

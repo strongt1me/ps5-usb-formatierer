@@ -8,13 +8,30 @@ $here = $PSScriptRoot
 $work = Join-Path $here "build"
 $name = "e2fsprogs-1.47.4"
 $sha = "fd5bf388cbdbe006a3d3b318d983b2948382440acc85a87f1e7d108653e8db0b"
-$url = "https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.4/$name.tar.xz"
+$urls = @("https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.4/$name.tar.xz",
+          "https://cdn.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.4/$name.tar.xz")
 New-Item -ItemType Directory -Force $work | Out-Null
 
 $tar = if ($Tarball) { $Tarball } else { Join-Path $work "$name.tar.xz" }
 if (-not (Test-Path $tar)) {
-    Write-Host "Lade $url"
-    Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $tar
+    # Netzfehler sind auf den CI-Läufern selten, aber einer genügt, um ein Release aufzuhalten: mehrere Versuche über zwei Spiegel
+    $loaded = $false
+    foreach ($try in 1..4) {
+        foreach ($url in $urls) {
+            try {
+                Write-Host "Lade $url (Versuch $try)"
+                Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $tar -TimeoutSec 120
+                $loaded = $true
+                break
+            } catch {
+                Write-Host "  fehlgeschlagen: $($_.Exception.Message)"
+                Remove-Item -Force -ErrorAction SilentlyContinue $tar
+            }
+        }
+        if ($loaded) { break }
+        Start-Sleep -Seconds (5 * $try)
+    }
+    if (-not $loaded) { throw "Quellen von e2fsprogs konnten nicht geladen werden" }
 }
 # SHA-256 ohne Get-FileHash (fehlt Windows PowerShell, wenn es aus PowerShell 7 heraus startet)
 function Sha256($path) {

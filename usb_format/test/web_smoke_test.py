@@ -315,6 +315,10 @@ try:
             dlg_click("In die Warteschlange")
             page.wait_for_timeout(400)
         check("2 Aufträge" in page.inner_text("#queue") or "2 jobs" in page.inner_text("#queue"), "Warteschlange: zwei Aufträge eingestellt", page.inner_text("#queue"))
+        page.reload()   # die eingestellten Aufträge überstehen ein Neuladen der Seite
+        page.wait_for_selector("#queue:not([hidden])", timeout=15000)
+        check("2 Aufträge" in page.inner_text("#queue") or "2 jobs" in page.inner_text("#queue"), "Warteschlange: nach dem Neuladen noch da", page.inner_text("#queue"))
+        dev("da0")
         page.locator("#queue button", has_text="Warteschlange starten").click()
         for _ in range(120):
             if page.locator("#dlg:not([hidden])").count() and "Warteschlange abgearbeitet" in page.inner_text("#dlg"):
@@ -325,6 +329,14 @@ try:
         check(os.path.isdir(W + "/mnt/usb1/homebrew/Beta") and os.path.exists(W + "/mnt/usb1/homebrew/ohne.ffpfs"), "Warteschlange: Spiele liegen am Ziel (da1)")
         close_result()
         check(page.locator("#queue:not([hidden])").count() == 0, "Warteschlange danach leer und ausgeblendet")
+
+        # Ziel-Auswahl: zu kleine Ziele und FAT32 werden benannt, vorgewählt wird das erste, auf das es passt
+        r = page.evaluate("""() => { const sel = document.createElement("select");
+          fillTargets(sel, [{ name: "x1", model: "A", format: "exFAT", mounts: [{ total: 100, free: 10 }] },
+                            { name: "x2", model: "B", format: "FAT32", mounts: [{ total: 1000, free: 900 }] }], 50);
+          return [sel.selectedIndex, Array.from(sel.options).map(o => o.text)]; }""")
+        check(r[0] == 1 and "4 GB" in r[1][1] and "4 GB" not in r[1][0] and r[1][0] != r[1][1].split(" · FAT32")[0],
+              "Ziel-Auswahl: zu kleines Ziel gekennzeichnet, FAT32 benannt, passendes vorgewählt", r)
 
         # Diagnose-Bericht (Fußzeile)
         page.click("#diag")
