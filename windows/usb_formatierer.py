@@ -1170,7 +1170,7 @@ class App(tk.Tk):
         self.games_tree.grid(row=1, column=0, sticky="nsew")
         sb = ttk.Scrollbar(gb, orient="vertical", command=self.games_tree.yview)
         sb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
-        self.games_tree.configure(yscrollcommand=sb.set)
+        self.games_tree.configure(yscrollcommand=ui_theme.autohide(sb))
         self.uninstall_chk = ttk.Checkbutton(gb, variable=self.uninstall_var, style="Switch.TCheckbutton",
                                              text=_("Kachel auch von der Startseite entfernen"))
         self.uninstall_chk.grid(row=2, column=0, columnspan=2, sticky="w", pady=(px(10), 0))
@@ -1249,7 +1249,7 @@ class App(tk.Tk):
         self.img_tree.grid(row=0, column=0, sticky="nsew")
         isb = ttk.Scrollbar(lf, orient="vertical", command=self.img_tree.yview)
         isb.grid(row=0, column=1, sticky="ns", padx=(px(4), 0))
-        self.img_tree.configure(yscrollcommand=isb.set)
+        self.img_tree.configure(yscrollcommand=ui_theme.autohide(isb))
         self.img_tree.bind("<<TreeviewSelect>>", lambda e: self._update())
         self.img_hint = ttk.Label(ic, style="Hint.TLabel", wraplength=px(440), justify="left")
         self.img_hint.grid(row=6, column=0, sticky="w", pady=(px(6), 0))
@@ -1306,7 +1306,7 @@ class App(tk.Tk):
         self.pkg_tree.grid(row=1, column=0, sticky="nsew")
         psb = ttk.Scrollbar(pk, orient="vertical", command=self.pkg_tree.yview)
         psb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
-        self.pkg_tree.configure(yscrollcommand=psb.set)
+        self.pkg_tree.configure(yscrollcommand=ui_theme.autohide(psb))
         pbar = ttk.Frame(pk)
         pbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(px(8), 0))
         self.pkg_del_btn = ttk.Button(pbar, text=_("Angehakte Pakete löschen …"), style="Danger.TButton", command=self._pkg_delete)
@@ -1377,7 +1377,7 @@ class App(tk.Tk):
         self.saves_tree.grid(row=1, column=0, sticky="nsew")
         ssb = ttk.Scrollbar(sf, orient="vertical", command=self.saves_tree.yview)
         ssb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
-        self.saves_tree.configure(yscrollcommand=ssb.set)
+        self.saves_tree.configure(yscrollcommand=ui_theme.autohide(ssb))
         self.saves_tree.bind("<Button-1>", self._save_click)
         self.saves_tree.bind("<space>", lambda e: self._save_toggle(self.saves_tree.focus()))
         self.saves_checked = set()
@@ -2649,6 +2649,9 @@ class App(tk.Tk):
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
                     and d["size"] == prev.get("size") and d.get("model") == prev.get("model")
                     and d.get("serial", "") == prev.get("serial", "")), -1)
+        if idx >= 0 and not prev.get("serial") and sum(
+                1 for d in devices if d["size"] == prev.get("size") and d.get("model") == prev.get("model") and not d.get("serial")) > 1:
+            idx = -1   # mehrere gleiche Sticks ohne Seriennummer: welcher es war, lässt sich nicht sagen
         if idx >= 0:
             self.dev_combo.current(idx)
         else:
@@ -2658,6 +2661,7 @@ class App(tk.Tk):
                                   "klicken."))
         else:
             self.status_var.set(_("{n} USB-Datenträger am PC gefunden – bitte oben auswählen.", n=len(devices)))
+        self.dev_combo.set_empty_text(_("Kein USB-Datenträger am PC gefunden. Stick einstecken und „Aktualisieren“ klicken."))
 
     def _fill_devices(self, devices):
         for d in devices:   # ältere/andere Payload-Versionen: fehlende Felder ergänzen
@@ -4061,6 +4065,8 @@ class App(tk.Tk):
             self.status_var.set(msg[1])
         elif kind == "scan":
             show_scan(self.pbar, self.status_var, msg[1], msg[2])
+            if self.mode_var.get() != "ps5" and not self.devices:
+                self.dev_combo.set_empty_text(_("Suche USB-Datenträger am PC …"))
         elif kind == "found":
             self.busy = False
             self._scan_finished()

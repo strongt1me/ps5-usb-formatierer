@@ -38,7 +38,7 @@ document.documentElement.style.setProperty("--ui-zoom", String(z0 / 100));
   --veil: linear-gradient(rgba(226, 232, 242, 0.84) 25%, rgba(226, 232, 242, 0.64) 62%, rgba(226, 232, 242, 0.64) 82%, rgba(226, 232, 242, 0.8) 96%); --pane: rgba(255, 255, 255, 0.36);
   --bg-filter: saturate(0.8) brightness(1.1);
   --field: rgba(255, 255, 255, 0.55); --page: url("/page-light.jpg"); --tile: rgba(255, 255, 255, 0.4);
-  --glass: rgba(232, 237, 245, 0.62); --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23185fa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --glass: rgba(232, 237, 245, 0.62); --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.2 6.3l2.4 2.4 5.2-5.4' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23185fa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --shadow: 0 10px 34px rgba(28, 48, 88, 0.22), 0 2px 6px rgba(28, 48, 88, 0.12);
 }
 /* Design: data-theme="light"|"dark" ist fest gewählt (auf der PS5 gespeichert, überall gleich),
@@ -51,7 +51,7 @@ document.documentElement.style.setProperty("--ui-zoom", String(z0 / 100));
     --ok: #97c459; --ok-bg: #20330c; --bar: #3c3b38; --warn: #fac775; --warn-bg: #412402;
     --veil: rgba(6, 10, 20, 0.5); --pane: rgba(255, 255, 255, 0.05); --bg-filter: saturate(0.85);
     --field: rgba(38, 38, 36, 0.45); --page: url("/page-dark.jpg"); --tile: rgba(255, 255, 255, 0.04);
-    --glass: rgba(22, 28, 41, 0.66); --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2385b7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --glass: rgba(22, 28, 41, 0.66); --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.2 6.3l2.4 2.4 5.2-5.4' fill='none' stroke='%23111827' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2385b7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
   }
 }
@@ -62,7 +62,7 @@ document.documentElement.style.setProperty("--ui-zoom", String(z0 / 100));
   --ok: #97c459; --ok-bg: #20330c; --bar: #3c3b38; --warn: #fac775; --warn-bg: #412402;
   --veil: rgba(6, 10, 20, 0.5); --pane: rgba(255, 255, 255, 0.05); --bg-filter: saturate(0.85);
   --field: rgba(38, 38, 36, 0.45); --page: url("/page-dark.jpg"); --tile: rgba(255, 255, 255, 0.04);
-    --glass: rgba(22, 28, 41, 0.66); --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2385b7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --glass: rgba(22, 28, 41, 0.66); --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.2 6.3l2.4 2.4 5.2-5.4' fill='none' stroke='%23111827' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2385b7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
 }
 * { box-sizing: border-box; }
@@ -131,10 +131,12 @@ h1 { font-size: 19px; font-weight: 600; margin: 0; }
        text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
 .sec button { text-transform: none; letter-spacing: 0; }
 label.f { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 4px; }
-select, input[type=text] {
+select, input[type=text], input[type=search] {
   width: 100%; font: inherit; color: var(--text); background: var(--field);
   border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
 }
+input[type=search] { -webkit-appearance: none; appearance: none; }
+input[type=search]::-webkit-search-decoration { -webkit-appearance: none; }
 /* Auswahlfelder selbst gezeichnet: der PS5-Browser malt sonst einen grellweißen Pfeil-Balken (Screenshot 13.10.) */
 select { -webkit-appearance: none; appearance: none; padding-right: 34px; cursor: pointer;
          background: var(--chev) no-repeat right 12px center / 12px 8px, var(--field); }
@@ -155,7 +157,8 @@ input[type=radio], input[type=checkbox] {
 input[type=radio] { border-radius: 50%; }
 input[type=checkbox] { border-radius: 5px; }
 input[type=radio]:checked { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 4px, transparent 5px), var(--field); }
-input[type=checkbox]:checked { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--card); }
+input[type=checkbox]:checked { border-color: var(--accent);
+  background: var(--tick) center / 12px 12px no-repeat, var(--accent); }
 input:disabled { cursor: not-allowed; opacity: .5; }
 .dev input[type=radio] { margin: 3px 12px 0 0; }
 .dev .body { flex: 1; min-width: 0; }
@@ -205,7 +208,7 @@ html.tv .hwarn { font-size: 15px; }
 .game { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; row-gap: 1px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); }
 .game > span { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game i { grid-column: 1; grid-row: 2; min-width: 0; margin: 0; font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.game .gsize { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-align: right; font-style: normal; font-size: 12.5px;
+.game .gsize { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-align: right; font-style: normal; font-size: 12.5px; padding-right: 10px;
   font-variant-numeric: tabular-nums; color: var(--text); }
 .game .gsize.wait { color: var(--muted); }
 .sortbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 10px 0 6px; font-size: 12.5px; color: var(--muted); }
@@ -223,17 +226,19 @@ html.tv .hwarn { font-size: 15px; }
 .pickbar .cnt button { margin-left: 4px; }
 .pickbar .danger, .pickbar .acts button { padding: 6px 14px; }
 .pickbar { flex-wrap: wrap; row-gap: 8px; }   /* schmale Anzeige: Knöpfe umbrechen statt über den Rand zu ragen */
-.pickbar .acts { display: flex; align-items: center; flex: 0 1 auto; flex-wrap: wrap; row-gap: 8px; justify-content: flex-end; margin-left: 10px; }
+.pickbar .acts { display: flex; align-items: center; flex: 0 1 auto; flex-wrap: wrap; row-gap: 8px; justify-content: flex-end; margin-left: auto; padding-left: 10px; }
+.pickbar + .hint { margin-top: 10px; }
 .pickbar .acts button + button { margin-left: 8px; }
 button.tool.del svg { stroke: var(--danger); }
 .note { margin-top: 10px; padding: 10px 12px; border-radius: 9px; font-size: 13px; border: 1px solid; }
+#dextra .note { margin-bottom: 10px; }   /* Hinweis im Dialog ("Danach frei …") nicht direkt am folgenden Text */
 .note b { display: block; }
 .note.warn { background: var(--warn-bg); color: var(--warn); }
 .note.bad { background: var(--danger-bg); color: var(--danger); }
 .note.ok { background: var(--ok-bg); color: var(--ok); }
 .note.info { background: var(--tile); color: var(--muted); border-color: var(--border); }
 .note .path { font-size: 12px; opacity: .9; word-break: break-all; }
-.note .tool { margin: 10px 0 0; }
+.note .tool { margin: 10px 8px 0 0; }
 
 /* Knöpfe */
 button {
@@ -250,15 +255,15 @@ button.solid.primary { background: var(--accent); border-color: var(--accent); c
 /* Formatieren-Knopf: blau mit roter Schrift (helles Blau, damit Rot lesbar bleibt), in beiden Designs gleich */
 button.format { background: linear-gradient(#d4e6fc, #a9cbf3); border: 2px solid #185fa5; color: #c0121b;
                 font-weight: 700; padding: 7px 20px; }
-.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; margin-top: 16px; }
-.actions > * + * { margin-left: 8px; }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; margin-top: 8px; }
+.actions > * { margin: 8px 0 0 8px; }
 
 /* Formular */
 .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .err { font-size: 13px; color: var(--danger); margin-top: 4px; }
 .opts { margin-top: 4px; }
 [data-tab="games"] { text-transform: capitalize; }   /* "games" (en/it/es/fr) als Reitername groß */
-.sortbar input[type=search] { flex: 1 1 140px; min-width: 0; }
+.sortbar input[type=search] { flex: 1 1 140px; min-width: 0; width: auto; padding: 4px 10px; font-size: 12.5px; line-height: 1.5; }
 .game.info { cursor: pointer; }
 .game.info:focus-visible { outline: 2px solid var(--accent, #6aa8ff); outline-offset: -2px; }
 .pkghint { display: block; font-weight: 600; font-size: 12.5px; }
@@ -281,6 +286,7 @@ button.format { background: linear-gradient(#d4e6fc, #a9cbf3); border: 2px solid
   #imagebox .inline button { margin: 8px 0 0; }
 }
 .inline button { margin-left: 8px; }
+.inline > button:first-child { margin-left: 0; }
 .imgacts { margin-top: 8px; }
 .imgacts button { font-size: 13.5px; padding: 6px 12px; margin: 0 8px 0 0; }
 #bimgdel { color: var(--danger); }

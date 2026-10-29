@@ -45,6 +45,18 @@ PALETTES = {
 _state = {"mode": "light", "scale": 1.0, "images": {}, "fonts_done": False}
 
 
+def autohide(sb):
+    """yscrollcommand für eine per grid platzierte Bildlaufleiste: nur sichtbar, wenn es etwas zu scrollen gibt
+    (sonst steht in leeren oder kurzen Listen eine durchgehende graue Leiste)"""
+    def set_(lo, hi):
+        if float(lo) <= 0.0 and float(hi) >= 1.0:
+            sb.grid_remove()
+        else:
+            sb.grid()
+        sb.set(lo, hi)
+    return set_
+
+
 def colors():
     return PALETTES[_state["mode"]]
 

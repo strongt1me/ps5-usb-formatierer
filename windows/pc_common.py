@@ -947,7 +947,7 @@ def history_dialog(root, sources, on_clear):
     tree.tag_configure("fail", foreground=c["danger"])
     tree.tag_configure("cancel", foreground=c["warn"])
     bar = ttk.Scrollbar(frm, orient="vertical", command=tree.yview)
-    tree.configure(yscrollcommand=bar.set)
+    tree.configure(yscrollcommand=ui_theme.autohide(bar))
     tree.grid(row=2, column=0, sticky="nsew")
     bar.grid(row=2, column=1, sticky="ns")
     detail = ttk.Label(frm, text="", wraplength=ui_theme.px(720), justify="left", style="Muted.TLabel")

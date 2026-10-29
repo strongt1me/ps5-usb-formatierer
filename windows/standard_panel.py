@@ -444,6 +444,7 @@ class StandardPanel(ttk.Frame):
         items = [self._drive_item(d) for d in devices]
         self.devices = devices
         self.dev_combo.set_items(items)
+        self.dev_combo.set_empty_text(_("Kein USB-Datenträger am PC gefunden. Stick einstecken und „Aktualisieren“ klicken."))
         # nie vorauswählen: am PC hängen oft Platten mit Daten (Sicherungen) - nur die eigene Auswahl bleibt
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
                     and d["size"] == prev.get("size") and d.get("model") == prev.get("model")
@@ -877,6 +878,8 @@ class StandardPanel(ttk.Frame):
             self.status_var.set(msg[1])
         elif kind == "scan":
             show_scan(self.pbar, self.status_var, msg[1], msg[2])
+            if not self.devices:   # während der Suche nicht schon "keiner gefunden"
+                self.dev_combo.set_empty_text(_("Suche USB-Datenträger am PC …"))
         elif kind == "devices":
             self._set_busy(False)
             self._fill_devices(msg[1])
