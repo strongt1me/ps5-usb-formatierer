@@ -1209,11 +1209,16 @@ function renderContent() {
         info.appendChild(mc);
       }
       const szEl = el("em", "gsize" + (sz === undefined ? " wait" : ""), sz === undefined ? "…" : fmtSize(sz));
-      const ic = el("img", "gicon");   /* fehlt das Bild, bleibt ein leeres Feld */
-      ic.alt = "";
-      ic.loading = "lazy";
-      ic.addEventListener("error", () => ic.replaceWith(el("div", "gicon")));
-      ic.src = "/api/icon?key=" + encodeURIComponent(t.key);
+      /* fehlt das Bild, bleibt ein leeres Feld - gemerkt, damit die Liste es beim Neuaufbau (Suche, Größen) nicht
+         jedes Mal neu anfragt */
+      let ic = el("div", "gicon");
+      if (!noIcon.has(t.key)) {
+        const img = ic = el("img", "gicon");
+        img.alt = "";
+        img.loading = "lazy";
+        img.addEventListener("error", () => { noIcon.add(t.key); img.replaceWith(el("div", "gicon")); });
+        img.src = "/api/icon?key=" + encodeURIComponent(t.key);
+      }
       let g;
       if (pickMode) {   /* Häkchen vor jedem Spiel; die ganze Zeile schaltet um */
         g = el("label", "game pick" + (picked.has(t.key) ? " on" : ""));
@@ -1419,7 +1424,7 @@ function renderCheck() {
   if (!exfat) hints.push(tr("Prüfen und Reparieren gibt es für exFAT."));
   if (!named) hints.push(tr("Umbenennen geht bei exFAT und FAT32."));
   if (d.mounts.length) hints.push(tr("Prüfen, Reparieren und Umbenennen melden das Laufwerk kurz ab; das Tempo wird nur gelesen."));
-  if (d.mounts.length && !smpCan("storage_eject")) hints.push(tr("Sicher auswerfen braucht ShadowMountPlus ab Version 1.7."));
+  if (d.mounts.length && sysInfo && !smpCan("storage_eject")) hints.push(tr("Sicher auswerfen braucht ShadowMountPlus ab Version 1.7."));
   $("checkhint").textContent = hints.join(" ");
 }
 
@@ -1797,6 +1802,7 @@ async function loadDevices() {
     renderDevices();
     update();
     if (r.busy && !busy) startPolling(true);
+    if ((!sysInfo || !sysInfo.smp) && Date.now() - sysAsked > 30000) loadSystem();   /* ShadowMountPlus später gestartet */
   } catch (e) {
     $("devs").textContent = "";
     $("devs").appendChild(el("div", "empty", tr("Verbindung zur PS5 fehlgeschlagen: {err}", { err: e.message })));
@@ -2344,6 +2350,8 @@ $("bspeed").addEventListener("click", () => {
   if (d) runJob("/api/speed", { device: d.name, size: d.size, ident: identOf(d) });
 });
 
+const noIcon = new Set();   /* Schlüssel der Spiele ohne Bild (GET /api/icon: 204) */
+
 /* sicher auswerfen über ShadowMountPlus (das System lässt Payloads das nicht selbst tun) */
 $("beject").addEventListener("click", async () => {
   const d = currentDevice();
@@ -2351,13 +2359,14 @@ $("beject").addEventListener("click", async () => {
   const ok = await dialog({ title: tr("Auswerfen"), cls: "plain",
     text: tr("{dev} wird sicher ausgeworfen. Danach kann es abgezogen werden.", { dev: q(devTitle(d)) }),
     text2: tr("Spiele und Apps, die von diesem Laufwerk laufen, vorher beenden."), yes: tr("Auswerfen") });
-  if (ok === "yes") runJob("/api/eject", { device: d.name, size: d.size });
+  if (ok === "yes") runJob("/api/eject", { device: d.name, size: d.size, ident: identOf(d) });
 });
 
 /* Umgebung (GET /api/system): Firmware, Kernel-Erweiterungen und ShadowMountPlus samt Fähigkeiten */
-let sysInfo = null;
+let sysInfo = null, sysAsked = 0;
 function smpCan(cap) { return !!(sysInfo && sysInfo.smp && (sysInfo.smp.caps || []).includes(cap)); }
 function loadSystem() {
+  sysAsked = Date.now();
   return api("/api/system").then(s => {
     sysInfo = s;
     const v = $("smpver");

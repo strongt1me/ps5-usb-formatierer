@@ -2583,6 +2583,7 @@ class App(tk.Tk):
             if g.get("missing"):   # Ordner-Spiel ohne eboot.bin oder Titelbild: meist Rest eines abgebrochenen Kopierens
                 tag += "  · " + _("unvollständig")
             rows.append((g.get("key") or None, (g["name"] or g["id"]) + tag, meta))
+        self._icons_for(self.api)   # andere PS5: Bilder vergessen, bevor Zeilen mit ihnen entstehen
         if rows != getattr(self, "_games_shown", None):
             top = self.games_tree.yview()[0]
             self.games_tree.delete(*self.games_tree.get_children())
@@ -2668,14 +2669,21 @@ class App(tk.Tk):
             cache[k] = img
         return cache[k]
 
-    def _load_icons(self, keys):
-        """Spielbilder der gezeigten Spiele im Hintergrund holen (je Schlüssel einmal je Verbindung)"""
-        api, asked = self.api, self.__dict__.setdefault("_icons_asked", set())
-        if getattr(self, "_icons_api", None) is not api:   # andere PS5: neu holen
+    def _icons_for(self, api):
+        """Bilder gelten je Verbindung: bei einer anderen PS5 (bzw. neu verbunden) alles vergessen. Die Zeilen der
+        Liste halten Verweise auf die zusammengesetzten Bilder - daher vor dem Neuaufbau aufrufen."""
+        if getattr(self, "_icons_api", None) is not api:
             self._icons_api = api
-            asked.clear()
+            self._icons_asked = set()
             self._icons = {}
             self._game_imgs = {}
+            self._games_shown = None   # Liste neu aufbauen (die alten Bilder sind weg)
+
+    def _load_icons(self, keys):
+        """Spielbilder der gezeigten Spiele im Hintergrund holen (je Schlüssel einmal je Verbindung)"""
+        api = self.api
+        self._icons_for(api)
+        asked = self._icons_asked
         todo = [k for k in keys if k not in asked]
         if not api or not todo:
             return
@@ -2873,6 +2881,7 @@ class App(tk.Tk):
         self.settings["host"] = host
         save_settings(self.settings)
         self.api = None
+        self.ps5_system = None   # Firmware/ShadowMountPlus der vorigen PS5 nicht übernehmen (Auswerfen, Fehlerbericht)
         self.games = {}
         self.pkgs = {}
         self.place_devs = []
@@ -4188,6 +4197,7 @@ class App(tk.Tk):
             self._use_host(msg[1])
         elif kind == "connected":
             self.api = msg[1]
+            self.ps5_system = None   # Umgebung der vorigen PS5 gilt nicht mehr (kommt gleich neu)
             self.busy = False
             self._scan_finished()
             self.status_var.set(_("Verbunden mit {host}", host=self.settings.get("host", "")))
@@ -4401,6 +4411,7 @@ class App(tk.Tk):
             try:
                 info = api.info()
             except (ConnectionError, ApiError):
+                self.q.put(("ps5system", api, {}))
                 return
             self.q.put(("ps5version", api, str(info.get("version") or "") if isinstance(info, dict) else ""))
             try:

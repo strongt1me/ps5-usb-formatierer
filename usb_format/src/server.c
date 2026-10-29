@@ -5332,7 +5332,7 @@ static int mf_build_image(mfw_t *w, const char *path) {
     int fd = open(path, O_RDONLY);
     if (fd < 0) return -1;
     fsr_t *f = fsr_open(fd, 0);
-    const int rc = f ? fsr_walk(f, "", mf_image_cb, w) : -3;
+    const int rc = f ? fsr_walk(f, "", mf_image_cb, w, &cancel_requested) : -3;
     fsr_close(f);
     close(fd);
     return rc;
@@ -5906,12 +5906,9 @@ static void api_system(int c) {
 
 #define ICON_MAX (2 * 1024 * 1024)
 
-static int icon_type(const char *p, size_t n, const char **ctype) {
-    if (n > 8 && !memcmp(p, "\x89PNG\r\n\x1a\n", 8)) *ctype = "image/png";
-    else if (n > 3 && !memcmp(p, "\xff\xd8\xff", 3)) *ctype = "image/jpeg";
-    else return 0;
-    return 1;
-}
+/* nur PNG: die Vorschau von ShadowMountPlus (size=thumb) und icon0.png sind es immer; die PC-Programme (Tk ohne
+ * Pillow) könnten JPEG nicht anzeigen */
+static int icon_png(const char *p, size_t n) { return n > 8 && !memcmp(p, "\x89PNG\r\n\x1a\n", 8); }
 
 static void api_icon(int c, const char *q) {
     char key[16];
@@ -5930,7 +5927,6 @@ static void api_icon(int c, const char *q) {
             }
     pthread_mutex_unlock(&lib_lock);
     if (!path[0]) { respond_error(c, 404, "Spiel nicht gefunden"); return; }
-    const char *ctype;
     size_t len = 0;
     int http = 0;
     char *img = NULL;
@@ -5938,7 +5934,7 @@ static void api_icon(int c, const char *q) {
         char url[96];
         snprintf(url, sizeof(url), "/api/v1/games/icon?title_id=%s&size=thumb", id);
         img = plat_smp_get(url, &http, &len);
-        if (img && (http != 200 || !icon_type(img, len, &ctype))) { free(img); img = NULL; }
+        if (img && (http != 200 || !icon_png(img, len))) { free(img); img = NULL; }
     }
     if (!img && (img = malloc(ICON_MAX))) {   /* sonst das Bild des Spiels selbst */
         struct stat sb;
@@ -5956,11 +5952,11 @@ static void api_icon(int c, const char *q) {
             if (fd >= 0) close(fd);
         }
         len = n > 0 ? (size_t)n : 0;
-        if (!len || len >= ICON_MAX || !icon_type(img, len, &ctype)) { free(img); img = NULL; }
+        if (!len || len >= ICON_MAX || !icon_png(img, len)) { free(img); img = NULL; }
     }
     /* kein Bild: 204 statt 404 - die Seite zeigt dann ein leeres Feld, ohne dass der Browser einen Fehler meldet */
     if (!img) { respond_ex(c, 204, "image/png", "", 0, "max-age=3600"); return; }
-    respond_ex(c, 200, ctype, img, len, "max-age=3600");
+    respond_ex(c, 200, "image/png", img, len, "max-age=3600");
     free(img);
 }
 

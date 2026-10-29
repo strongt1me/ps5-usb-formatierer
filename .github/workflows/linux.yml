@@ -289,7 +289,7 @@ jobs:
                    test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
                    test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh \
                    test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh test/history_test.sh test/saves_test.sh test/move_test.sh \
-                   test/places_test.sh test/pkginfo_test.sh test/precheck_test.sh test/gverify_test.sh test/partials_test.sh test/orphans_test.sh test/manifest_test.sh test/compare_test.sh test/smp_test.sh; do
+                   test/places_test.sh test/pkginfo_test.sh test/precheck_test.sh test/gverify_test.sh test/partials_test.sh test/orphans_test.sh test/manifest_test.sh test/compare_test.sh test/smp_test.sh test/fsread_fuzz.sh test/api_fuzz.sh; do
             echo "== $t"
             bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
             if ls /tmp/san/* >/dev/null 2>&1; then cat /tmp/san/*; rm -f /tmp/san/*; fails=$((fails + 1)); fi

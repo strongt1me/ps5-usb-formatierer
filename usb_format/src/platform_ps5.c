@@ -746,8 +746,8 @@ static int kstuff_loaded(void) {
 
 void plat_kernel_ext(char *out, size_t n) {
     struct stat sb;
-    const int et = stat("/data/etaHEN", &sb) == 0 && S_ISDIR(sb.st_mode);
-    snprintf(out, n, "%s%s%s", kstuff_loaded() ? "kstuff" : "", kstuff_loaded() && et ? ", " : "", et ? "etaHEN" : "");
+    const int et = stat("/data/etaHEN", &sb) == 0 && S_ISDIR(sb.st_mode), ks = kstuff_loaded();
+    snprintf(out, n, "%s%s%s", ks ? "kstuff" : "", ks && et ? ", " : "", et ? "etaHEN" : "");
 }
 
 void plat_library_hints(lib_hint_t **h, int *n) {

@@ -202,5 +202,33 @@ pc_common.save_settings(APP2, y)
 now = pc_common.load_settings(APP2)["standard"]
 check(now.get("fs") == "fat32" and now.get("label") == "STICK", "save_settings: Änderungen zweier Fenster im selben Bereich bleiben beide", now)
 
+# kaputte bzw. unlesbare Datei: Zusammenführen hieße sonst "anderes Fenster hat alles gelöscht"
+APP3 = "merge-test-3"
+pc_common.save_settings(APP3, {"host": "1.2.3.4", "lang": "de", "standard": {"fs": "ntfs"}})
+s3 = pc_common.load_settings(APP3)
+with open(pc_common.settings_file(APP3), "w", encoding="utf-8") as f:
+    f.write("{kaputt")
+s3["lang"] = "en"
+pc_common.save_settings(APP3, s3)
+now = pc_common.load_settings(APP3)
+check(now.get("host") == "1.2.3.4" and now.get("lang") == "en" and now.get("standard", {}).get("fs") == "ntfs",
+      "save_settings: kaputte Datei löscht beim Speichern keine Einstellungen", now)
+# Schreiben scheitert (Datei gesperrt): die Änderung geht beim nächsten Speichern nicht verloren
+real_replace = pc_common.os.replace
+
+
+def locked(*_a):
+    raise PermissionError("gesperrt")
+
+
+pc_common.os.replace = locked
+pc_common.time_sleep, pc_common.time.sleep = pc_common.time.sleep, lambda _s: None
+now["lang"] = "fr"
+pc_common.save_settings(APP3, now)
+pc_common.os.replace, pc_common.time.sleep = real_replace, pc_common.time_sleep
+pc_common.save_settings(APP3, now)
+check(pc_common.load_settings(APP3).get("lang") == "fr", "save_settings: nach gescheitertem Schreiben bleibt die Änderung",
+      pc_common.load_settings(APP3))
+
 print("Alle App-Logik-Tests bestanden." if not fails else "%d Fehler" % fails)
 sys.exit(1 if fails else 0)

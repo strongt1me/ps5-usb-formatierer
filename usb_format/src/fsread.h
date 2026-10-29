@@ -28,9 +28,10 @@ long fsr_fread(fsr_file_t *h, void *buf, size_t len);
 
 /* Alle gewöhnlichen Dateien unter dir ("" = Wurzel) durchgehen, Ordner bis zur Tiefe 32: cb(ctx, rel, h, size) mit rel
  * relativ zu dir ('/'-getrennt, UTF-8) und h zum Lesen (nur während cb gültig). Ein Wert != 0 aus cb bricht ab und wird
- * zurückgegeben; -1 = Ordner nicht lesbar. */
+ * zurückgegeben; -1 = nicht lesbar oder kaputt (Ordnerschleife, mehr als 100000 Ordner bzw. 1 Mio. Einträge),
+ * -2 = *cancel wurde gesetzt (wird je Ordnereintrag geprüft; NULL: nie). */
 typedef int (*fsr_walk_cb)(void *ctx, const char *rel, fsr_file_t *h, uint64_t size);
-int fsr_walk(fsr_t *f, const char *dir, fsr_walk_cb cb, void *ctx);
+int fsr_walk(fsr_t *f, const char *dir, fsr_walk_cb cb, void *ctx, const volatile int *cancel);
 
 /* exFAT: Bezeichnung als UTF-8 (leer, wenn keine); UFS2: immer leer. 0 = ok */
 int fsr_label(fsr_t *f, char *out, size_t n);

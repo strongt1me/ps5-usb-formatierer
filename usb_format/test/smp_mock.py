@@ -5,6 +5,8 @@ games.json: [{"title_id": "...", "path": "...", "busy": false}, ...] - "busy" l�
 mounts.json: Laufwerksliste für /api/v1/storage, [{"source", "mount_point", "ejectable", "mount_id", "fail": "<Code>"}];
 storage/eject prüft source und mount_id wie ShadowMountPlus und meldet "fail" als result_error des Auftrags.
 SMP_MOCK_NOVERSION=1: /api/v1/version fehlt (frühe 1.7-Fassungen).
+SMP_MOCK_GARBAGE=1: jede zweite Antwort ist kaputt (abgeschnitten, falsche Typen, riesig, kein JSON, falsche Länge) -
+für test/api_fuzz.sh.
 "version" ist die angemeldete contentVersion, "rescan_version" die nach einem neuen Anmelden (scan nach uninstall);
 "noreg": true - scan meldet diesen Titel nicht wieder an.
 delete löscht den Pfad wirklich (wie ShadowMountPlus) und meldet über storage/status erst "deleting", dann
@@ -12,6 +14,7 @@ delete löscht den Pfad wirklich (wie ShadowMountPlus) und meldet über storage/
 import http.server
 import json
 import os
+import random
 import shutil
 import sys
 
@@ -29,9 +32,34 @@ def log(line):
         f.write(line + "\n")
 
 
+GARBAGE = [b'{"status":0,"games":[{"title_id":"PPSA0', b'{"status":0,"games":"x","mounts":7,"job_id":"a"}',
+           b'{"status":0,"games":[' + b'{"title_id":"PPSA00001","path":"/x"},' * 20000 + b'{}]}', b'kein json',
+           b'{"status":0,"mounts":[{"mount_point":[],"source":{},"ejectable":"ja","mount_id":1}],"job_id":-5}',
+           b'{"status":0,"job_id":1,"state":"completed","progress_percent":1e400}', b'',
+           b'{"shadowmount_version":"' + b"9" * 5000 + b'","capabilities":[[[[[]]]]]}', b'\x89PNG\r\n\x1a\n',
+           b'[' * 3000, b'{"status":0,"capabilities":"storage_eject"}']
+
+
 class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
+
+    def garbage(self):
+        """SMP_MOCK_GARBAGE: zufällig kaputte Antwort; True, wenn gesendet"""
+        if not os.environ.get("SMP_MOCK_GARBAGE") or random.random() < 0.5:
+            return False
+        if self.command == "POST":
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        body = random.choice(GARBAGE)
+        self.send_response(random.choice([200, 200, 202, 404, 409, 500]))
+        r = random.random()
+        if r < 0.7:
+            self.send_header("Content-Length", str(len(body)))
+        elif r < 0.85:
+            self.send_header("Content-Length", str(len(body) + 1000))   # zu lang angekündigt
+        self.end_headers()
+        self.wfile.write(body)
+        return True
 
     def reply(self, code, obj):
         body = json.dumps(obj).encode()
@@ -43,6 +71,8 @@ class H(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         from urllib.parse import parse_qs, urlparse
+        if self.garbage():
+            return
         u = urlparse(self.path)
         tid = parse_qs(u.query).get("title_id", [""])[0]
         g = next((x for x in games if x["title_id"] == tid), None)
@@ -56,6 +86,8 @@ class H(http.server.BaseHTTPRequestHandler):
         self.wfile.write(ICON)
 
     def do_POST(self):
+        if self.garbage():
+            return
         req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         tid = req.get("title_id", "")
         g = next((x for x in games if x["title_id"] == tid), None)

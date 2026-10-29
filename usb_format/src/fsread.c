@@ -337,15 +337,6 @@ void fsr_close(fsr_t *f) {
 
 const char *fsr_type(const fsr_t *f) { return f->type == T_EXFAT ? "exFAT" : "UFS2"; }
 
-long fsr_read_file(fsr_t *f, const char *path, void *buf, size_t max) {
-    if (f->type == T_EXFAT) {
-        exnode_t n;
-        return ex_lookup(f, path, &n) && !n.dir ? ex_read(f, &n, buf, max) : -1;
-    }
-    ufsino_t n;
-    return ufs_lookup(f, path, &n) && !n.dir ? ufs_read(f, &n, buf, max) : -1;
-}
-
 int fsr_is_dir(fsr_t *f, const char *path) {
     if (f->type == T_EXFAT) {
         exnode_t n;
@@ -363,12 +354,40 @@ struct fsr_file {
     fsr_t   *f;
     uint64_t size, pos;
     exnode_t ex;       /* exFAT */
+    uint64_t valid;    /* exFAT: ValidDataLength - dahinter liest ein Betriebssystem Nullen */
     uint32_t clus;     /* exFAT: Cluster an pos */
+    uint32_t steps;    /* exFAT: weitergeschaltete Cluster (Schutz vor Schleifen in der FAT) */
     ufsino_t ufs;      /* UFS2 */
 };
 
-#define WALK_DEPTH 32
-#define REL_MAX    1024
+#define WALK_DEPTH    32
+#define WALK_DIRS     100000    /* höchstens so viele Ordner bzw. ... */
+#define WALK_ENTRIES  1000000   /* ... Einträge je Durchgang: kaputte Abbilder können riesig wirken */
+#define UFS_DIR_MAX   (2u * 1024 * 1024)   /* je Ordner im Speicher (33 Ebenen: höchstens 66 MiB) */
+#define REL_MAX       1024
+
+/* Zustand eines Durchgangs: Zähler, Abbruch und die Ordner auf dem Weg dorthin (Schleifen erkennen) */
+typedef struct {
+    fsr_walk_cb cb;
+    void *ctx;
+    const volatile int *cancel;
+    long dirs, entries;
+    uint64_t path[WALK_DEPTH + 2];   /* erster Cluster (exFAT) bzw. Inode (UFS2) jeder Ebene */
+} walk_t;
+
+/* 0 = weiter; sonst der Rückgabewert des Durchgangs */
+static int walk_step(walk_t *w, int dir) {
+    if (w->cancel && *w->cancel) return -2;
+    if (++w->entries > WALK_ENTRIES || (dir && ++w->dirs > WALK_DIRS)) return -1;
+    return 0;
+}
+
+/* id liegt schon auf dem Weg (Ordner zeigt auf sich selbst oder einen Vorfahren)? */
+static int walk_loop(const walk_t *w, int depth, uint64_t id) {
+    for (int i = 0; i < depth; i++)
+        if (w->path[i] == id) return 1;
+    return 0;
+}
 
 static int rd_direct(fsr_t *f, uint64_t off, void *buf, size_t len) {
     uint8_t *out = buf;
@@ -383,14 +402,20 @@ static int rd_direct(fsr_t *f, uint64_t off, void *buf, size_t len) {
 static long ex_fread(fsr_file_t *h, uint8_t *buf, size_t len) {
     fsr_t *f = h->f;
     size_t got = 0;
+    if (h->size > (uint64_t)f->clus_count * f->cs) return -1;   /* größer als das ganze Dateisystem: kaputt */
     while (got < len && h->pos < h->size) {
         uint64_t in = h->pos % f->cs;
-        if (in == 0 && h->pos && ex_next_clus(f, h->clus, h->ex.nofat, &h->clus)) return -1;
+        if (in == 0 && h->pos && (++h->steps > f->clus_count || ex_next_clus(f, h->clus, h->ex.nofat, &h->clus))) return -1;
         if (!ex_valid(f, h->clus)) return -1;
         uint64_t take = f->cs - in;
         if (take > h->size - h->pos) take = h->size - h->pos;
         if (take > len - got) take = len - got;
-        if (rd_direct(f, ex_clus_off(f, h->clus) + in, buf + got, (size_t)take)) return -1;
+        if (h->pos >= h->valid) memset(buf + got, 0, (size_t)take);   /* hinter ValidDataLength: Nullen */
+        else {
+            uint64_t real = h->valid - h->pos < take ? h->valid - h->pos : take;
+            if (rd_direct(f, ex_clus_off(f, h->clus) + in, buf + got, (size_t)real)) return -1;
+            if (real < take) memset(buf + got + real, 0, (size_t)(take - real));
+        }
         got += take;
         h->pos += take;
     }
@@ -450,24 +475,27 @@ static int rel_push(char *rel, size_t rl, const char *name) {
     return strchr(name, '\n') || snprintf(rel + rl, REL_MAX - rl, "%s%s", rl ? "/" : "", name) >= (int)(REL_MAX - rl) ? -1 : 0;
 }
 
-static int ex_walk(fsr_t *f, const exnode_t *dir, char *rel, int depth, fsr_walk_cb cb, void *ctx) {
+static int ex_walk(fsr_t *f, const exnode_t *dir, char *rel, int depth, walk_t *w) {
     dirit_t it;
     uint8_t e[32], u16[255 * 2];
     char name[255 * 3 + 1];
     const size_t rl = strlen(rel);
     int rc = 0;
     if (depth > WALK_DEPTH) return -1;
+    w->path[depth] = dir->clus;
     dir_begin(&it, dir);
     while (!rc && dir_next(f, &it, e, NULL)) {
         if (e[0] == 0x00) break;
         if (e[0] != 0x85) continue;
         int secondary = e[1], attr = le16(e + 4), namelen = 0, got = 0;
+        uint64_t valid = 0;
         exnode_t n = {0};
         for (int s = 0; s < secondary; s++) {
             if (!dir_next(f, &it, e, NULL)) return -1;
             if (e[0] == 0xC0) {
                 n.nofat = (e[1] & 2) != 0;
                 namelen = e[3];
+                valid = le64(e + 8);
                 n.clus = le32(e + 20);
                 n.len = le64(e + 24);
             } else if (e[0] == 0xC1) {
@@ -475,23 +503,25 @@ static int ex_walk(fsr_t *f, const exnode_t *dir, char *rel, int depth, fsr_walk
             }
         }
         if (!namelen || got != namelen) continue;
+        if ((rc = walk_step(w, attr & 0x10)) != 0) break;
         fsr_utf16_to_utf8(u16, namelen, name, sizeof(name));
         if (rel_push(rel, rl, name)) { rc = -1; break; }
         if (attr & 0x10) {
             n.dir = 1;
-            rc = ex_walk(f, &n, rel, depth + 1, cb, ctx);
+            rc = walk_loop(w, depth + 1, n.clus) ? -1 : ex_walk(f, &n, rel, depth + 1, w);
         } else {
-            fsr_file_t h = { .f = f, .size = n.len, .ex = n, .clus = n.clus };
-            rc = cb(ctx, rel, &h, n.len);
+            fsr_file_t h = { .f = f, .size = n.len, .ex = n, .valid = valid < n.len ? valid : n.len, .clus = n.clus };
+            rc = w->cb(w->ctx, rel, &h, n.len);
         }
         rel[rl] = 0;
     }
     return rc;
 }
 
-static int ufs_walk(fsr_t *f, const ufsino_t *dir, char *rel, int depth, fsr_walk_cb cb, void *ctx) {
+static int ufs_walk(fsr_t *f, const ufsino_t *dir, uint32_t ino, char *rel, int depth, walk_t *w) {
     const size_t rl = strlen(rel);
-    if (depth > WALK_DEPTH || dir->size > 16u * 1024 * 1024) return -1;
+    if (depth > WALK_DEPTH || dir->size > UFS_DIR_MAX) return -1;
+    w->path[depth] = ino;
     uint8_t *buf = malloc(dir->size ? (size_t)dir->size : 1);
     fsr_file_t dh = { .f = f, .size = dir->size, .ufs = *dir };
     long len = buf ? ufs_fread(&dh, buf, (size_t)dir->size) : -1;
@@ -508,10 +538,11 @@ static int ufs_walk(fsr_t *f, const ufsino_t *dir, char *rel, int depth, fsr_wal
             ufsino_t n;
             if (strcmp(name, ".") && strcmp(name, "..")) {
                 if (ufs_inode(f, ino, &n) || rel_push(rel, rl, name)) rc = -1;
-                else if (n.dir) rc = ufs_walk(f, &n, rel, depth + 1, cb, ctx);
+                else if ((rc = walk_step(w, n.dir)) != 0) {}
+                else if (n.dir) rc = walk_loop(w, depth + 1, ino) ? -1 : ufs_walk(f, &n, ino, rel, depth + 1, w);
                 else if (n.reg) {
                     fsr_file_t h = { .f = f, .size = n.size, .ufs = n };
-                    rc = cb(ctx, rel, &h, n.size);
+                    rc = w->cb(w->ctx, rel, &h, n.size);
                 }
                 rel[rl] = 0;
             }
@@ -522,14 +553,16 @@ static int ufs_walk(fsr_t *f, const ufsino_t *dir, char *rel, int depth, fsr_wal
     return rc;
 }
 
-int fsr_walk(fsr_t *f, const char *dir, fsr_walk_cb cb, void *ctx) {
+int fsr_walk(fsr_t *f, const char *dir, fsr_walk_cb cb, void *ctx, const volatile int *cancel) {
     char rel[REL_MAX] = "";
+    walk_t w = {cb, ctx, cancel, 0, 0, {0}};
     if (f->type == T_EXFAT) {
         exnode_t n;
-        return ex_lookup(f, dir, &n) && n.dir ? ex_walk(f, &n, rel, 0, cb, ctx) : -1;
+        return ex_lookup(f, dir, &n) && n.dir ? ex_walk(f, &n, rel, 0, &w) : -1;
     }
     ufsino_t n;
-    return ufs_lookup(f, dir, &n) && n.dir ? ufs_walk(f, &n, rel, 0, cb, ctx) : -1;
+    /* Inode des Startordners: nur die Wurzel kennt man ohne Suche - tiefer genügt 0 (Schleifen erkennen die Kinder) */
+    return ufs_lookup(f, dir, &n) && n.dir ? ufs_walk(f, &n, dir[0] ? 0 : UFS_ROOTINO, rel, 0, &w) : -1;
 }
 
 int fsr_label(fsr_t *f, char *out, size_t n) {
@@ -547,4 +580,15 @@ int fsr_label(fsr_t *f, char *out, size_t n) {
         }
     }
     return 0;
+}
+
+long fsr_read_file(fsr_t *f, const char *path, void *buf, size_t max) {
+    if (f->type == T_EXFAT) {
+        exnode_t n;
+        return ex_lookup(f, path, &n) && !n.dir ? ex_read(f, &n, buf, max) : -1;
+    }
+    ufsino_t n;
+    if (!ufs_lookup(f, path, &n) || n.dir) return -1;
+    fsr_file_t h = { .f = f, .size = n.size, .ufs = n };   /* auch über indirekte Blöcke (große Dateien) */
+    return ufs_fread(&h, buf, max);
 }

@@ -2,7 +2,8 @@
  *   fsread_test <image> <offset> type            -> exFAT | UFS2
  *   fsread_test <image> <offset> isdir <pfad>    -> Exit 0, wenn Ordner
  *   fsread_test <image> <offset> cat <pfad>      -> Inhalt auf stdout
- *   fsread_test <image> <offset> label           -> Bezeichnung */
+ *   fsread_test <image> <offset> label           -> Bezeichnung
+ *   fsread_test <image> <offset> walk            -> je Datei "<größe gelesen> <pfad>", dann "rc <rückgabe von fsr_walk>" */
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,17 @@
 #include <unistd.h>
 
 #include "../src/fsread.h"
+
+static int walk_cb(void *ctx, const char *rel, fsr_file_t *h, uint64_t size) {
+    static char buf[1 << 16];
+    long long got = 0;
+    long r;
+    (void)ctx;
+    (void)size;
+    while ((r = fsr_fread(h, buf, sizeof(buf))) > 0) got += r;
+    printf("%lld%s %s\n", got, r < 0 ? " (Lesefehler)" : "", rel);
+    return 0;
+}
 
 int main(int argc, char **argv) {
     if (argc < 4) { fprintf(stderr, "Aufruf: %s <image> <offset> type|isdir|cat|label [pfad]\n", argv[0]); return 2; }
@@ -28,6 +40,8 @@ int main(int argc, char **argv) {
         long n = fsr_read_file(f, argv[4], buf, sizeof(buf));
         if (n < 0) rc = 1;
         else fwrite(buf, 1, (size_t)n, stdout);
+    } else if (strcmp(cmd, "walk") == 0) {
+        printf("rc %d\n", fsr_walk(f, "", walk_cb, NULL, NULL));
     } else if (strcmp(cmd, "label") == 0) {
         char l[64];
         fsr_label(f, l, sizeof(l));

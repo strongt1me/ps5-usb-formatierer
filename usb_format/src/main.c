@@ -14,6 +14,9 @@ int main(void) {
     int s;
 
     signal(SIGPIPE, SIG_IGN);
+    /* zur Sicherheit: ein unbekannter Systemaufruf (Bereitschaftsabfrage von kstuff, platform_ps5.c) darf den Server
+     * nie beenden - FreeBSD kürzt die Nummer zwar auf 32 Bit, ein anderer Kernel schickte sonst SIGSYS */
+    signal(SIGSYS, SIG_IGN);
 
     if ((s = server_listen(SERVER_PORT)) < 0) {
         snprintf(msg, sizeof(msg), T("USB-Formatierer: Port %d belegt (läuft er schon?)"), SERVER_PORT);

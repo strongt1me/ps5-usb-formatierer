@@ -70,13 +70,17 @@ def _clean_settings(data):
 _settings_base = {}   # je Programm: Stand der Datei beim Laden bzw. letzten Speichern (für das Zusammenführen)
 
 
-def _read_settings(app_name):
+def _read_settings(app_name, strict=False):
+    """Einstellungen aus der Datei; fehlt sie, {}. Ist sie unlesbar oder kaputt: {} bzw. mit strict None - beim
+    Zusammenführen hieße {} sonst "das andere Fenster hat alles gelöscht"."""
     try:
         with open(settings_file(app_name), encoding="utf-8") as f:
             data = json.load(f)
-        return _clean_settings(data) if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+    except FileNotFoundError:
         return {}
+    except (OSError, ValueError):
+        return None if strict else {}
+    return _clean_settings(data) if isinstance(data, dict) else (None if strict else {})
 
 
 def load_settings(app_name):
@@ -126,10 +130,9 @@ def save_settings(app_name, data):
     """Atomar (erst neue Datei, dann ersetzen): Ein Absturz mitten im Schreiben hinterlässt keine halbe Datei.
     Laufen zwei Fenster desselben Programms, überschreibt keines die Änderungen des anderen: übernommen wird nur, was
     sich hier seit dem Laden geändert hat; was das andere inzwischen gespeichert hat, kommt dafür auch in data an."""
-    base = _settings_base.get(app_name)
-    if base is not None:
-        _sync_into(data, _merge3(base, data, _read_settings(app_name)))
-    _settings_base[app_name] = json.loads(json.dumps(data))
+    base, disk = _settings_base.get(app_name), _read_settings(app_name, strict=True)
+    if base is not None and disk is not None:
+        _sync_into(data, _merge3(base, data, disk))
     path = settings_file(app_name)
     tmp = None
     try:
@@ -144,6 +147,9 @@ def save_settings(app_name, data):
             try:
                 os.replace(tmp, path)
                 tmp = None
+                # erst jetzt gilt das als Stand der Datei - scheiterte das Schreiben, bleibt die Änderung hier
+                # gegenüber dem alten Stand "geändert" und geht beim nächsten Speichern nicht verloren
+                _settings_base[app_name] = json.loads(json.dumps(data))
                 break
             except PermissionError:
                 if attempt == 4:
