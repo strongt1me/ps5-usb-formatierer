@@ -2672,7 +2672,7 @@ class App(tk.Tk):
     def _icons_for(self, api):
         """Bilder gelten je Verbindung: bei einer anderen PS5 (bzw. neu verbunden) alles vergessen. Die Zeilen der
         Liste halten Verweise auf die zusammengesetzten Bilder - daher vor dem Neuaufbau aufrufen."""
-        if getattr(self, "_icons_api", None) is not api:
+        if "_icons_asked" not in self.__dict__ or self._icons_api is not api:   # auch beim ersten Mal (ohne Verbindung)
             self._icons_api = api
             self._icons_asked = set()
             self._icons = {}
