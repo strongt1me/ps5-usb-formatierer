@@ -123,6 +123,18 @@ static int mount_of(unsigned maj, unsigned min, char *mp, size_t n) {
         unsigned a, b;
         char point[2048];
         if (sscanf(line, "%*s %*s %u:%u %*s %2047s", &a, &b, point) != 3) continue;
+        if (a == 0 && (a != maj || b != min)) {   /* btrfs u. a.: Gerätenummer 0:xx - die Quelle hinter " - <typ> " nennt das Gerät */
+            const char *sep = strstr(line, " - ");
+            char src[1024];
+            struct stat st;
+            if (sep && sscanf(sep + 3, "%*s %1023s", src) == 1) {
+                unescape_mount(src);
+                if (!strncmp(src, "/dev/", 5) && !stat(src, &st) && S_ISBLK(st.st_mode)) {
+                    a = major(st.st_rdev);
+                    b = minor(st.st_rdev);
+                }
+            }
+        }
         if (a == maj && b == min) {
             unescape_mount(point);
             snprintf(mp, n, "%s", point);

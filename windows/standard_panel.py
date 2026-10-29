@@ -448,6 +448,9 @@ class StandardPanel(ttk.Frame):
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
                     and d["size"] == prev.get("size") and d.get("model") == prev.get("model")
                     and d.get("serial", "") == prev.get("serial", "")), -1)
+        if idx >= 0 and not prev.get("serial") and sum(
+                1 for d in devices if d["size"] == prev.get("size") and d.get("model") == prev.get("model") and not d.get("serial")) > 1:
+            idx = -1   # mehrere gleiche Sticks ohne Seriennummer: welcher es war, lässt sich nicht sagen - neu wählen lassen
         if idx >= 0:
             self.dev_combo.current(idx)
         else:

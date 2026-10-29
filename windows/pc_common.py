@@ -67,7 +67,10 @@ def _clean_settings(data):
     return out
 
 
-def load_settings(app_name):
+_settings_base = {}   # je Programm: Stand der Datei beim Laden bzw. letzten Speichern (für das Zusammenführen)
+
+
+def _read_settings(app_name):
     try:
         with open(settings_file(app_name), encoding="utf-8") as f:
             data = json.load(f)
@@ -76,8 +79,28 @@ def load_settings(app_name):
         return {}
 
 
+def load_settings(app_name):
+    data = _read_settings(app_name)
+    _settings_base[app_name] = json.loads(json.dumps(data))
+    return data
+
+
 def save_settings(app_name, data):
-    """Atomar (erst neue Datei, dann ersetzen): Ein Absturz mitten im Schreiben hinterlässt keine halbe Datei"""
+    """Atomar (erst neue Datei, dann ersetzen): Ein Absturz mitten im Schreiben hinterlässt keine halbe Datei.
+    Laufen zwei Fenster desselben Programms, überschreibt keines die Änderungen des anderen: übernommen wird nur, was
+    sich hier seit dem Laden geändert hat; was das andere inzwischen gespeichert hat, kommt dafür auch in data an."""
+    base = _settings_base.get(app_name)
+    if base is not None:
+        merged = _read_settings(app_name)
+        for k in set(base) | set(data):
+            if k not in data:
+                if k in base:
+                    merged.pop(k, None)   # hier gelöscht
+            elif k not in base or data[k] != base[k]:
+                merged[k] = data[k]       # hier geändert
+        data.clear()
+        data.update(merged)
+    _settings_base[app_name] = json.loads(json.dumps(data))
     path = settings_file(app_name)
     tmp = None
     try:

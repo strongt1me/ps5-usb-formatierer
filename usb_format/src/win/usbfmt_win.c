@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <wchar.h>
 
 #include "../devtest.h"
 #include "../extfs.h"
@@ -965,6 +966,38 @@ static int device_path(const WCHAR *w) {
     return !wcsncmp(w, L"\\\\.\\", 4) || !_wcsnicmp(w, L"\\\\?\\GLOBALROOT", 14) || !_wcsnicmp(w, L"\\\\?\\Volume", 10);
 }
 
+/* subst-Laufwerk (QueryDosDevice liefert "\\??\\E:\\ordner") bzw. Freigabe dieses Rechners (\\\\localhost\\E$\\…):
+ * auf den Pfad im echten Laufwerk abbilden. 1 = umgeschrieben. Freigaben anderer Rechner bleiben (die liegen nie am Stick). */
+static int real_local_path(WCHAR *full, size_t cap) {
+    WCHAR tmp[1024];
+    if (full[0] && full[1] == L':') {
+        WCHAR dn[3] = {full[0], L':', 0}, target[1024];
+        if (!QueryDosDeviceW(dn, target, 1024) || wcsncmp(target, L"\\??\\", 4) || !target[4] || target[5] != L':') return 0;
+        if (_snwprintf(tmp, 1024, L"%ls%ls", target + 4, full + 2) < 0) return 0;
+    } else if (full[0] == L'\\' && full[1] == L'\\' && full[2] != L'?' && full[2] != L'.') {
+        const WCHAR *host = full + 2, *hend = wcschr(host, L'\\');
+        if (!hend || !hend[1] || hend[2] != L'$' || (hend[1] | 32) < L'a' || (hend[1] | 32) > L'z' || (hend[3] && hend[3] != L'\\')) return 0;
+        WCHAR h[256], me[256];
+        DWORD ml = 256;
+        size_t hl = (size_t)(hend - host);
+        if (hl == 0 || hl >= 256) return 0;
+        wcsncpy(h, host, hl);
+        h[hl] = 0;
+        int local = !_wcsicmp(h, L"localhost") || !wcscmp(h, L"127.0.0.1") || !wcscmp(h, L"::1");
+        if (!local && GetComputerNameExW(ComputerNameNetBIOS, me, &ml)) local = !_wcsicmp(h, me);
+        ml = 256;
+        if (!local && GetComputerNameExW(ComputerNameDnsFullyQualified, me, &ml)) local = !_wcsicmp(h, me);
+        ml = 256;
+        if (!local && GetComputerNameExW(ComputerNameDnsHostname, me, &ml)) local = !_wcsicmp(h, me);
+        if (!local) return 0;
+        if (_snwprintf(tmp, 1024, L"%lc:\\%ls", hend[1], hend[3] ? hend + 4 : L"") < 0) return 0;
+    } else return 0;
+    tmp[1023] = 0;
+    if (wcslen(tmp) >= cap) return 0;
+    wcscpy(full, tmp);
+    return 1;
+}
+
 int plat_path_on_disk(const char *path, const char *diskid) {
     WCHAR w[1024], full[1024], vol[1024], guid[64], bare[64];
     const int disk = disk_number(diskid);
@@ -972,6 +1005,7 @@ int plat_path_on_disk(const char *path, const char *diskid) {
     if (image_path) return 0;
 #endif
     if (disk < 0 || !wide(path, w, 1024) || !GetFullPathNameW(w, 1024, full, NULL)) return 0;
+    for (int hop = 0; hop < 4 && real_local_path(full, 1024); hop++) {}   /* subst kann auf subst zeigen */
     if (!GetVolumePathNameW(full, vol, 1024) || !GetVolumeNameForVolumeMountPointW(vol, guid, 64)) return 0;
     strip_slash(guid, bare, 64);
     int disks[8], nd = volume_disks(bare, disks, 8);

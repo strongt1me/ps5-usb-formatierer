@@ -117,5 +117,26 @@ if len(sys.argv) > 1:   # laufender Testserver: die neuen Aufrufe der App wirkli
         lib2 = api._call("/api/library?refresh=1")
         check(st.get("ok") and not lib2.get("partials"), "discard_copy_partial: Teilkopie verworfen", st.get("message"))
 
+# zwei Fenster desselben Programms: keines überschreibt die Änderungen des anderen
+APP = "merge-test"
+pc_common.save_settings(APP, {})
+a = pc_common.load_settings(APP)
+pc_common._settings_base.pop(APP, None)   # zweites Fenster: eigener Ladestand (im selben Prozess nachgestellt)
+b = pc_common.load_settings(APP)
+base_b = pc_common._settings_base[APP]
+pc_common._settings_base[APP] = {}        # Fenster A hat {} geladen
+a["host"] = "192.168.1.5"
+a["copy_queue"] = [{"keys": ["1"], "device": "da1"}]
+pc_common.save_settings(APP, a)
+pc_common._settings_base[APP] = base_b    # Fenster B (hat ebenfalls {} geladen) ändert nur die Sprache
+b["lang"] = "en"
+pc_common.save_settings(APP, b)
+now = pc_common.load_settings(APP)
+check(now.get("host") == "192.168.1.5" and now.get("lang") == "en" and now.get("copy_queue"), "save_settings: Änderungen zweier Fenster bleiben beide erhalten", now)
+check(b.get("host") == "192.168.1.5", "save_settings: das speichernde Fenster bekommt die Änderung des anderen mit", b)
+b.pop("copy_queue")
+pc_common.save_settings(APP, b)
+check("copy_queue" not in pc_common.load_settings(APP), "save_settings: hier gelöschter Schlüssel bleibt gelöscht")
+
 print("Alle App-Logik-Tests bestanden." if not fails else "%d Fehler" % fails)
 sys.exit(1 if fails else 0)
