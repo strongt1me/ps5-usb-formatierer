@@ -43,6 +43,10 @@ jobs:
     container: ubuntu:22.04
     env:
       DEBIAN_FRONTEND: noninteractive
+      # eigener, leerer Werkzeug-Cache: der des Läufers enthält Python für 24.04 (glibc 2.38) - so lädt setup-python
+      # die Fassung für 22.04
+      RUNNER_TOOL_CACHE: /opt/toolcache
+      AGENT_TOOLSDIRECTORY: /opt/toolcache
     steps:
       # das nackte Abbild bringt fast nichts mit, was die Läufer sonst vorinstalliert haben (git vor dem Auschecken:
       # sonst ist der Arbeitsordner kein Repository und die Prüfung der Übersetzungstabelle per git diff scheitert)
