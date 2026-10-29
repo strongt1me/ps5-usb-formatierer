@@ -31,6 +31,8 @@
  *   GET  /api/icon?key=  Bild eines Spiels (Schlüssel aus /api/library): Vorschau von ShadowMountPlus, sonst
  *                         sce_sys/icon0.png aus dem Ordner bzw. Abbild; 204, wenn es keins gibt
  *   POST /api/eject      {"device","size"} eingebundenes Laufwerk über ShadowMountPlus sicher auswerfen - "eject"
+ *   POST /api/game/toggle {"keys":"…"} Abbilder deaktivieren bzw. wieder aktivieren (".off" anhängen/entfernen) -
+ *                         Auftrag "game_toggle"
  *   GET  /api/history    {"entries":[{t, kind, ok, cancelled, secs, device, model, size, ident, label, fs, file, count,
  *                         msg}]}
  *                         die letzten 100 Aufträge, neueste zuerst; POST /api/history/clear {} leert den Verlauf
@@ -300,9 +302,9 @@ static void set_flags(int cancellable, int replug) {
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
        JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL, JOB_ORPHDEL, JOB_GCMP,
-       JOB_EJECT };
+       JOB_EJECT, JOB_GTOGGLE };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete", "game_compare", "eject"};
+                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete", "game_compare", "eject", "game_toggle"};
 
 #define LIB_EXTRAS_MAX 8
 
@@ -1157,9 +1159,18 @@ static int backport_in(const char *parent, const char *id, char (*out)[300], int
     return n;
 }
 
-static int find_extras(const char *root, const char *path, const char *id, char (*out)[300], int max) {
+/* Pfad, nach dem die zugehörigen Dateien (.sha256, .dump-info.json) eines Abbilds heißen: der aktive Name - bei einem
+ * deaktivierten Spiel ("x.ffpfs.off") also ohne ".off". So bleiben sie beim Aktivieren/Deaktivieren, wo sie sind. */
+static void side_base(const char *path, char *out, size_t n) {
+    snprintf(out, n, "%s", path);
+    const size_t l = strlen(out);
+    if (l > 4 && !strcmp(out + l - 4, ".off")) out[l - 4] = 0;
+}
+
+static int find_extras(const char *root, const char *path0, const char *id, char (*out)[300], int max) {
     int n = 0;
-    char dir[300], base[200], bare[200], t[700];
+    char dir[300], base[200], bare[200], t[700], path[300];
+    side_base(path0, path, sizeof(path));
     snprintf(dir, sizeof(dir), "%s", path);
     char *sl = strrchr(dir, '/');
     if (!sl) return 0;
@@ -1627,6 +1638,7 @@ static void api_library(int c, int refresh) {
             sb_add(&b, ",\"version\":");
             sb_str(&b, t->version);
             if (t->missing[0]) { sb_add(&b, ",\"missing\":"); sb_str(&b, t->missing); }
+            if (t->off) sb_add(&b, ",\"off\":true");
             sb_add(&b, ",\"key\":\"%08x\",\"size\":%llu,\"root\":", path_key(t->path), (unsigned long long)t->size);
             sb_str(&b, lib_snap[i].r.root);
             sb_add(&b, ",\"device\":");
@@ -1700,10 +1712,10 @@ static void api_library(int c, int refresh) {
         for (int k = 0; k < lib_snap[i].r.ntitles; k++) {
             const lib_title_t *t = &lib_snap[i].r.titles[k];
             int seen_before = 0, count = 0;
-            if (!t->id[0]) continue;
+            if (!t->id[0] || t->off) continue;   /* deaktivierte bindet ShadowMountPlus nicht ein: kein Wechseln */
             for (int i2 = 0; i2 < lib_n; i2++)
                 for (int k2 = 0; k2 < lib_snap[i2].r.ntitles; k2++) {
-                    if (strcmp(lib_snap[i2].r.titles[k2].id, t->id) != 0) continue;
+                    if (lib_snap[i2].r.titles[k2].off || strcmp(lib_snap[i2].r.titles[k2].id, t->id) != 0) continue;
                     count++;
                     if (i2 < i || (i2 == i && k2 < k)) seen_before = 1;
                 }
@@ -1717,7 +1729,7 @@ static void api_library(int c, int refresh) {
             int pf = 1;
             for (int i2 = 0; i2 < lib_n; i2++)
                 for (int k2 = 0; k2 < lib_snap[i2].r.ntitles; k2++)
-                    if (!strcmp(lib_snap[i2].r.titles[k2].id, t->id)) {
+                    if (!lib_snap[i2].r.titles[k2].off && !strcmp(lib_snap[i2].r.titles[k2].id, t->id)) {
                         sb_add(&b, pf ? "" : ",");
                         pf = 0;
                         sb_str(&b, lib_snap[i2].r.titles[k2].path);
@@ -5412,8 +5424,9 @@ static int manifest_check(const del_item_t *it, char *buf, uint64_t *done, uint6
 }
 
 /* <Abbild>.sha256 im Format von sha256sum ("<hex>  <Dateiname>") anlegen; 0 = angelegt, 1 = gibt es schon, -1 = Schreibfehler */
-static int write_sidecar(const char *img, const uint8_t h[32]) {
-    char sc[320], tmp[330], hex[65];
+static int write_sidecar(const char *img0, const uint8_t h[32]) {
+    char sc[320], tmp[330], hex[65], img[300];
+    side_base(img0, img, sizeof(img));   /* deaktiviert: nach dem aktiven Namen, wie sha256sum ihn erwartet */
     for (int i = 0; i < 32; i++) snprintf(hex + 2 * i, 3, "%02x", h[i]);
     snprintf(sc, sizeof(sc), "%s.sha256", img);
     snprintf(tmp, sizeof(tmp), "%s.tmp", sc);
@@ -5568,6 +5581,55 @@ fin:
     return NULL;
 }
 
+/* ------------------------------------------------------------ Spiele deaktivieren / aktivieren
+ * ShadowMountPlus bindet nur Abbilder mit den bekannten Endungen ein: "<name>.ffpfs" <-> "<name>.ffpfs.off". Nur
+ * rename() - Inhalt, Rechte, Besitzer und Zeiten bleiben, wie sie waren; die zugehörigen Dateien heißen nach dem
+ * aktiven Namen (side_base) und bleiben liegen. Jedes gewählte Spiel wechselt seinen Zustand. */
+static void *gtoggle_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0}, bad = {0};
+    int on_n = 0, off_n = 0, bad_n = 0;
+    char gid[16];
+    const int running = game_running(gid, sizeof(gid));
+    for (int i = 0; i < j->nitems; i++) {
+        const del_item_t *it = &j->items[i];
+        char dst[300], step[360];
+        const size_t l = strlen(it->path);
+        const int off = l > 4 && !strcmp(it->path + l - 4, ".off");
+        snprintf(step, sizeof(step), T("Spiele umschalten: %s (%d von %d)"), it->name, i + 1, j->nitems);
+        on_progress(step, 1 + i * 97 / j->nitems);
+        const char *why = NULL;
+        struct stat ds;
+        if (off) snprintf(dst, sizeof(dst), "%.*s", (int)(l - 4), it->path);
+        else if (snprintf(dst, sizeof(dst), "%s.off", it->path) >= (int)sizeof(dst)) why = T("Name zu lang");
+        if (why) {}
+        else if (root_dev(it->root) != it->dev || !lib_same_game(it->path, it->id, it->size)) why = T("seit der Suche geändert");
+        else if (!off && running && it->id[0] && !strcmp(gid, it->id)) why = T("läuft gerade");
+        else if (lstat(dst, &ds) == 0) why = T("Ziel gibt es schon");
+        else if (rename(it->path, dst) != 0) why = strerror(errno);   /* nur umbenennen: Rechte bleiben */
+        if (why) { bad_n++; sb_add(&bad, "%s%s (%s)", bad.len ? ", " : "", it->name, why); }
+        else if (off) on_n++;
+        else off_n++;
+    }
+    if (on_n) {   /* wieder aktiviert: ShadowMountPlus gleich suchen lassen (fehlt es, findet es sie beim nächsten Start) */
+        size_t len;
+        int http;
+        free(plat_smp_post("/api/v1/scan", "{\"reset_attempts\":true}", &http, &len));
+    }
+    if (off_n == 1) sb_tr(&msg, "1 Spiel deaktiviert – ShadowMountPlus bindet es nicht mehr ein.");
+    else if (off_n) sb_tr(&msg, "%d Spiele deaktiviert – ShadowMountPlus bindet sie nicht mehr ein.", off_n);
+    if (on_n == 1) sb_tr(&msg, "%s1 Spiel wieder aktiviert.", off_n ? " " : "");
+    else if (on_n) sb_tr(&msg, "%s%d Spiele wieder aktiviert.", off_n ? " " : "", on_n);
+    if (bad_n) sb_tr(&msg, "%sNicht umgeschaltet: %d – %s.", on_n || off_n ? " " : "", bad_n, bad.p ? bad.p : "");
+    sb_add(&res, "{\"off\":%d,\"on\":%d,\"failed\":%d}", off_n, on_n, bad_n);
+    free(bad.p);
+    free(j->items);
+    j->items = NULL;
+    job_done(j, bad_n == 0, &msg, &res, 1);
+    return NULL;
+}
+
 static void api_game_verify_ex(int c, const char *body, int sumgen) {
     kv_t kv[KV_MAX];
     int n = json_parse(body, kv, KV_MAX);
@@ -5579,9 +5641,9 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
     int nkeys = 1;
     for (const char *p = keys; *p; p++) nkeys += *p == ',';
     if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Spiele auf einmal"); return; }
-    const int cmp = sumgen == 2;
+    const int cmp = sumgen == 2, toggle = sumgen == 3;
     if (cmp && nkeys != 2) { respond_error(c, 400, "Genau zwei Spiele zum Vergleichen"); return; }
-    job_t *j = new_job(c, cmp ? JOB_GCMP : sumgen ? JOB_GSUM : JOB_GVERIFY);
+    job_t *j = new_job(c, toggle ? JOB_GTOGGLE : cmp ? JOB_GCMP : sumgen ? JOB_GSUM : JOB_GVERIFY);
     if (!j) return;
     j->sumgen = sumgen == 1;
     j->cmp = cmp;
@@ -5619,9 +5681,10 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
                     if (stat(mp, &ms) == 0 && S_ISREG(ms.st_mode)) { snprintf(it->ex[0], sizeof(it->ex[0]), "%.299s", mp); it->nex = 1; }
                 } else if (tt->ext[0] && lstat(tt->path, &fs) == 0 && S_ISREG(fs.st_mode)) {   /* Abbild: .sha256 daneben */
                     it->size = (uint64_t)fs.st_size;
-                    char sc[320], bare[300];
-                    snprintf(sc, sizeof(sc), "%s.sha256", tt->path);
-                    snprintf(bare, sizeof(bare), "%s", tt->path);
+                    char sc[320], bare[300], act[300];
+                    side_base(tt->path, act, sizeof(act));   /* deaktiviert: die Prüfsumme heißt nach dem aktiven Namen */
+                    snprintf(sc, sizeof(sc), "%s.sha256", act);
+                    snprintf(bare, sizeof(bare), "%s", act);
                     char *dot = strrchr(bare, '.');
                     if (dot && dot > strrchr(bare, '/')) *dot = 0;
                     struct stat xs;
@@ -5640,13 +5703,19 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
         respond_error(c, ambiguous ? 409 : 404, ambiguous ? N_("Auswahl nicht eindeutig – Liste neu laden.") : N_("Spiele nicht gefunden – Liste neu laden"));
         return;
     }
+    for (int i = 0; toggle && i < j->nitems; i++)
+        if (j->items[i].isdir || !j->items[i].size) {
+            job_free(j);
+            respond_error(c, 400, N_("Deaktivieren geht nur bei Abbildern (.ffpfs, .ffpfsc, .ffpkg, .exfat)."));
+            return;
+        }
     if (cmp && (j->nitems != 2 || strcmp(j->items[0].id, j->items[1].id) != 0 || !strcmp(j->items[0].path, j->items[1].path))) {
         job_free(j);
         respond_error(c, 400, N_("Nur zwei Kopien desselben Spiels lassen sich vergleichen."));
         return;
     }
     snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
-    start_job(c, j, cmp ? gcmp_worker : gverify_worker);
+    start_job(c, j, toggle ? gtoggle_worker : cmp ? gcmp_worker : gverify_worker);
 }
 
 
@@ -5740,11 +5809,12 @@ static int find_orphans(orph_t *out, int max) {
                     int has = 0;
                     for (int b = 0; b < nn && !has; b++) {
                         if (b == a || ends_with_str(names[b], ".sha256") || ends_with_str(names[b], ".dump-info.json")) continue;
-                        char bare[120];
-                        snprintf(bare, sizeof(bare), "%s", names[b]);
+                        char act[120], bare[120];
+                        side_base(names[b], act, sizeof(act));   /* deaktiviertes Abbild: wie das aktive */
+                        snprintf(bare, sizeof(bare), "%s", act);
                         char *dot = strrchr(bare, '.');
                         if (dot && dot != bare) *dot = 0;
-                        has = !strcmp(names[b], base) || !strcmp(bare, base);
+                        has = !strcmp(names[b], base) || !strcmp(act, base) || !strcmp(bare, base);
                     }
                     if (!has && snprintf(full, sizeof(full), "%s/%s", dir, names[a]) < (int)sizeof(full)) orph_add(out, &n, pr[r].dev, "sidecar", full);
                     break;
@@ -6048,8 +6118,9 @@ static void api_game_info(int c, const char *body) {
         if (!e) break;
         a = e + 1;
     }
-    char sc[320];
-    snprintf(sc, sizeof(sc), "%s.sha256", t.path);
+    char sc[320], act[300];
+    side_base(t.path, act, sizeof(act));
+    snprintf(sc, sizeof(sc), "%s.sha256", act);
     struct stat xs;
     int has_sum = stat(sc, &xs) == 0;
     if (!has_sum && t.ext[0]) {
@@ -6216,6 +6287,8 @@ static void handle(int c) {
         api_game_checksum(c, body);
     else if (strcmp(path, "/api/game/compare") == 0 && is_post)
         api_game_compare(c, body);
+    else if (strcmp(path, "/api/game/toggle") == 0 && is_post)
+        api_game_verify_ex(c, body, 3);   /* Abbilder deaktivieren bzw. aktivieren */
     else if (strcmp(path, "/api/game/info") == 0 && is_post)
         api_game_info(c, body);
     else if (strcmp(path, "/api/partials/discard") == 0 && is_post)

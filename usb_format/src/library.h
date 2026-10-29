@@ -16,6 +16,7 @@ typedef struct {
     uint64_t size;         /* Abbild: Dateigröße; Ordner: 0 */
     char     version[16];  /* installierte Version laut param.json/param.sfo, leer wenn unbekannt */
     char     missing[40];  /* Ordner-Spiel: fehlende Pflichtdateien ("eboot.bin, sce_sys/icon0.png"), sonst leer */
+    int      off;          /* deaktiviertes Abbild ("<name>.ffpfs.off" usw.): ShadowMountPlus bindet es nicht ein */
 } lib_title_t;
 
 /* .pkg-Datei (Installationspaket) */

@@ -942,7 +942,8 @@ def history_kind(kind):
             "verify": _("Image prüfen"), "save_restore": _("Spielstand wiederherstellen"), "save_backup": _("Spielstände sichern"),
             "move": _("Spiele kopieren"), "pkg_delete": _("Pakete löschen"), "game_verify": _("Spiele prüfen"),
             "game_checksum": _("Prüfsumme erstellen"), "partial_discard": _("Teilkopie verwerfen"), "orphan_delete": _("Aufräumen"),
-            "game_compare": _("Inhalt vergleichen"), "eject": _("Auswerfen")}.get(kind, kind)
+            "game_compare": _("Inhalt vergleichen"), "eject": _("Auswerfen"),
+            "game_toggle": _("Aktivieren / Deaktivieren")}.get(kind, kind)
 
 
 def history_csv(sources):

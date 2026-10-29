@@ -3832,5 +3832,95 @@
   "it": "molto più lenta di prima",
   "es": "mucho más lenta que antes",
   "fr": "nettement plus lente qu'avant"
+ },
+ "Spiele deaktivieren": {
+  "en": "Disable games",
+  "it": "Disattiva giochi",
+  "es": "Desactivar juegos",
+  "fr": "Désactiver des jeux"
+ },
+ "Aktivieren / Deaktivieren …": {
+  "en": "Enable / disable …",
+  "it": "Attiva / disattiva …",
+  "es": "Activar / desactivar …",
+  "fr": "Activer / désactiver …"
+ },
+ "Aktivieren / Deaktivieren": {
+  "en": "Enable / disable",
+  "it": "Attiva / disattiva",
+  "es": "Activar / desactivar",
+  "fr": "Activer / désactiver"
+ },
+ "Deaktivieren geht nur bei Abbildern (.ffpfs, .ffpfsc, .ffpkg, .exfat).": {
+  "en": "Only images can be disabled (.ffpfs, .ffpfsc, .ffpkg, .exfat).",
+  "it": "Si possono disattivare solo le immagini (.ffpfs, .ffpfsc, .ffpkg, .exfat).",
+  "es": "Solo se pueden desactivar imágenes (.ffpfs, .ffpfsc, .ffpkg, .exfat).",
+  "fr": "Seules les images peuvent être désactivées (.ffpfs, .ffpfsc, .ffpkg, .exfat)."
+ },
+ "Spiele aktivieren": {
+  "en": "Enable games",
+  "it": "Attiva giochi",
+  "es": "Activar juegos",
+  "fr": "Activer des jeux"
+ },
+ "Spiele umschalten": {
+  "en": "Switch games",
+  "it": "Cambia stato dei giochi",
+  "es": "Cambiar juegos",
+  "fr": "Basculer des jeux"
+ },
+ "Angehakte Abbilder deaktivieren (Endung .off – ShadowMountPlus bindet sie nicht mehr ein) bzw. wieder aktivieren": {
+  "en": "Disable the ticked images (extension .off – ShadowMountPlus no longer mounts them) or enable them again",
+  "it": "Disattiva le immagini selezionate (estensione .off – ShadowMountPlus non le monta più) o riattivale",
+  "es": "Desactivar las imágenes marcadas (extensión .off – ShadowMountPlus ya no las monta) o activarlas de nuevo",
+  "fr": "Désactiver les images cochées (extension .off – ShadowMountPlus ne les monte plus) ou les réactiver"
+ },
+ "deaktiviert": {
+  "en": "disabled",
+  "it": "disattivato",
+  "es": "desactivado",
+  "fr": "désactivé"
+ },
+ "Umgeschaltet.": {
+  "en": "Switched.",
+  "it": "Stato cambiato.",
+  "es": "Cambiado.",
+  "fr": "Basculé."
+ },
+ "Deaktivierte Abbilder bekommen die Endung .off – ShadowMountPlus bindet sie dann nicht mehr ein. Aktivieren entfernt .off wieder. Es ändert sich nur der Dateiname; Inhalt und Rechte bleiben unverändert.": {
+  "en": "Disabled images get the extension .off – ShadowMountPlus then no longer mounts them. Enabling removes .off again. Only the file name changes; content and permissions stay unchanged.",
+  "it": "Le immagini disattivate ricevono l'estensione .off – ShadowMountPlus non le monta più. Attivandole, .off viene rimosso. Cambia solo il nome del file; contenuto e permessi restano invariati.",
+  "es": "Las imágenes desactivadas reciben la extensión .off – ShadowMountPlus ya no las monta. Al activarlas se quita .off. Solo cambia el nombre del archivo; el contenido y los permisos no cambian.",
+  "fr": "Les images désactivées reçoivent l'extension .off – ShadowMountPlus ne les monte alors plus. L'activation retire .off. Seul le nom du fichier change ; le contenu et les droits restent inchangés."
+ },
+ "Deaktivieren:": {
+  "en": "Disable:",
+  "it": "Disattiva:",
+  "es": "Desactivar:",
+  "fr": "Désactiver :"
+ },
+ "Wieder aktivieren:": {
+  "en": "Enable again:",
+  "it": "Riattiva:",
+  "es": "Activar de nuevo:",
+  "fr": "Réactiver :"
+ },
+ "Ordner-Spiele bleiben unverändert: {n}": {
+  "en": "Folder games stay unchanged: {n}",
+  "it": "I giochi in cartella restano invariati: {n}",
+  "es": "Los juegos en carpeta no cambian: {n}",
+  "fr": "Les jeux en dossier restent inchangés : {n}"
+ },
+ "Umschalten konnte nicht gestartet werden: {e}": {
+  "en": "Switching could not be started: {e}",
+  "it": "Impossibile avviare il cambio di stato: {e}",
+  "es": "No se pudo iniciar el cambio: {e}",
+  "fr": "Le basculement n'a pas pu démarrer : {e}"
+ },
+ "Auf {name} ({dev}):": {
+  "en": "On {name} ({dev}):",
+  "it": "Su {name} ({dev}):",
+  "es": "En {name} ({dev}):",
+  "fr": "Sur {name} ({dev}) :"
  }
 }

@@ -2902,5 +2902,95 @@
   "it": "molto più lenta di prima",
   "es": "mucho más lenta que antes",
   "fr": "nettement plus lente qu'avant"
+ },
+ "Abbilder zum Aktivieren bzw. Deaktivieren anhaken": {
+  "en": "Tick images to enable or disable",
+  "it": "Seleziona le immagini da attivare o disattivare",
+  "es": "Marca las imágenes para activar o desactivar",
+  "fr": "Cochez les images à activer ou désactiver"
+ },
+ "Deaktivieren": {
+  "en": "Disable",
+  "it": "Disattiva",
+  "es": "Desactivar",
+  "fr": "Désactiver"
+ },
+ "Aktivieren": {
+  "en": "Enable",
+  "it": "Attiva",
+  "es": "Activar",
+  "fr": "Activer"
+ },
+ "Umschalten": {
+  "en": "Switch",
+  "it": "Cambia stato",
+  "es": "Cambiar",
+  "fr": "Basculer"
+ },
+ "deaktiviert": {
+  "en": "disabled",
+  "it": "disattivato",
+  "es": "desactivado",
+  "fr": "désactivé"
+ },
+ "Endung .off – ShadowMountPlus bindet dieses Abbild nicht ein.": {
+  "en": "Extension .off – ShadowMountPlus does not mount this image.",
+  "it": "Estensione .off – ShadowMountPlus non monta questa immagine.",
+  "es": "Extensión .off – ShadowMountPlus no monta esta imagen.",
+  "fr": "Extension .off – ShadowMountPlus ne monte pas cette image."
+ },
+ "Aktivieren / Deaktivieren …": {
+  "en": "Enable / disable …",
+  "it": "Attiva / disattiva …",
+  "es": "Activar / desactivar …",
+  "fr": "Activer / désactiver …"
+ },
+ "Deaktivieren:": {
+  "en": "Disable:",
+  "it": "Disattiva:",
+  "es": "Desactivar:",
+  "fr": "Désactiver :"
+ },
+ "Wieder aktivieren:": {
+  "en": "Enable again:",
+  "it": "Riattiva:",
+  "es": "Activar de nuevo:",
+  "fr": "Réactiver :"
+ },
+ "Spiele deaktivieren": {
+  "en": "Disable games",
+  "it": "Disattiva giochi",
+  "es": "Desactivar juegos",
+  "fr": "Désactiver des jeux"
+ },
+ "Spiele aktivieren": {
+  "en": "Enable games",
+  "it": "Attiva giochi",
+  "es": "Activar juegos",
+  "fr": "Activer des jeux"
+ },
+ "Spiele umschalten": {
+  "en": "Switch games",
+  "it": "Cambia stato dei giochi",
+  "es": "Cambiar juegos",
+  "fr": "Basculer des jeux"
+ },
+ "Auf {dev}:": {
+  "en": "On {dev}:",
+  "it": "Su {dev}:",
+  "es": "En {dev}:",
+  "fr": "Sur {dev} :"
+ },
+ "Deaktivierte Abbilder bekommen die Endung .off – ShadowMountPlus bindet sie dann nicht mehr ein. Aktivieren entfernt .off wieder. Es ändert sich nur der Dateiname; Inhalt und Rechte bleiben unverändert.": {
+  "en": "Disabled images get the extension .off – ShadowMountPlus then no longer mounts them. Enabling removes .off again. Only the file name changes; content and permissions stay unchanged.",
+  "it": "Le immagini disattivate ricevono l'estensione .off – ShadowMountPlus non le monta più. Attivandole, .off viene rimosso. Cambia solo il nome del file; contenuto e permessi restano invariati.",
+  "es": "Las imágenes desactivadas reciben la extensión .off – ShadowMountPlus ya no las monta. Al activarlas se quita .off. Solo cambia el nombre del archivo; el contenido y los permisos no cambian.",
+  "fr": "Les images désactivées reçoivent l'extension .off – ShadowMountPlus ne les monte alors plus. L'activation retire .off. Seul le nom du fichier change ; le contenu et les droits restent inchangés."
+ },
+ "Aktivieren / Deaktivieren": {
+  "en": "Enable / disable",
+  "it": "Attiva / disattiva",
+  "es": "Activar / desactivar",
+  "fr": "Activer / désactiver"
  }
 }

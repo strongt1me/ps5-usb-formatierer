@@ -425,11 +425,32 @@ static void folder_game(lib_root_t *r, const char *path, const char *dname, char
     }
 }
 
-static void image_game(lib_root_t *r, const char *path, const char *fname, uint64_t size, char *buf) {
+/* Abbild-Endung (.exfat, .ffpkg, .ffpfs, .ffpfsc): 1; mit angehängtem ".off" (deaktiviert): 2; sonst 0 */
+static int image_name(const char *n) {
+    static const char *const ext[] = {".exfat", ".ffpkg", ".ffpfs", ".ffpfsc"};
+    char act[300];
+    const size_t l = strlen(n);
+    const int off = l > 4 && !strcmp(n + l - 4, ".off");
+    copy_str(act, sizeof(act), n);
+    if (off) act[l - 4] = 0;
+    for (int i = 0; i < 4; i++)
+        if (ends_with(act, ext[i])) return off ? 2 : 1;
+    return 0;
+}
+
+static void image_game(lib_root_t *r, const char *path, const char *fname0, uint64_t size, char *buf) {
     lib_title_t *t = add_title(r);
     if (!t) return;
     copy_str(t->path, sizeof(t->path), path);
     t->size = size;
+    char fname[256], apath[256];   /* deaktiviert: Endung, Art und Name ohne ".off" */
+    copy_str(fname, sizeof(fname), fname0);
+    copy_str(apath, sizeof(apath), path);
+    if (image_name(fname0) == 2) {
+        t->off = 1;
+        fname[strlen(fname) - 4] = 0;
+        apath[strlen(apath) - 4] = 0;
+    }
     {
         const char *dot = strrchr(fname, '.');
         copy_str(t->ext, sizeof(t->ext), dot ? dot + 1 : "");
@@ -453,7 +474,7 @@ static void image_game(lib_root_t *r, const char *path, const char *fname, uint6
     }
     if (fd >= 0) close(fd);
     /* .ffpfs/.ffpfsc (und was sonst nicht lesbar ist): Titel-ID von ShadowMountPlus */
-    const lib_hint_t *hp = t->id[0] ? NULL : hint_by_path(path);
+    const lib_hint_t *hp = t->id[0] ? NULL : hint_by_path(apath);   /* ShadowMountPlus kennt den aktiven Namen */
     if (hp) {
         copy_str(t->id, sizeof(t->id), hp->id);
         if (!name[0] && hp->name[0]) copy_str(name, sizeof(name), hp->name);
@@ -600,8 +621,7 @@ static void scan_dir(lib_root_t *r, const char *dir, int games, int pkgs, char *
         if (S_ISDIR(st.st_mode)) {
             if (games) folder_game(r, path, e->d_name, buf);
         } else if (S_ISREG(st.st_mode)) {
-            if (games && (ends_with(e->d_name, ".exfat") || ends_with(e->d_name, ".ffpkg") ||
-                          ends_with(e->d_name, ".ffpfs") || ends_with(e->d_name, ".ffpfsc")))
+            if (games && image_name(e->d_name))
                 image_game(r, path, e->d_name, (uint64_t)st.st_size, buf);
             else if (pkgs && ends_with(e->d_name, ".pkg")) {
                 r->pkgs++;

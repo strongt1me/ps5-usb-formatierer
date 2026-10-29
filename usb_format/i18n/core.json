@@ -3238,5 +3238,71 @@
   "it": "Gioco non trovato",
   "es": "Juego no encontrado",
   "fr": "Jeu introuvable"
+ },
+ "Spiele umschalten: %s (%d von %d)": {
+  "en": "Switching games: %s (%d of %d)",
+  "it": "Cambio stato giochi: %s (%d di %d)",
+  "es": "Cambiando juegos: %s (%d de %d)",
+  "fr": "Basculement des jeux : %s (%d sur %d)"
+ },
+ "Name zu lang": {
+  "en": "name too long",
+  "it": "nome troppo lungo",
+  "es": "nombre demasiado largo",
+  "fr": "nom trop long"
+ },
+ "seit der Suche geändert": {
+  "en": "changed since the scan",
+  "it": "modificato dopo la ricerca",
+  "es": "cambió desde la búsqueda",
+  "fr": "modifié depuis la recherche"
+ },
+ "läuft gerade": {
+  "en": "currently running",
+  "it": "in esecuzione",
+  "es": "en ejecución",
+  "fr": "en cours d'exécution"
+ },
+ "Ziel gibt es schon": {
+  "en": "target already exists",
+  "it": "la destinazione esiste già",
+  "es": "el destino ya existe",
+  "fr": "la cible existe déjà"
+ },
+ "Deaktivieren geht nur bei Abbildern (.ffpfs, .ffpfsc, .ffpkg, .exfat).": {
+  "en": "Only images can be disabled (.ffpfs, .ffpfsc, .ffpkg, .exfat).",
+  "it": "Si possono disattivare solo le immagini (.ffpfs, .ffpfsc, .ffpkg, .exfat).",
+  "es": "Solo se pueden desactivar imágenes (.ffpfs, .ffpfsc, .ffpkg, .exfat).",
+  "fr": "Seules les images peuvent être désactivées (.ffpfs, .ffpfsc, .ffpkg, .exfat)."
+ },
+ "1 Spiel deaktiviert – ShadowMountPlus bindet es nicht mehr ein.": {
+  "en": "1 game disabled – ShadowMountPlus will no longer mount it.",
+  "it": "1 gioco disattivato – ShadowMountPlus non lo monterà più.",
+  "es": "1 juego desactivado – ShadowMountPlus ya no lo montará.",
+  "fr": "1 jeu désactivé – ShadowMountPlus ne le montera plus."
+ },
+ "%d Spiele deaktiviert – ShadowMountPlus bindet sie nicht mehr ein.": {
+  "en": "%d games disabled – ShadowMountPlus will no longer mount them.",
+  "it": "%d giochi disattivati – ShadowMountPlus non li monterà più.",
+  "es": "%d juegos desactivados – ShadowMountPlus ya no los montará.",
+  "fr": "%d jeux désactivés – ShadowMountPlus ne les montera plus."
+ },
+ "%s1 Spiel wieder aktiviert.": {
+  "en": "%s1 game enabled again.",
+  "it": "%s1 gioco riattivato.",
+  "es": "%s1 juego activado de nuevo.",
+  "fr": "%s1 jeu réactivé."
+ },
+ "%s%d Spiele wieder aktiviert.": {
+  "en": "%s%d games enabled again.",
+  "it": "%s%d giochi riattivati.",
+  "es": "%s%d juegos activados de nuevo.",
+  "fr": "%s%d jeux réactivés."
+ },
+ "%sNicht umgeschaltet: %d – %s.": {
+  "en": "%sNot switched: %d – %s.",
+  "it": "%sNon cambiati: %d – %s.",
+  "es": "%sNo cambiados: %d – %s.",
+  "fr": "%sNon basculés : %d – %s."
  }
 }

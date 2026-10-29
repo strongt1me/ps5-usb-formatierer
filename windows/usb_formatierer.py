@@ -238,6 +238,10 @@ class Api:
         """Abbilder gegen ihre .sha256-Datei prüfen (nur lesen; Auftrag "game_verify")"""
         return self._call("/api/game/verify", {"keys": ",".join(keys)})
 
+    def toggle_games(self, keys):
+        """Abbilder deaktivieren bzw. aktivieren: ".off" anhängen bzw. entfernen (Auftrag "game_toggle")"""
+        return self._call("/api/game/toggle", {"keys": ",".join(keys)})
+
     def delete_pkgs(self, keys):
         return self._call("/api/pkg/delete", {"keys": ",".join(keys)})
 
@@ -1158,6 +1162,9 @@ class App(tk.Tk):
         self.partial_btn = ttk.Button(self.hint_row, text=_("Teilkopie verwerfen …"), command=self._discard_partial)
         self.older_btn = ttk.Button(self.hint_row, text=_("Ältere Duplikate anhaken"), command=self._check_older)
         self.clean_btn = ttk.Button(self.hint_row, text=_("Aufräumen …"), command=self._cleanup)
+        self.toggle_btn = ttk.Button(self.hint_row, text=_("Aktivieren / Deaktivieren …"), command=self._toggle_games)
+        Tooltip(self.toggle_btn, lambda: self._why(self.toggle_btn) or _(
+            "Angehakte Abbilder deaktivieren (Endung .off – ShadowMountPlus bindet sie nicht mehr ein) bzw. wieder aktivieren"))
         self.hint_row.grid_remove()
         self.queue_row = ttk.Frame(ghead)   # Warteschlange: nur sichtbar, wenn Aufträge eingestellt sind
         self.queue_row.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(px(6), 0))
@@ -2305,6 +2312,7 @@ class App(tk.Tk):
         enable(self.move_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
         enable(self.copy_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
         enable(self.verify_btn, idle and not pc and self.api and self.games_checked)
+        enable(self.toggle_btn, idle and not pc and self.api and self.games_checked)
         for w in (self.backup_btn, self.restore_btn):
             enable(w, idle and not pc and self.api and dev and not dev.get("locked") and not dev.get("place"))
         has_img = bool(self.img_tree.selection())
@@ -2582,6 +2590,8 @@ class App(tk.Tk):
                                                 else _("doppelt, neueste Version {v}", v=mark[1]) if mark[0] == "newest" else _("doppelt"))
             if g.get("missing"):   # Ordner-Spiel ohne eboot.bin oder Titelbild: meist Rest eines abgebrochenen Kopierens
                 tag += "  · " + _("unvollständig")
+            if g.get("off"):   # Endung .off: ShadowMountPlus bindet das Abbild nicht ein
+                tag += "  · " + _("deaktiviert")
             rows.append((g.get("key") or None, (g["name"] or g["id"]) + tag, meta))
         self._icons_for(self.api)   # andere PS5: Bilder vergessen, bevor Zeilen mit ihnen entstehen
         if rows != getattr(self, "_games_shown", None):
@@ -3296,11 +3306,13 @@ class App(tk.Tk):
         """Teilkopie und ältere Duplikate dieses Laufwerks: Hinweiszeile unter der Suche"""
         part = self.partials.get(dev["name"]) if dev else None
         older = [g for g in games if self.dup_marks.get(g.get("path"), ("",))[0] == "older"]
-        for w in (self.partial_lbl, self.partial_btn, self.older_btn, self.clean_btn):
+        for w in (self.partial_lbl, self.partial_btn, self.older_btn, self.clean_btn, self.toggle_btn):
             w.pack_forget()
         ps5 = self.mode_var.get() == "ps5" and bool(dev)
         if ps5:
             self.clean_btn.pack(side="right")   # immer da: Verwaistes suchen
+            if any(g.get("kind") != "Ordner" for g in games):   # nur Abbilder lassen sich deaktivieren
+                self.toggle_btn.pack(side="right", padx=(0, ui_theme.px(8)))
         if part and self.mode_var.get() == "ps5":
             self.partial_lbl.configure(text=_("Teilkopie eines abgebrochenen Kopierens: {size}", size=fmt_size(part)))
             self.partial_lbl.pack(side="left")
@@ -3488,6 +3500,52 @@ class App(tk.Tk):
                 self.q.put(("error", _("Anlegen konnte nicht gestartet werden: {e}", e=e)))
                 return
             self._follow(api, foreign=False, done_title=_("Prüfsumme angelegt."), after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
+
+    def _toggle_games(self):
+        """Angehakte Abbilder deaktivieren (".off" anhängen - ShadowMountPlus bindet sie dann nicht ein) bzw. wieder
+        aktivieren; jedes wechselt seinen Zustand. Es ändert sich nur der Dateiname."""
+        dev = self._selected_device()
+        games = {g.get("key"): g for g in self.games.get(dev["name"], [])} if dev else {}
+        picked = [games[k] for k in self.games_checked if k in games]
+        if self.busy or not dev or not picked or not self.api:
+            return
+        imgs = [g for g in picked if g.get("kind") != "Ordner"]
+        if not imgs:
+            messagebox.showinfo(_("Aktivieren / Deaktivieren"), _("Deaktivieren geht nur bei Abbildern (.ffpfs, .ffpfsc, "
+                                                                 ".ffpkg, .exfat)."), parent=self)
+            return
+
+        def names(gs):
+            n = sorted((g["name"] or g["id"]) for g in gs)
+            return ", ".join(n[:8]) + (" " + _("… und {n} weitere", n=len(n) - 8) if len(n) > 8 else "")
+        ons, offs = [g for g in imgs if not g.get("off")], [g for g in imgs if g.get("off")]
+        lines = ([_("Deaktivieren:") + " " + names(ons)] if ons else []) + ([_("Wieder aktivieren:") + " " + names(offs)] if offs else [])
+        skipped = len(picked) - len(imgs)
+        title = _("Spiele deaktivieren") if not offs else _("Spiele aktivieren") if not ons else _("Spiele umschalten")
+        if not messagebox.askokcancel(
+                title, _("Auf {name} ({dev}):", name=dev_title(dev), dev=dev["name"]) + "\n\n" + "\n".join(lines) + "\n\n" +
+                _("Deaktivierte Abbilder bekommen die Endung .off – ShadowMountPlus bindet sie dann nicht mehr ein. Aktivieren "
+                  "entfernt .off wieder. Es ändert sich nur der Dateiname; Inhalt und Rechte bleiben unverändert.") +
+                ("\n\n" + _("Ordner-Spiele bleiben unverändert: {n}", n=skipped) if skipped else ""), parent=self):
+            return
+        api, key_list = self.api, [g["key"] for g in imgs]
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+            if ok:
+                self.games_checked.clear()
+            (messagebox.showinfo if ok else messagebox.showwarning)(title, msg, parent=self)
+
+        def work():
+            try:
+                api.toggle_games(key_list)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Umschalten konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Umgeschaltet."), after=done)
 
         self.pbar["value"] = 0
         self._run(work)
