@@ -3178,5 +3178,65 @@
   "it": "Contenuto uguale: l'immagine e la cartella di %s contengono gli stessi file, byte per byte (%s e %s). Una copia può essere eliminata.",
   "es": "Mismo contenido: la imagen y la carpeta de %s contienen los mismos archivos, byte a byte (%s y %s). Una copia puede eliminarse.",
   "fr": "Contenu identique : l'image et le dossier de %s contiennent les mêmes fichiers, octet par octet (%s et %s). Une copie peut être supprimée."
+ },
+ "Das Laufwerk wird noch benutzt (laufendes Spiel oder eingebundenes Abbild) – Spiel beenden und erneut versuchen.": {
+  "en": "The drive is still in use (running game or mounted image) – quit the game and try again.",
+  "it": "L'unità è ancora in uso (gioco in esecuzione o immagine montata) – chiudi il gioco e riprova.",
+  "es": "La unidad todavía está en uso (juego en marcha o imagen montada) – cierra el juego y vuelve a intentarlo.",
+  "fr": "Le lecteur est encore utilisé (jeu en cours ou image montée) – quittez le jeu et réessayez."
+ },
+ "Auswerfen nicht bestätigt – Laufwerk bitte eingesteckt lassen und erneut versuchen.": {
+  "en": "Ejection not confirmed – please leave the drive plugged in and try again.",
+  "it": "Espulsione non confermata – lascia l'unità collegata e riprova.",
+  "es": "Expulsión no confirmada – deja la unidad conectada y vuelve a intentarlo.",
+  "fr": "Éjection non confirmée – laissez le lecteur branché et réessayez."
+ },
+ "Das Laufwerk wurde inzwischen gewechselt – Liste neu laden.": {
+  "en": "The drive has been changed in the meantime – reload the list.",
+  "it": "Nel frattempo l'unità è stata cambiata – ricarica l'elenco.",
+  "es": "Mientras tanto se ha cambiado la unidad – vuelve a cargar la lista.",
+  "fr": "Le lecteur a été changé entre-temps – rechargez la liste."
+ },
+ "Auf dem Laufwerk liegt das laufende Spiel – erst das Spiel beenden.": {
+  "en": "The running game is on this drive – quit the game first.",
+  "it": "Il gioco in esecuzione si trova su questa unità – chiudi prima il gioco.",
+  "es": "El juego en marcha está en esta unidad – cierra primero el juego.",
+  "fr": "Le jeu en cours se trouve sur ce lecteur – quittez d'abord le jeu."
+ },
+ "Laufwerk auswerfen": {
+  "en": "Ejecting drive",
+  "it": "Espulsione dell'unità",
+  "es": "Expulsando la unidad",
+  "fr": "Éjection du lecteur"
+ },
+ "%s lässt sich laut ShadowMountPlus nicht auswerfen.": {
+  "en": "According to ShadowMountPlus, %s cannot be ejected.",
+  "it": "Secondo ShadowMountPlus, %s non può essere espulsa.",
+  "es": "Según ShadowMountPlus, %s no se puede expulsar.",
+  "fr": "Selon ShadowMountPlus, %s ne peut pas être éjecté."
+ },
+ "ShadowMountPlus kennt %s nicht – Liste neu laden.": {
+  "en": "ShadowMountPlus does not know %s – reload the list.",
+  "it": "ShadowMountPlus non conosce %s – ricarica l'elenco.",
+  "es": "ShadowMountPlus no conoce %s – vuelve a cargar la lista.",
+  "fr": "ShadowMountPlus ne connaît pas %s – rechargez la liste."
+ },
+ "%s ist ausgeworfen und kann jetzt abgezogen werden.": {
+  "en": "%s has been ejected and can now be unplugged.",
+  "it": "%s è stata espulsa e ora si può scollegare.",
+  "es": "%s se ha expulsado y ya se puede desconectar.",
+  "fr": "%s a été éjecté et peut maintenant être débranché."
+ },
+ "%s ist nicht eingebunden und kann abgezogen werden.": {
+  "en": "%s is not mounted and can be unplugged.",
+  "it": "%s non è montata e si può scollegare.",
+  "es": "%s no está montada y se puede desconectar.",
+  "fr": "%s n'est pas monté et peut être débranché."
+ },
+ "Spiel nicht gefunden": {
+  "en": "Game not found",
+  "it": "Gioco non trovato",
+  "es": "Juego no encontrado",
+  "fr": "Jeu introuvable"
  }
 }

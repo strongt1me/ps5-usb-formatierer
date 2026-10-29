@@ -936,7 +936,7 @@ def history_kind(kind):
             "verify": _("Image prüfen"), "save_restore": _("Spielstand wiederherstellen"), "save_backup": _("Spielstände sichern"),
             "move": _("Spiele kopieren"), "pkg_delete": _("Pakete löschen"), "game_verify": _("Spiele prüfen"),
             "game_checksum": _("Prüfsumme erstellen"), "partial_discard": _("Teilkopie verwerfen"), "orphan_delete": _("Aufräumen"),
-            "game_compare": _("Inhalt vergleichen")}.get(kind, kind)
+            "game_compare": _("Inhalt vergleichen"), "eject": _("Auswerfen")}.get(kind, kind)
 
 
 def history_csv(sources):
@@ -982,6 +982,41 @@ def last_job_text(e):
     return _("Zuletzt: {what}, {date}", what=what, date=time.strftime(fmt, time.localtime(int(e.get("t") or 0))))
 
 
+def system_report(system):
+    """Zeile für den Fehlerbericht aus /api/system des Formatierers (Firmware, ShadowMountPlus, Kernel-Erweiterungen)"""
+    if not isinstance(system, dict) or not system:
+        return "PS5: -"
+    smp = system.get("smp")
+    caps = smp.get("caps") or [] if isinstance(smp, dict) else []
+    smp_text = ("%s (%d capabilities%s)" % (smp.get("version") or "?", len(caps), ", eject" if "storage_eject" in caps else "")
+                if isinstance(smp, dict) else "not reachable")
+    return "PS5: Firmware %s · ShadowMountPlus %s · Kernel: %s" % (system.get("fw") or "?", smp_text,
+                                                                  system.get("kext") or "not detected")
+
+
+def speed_trends(entries):
+    """Lesetempo je Datenträger (Seriennummer, sonst Modell und Größe) aus Verlaufseinträgen (neueste zuerst), älteste
+    Messung zuerst; nur Datenträger mit mindestens zwei Messungen. drop: die letzte liegt deutlich unter dem Mittel der
+    früheren (wie der Verschleiß-Hinweis)"""
+    groups = {}
+    for e in reversed(list(entries)):
+        if not isinstance(e.get("mbps"), (int, float)) or e["mbps"] <= 0:
+            continue
+        k = ("i", e["ident"]) if e.get("ident") else ("m", e.get("model") or "", int(e.get("size") or 0))
+        g = groups.setdefault(k, {"name": e.get("model") or e.get("device") or "?", "size": int(e.get("size") or 0),
+                                  "vals": []})
+        g["vals"].append(e["mbps"])
+    out = []
+    for g in groups.values():
+        if len(g["vals"]) < 2:
+            continue
+        g["last"] = g["vals"][-1]
+        before = earlier_mbps([{"mbps": v} for v in reversed(g["vals"][:-1])], {})
+        g["drop"] = bool(before) and g["last"] < before * SLOW_FACTOR and before - g["last"] >= 5
+        out.append(g)
+    return out
+
+
 def history_dialog(root, sources, on_clear):
     """Fenster "Verlauf": sources = [(ort, einträge)] (ort "PC"/"PS5", bei nur einer Quelle None). Neueste zuerst,
     unten die Meldung des gewählten Eintrags. on_clear() leert und liefert die neuen sources."""
@@ -994,10 +1029,12 @@ def history_dialog(root, sources, on_clear):
     frm = ttk.Frame(win, padding=ui_theme.pad((22, 18, 22, 16)))
     frm.pack(fill="both", expand=True)
     frm.columnconfigure(0, weight=1)
-    frm.rowconfigure(2, weight=1)
+    frm.rowconfigure(3, weight=1)
     ttk.Label(frm, text=_("Verlauf"), style="H2.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
     sub = ttk.Label(frm, style="Muted.TLabel")
     sub.grid(row=1, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(4), ui_theme.px(8)))
+    trends = ttk.Frame(frm)   # Lesetempo je Datenträger (nur mit mindestens zwei Messungen)
+    trends.grid(row=2, column=0, columnspan=2, sticky="ew")
     where = any(o for o, _e in sources)
     cols = (("when", _("Zeit"), 130), *((("where", _("Ort"), 50),) if where else ()), ("what", _("Auftrag"), 190),
             ("drive", _("Laufwerk"), 320), ("result", _("Ergebnis"), 110))
@@ -1009,17 +1046,44 @@ def history_dialog(root, sources, on_clear):
     tree.tag_configure("cancel", foreground=c["warn"])
     bar = ttk.Scrollbar(frm, orient="vertical", command=tree.yview)
     tree.configure(yscrollcommand=ui_theme.autohide(bar))
-    tree.grid(row=2, column=0, sticky="nsew")
-    bar.grid(row=2, column=1, sticky="ns")
+    tree.grid(row=3, column=0, sticky="nsew")
+    bar.grid(row=3, column=1, sticky="ns")
     detail = ttk.Label(frm, text="", wraplength=ui_theme.px(720), justify="left", style="Muted.TLabel")
-    detail.grid(row=3, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(10), 0))
+    detail.grid(row=4, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(10), 0))
     rows = {}
     stamp = {"de": "%d.%m.%Y %H:%M", "en": "%Y-%m-%d %H:%M"}.get(lang(), "%d/%m/%Y %H:%M")
+
+    def draw_trends(merged):
+        for w in trends.winfo_children():
+            w.destroy()
+        gs = speed_trends(e for _o, e in merged)
+        if not gs:
+            return
+        ttk.Label(trends, text=_("Lesetempo je Datenträger"), style="Bold.TLabel").grid(row=0, column=0, columnspan=2,
+                                                                                      sticky="w")
+        w, h = ui_theme.px(140), ui_theme.px(30)
+        for r, g in enumerate(gs, 1):
+            cv = tk.Canvas(trends, width=w, height=h, bg=c["field"], highlightthickness=0, bd=0)
+            cv.grid(row=r, column=0, sticky="w", pady=ui_theme.px(3))
+            top, n = max(g["vals"]), len(g["vals"])
+            pts = []
+            for i, v in enumerate(g["vals"]):
+                pts += [4 + i * (w - 8) / (n - 1), h - 4 - v / top * (h - 8)]
+            cv.create_line(*pts, fill=c["danger"] if g["drop"] else c["accent"], width=max(2, ui_theme.px(2)),
+                           joinstyle="round", capstyle="round")
+            mb = lambda v: _("{n} MB/s", n=round(v))
+            text = " · ".join(x for x in (g["name"], fmt_size(g["size"]) if g["size"] else "") if x) + " – " + _(
+                "{n} Messungen, zuletzt {last}, zwischen {min} und {max}", n=n, last=mb(g["last"]), min=mb(min(g["vals"])),
+                max=mb(top)) + (" – " + _("deutlich langsamer als früher") if g["drop"] else "")
+            ttk.Label(trends, text=text, style="Muted.TLabel", foreground=c["danger"] if g["drop"] else None,
+                      wraplength=ui_theme.px(500), justify="left").grid(row=r, column=1, sticky="w", padx=(ui_theme.px(10), 0))
+        ttk.Frame(trends, height=ui_theme.px(8)).grid(row=len(gs) + 1, column=0)
 
     def fill(srcs):
         tree.delete(*tree.get_children())
         rows.clear()
         merged = sorted(((o, e) for o, entries in srcs for e in entries), key=lambda x: -int(x[1].get("t") or 0))
+        draw_trends(merged)
         for i, (o, e) in enumerate(merged):
             state = "ok" if e.get("ok") else "cancel" if e.get("cancelled") else "fail"
             drive = " · ".join(str(x) for x in (
@@ -1072,7 +1136,7 @@ def history_dialog(root, sources, on_clear):
 
     tree.bind("<<TreeviewSelect>>", show)
     btns = ttk.Frame(frm)
-    btns.grid(row=4, column=0, columnspan=2, sticky="e", pady=(ui_theme.px(14), 0))
+    btns.grid(row=5, column=0, columnspan=2, sticky="e", pady=(ui_theme.px(14), 0))
     current = {"srcs": sources}
     save_btn = ttk.Button(btns, text=_("Als Datei speichern (CSV)"), command=save)
     save_btn.pack(side="left", padx=(0, ui_theme.px(8)))

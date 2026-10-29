@@ -26,6 +26,11 @@
  *   GET  /api/tile       App-Kachel PPSA86920 laut ShadowMountPlus: {smp, found, installed, registered (angemeldete
  *                         contentVersion), folder (contentVersion im App-Ordner), formatter}
  *   POST /api/tile       {} Kachel über ShadowMountPlus neu anmelden (Uninstall + Scan) - Auftrag "tile"
+ *   GET  /api/system     Umgebung: Firmware ("fw"), Kernel-Erweiterungen ("kext") und ShadowMountPlus ("smp":
+ *                         {"version","caps"} laut /api/v1/version, oder null, wenn dessen API nicht antwortet)
+ *   GET  /api/icon?key=  Bild eines Spiels (Schlüssel aus /api/library): Vorschau von ShadowMountPlus, sonst
+ *                         sce_sys/icon0.png aus dem Ordner bzw. Abbild; 204, wenn es keins gibt
+ *   POST /api/eject      {"device","size"} eingebundenes Laufwerk über ShadowMountPlus sicher auswerfen - "eject"
  *   GET  /api/history    {"entries":[{t, kind, ok, cancelled, secs, device, model, size, ident, label, fs, file, count,
  *                         msg}]}
  *                         die letzten 100 Aufträge, neueste zuerst; POST /api/history/clear {} leert den Verlauf
@@ -294,9 +299,10 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL, JOB_ORPHDEL, JOB_GCMP };
+       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL, JOB_ORPHDEL, JOB_GCMP,
+       JOB_EJECT };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete", "game_compare"};
+                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete", "game_compare", "eject"};
 
 #define LIB_EXTRAS_MAX 8
 
@@ -1269,7 +1275,7 @@ static void send_all(int c, const char *p, size_t len) {
 
 static void respond_ex(int c, int code, const char *ctype, const char *body, size_t len, const char *cache) {
     char hdr[1024];
-    const char *reason = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 400 ? "Bad Request" :
+    const char *reason = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 204 ? "No Content" : code == 400 ? "Bad Request" :
                          code == 403 ? "Forbidden" : code == 404 ? "Not Found" : code == 405 ? "Method Not Allowed" :
                          code == 409 ? "Conflict" : code == 411 ? "Length Required" :
                          code == 415 ? "Unsupported Media Type" :
@@ -3258,20 +3264,15 @@ static void smp_error(const char *resp, size_t len, int http, char *out, size_t 
  * und gibt eingebundene Abbilder selbst frei). 0 = gelöscht. */
 static char del_step[320];   /* Schrittname des laufenden Löschens: "Spiele löschen: Name (2 von 5)" */
 
-static int smp_delete(const del_item_t *it, int base, int span, char *err, size_t n) {
-    char body[96], resp_err[200];
+/* Auftrag job von ShadowMountPlus (Löschen, Auswerfen) bis zum Ende verfolgen, Fortschritt als step zwischen base und
+ * base+span. 0 = erledigt; sonst Fehlertext und (falls gemeldet) der Fehlercode von ShadowMountPlus in code. */
+static int smp_follow(long long job, const char *step, int base, int span, char *err, size_t n, char *code, size_t cn) {
+    char body[48], resp_err[200];
     size_t len;
     int http;
-    long long job = 0, v;
-    snprintf(body, sizeof(body), "{\"title_id\":\"%s\",\"confirm\":true}", it->id);
-    char *r = plat_smp_post("/api/v1/games/delete", body, &http, &len);
-    if (!r) { snprintf(err, n, "%s", T("ShadowMountPlus nicht erreichbar")); return -1; }
-    if (http != 202 || lib_json_num(r, len, "job_id", &job) != 0) {
-        smp_error(r, len, http, err, n);
-        free(r);
-        return -1;
-    }
-    free(r);
+    long long v;
+    char *r;
+    if (cn) code[0] = 0;
     snprintf(body, sizeof(body), "{\"job_id\":%lld}", job);
     /* Grenzen: höchstens eine Stunde; aufgeben, wenn ShadowMountPlus 30 s nicht antwortet oder sich 10 Minuten
      * nichts tut (abgestürzt/hängt) - sonst wäre der Formatierer so lange für alles andere blockiert */
@@ -3281,7 +3282,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
     char last_state[24] = "";
     while (time(NULL) < end) {
         usleep(500 * 1000);
-        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED) && !cancel_sent) {   /* geht nur, solange ShadowMountPlus noch nichts entfernt hat */
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED) && !cancel_sent) {   /* geht nur, solange ShadowMountPlus noch nichts verändert hat */
             char *cr = plat_smp_post("/api/v1/games/storage/cancel", body, &http, &len);
             free(cr);
             cancel_sent = 1;
@@ -3294,7 +3295,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
         char state[24] = "";
         lib_json_str(r, len, "state", state, sizeof(state));
         if (lib_json_num(r, len, "progress_percent", &v) == 0 && v >= 0 && v <= 100)
-            on_progress(del_step, base + (int)(v * span / 100));
+            on_progress(step, base + (int)(v * span / 100));
         else v = -1;
         if (v != last_v || strcmp(state, last_state) != 0) {
             last_v = v;
@@ -3309,6 +3310,7 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
         if (!strcmp(state, "failed") || !strcmp(state, "cancelled") || http != 200) {
             resp_err[0] = 0;
             lib_json_str(r, len, "result_error", resp_err, sizeof(resp_err));
+            if (cn) snprintf(code, cn, "%s", resp_err);
             snprintf(err, n, "ShadowMountPlus: %s", resp_err[0] ? resp_err : state[0] ? state : T("Fehler"));
             free(r);
             return -1;
@@ -3317,6 +3319,107 @@ static int smp_delete(const del_item_t *it, int base, int span, char *err, size_
     }
     snprintf(err, n, "%s", T("ShadowMountPlus antwortet nicht mehr"));
     return -1;
+}
+
+static int smp_delete(const del_item_t *it, int base, int span, char *err, size_t n) {
+    char body[96];
+    size_t len;
+    int http;
+    long long job = 0;
+    snprintf(body, sizeof(body), "{\"title_id\":\"%s\",\"confirm\":true}", it->id);
+    char *r = plat_smp_post("/api/v1/games/delete", body, &http, &len);
+    if (!r) { snprintf(err, n, "%s", T("ShadowMountPlus nicht erreichbar")); return -1; }
+    if (http != 202 || lib_json_num(r, len, "job_id", &job) != 0) {
+        smp_error(r, len, http, err, n);
+        free(r);
+        return -1;
+    }
+    free(r);
+    return smp_follow(job, del_step, base, span, err, n, NULL, 0);
+}
+
+/* ------------------------------------------------------------ Laufwerk sicher auswerfen
+ * Über ShadowMountPlus (ab 1.7): Payloads verweigert der USB-Dienst der PS5 das Auswerfen. ShadowMountPlus prüft dabei
+ * auch, ob noch ein laufendes Spiel oder ein eingebundenes Abbild darauf liegt, und gibt eigene Einbindungen frei. */
+static void eject_error(const char *code, char *err, size_t n) {
+    if (strstr(code, "busy"))
+        snprintf(err, n, "%s", T("Das Laufwerk wird noch benutzt (laufendes Spiel oder eingebundenes Abbild) – Spiel "
+                                 "beenden und erneut versuchen."));
+    else if (strstr(code, "unconfirmed"))
+        snprintf(err, n, "%s", T("Auswerfen nicht bestätigt – Laufwerk bitte eingesteckt lassen und erneut versuchen."));
+    else if (strstr(code, "changed"))
+        snprintf(err, n, "%s", T("Das Laufwerk wurde inzwischen gewechselt – Liste neu laden."));
+    else if (strstr(code, "game_active"))
+        snprintf(err, n, "%s", T("Auf dem Laufwerk liegt das laufende Spiel – erst das Spiel beenden."));
+}
+
+static void *eject_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    char err[320] = "", title[160], code[64];
+    sbuf_t msg = {0}, res = {0};
+    size_t len, elen;
+    int http, ok = 1;
+    const int nm = j->dev.nmounts;
+    on_progress(N_("Laufwerk auswerfen"), 5);
+    char *r = plat_smp_post("/api/v1/storage", "{}", &http, &len);
+    if (!r) { snprintf(err, sizeof(err), "%s", T("ShadowMountPlus nicht erreichbar")); ok = 0; }
+    else if (http != 200) { smp_error(r, len, http, err, sizeof(err)); ok = 0; }
+    for (int m = 0; ok && m < nm; m++) {
+        char src[128] = "", mid[40] = "";
+        long long job = 0;
+        const char *mp = j->dev.mounts[m].path;
+        const int f = lib_smp_mount(r, len, mp, src, sizeof(src), mid, sizeof(mid));
+        if (f) {
+            snprintf(err, sizeof(err), f > 0 ? T("%s lässt sich laut ShadowMountPlus nicht auswerfen.")
+                                             : T("ShadowMountPlus kennt %s nicht – Liste neu laden."), mp);
+            ok = 0;
+            break;
+        }
+        sbuf_t body = {0};
+        sb_add(&body, "{\"path\":");
+        sb_str(&body, mp);
+        sb_add(&body, ",\"source\":");
+        sb_str(&body, src);
+        sb_add(&body, ",\"mount_id\":");
+        sb_str(&body, mid);
+        sb_add(&body, "}");
+        char *e = body.p ? plat_smp_post("/api/v1/storage/eject", body.p, &http, &elen) : NULL;
+        free(body.p);
+        if (!e) { snprintf(err, sizeof(err), "%s", T("ShadowMountPlus nicht erreichbar")); ok = 0; break; }
+        if (http != 202 || lib_json_num(e, elen, "job_id", &job) != 0) {
+            code[0] = 0;
+            lib_json_str(e, elen, "error", code, sizeof(code));
+            smp_error(e, elen, http, err, sizeof(err));
+            if (code[0]) eject_error(code, err, sizeof(err));
+            free(e);
+            ok = 0;
+            break;
+        }
+        free(e);
+        if (smp_follow(job, N_("Laufwerk auswerfen"), 10 + 85 * m / nm, 85 / nm, err, sizeof(err), code, sizeof(code))) {
+            if (code[0]) eject_error(code, err, sizeof(err));
+            ok = 0;
+        }
+    }
+    free(r);
+    if (ok && nm) sb_tr(&msg, "%s ist ausgeworfen und kann jetzt abgezogen werden.", dev_title(&j->dev, title, sizeof(title)));
+    else if (ok) sb_tr(&msg, "%s ist nicht eingebunden und kann abgezogen werden.", dev_title(&j->dev, title, sizeof(title)));
+    else sb_add(&msg, "%s", err);
+    job_done(j, ok, &msg, &res, 1);
+    return NULL;
+}
+
+static void api_eject(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX);
+    usbdev_t d;
+    if (n < 0) { respond_error(c, 400, "Ungültige Anfrage"); return; }
+    if (request_device(c, kv, n, &d)) return;
+    job_t *j = new_job(c, JOB_EJECT);
+    if (!j) return;
+    j->dev = d;
+    start_job(c, j, eject_worker);
 }
 
 /* dieselbe Datei? ShadowMountPlus schreibt einen Pfad womöglich anders (Schrägstrich am Ende, "//") - ein bloßer
@@ -5771,6 +5874,96 @@ static void api_game_compare(int c, const char *body) { api_game_verify_ex(c, bo
 /* ------------------------------------------------------------ Spiel-Einzelheiten
  * POST /api/game/info {"key":"1a2b3c4d"} - Name, Titel-ID, Version, Art, Pfad, Größe, die größten Einträge im Spielordner, zugehörige
  * Dateien und ob eine Prüfsummen-Datei daneben liegt (nur lesen). */
+/* ------------------------------------------------------------ Umgebung und Spielbilder */
+
+static void api_system(int c) {
+    char fw[16], kext[64], ver[32] = "";
+    size_t len, clen = 0;
+    int http;
+    const char *caps = NULL;
+    plat_fw_version(fw, sizeof(fw));
+    plat_kernel_ext(kext, sizeof(kext));
+    char *r = plat_smp_post("/api/v1/version", "{}", &http, &len);
+    sbuf_t b = {0};
+    sb_add(&b, "{\"fw\":");
+    sb_str(&b, fw);
+    sb_add(&b, ",\"kext\":");
+    sb_str(&b, kext);
+    sb_add(&b, ",\"smp\":");
+    if (!r) sb_add(&b, "null");
+    else {   /* antwortet, aber ohne /api/v1/version (frühe 1.7-Fassungen): Version leer, keine Fähigkeiten */
+        if (http == 200) lib_json_str(r, len, "shadowmount_version", ver, sizeof(ver));
+        if (http != 200 || lib_json_raw(r, len, "capabilities", &caps, &clen) != 0 || !clen || caps[0] != '[') caps = NULL;
+        sb_add(&b, "{\"version\":");
+        sb_str(&b, ver);
+        sb_add(&b, ",\"caps\":%.*s}", caps ? (int)clen : 2, caps ? caps : "[]");
+    }
+    sb_add(&b, "}");
+    free(r);
+    respond_json(c, 200, &b);
+    free(b.p);
+}
+
+#define ICON_MAX (2 * 1024 * 1024)
+
+static int icon_type(const char *p, size_t n, const char **ctype) {
+    if (n > 8 && !memcmp(p, "\x89PNG\r\n\x1a\n", 8)) *ctype = "image/png";
+    else if (n > 3 && !memcmp(p, "\xff\xd8\xff", 3)) *ctype = "image/jpeg";
+    else return 0;
+    return 1;
+}
+
+static void api_icon(int c, const char *q) {
+    char key[16];
+    if (!q || query_get(q, "key", key, sizeof(key))) { respond_error(c, 400, "key ist erforderlich"); return; }
+    char *kend;
+    const uint32_t want = (uint32_t)strtoul(key, &kend, 16);
+    if (!key[0] || *kend) { respond_error(c, 400, "key ist erforderlich"); return; }
+    char id[16] = "", path[256] = "";
+    pthread_mutex_lock(&lib_lock);
+    for (int i = 0; i < lib_n && !path[0]; i++)
+        for (int k = 0; k < lib_snap[i].r.ntitles; k++)
+            if (path_key(lib_snap[i].r.titles[k].path) == want) {
+                snprintf(id, sizeof(id), "%s", lib_snap[i].r.titles[k].id);
+                snprintf(path, sizeof(path), "%s", lib_snap[i].r.titles[k].path);
+                break;
+            }
+    pthread_mutex_unlock(&lib_lock);
+    if (!path[0]) { respond_error(c, 404, "Spiel nicht gefunden"); return; }
+    const char *ctype;
+    size_t len = 0;
+    int http = 0;
+    char *img = NULL;
+    if (id[0]) {   /* Vorschau (höchstens 128 Pixel) von ShadowMountPlus - kennt es das Spiel nicht, 404 */
+        char url[96];
+        snprintf(url, sizeof(url), "/api/v1/games/icon?title_id=%s&size=thumb", id);
+        img = plat_smp_get(url, &http, &len);
+        if (img && (http != 200 || !icon_type(img, len, &ctype))) { free(img); img = NULL; }
+    }
+    if (!img && (img = malloc(ICON_MAX))) {   /* sonst das Bild des Spiels selbst */
+        struct stat sb;
+        char p[400];
+        long n = -1;
+        if (lstat(path, &sb) == 0 && S_ISDIR(sb.st_mode)) {
+            snprintf(p, sizeof(p), "%.300s/sce_sys/icon0.png", path);
+            FILE *f = fopen(p, "rb");
+            if (f) { n = (long)fread(img, 1, ICON_MAX, f); fclose(f); }
+        } else {
+            int fd = open(path, O_RDONLY);
+            fsr_t *fr = fd >= 0 ? fsr_open(fd, 0) : NULL;
+            if (fr) n = fsr_read_file(fr, "sce_sys/icon0.png", img, ICON_MAX);
+            fsr_close(fr);
+            if (fd >= 0) close(fd);
+        }
+        len = n > 0 ? (size_t)n : 0;
+        if (!len || len >= ICON_MAX || !icon_type(img, len, &ctype)) { free(img); img = NULL; }
+    }
+    /* kein Bild: 204 statt 404 - die Seite zeigt dann ein leeres Feld, ohne dass der Browser einen Fehler meldet */
+    if (!img) { respond_ex(c, 204, "image/png", "", 0, "max-age=3600"); return; }
+    respond_ex(c, 200, ctype, img, len, "max-age=3600");
+    free(img);
+}
+
 static void api_game_info(int c, const char *body) {
     kv_t kv[KV_MAX];
     int n = json_parse(body, kv, KV_MAX);
@@ -6057,6 +6250,12 @@ static void handle(int c) {
         api_label(c, body);
     else if (strcmp(path, "/api/tile") == 0 && (is_get || is_post))
         api_tile(c, is_post);
+    else if (strcmp(path, "/api/system") == 0 && is_get)
+        api_system(c);
+    else if (strcmp(path, "/api/icon") == 0 && is_get)
+        api_icon(c, q);
+    else if (strcmp(path, "/api/eject") == 0 && is_post)
+        api_eject(c, body);
     else if (strcmp(path, "/api/history") == 0 && is_get)
         api_history(c, 0);
     else if (strcmp(path, "/api/history/clear") == 0 && is_post)

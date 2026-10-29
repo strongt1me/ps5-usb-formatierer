@@ -2860,5 +2860,47 @@
   "it": "Confronto non possibile",
   "es": "No se puede comparar",
   "fr": "Comparaison impossible"
+ },
+ "Sicher auswerfen braucht ShadowMountPlus ab Version 1.7.": {
+  "en": "Safe ejection needs ShadowMountPlus 1.7 or later.",
+  "it": "L'espulsione sicura richiede ShadowMountPlus 1.7 o successivo.",
+  "es": "La expulsión segura requiere ShadowMountPlus 1.7 o posterior.",
+  "fr": "L'éjection sécurisée nécessite ShadowMountPlus 1.7 ou plus récent."
+ },
+ "Auswerfen": {
+  "en": "Eject",
+  "it": "Espelli",
+  "es": "Expulsar",
+  "fr": "Éjecter"
+ },
+ "{dev} wird sicher ausgeworfen. Danach kann es abgezogen werden.": {
+  "en": "{dev} will be ejected safely. Afterwards it can be unplugged.",
+  "it": "{dev} verrà espulsa in sicurezza. Dopo si potrà scollegare.",
+  "es": "{dev} se expulsará de forma segura. Después se podrá desconectar.",
+  "fr": "{dev} va être éjecté en toute sécurité. Ensuite, il pourra être débranché."
+ },
+ "nicht gefunden": {
+  "en": "not found",
+  "it": "non trovato",
+  "es": "no encontrado",
+  "fr": "introuvable"
+ },
+ "Lesetempo je Datenträger": {
+  "en": "Read speed per drive",
+  "it": "Velocità di lettura per unità",
+  "es": "Velocidad de lectura por unidad",
+  "fr": "Vitesse de lecture par lecteur"
+ },
+ "{n} Messungen, zuletzt {last}, zwischen {min} und {max}": {
+  "en": "{n} measurements, latest {last}, between {min} and {max}",
+  "it": "{n} misurazioni, ultima {last}, tra {min} e {max}",
+  "es": "{n} mediciones, última {last}, entre {min} y {max}",
+  "fr": "{n} mesures, dernière {last}, entre {min} et {max}"
+ },
+ "deutlich langsamer als früher": {
+  "en": "much slower than before",
+  "it": "molto più lenta di prima",
+  "es": "mucho más lenta que antes",
+  "fr": "nettement plus lente qu'avant"
  }
 }

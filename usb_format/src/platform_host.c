@@ -269,14 +269,33 @@ char *plat_smp_post(const char *path, const char *body, int *http, size_t *len) 
     return port ? smp_http_post(atoi(port), path, body, http, len) : NULL;
 }
 
-/* Test: USBFMT_SMP_GAMES = Antwort von /api/v1/games, USBFMT_SMP_LOG = debug.log von ShadowMountPlus */
+char *plat_smp_get(const char *path, int *http, size_t *len) {
+    const char *port = getenv("USBFMT_SMP_PORT");
+    *http = 0;
+    *len = 0;
+    return port ? smp_http_get(atoi(port), path, http, len) : NULL;
+}
+
+/* Test: USBFMT_KEXT = erkannte Kernel-Erweiterungen */
+void plat_kernel_ext(char *out, size_t n) {
+    const char *e = getenv("USBFMT_KEXT");
+    snprintf(out, n, "%s", e ? e : "");
+}
+
+/* Test: USBFMT_SMP_GAMES = Antwort von /api/v1/games (sonst die Attrappe unter USBFMT_SMP_PORT), USBFMT_SMP_LOG =
+ * debug.log von ShadowMountPlus - wie auf der PS5 nur gelesen, wenn keine API antwortet */
 void plat_library_hints(lib_hint_t **h, int *n) {
     size_t len;
     char *buf;
+    int http = 0;
     *h = NULL;
     *n = 0;
+    if ((buf = slurp_file(getenv("USBFMT_SMP_GAMES"), &len)) || (buf = plat_smp_post("/api/v1/games", "{}", &http, &len))) {
+        lib_parse_smp_games(buf, len, h, n);
+        free(buf);
+        return;
+    }
     if ((buf = slurp_file(getenv("USBFMT_SMP_LOG"), &len))) { lib_parse_smp_log(buf, len, h, n); free(buf); }
-    if ((buf = slurp_file(getenv("USBFMT_SMP_GAMES"), &len))) { lib_parse_smp_games(buf, len, h, n); free(buf); }
 }
 
 const char *plat_saves_dir(void) { return getenv("USBFMT_SAVES"); }

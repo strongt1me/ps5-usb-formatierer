@@ -6,6 +6,7 @@ Am PC formatiert der Windows-Helfer (pc_common) - für die PS5 oder frei ("Am PC
 Sprachen: Deutsch, English, Italiano, Español, Français (i18n).
 """
 import hashlib
+import base64
 import http.client
 import json
 import os
@@ -33,7 +34,8 @@ from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choic
                        disk_name, enable_dpi_awareness, enable_history, fmt_size, footer, history_clear, history_dialog,
                        history_load, hwnd_of, image_file_name, image_info, irreversible_admin_text, keep_on_screen,
                        lang_selector, last_job, last_job_text, open_help, pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job,
-                       resource_path, same_drive, serial_args, setup_window, show_centered, show_scan, version_tuple)
+                       resource_path, same_drive, serial_args, setup_window, show_centered, show_scan, system_report,
+                       version_tuple)
 from standard_panel import StandardPanel
 from ui_widgets import THEME_NEXT, ChoiceChips, DriveList, Tooltip, header_tools
 
@@ -173,6 +175,25 @@ class Api:
 
     def speed(self, dev):
         return self._call("/api/speed", self._dev(dev))
+
+    def eject(self, dev):
+        return self._call("/api/eject", self._dev(dev))
+
+    def system(self, timeout=4):
+        """Firmware, Kernel-Erweiterungen und ShadowMountPlus (ab Formatierer 2.6.56; ältere: ApiError)"""
+        return self._call("/api/system", timeout=timeout)
+
+    def icon(self, key, timeout=6):
+        """Bild eines Spiels als PNG-Bytes, None wenn es keins gibt (204/404) oder der Formatierer es nicht kennt"""
+        req = urllib.request.Request(f"{self.base}/api/icon?key={urllib.parse.quote(str(key))}")
+        try:
+            with _OPENER.open(req, timeout=timeout) as r:
+                data = r.read(4 * 1024 * 1024)
+                return data if r.status == 200 and data[:8] == b"\x89PNG\r\n\x1a\n" else None
+        except urllib.error.HTTPError:
+            return None
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
+            raise ConnectionError(str(e) or type(e).__name__) from None
 
     def check(self, dev, repair=False):
         return self._call("/api/check", dict(self._dev(dev), repair=bool(repair)))
@@ -1203,6 +1224,11 @@ class App(tk.Tk):
         self.ps5_check_btn.grid(row=1, column=1, sticky="ew", padx=(px(6), 0))
         self.ps5_rename_btn = ttk.Button(tc, text=_("Umbenennen"), command=self._ps5_rename)
         self.ps5_rename_btn.grid(row=1, column=2, sticky="ew", padx=(px(6), 0))
+        self.ps5_eject_btn = ttk.Button(tc, text=_("Auswerfen"), command=self._ps5_eject)
+        self.ps5_eject_btn.grid(row=2, column=0, sticky="ew", pady=(px(6), 0))
+        Tooltip(self.ps5_eject_btn, lambda: self._why(self.ps5_eject_btn) or (
+            _("Laufwerk sicher auswerfen, danach kann es abgezogen werden") if self._smp_can("storage_eject")
+            else _("Sicher auswerfen braucht ShadowMountPlus ab Version 1.7.")))
         Tooltip(self.ps5_speed_btn, lambda: self._why(self.ps5_speed_btn) or _("Lesetempo des Laufwerks messen (die Daten bleiben erhalten)"))
         Tooltip(self.ps5_check_btn, lambda: self._why(self.ps5_check_btn) or _("exFAT prüfen und auf Wunsch reparieren"))
         Tooltip(self.ps5_rename_btn, lambda: self._why(self.ps5_rename_btn) or _("Bezeichnung des Laufwerks ändern"))
@@ -1695,6 +1721,20 @@ class App(tk.Tk):
         dev = self._selected_device()
         if dev and not self.busy:
             self._ps5_tool(_("Tempo messen"), lambda api, d: api.speed(d), _("Tempo gemessen."))
+
+    def _smp_can(self, cap):
+        """Kann ShadowMountPlus auf der PS5 das (laut /api/system)?"""
+        smp = (getattr(self, "ps5_system", None) or {}).get("smp")
+        return isinstance(smp, dict) and cap in (smp.get("caps") or [])
+
+    def _ps5_eject(self):
+        """Laufwerk über ShadowMountPlus sicher auswerfen (Payloads verweigert das System das selbst)"""
+        dev = self._selected_device()
+        if self.busy or not dev or not messagebox.askyesno(
+                _("Auswerfen"), _("{dev} wird sicher ausgeworfen. Danach kann es abgezogen werden.", dev=quote(dev_title(dev)))
+                + "\n\n" + _("Spiele und Apps, die von diesem Laufwerk laufen, vorher beenden."), parent=self):
+            return
+        self._ps5_tool(_("Auswerfen"), lambda api, d: api.eject(d), _("Ausgeworfen."))
 
     def _ps5_check(self, repair=False):
         dev = self._selected_device()
@@ -2255,6 +2295,7 @@ class App(tk.Tk):
         enable(self.ps5_speed_btn, idle and ps5dev)
         enable(self.ps5_check_btn, idle and ps5dev and (ps5dev or {}).get("format") == "exFAT")
         enable(self.ps5_rename_btn, idle and ps5dev and (ps5dev or {}).get("format") in ("exFAT", "FAT32"))
+        enable(self.ps5_eject_btn, idle and ps5dev and (ps5dev or {}).get("mounts") and self._smp_can("storage_eject"))
         enable(self.part_resume_btn, idle and not pc and self.api and self._part_selected())
         enable(self.part_discard_btn, idle and not pc and self.api and self._part_selected())
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
@@ -2548,9 +2589,10 @@ class App(tk.Tk):
             self.games_checked &= {g.get("key") for g in games}   # nicht mehr vorhandene Spiele sind nicht mehr angehakt (der Filter blendet nur aus)
             for i, (iid, name, meta) in enumerate(rows):
                 self.games_tree.insert("", "end", iid=iid, text="  " + name, values=(meta,),
-                                       image=self.check_imgs[iid in self.games_checked], tags=("odd",) if i % 2 else ())
+                                       image=self._game_image(iid), tags=("odd",) if i % 2 else ())
             self.games_tree.yview_moveto(top)
             self._games_shown = rows
+            self._load_icons([iid for iid, _n, _m in rows if iid])
         self._games_sum()
         self._show_hints(dev, games)
         if games and q:
@@ -2602,9 +2644,66 @@ class App(tk.Tk):
             self.games_checked.discard(iid)
         else:
             self.games_checked.add(iid)
-        self.games_tree.item(iid, image=self.check_imgs[iid in self.games_checked])
+        self.games_tree.item(iid, image=self._game_image(iid))
         self._games_sum()
         self._update()
+
+    def _game_image(self, key):
+        """Häkchen und Spielbild nebeneinander (die Liste hat je Zeile nur ein Bild). Hat ein Spiel keins, steht dort
+        ein leeres Feld, damit die Namen untereinander bleiben; solange kein Spiel ein Bild hat, nur das Häkchen."""
+        check, icons = self.check_imgs[key in self.games_checked], self.__dict__.setdefault("_icons", {})
+        if not icons:
+            return check
+        icon, cache = icons.get(key), self.__dict__.setdefault("_game_imgs", {})
+        k = (key if icon else "", str(check))
+        if k not in cache:
+            gap, size = ui_theme.px(8), ui_theme.px(26)
+            img = tk.PhotoImage(master=self, width=check.width() + gap + size, height=max(check.height(), size))
+            img.tk.call(img, "copy", check, "-to", 0, (img.height() - check.height()) // 2)
+            x, y = check.width() + gap, (img.height() - size) // 2
+            if icon:
+                img.tk.call(img, "copy", icon, "-to", x + (size - icon.width()) // 2, (img.height() - icon.height()) // 2)
+            else:
+                img.put(ui_theme.colors()["border"], to=(x, y, x + size, y + size))
+            cache[k] = img
+        return cache[k]
+
+    def _load_icons(self, keys):
+        """Spielbilder der gezeigten Spiele im Hintergrund holen (je Schlüssel einmal je Verbindung)"""
+        api, asked = self.api, self.__dict__.setdefault("_icons_asked", set())
+        if getattr(self, "_icons_api", None) is not api:   # andere PS5: neu holen
+            self._icons_api = api
+            asked.clear()
+            self._icons = {}
+            self._game_imgs = {}
+        todo = [k for k in keys if k not in asked]
+        if not api or not todo:
+            return
+        asked.update(todo)
+
+        def work():
+            for k in todo:
+                try:
+                    data = api.icon(k)
+                except ConnectionError:
+                    return
+                if data:
+                    self.q.put(("icon", api, k, data))
+
+        threading.Thread(target=self._guard(work, background=True), daemon=True).start()
+
+    def _icon_loaded(self, api, key, data):
+        if api is not self.api:
+            return
+        try:
+            img = tk.PhotoImage(master=self, data=base64.b64encode(data))
+        except tk.TclError:   # kein PNG, das Tk lesen kann
+            return
+        f = max(1, -(-max(img.width(), img.height()) // ui_theme.px(26)))   # auf höchstens 26 Pixel verkleinern (ganzzahlig)
+        first = not self._icons
+        self._icons[key] = img.subsample(f, f) if f > 1 else img
+        for iid in self.games_tree.get_children() if first else [key] if self.games_tree.exists(key) else []:
+            self.games_tree.item(iid, image=self._game_image(iid))   # beim ersten Bild alle: Platzhalter davor
 
     def _games_sum(self):
         """unter der Liste: wie viele Spiele angehakt sind und wie viel Platz das frei macht"""
@@ -4100,6 +4199,12 @@ class App(tk.Tk):
         elif kind == "ps5version":
             if msg[1] is self.api:
                 self._version_notice(msg[2])
+        elif kind == "ps5system":
+            if msg[1] is self.api:
+                self.ps5_system = msg[2]
+                self._update()
+        elif kind == "icon":
+            self._icon_loaded(*msg[1:])
         elif kind == "devices":
             self.busy = self.formatting
             hist = msg[1].get("history")
@@ -4290,13 +4395,19 @@ class App(tk.Tk):
             self.status_var.set(msg[1])
 
     def _check_version(self, api):
-        """Version des Formatierers auf der PS5 im Hintergrund holen (ab 2.5.3 in /api/info)"""
+        """Version des Formatierers auf der PS5 im Hintergrund holen (ab 2.5.3 in /api/info), dazu die Umgebung
+        (Firmware, ShadowMountPlus, Kernel-Erweiterungen) für "Auswerfen" und den Fehlerbericht"""
         def work():
             try:
                 info = api.info()
             except (ConnectionError, ApiError):
                 return
             self.q.put(("ps5version", api, str(info.get("version") or "") if isinstance(info, dict) else ""))
+            try:
+                system = api.system()
+            except (ConnectionError, ApiError):
+                system = {}
+            self.q.put(("ps5system", api, system if isinstance(system, dict) else {}))
 
         threading.Thread(target=self._guard(work, background=True), daemon=True).start()
 
@@ -4393,7 +4504,8 @@ class App(tk.Tk):
         """Angaben für den Fehlerbericht: Betriebsart, Gegenstelle, Laufwerke (nur Namen und Modelle)"""
         try:
             devs = ", ".join("%s (%s)" % (d.get("name", "?"), d.get("model") or d.get("format") or "?") for d in self.devices[:12])
-            return "Betriebsart: %s · Gegenstelle: %s · Laufwerke: %s" % (self.mode_var.get(), self.host_var.get(), devs or "-")
+            text = "Betriebsart: %s · Gegenstelle: %s · Laufwerke: %s" % (self.mode_var.get(), self.host_var.get(), devs or "-")
+            return text + "\n" + system_report(getattr(self, "ps5_system", None))
         except Exception:
             return ""
 

@@ -725,19 +725,46 @@ char *plat_smp_post(const char *path, const char *body, int *http, size_t *len) 
     return smp_http_post(SMP_API_PORT, path, body, http, len);
 }
 
+char *plat_smp_get(const char *path, int *http, size_t *len) {
+    return smp_http_get(SMP_API_PORT, path, http, len);
+}
+
+/* kstuff beantwortet seine Bereitschaftsabfrage (KEKCALL_CHECK: ein Systemaufruf mit gesetzten oberen Bits, ohne
+ * kstuff ein gewöhnlicher Fehler) - so prüft es auch ShadowMountPlus; etaHEN erkennt man an seinem Datenordner */
+static int kstuff_loaded(void) {
+    register uint64_t r10 __asm__("r10") = 0;
+    register uint64_t r8 __asm__("r8") = 0;
+    register uint64_t r9 __asm__("r9") = 0;
+    uint64_t result;
+    unsigned char is_error;
+    __asm__ __volatile__("syscall"
+                         : "=a"(result), "=@ccc"(is_error), "+r"(r10), "+r"(r8), "+r"(r9)
+                         : "a"(UINT64_C(0xffffffff00000027)), "D"(UINT64_C(0)), "S"(UINT64_C(0)), "d"(UINT64_C(0))
+                         : "rcx", "r11", "memory");
+    return !is_error && result == 0;
+}
+
+void plat_kernel_ext(char *out, size_t n) {
+    struct stat sb;
+    const int et = stat("/data/etaHEN", &sb) == 0 && S_ISDIR(sb.st_mode);
+    snprintf(out, n, "%s%s%s", kstuff_loaded() ? "kstuff" : "", kstuff_loaded() && et ? ", " : "", et ? "etaHEN" : "");
+}
+
 void plat_library_hints(lib_hint_t **h, int *n) {
     static const char *const logs[] = {"/data/shadowmount/debug.log.1", "/data/shadowmount/debug.log"};
     size_t len;
     char *buf;
     *h = NULL;
     *n = 0;
-    for (int i = 0; i < 2; i++)   /* älteres Protokoll zuerst: der jüngste Eintrag zu einem Pfad gewinnt */
-        if ((buf = slurp_file(logs[i], &len))) { lib_parse_smp_log(buf, len, h, n); free(buf); }
     int http;
     if ((buf = plat_smp_post("/api/v1/games", "{}", &http, &len))) {
         if (http == 200) lib_parse_smp_games(buf, len, h, n);
         free(buf);
+        if (http == 200) return;
     }
+    /* ShadowMountPlus vor 1.7 (ohne API): nur dessen debug.log kennt die Titel-IDs eingebundener Abbilder */
+    for (int i = 0; i < 2; i++)   /* älteres Protokoll zuerst: der jüngste Eintrag zu einem Pfad gewinnt */
+        if ((buf = slurp_file(logs[i], &len))) { lib_parse_smp_log(buf, len, h, n); free(buf); }
 }
 
 void plat_local_ip(char *buf, size_t len) {

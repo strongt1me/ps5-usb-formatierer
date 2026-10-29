@@ -71,6 +71,22 @@ check(all(pc_common.history_kind(k) != k for k in ("move", "game_verify", "game_
                                                     "game_compare", "pkg_delete", "save_backup", "save_restore")),
       "history_kind: alle Auftragsarten des Formatierers haben einen Namen")
 
+# Tempo-Verlauf je Datenträger (neueste Einträge zuerst, wie im Verlauf)
+hist2 = [{"kind": "speed", "mbps": 60, "ident": "A", "model": "Stick", "size": 8},
+         {"kind": "format", "mbps": 0, "ident": "A"},
+         {"kind": "speed", "mbps": 120, "ident": "A", "model": "Stick", "size": 8},
+         {"kind": "speed", "mbps": 118, "ident": "A", "model": "Stick", "size": 8},
+         {"kind": "speed", "mbps": 300, "ident": "B", "model": "SSD", "size": 9},
+         {"kind": "speed", "mbps": 30, "model": "Alt", "size": 4},
+         {"kind": "speed", "mbps": 31, "model": "Alt", "size": 4}]
+tr = {g["name"]: g for g in pc_common.speed_trends(hist2)}
+check(set(tr) == {"Stick", "Alt"} and tr["Stick"]["vals"] == [118, 120, 60] and tr["Stick"]["drop"] and not tr["Alt"]["drop"],
+      "speed_trends: je Datenträger älteste zuerst, nur ab zwei Messungen, Einbruch erkannt", tr)
+check(pc_common.system_report({"fw": "12.00", "kext": "kstuff", "smp": {"version": "1.7", "caps": ["storage_eject", "x"]}})
+      == "PS5: Firmware 12.00 · ShadowMountPlus 1.7 (2 capabilities, eject) · Kernel: kstuff"
+      and "not reachable" in pc_common.system_report({"fw": "9.00", "smp": None}) and pc_common.system_report(None) == "PS5: -",
+      "system_report: Firmware, ShadowMountPlus und Kernel-Erweiterungen für den Fehlerbericht")
+
 # Inhalt vergleichen: welche Paare der Server vergleichen kann
 F, EX, UFS, PFS = {"kind": "Ordner"}, {"kind": "exFAT"}, {"kind": "UFS2"}, {"kind": "PFS"}
 check(uf.comparable(F, F) and uf.comparable(PFS, EX) and uf.comparable(F, EX) and uf.comparable(UFS, F) and not uf.comparable(F, PFS)

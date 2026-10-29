@@ -30,11 +30,13 @@ static int complete(const char *buf, size_t n) {
     return 0;
 }
 
-char *smp_http_post(int port, const char *path, const char *body, int *http, size_t *len) {
-    char head[256];
-    size_t blen = strlen(body);
-    int hl = snprintf(head, sizeof(head), "POST %s HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n"
-                      "Content-Length: %zu\r\nConnection: close\r\n\r\n", path, blen);
+/* body NULL: GET (Spielbilder), sonst POST mit JSON */
+static char *smp_http(int port, const char *path, const char *body, int *http, size_t *len) {
+    char head[320];
+    size_t blen = body ? strlen(body) : 0;
+    int hl = body ? snprintf(head, sizeof(head), "POST %s HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n"
+                             "Content-Length: %zu\r\nConnection: close\r\n\r\n", path, blen)
+                  : snprintf(head, sizeof(head), "GET %s HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n", path);
     *len = 0;
     *http = 0;
     if (hl <= 0 || hl >= (int)sizeof(head) || port <= 0) return NULL;
@@ -81,4 +83,12 @@ char *smp_http_post(int port, const char *path, const char *body, int *http, siz
     *len = n - (size_t)(b - buf);
     memmove(buf, b, *len + 1);
     return buf;
+}
+
+char *smp_http_post(int port, const char *path, const char *body, int *http, size_t *len) {
+    return smp_http(port, path, body, http, len);
+}
+
+char *smp_http_get(int port, const char *path, int *http, size_t *len) {
+    return smp_http(port, path, NULL, http, len);
 }

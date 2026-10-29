@@ -3772,5 +3772,65 @@
   "it": "Seleziona esattamente un gioco doppio che esiste ancora esattamente una volta. Si possono confrontare due cartelle, due immagini oppure una cartella con un'immagine exFAT o UFS2.",
   "es": "Marca exactamente un juego duplicado que exista exactamente una vez más. Se pueden comparar dos carpetas, dos imágenes o una carpeta con una imagen exFAT o UFS2.",
   "fr": "Cochez exactement un jeu en double qui existe encore exactement une fois. Sont comparables deux dossiers, deux images ou un dossier avec une image exFAT ou UFS2."
+ },
+ "Auswerfen": {
+  "en": "Eject",
+  "it": "Espelli",
+  "es": "Expulsar",
+  "fr": "Éjecter"
+ },
+ "Ausgeworfen.": {
+  "en": "Ejected.",
+  "it": "Espulsa.",
+  "es": "Expulsada.",
+  "fr": "Éjecté."
+ },
+ "Laufwerk sicher auswerfen, danach kann es abgezogen werden": {
+  "en": "Eject the drive safely, then it can be unplugged",
+  "it": "Espelli l'unità in sicurezza, poi si potrà scollegare",
+  "es": "Expulsar la unidad de forma segura; después se podrá desconectar",
+  "fr": "Éjecter le lecteur en toute sécurité, il pourra ensuite être débranché"
+ },
+ "Sicher auswerfen braucht ShadowMountPlus ab Version 1.7.": {
+  "en": "Safe ejection needs ShadowMountPlus 1.7 or later.",
+  "it": "L'espulsione sicura richiede ShadowMountPlus 1.7 o successivo.",
+  "es": "La expulsión segura requiere ShadowMountPlus 1.7 o posterior.",
+  "fr": "L'éjection sécurisée nécessite ShadowMountPlus 1.7 ou plus récent."
+ },
+ "Spiele und Apps, die von diesem Laufwerk laufen, vorher beenden.": {
+  "en": "Quit games and apps running from this drive first.",
+  "it": "Chiudi prima giochi e app avviati da questa unità.",
+  "es": "Cierra antes los juegos y apps que se ejecuten desde esta unidad.",
+  "fr": "Quittez d'abord les jeux et applications lancés depuis ce lecteur."
+ },
+ "{dev} wird sicher ausgeworfen. Danach kann es abgezogen werden.": {
+  "en": "{dev} will be ejected safely. Afterwards it can be unplugged.",
+  "it": "{dev} verrà espulsa in sicurezza. Dopo si potrà scollegare.",
+  "es": "{dev} se expulsará de forma segura. Después se podrá desconectar.",
+  "fr": "{dev} va être éjecté en toute sécurité. Ensuite, il pourra être débranché."
+ },
+ "{n} MB/s": {
+  "en": "{n} MB/s",
+  "it": "{n} MB/s",
+  "es": "{n} MB/s",
+  "fr": "{n} Mo/s"
+ },
+ "{n} Messungen, zuletzt {last}, zwischen {min} und {max}": {
+  "en": "{n} measurements, latest {last}, between {min} and {max}",
+  "it": "{n} misurazioni, ultima {last}, tra {min} e {max}",
+  "es": "{n} mediciones, última {last}, entre {min} y {max}",
+  "fr": "{n} mesures, dernière {last}, entre {min} et {max}"
+ },
+ "Lesetempo je Datenträger": {
+  "en": "Read speed per drive",
+  "it": "Velocità di lettura per unità",
+  "es": "Velocidad de lectura por unidad",
+  "fr": "Vitesse de lecture par lecteur"
+ },
+ "deutlich langsamer als früher": {
+  "en": "much slower than before",
+  "it": "molto più lenta di prima",
+  "es": "mucho más lenta que antes",
+  "fr": "nettement plus lente qu'avant"
  }
 }

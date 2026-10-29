@@ -122,6 +122,14 @@ int lib_json_str(const char *json, size_t len, const char *key, char *out, size_
     return jget_str(json, json + len, key, out, n);
 }
 
+int lib_json_raw(const char *json, size_t len, const char *key, const char **val, size_t *vlen) {
+    const char *e = json + len, *p = jget(json, e, key), *q = p ? jskip(p, e) : NULL;
+    if (!q) return -1;
+    *val = p;
+    *vlen = (size_t)(q - p);
+    return 0;
+}
+
 int lib_json_num(const char *json, size_t len, const char *key, long long *v) {
     const char *e = json + len, *p = jget(json, e, key);
     if (!p || p >= e || !(*p == '-' || (*p >= '0' && *p <= '9'))) return -1;
@@ -247,6 +255,28 @@ int lib_parse_smp_games(const char *json, size_t len, lib_hint_t **h, int *n) {
     }
     if (p >= e || *p != ']') { *n = n0; return -1; }   /* Liste nicht abgeschlossen: unvollständig */
     return 0;
+}
+
+int lib_smp_mount(const char *json, size_t len, const char *mount_point, char *source, size_t sn, char *mount_id,
+                  size_t mn) {
+    const char *e = json + len, *p = jget(json, e, "mounts");
+    int found = 0;
+    if (!p || *p != '[') return -1;
+    for (p = jws(p + 1, e); p < e && *p == '{'; ) {
+        const char *next = jskip(p, e), *ej;
+        if (!next) return -1;
+        char mp[256] = "";
+        if (jget_str(p, next, "mount_point", mp, sizeof(mp)) == 0 && !strcmp(mp, mount_point)) {
+            found = 1;
+            ej = jget(p, next, "ejectable");
+            if (ej && next - ej >= 4 && !memcmp(ej, "true", 4) && jget_str(p, next, "mount_id", mount_id, mn) == 0 &&
+                mount_id[0] && jget_str(p, next, "source", source, sn) == 0)
+                return 0;
+        }
+        p = jws(next, e);
+        if (p < e && *p == ',') p = jws(p + 1, e);
+    }
+    return found ? 1 : -1;
 }
 
 int lib_smp_title(const char *json, size_t len, const char *id, char *version, size_t vn, char *path, size_t pn,

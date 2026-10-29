@@ -72,9 +72,16 @@ void lib_free(lib_root_t *r);
  * Löschen eines inzwischen dort abgelegten anderen Spiels. 1 = ja. Liest keine Hinweise (thread-sicher). */
 int  lib_same_game(const char *path, const char *id, uint64_t size);
 
+/* Einbindung mount_point in der Laufwerksliste von ShadowMountPlus (/api/v1/storage, "mounts"): source und die
+ * mount_id fürs Auswerfen. 0 = gefunden und auswerfbar, 1 = gefunden, aber nicht auswerfbar, -1 = nicht gefunden */
+int lib_smp_mount(const char *json, size_t len, const char *mount_point, char *source, size_t sn, char *mount_id,
+                  size_t mn);
+
 /* Feld der obersten Ebene eines JSON-Objekts (Antworten von ShadowMountPlus); 0 = gefunden */
 int lib_json_str(const char *json, size_t len, const char *key, char *out, size_t n);
 int lib_json_num(const char *json, size_t len, const char *key, long long *v);
+/* roher Wert (vollständig, auch Arrays und Objekte) zum Schlüssel; 0 = gefunden */
+int lib_json_raw(const char *json, size_t len, const char *key, const char **val, size_t *vlen);
 
 /* für Tests: Titel-ID und Name aus param.json bzw. param.sfo; 0 = Titel-ID gefunden */
 int lib_parse_param_json(const char *json, size_t len, char *id, size_t idn, char *name, size_t namen);

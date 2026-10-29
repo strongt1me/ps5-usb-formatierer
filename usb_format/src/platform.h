@@ -38,12 +38,18 @@ int  plat_open_ro(const usbdev_t *d, char *err, size_t errlen);   /* nur lesen, 
 /* Weitere Spiele-Orte für die Bibliothek (wie ShadowMountPlus), NULL am Ende; Paare "Pfad", "usb"|"dir" */
 const char *const *plat_library_roots(void);
 
-/* Titel-IDs zu Abbild-Pfaden von ShadowMountPlus (API und debug.log); *h mit free() freigeben */
+/* Titel-IDs zu Abbild-Pfaden von ShadowMountPlus: über die API, nur wenn die nicht antwortet (ShadowMountPlus vor
+ * 1.7) aus debug.log; *h mit free() freigeben */
 void plat_library_hints(lib_hint_t **h, int *n);
 
 /* POST an die API von ShadowMountPlus (PS5: 127.0.0.1:10101; Host-Tests: USBFMT_SMP_PORT). Antwortkörper (free())
  * und HTTP-Status, oder NULL, wenn ShadowMountPlus nicht erreichbar ist. */
 char *plat_smp_post(const char *path, const char *body, int *http, size_t *len);
+/* dasselbe als GET (Spielbilder; der Körper sind Bytes) */
+char *plat_smp_get(const char *path, int *http, size_t *len);
+
+/* geladene Kernel-Erweiterungen für den Diagnose-Bericht, z. B. "kstuff, etaHEN" (leer: keine erkannt) */
+void plat_kernel_ext(char *out, size_t n);
 
 /* Für Sticks, die die PS5 eingebunden hat: meldet den Stick per Software neu an (USB_DEVICEENUMERATE) - geht das
  * nicht, wartet sie, bis der Benutzer ihn abzieht und wieder einsteckt. Die PS5 gibt ihn dabei selbst frei; beim
