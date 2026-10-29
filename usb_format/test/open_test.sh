@@ -3,6 +3,7 @@
 set -u
 cd "$(dirname "$0")/.."
 W=$(mktemp -d)
+PID=
 trap 'kill $PID 2>/dev/null; rm -rf "$W"' EXIT
 bash test/host_build.sh "$W/srv" -DSERVER_PORT=18092 || exit 1
 "$W/srv" >"$W/log" 2>&1 &

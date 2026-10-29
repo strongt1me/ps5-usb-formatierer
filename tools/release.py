@@ -105,6 +105,11 @@ def preflight(version, publish):
             fail(f"{version} ist nicht neuer als {old}")
     if publish and not shutil.which("gh"):
         fail("gh (GitHub CLI) fehlt")
+    if publish:
+        run(["git", "fetch", "-q", "origin", "main"])
+        behind = run(["git", "rev-list", "--count", "HEAD..origin/main"], capture=True).strip()
+        if behind not in ("", "0"):
+            fail(f"origin/main ist {behind} Commit(s) weiter - erst holen (git pull), sonst scheitert der Push nach dem Tag")
     print(f"main, {old} -> {version}")
 
 
@@ -275,10 +280,23 @@ def wait_release(version, timeout=40 * 60, retries=2):
     else:
         print("Zeitüberschreitung beim Warten auf die CI")
         return False
-    have = {a["name"] for a in gh_json(["release", "view", tag, "--repo", REPO, "--json", "assets"])["assets"]}
-    missing = [n for n in EXPECTED_ASSETS if n not in have]
+    for _ in range(30):   # Prüfsummen-Lauf (workflow_run) nach den Bau-Läufen abwarten: SHA256SUMS muss alle Dateien nennen
+        have = {a["name"] for a in gh_json(["release", "view", tag, "--repo", REPO, "--json", "assets"])["assets"]}
+        missing = [n for n in EXPECTED_ASSETS if n not in have]
+        listed = set()
+        if "SHA256SUMS" in have:
+            r = subprocess.run(["gh", "release", "download", tag, "--repo", REPO, "-p", "SHA256SUMS", "-O", "-"],
+                               capture_output=True, text=True, encoding="utf-8")
+            listed = {ln.split("  ", 1)[1].strip() for ln in r.stdout.splitlines() if "  " in ln}
+        unlisted = [n for n in EXPECTED_ASSETS if n != "SHA256SUMS" and n not in listed]
+        if not missing and not unlisted:
+            break
+        time.sleep(20)
     if missing:
         print("Am Release fehlen: " + ", ".join(missing))
+        return False
+    if unlisted:
+        print("SHA256SUMS nennt nicht: " + ", ".join(unlisted))
         return False
     print(f"Alle {len(EXPECTED_ASSETS)} erwarteten Dateien hängen am Release.")
     return True
@@ -296,6 +314,8 @@ def main():
     ap.add_argument("--no-wait", action="store_true", help="nach --publish nicht auf die CI warten")
     ap.add_argument("--check", action="store_true", help="nur die CI-Läufe und Dateien eines veröffentlichten Releases prüfen")
     a = ap.parse_args()
+    a.notes = os.path.abspath(a.notes) if a.notes else a.notes
+    a.message = os.path.abspath(a.message) if a.message else a.message
     if a.check:
         sys.exit(0 if wait_release(a.version) else 1)
     if a.publish and not (a.notes and os.path.isfile(a.notes)):

@@ -488,6 +488,8 @@ static int unmount_all(const char *disk, char *err, size_t n) {
     return 0;
 }
 
+static int same_disk_now(const diskinfo_t *di, int fd, char *err, size_t n);
+
 int plat_session_open(session_t *s, const char *disk, uint64_t size, int mode, char *err, size_t n) {
     static plat_session_t ps;
     const int write = mode == SESSION_WRITE;
@@ -538,6 +540,10 @@ int plat_session_open(session_t *s, const char *disk, uint64_t size, int mode, c
     int ro = 0;
     if (ioctl(s->fd, BLKGETSIZE64, &real) || real != size) {
         snprintf(err, n, T("Datenträger %s hat sich geändert (andere Größe) – bitte die Liste aktualisieren."), disk);
+        plat_session_close(s, 0);
+        return -1;
+    }
+    if (same_disk_now(&s->info, s->fd, err, n)) {   /* während des Aushängens umgesteckt? */
         plat_session_close(s, 0);
         return -1;
     }
@@ -681,10 +687,29 @@ static void tool_failed(char *err, size_t n, const char *tool, int code, char *o
     else snprintf(err, n, T("%s ist fehlgeschlagen%s%s"), tool, *why ? ": " : "", why);
 }
 
+/* Liegt unter di->id noch derselbe Datenträger (Größe, Modell, Seriennummer; fd >= 0: auch das geöffnete Gerät)?
+ * 0 = ja. Unter Linux schützt sonst nur O_EXCL - ein umgesteckter, nicht eingehängter Stick gleichen Namens fiele nicht auf. */
+static int same_disk_now(const diskinfo_t *di, int fd, char *err, size_t n) {
+    diskinfo_t now;
+    int same = !disk_info(di->id, &now) && now.size == di->size && !strcmp(now.model, di->model) &&
+               (!di->serial_known || (now.serial_known && !strcmp(now.serial, di->serial)));
+    if (same && fd >= 0) {   /* das geöffnete Gerät ist das, was sysfs jetzt unter dem Namen führt */
+        char path[128], devno[32];
+        unsigned maj, min;
+        struct stat st;
+        snprintf(path, sizeof(path), "/sys/block/%s/dev", di->id);
+        same = !read_line(path, devno, sizeof(devno)) && sscanf(devno, "%u:%u", &maj, &min) == 2 && !fstat(fd, &st) &&
+               major(st.st_rdev) == maj && minor(st.st_rdev) == min;
+    }
+    if (!same) snprintf(err, n, T("Datenträger %s hat sich geändert – bitte die Liste aktualisieren."), di->id);
+    return same ? 0 : -1;
+}
+
 /* Gerät der Partition index; prüft, dass sie wirklich dort liegt (start/count in Sektoren) */
 static int part_device(const diskinfo_t *di, int index, uint64_t start, uint64_t count, char *dev, size_t dn,
                        char *err, size_t n) {
     char name[40], path[128];
+    if (same_disk_now(di, -1, err, n)) return -1;   /* mkntfs/mke2fs schreiben mit --force bzw. -F -F: vorher noch einmal prüfen */
     part_name(di->id, index, name, sizeof(name));
     const unsigned long long want_start = start * di->ss / 512, want_size = count * di->ss / 512;
     for (int t = 0; t < 50; t++) {   /* bis zu 10 s auf die Geräte warten */

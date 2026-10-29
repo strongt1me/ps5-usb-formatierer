@@ -192,10 +192,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
         run: |
+          set -o pipefail
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
             -q '.assets[] | select(.name != "SHA256SUMS") | "\(.digest // "" | ltrimstr("sha256:"))  \(.name)"' \
             | sort -k2 >SHA256SUMS
           cat SHA256SUMS
+          [ -s SHA256SUMS ] || { echo "keine Dateien gefunden - SHA256SUMS bleibt unverändert"; exit 1; }
           if grep -qv '^[0-9a-f]\{64\}  [^ /]' SHA256SUMS; then echo "Datei ohne Prüfsumme von GitHub"; exit 1; fi
           gh release upload "$TAG" SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
 
@@ -214,7 +216,11 @@ jobs:
 
       - name: Image-Sicherung mit dem zstd-Programm entpackbar?
         working-directory: usb_format
-        run: zstd --version && bash test/imgbak_test.sh | tee /tmp/ib.log | grep -E "zstd|bestanden|FEHLER" && ! grep -q FEHLER /tmp/ib.log
+        run: |
+          set -o pipefail
+          zstd --version
+          bash test/imgbak_test.sh | tee /tmp/ib.log | grep -E "zstd|bestanden|FEHLER"
+          ! grep -q FEHLER /tmp/ib.log
 
       - name: PC-Programm "An der PS5" - Image-Sicherung gegen den Testserver (Xvfb)
         working-directory: usb_format
@@ -239,7 +245,8 @@ jobs:
           for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
                    test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
                    test/features_test.sh test/delete_test.sh test/concurrency_test.sh test/parts_test.sh \
-                   test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh test/history_test.sh test/saves_test.sh test/move_test.sh \n                   test/places_test.sh test/pkginfo_test.sh test/precheck_test.sh test/gverify_test.sh test/partials_test.sh test/orphans_test.sh test/manifest_test.sh test/compare_test.sh; do
+                   test/imgbak_test.sh test/backup_test.sh test/sha_test.sh test/tile_test.sh test/history_test.sh test/saves_test.sh test/move_test.sh \
+                   test/places_test.sh test/pkginfo_test.sh test/precheck_test.sh test/gverify_test.sh test/partials_test.sh test/orphans_test.sh test/manifest_test.sh test/compare_test.sh; do
             echo "== $t"
             bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
           done

@@ -3754,5 +3754,17 @@
   "it": "File CSV",
   "es": "Archivo CSV",
   "fr": "Fichier CSV"
+ },
+ "Ziel-Laufwerk nicht gefunden – nicht gestartet": {
+  "en": "Target drive not found – not started",
+  "it": "Unità di destinazione non trovata – non avviato",
+  "es": "Unidad de destino no encontrada: no iniciado",
+  "fr": "Lecteur cible introuvable – non démarré"
+ },
+ "{name} gibt es schon. Ersetzen?": {
+  "en": "{name} already exists. Replace it?",
+  "it": "{name} esiste già. Sostituirlo?",
+  "es": "{name} ya existe. ¿Reemplazarlo?",
+  "fr": "{name} existe déjà. Le remplacer ?"
  }
 }

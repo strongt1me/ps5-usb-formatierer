@@ -3148,5 +3148,23 @@
   "it": "Si possono confrontare solo due copie dello stesso gioco.",
   "es": "Solo se pueden comparar dos copias del mismo juego.",
   "fr": "Seules deux copies du même jeu peuvent être comparées."
+ },
+ "Die Spieleliste wird noch gelesen – gleich noch einmal versuchen.": {
+  "en": "The game list is still being read – try again in a moment.",
+  "it": "L'elenco dei giochi è ancora in lettura – riprova tra poco.",
+  "es": "La lista de juegos todavía se está leyendo; vuelve a intentarlo enseguida.",
+  "fr": "La liste des jeux est encore en cours de lecture – réessayez dans un instant."
+ },
+ "Datenträger %s hat sich geändert – bitte die Liste aktualisieren.": {
+  "en": "Drive %s has changed – please refresh the list.",
+  "it": "L'unità %s è cambiata – aggiorna l'elenco.",
+  "es": "La unidad %s ha cambiado; actualiza la lista.",
+  "fr": "Le lecteur %s a changé – veuillez actualiser la liste."
+ },
+ "Zu viele Einträge auf einmal": {
+  "en": "Too many entries at once",
+  "it": "Troppe voci in una volta",
+  "es": "Demasiadas entradas a la vez",
+  "fr": "Trop d’entrées à la fois"
  }
 }

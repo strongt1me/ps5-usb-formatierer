@@ -2836,5 +2836,29 @@
   "it": "Salva come file (CSV)",
   "es": "Guardar como archivo (CSV)",
   "fr": "Enregistrer comme fichier (CSV)"
+ },
+ "Ziel-Laufwerk nicht gefunden – nicht gestartet": {
+  "en": "Target drive not found – not started",
+  "it": "Unità di destinazione non trovata – non avviato",
+  "es": "Unidad de destino no encontrada: no iniciado",
+  "fr": "Lecteur cible introuvable – non démarré"
+ },
+ "Inhalt gleich": {
+  "en": "Same content",
+  "it": "Contenuto uguale",
+  "es": "Mismo contenido",
+  "fr": "Contenu identique"
+ },
+ "Inhalt verschieden": {
+  "en": "Content differs",
+  "it": "Contenuto diverso",
+  "es": "Contenido distinto",
+  "fr": "Contenu différent"
+ },
+ "Vergleich nicht möglich": {
+  "en": "Comparison not possible",
+  "it": "Confronto non possibile",
+  "es": "No se puede comparar",
+  "fr": "Comparaison impossible"
  }
 }

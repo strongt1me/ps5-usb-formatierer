@@ -15,6 +15,7 @@ import ftplib
 import io
 import json
 import os
+import shutil
 import sqlite3
 import sys
 import tempfile
@@ -39,6 +40,8 @@ def api(host, path, body=None):
             return {"http": e.code, "error": json.load(e).get("error")}
         except ValueError:
             return {"http": e.code, "error": ""}
+    except (urllib.error.URLError, OSError) as e:   # Formatierer läuft nicht: Meldung statt Traceback
+        sys.exit(f"Formatierer auf {host}:{PORT_API} nicht erreichbar ({e})")
 
 
 def mdtm(ftp, path):
@@ -117,6 +120,7 @@ def main():
         print(f"  !! {label}: Datei {fmt(have)}, Datenbank {fmt(want)}" + (f"; Schlüsseldatei -> {fmt(key_m)}" if key_m else ""))
         todo.append((s, want, key_m))
     ftp.quit()
+    shutil.rmtree(tmp, ignore_errors=True)   # Kopien der savedata.db: nur zum Lesen gebraucht
     if not todo:
         print("Alle Zeiten passen zur Datenbank.")
         return

@@ -75,7 +75,8 @@ def local_networks():
     except (OSError, ValueError, AttributeError, subprocess.SubprocessError):
         pass
     result = []
-    for ip in local_ipv4s():
+    extra = [ip for ip in nets if not ip.startswith(("127.", "169.254.", "0."))]   # alle Netzwerkkarten, nicht nur die der Standard-Route
+    for ip in sorted(set(local_ipv4s()) | set(extra)):
         result.append(nets.get(ip) or ipaddress.IPv4Interface(f"{ip}/24"))
     return result
 

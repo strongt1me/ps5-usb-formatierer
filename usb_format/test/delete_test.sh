@@ -8,6 +8,7 @@ T=${FSTOOLS:-$HOME/fstools/root}
 export PATH="$T/usr/sbin:$T/usr/bin:$PATH"
 W=$(mktemp -d)
 PID= MPID=
+PID=
 trap 'kill $PID $MPID 2>/dev/null; rm -rf "$W"' EXIT
 bash test/host_build.sh "$W/srv" -DSERVER_PORT=18096 || exit 1
 

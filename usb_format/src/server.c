@@ -1152,7 +1152,9 @@ static void api_library(int c, int refresh);
 
 /* Flaches JSON-Objekt mit String-, Zahl- und Bool-Werten einlesen */
 #define KV_MAX 16
-typedef struct { char key[16]; char val[512]; } kv_t;   /* Werte bis 511 Bytes (Pfade der Image-Dateien) */
+/* Werte bis 3071 Bytes: Pfade der Image-Dateien und Schlüssellisten ("keys", bis 300 × 9 Zeichen). 16 davon sind ~49 KiB auf dem
+ * Stapel der Verbindungs-Threads (512 KiB) */
+typedef struct { char key[16]; char val[3072]; } kv_t;
 
 static const char *ws(const char *p) { while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++; return p; }
 
@@ -2498,14 +2500,18 @@ static void *backup_worker(void *arg) {
     }
     setvbuf(o.f, NULL, _IOFBF, 1 << 20);
     set_flags(1, 0);
+    pthread_mutex_lock(&lock);
     st.total_ptr = &info.used;   /* ib_backup setzt info.used nach der Belegungssuche */
+    pthread_mutex_unlock(&lock);
     ib_result_t r;
     part_ctx_t pc = {o.f, "", &info, &j->dev, 0};
     snprintf(pc.state, sizeof(pc.state), "%s", statef);
     ib_resume_t rs = {part_checkpoint, &pc, resuming ? &ps.c : NULL, j->thorough};
     int rc = ib_backup_ex(fd, j->dev.ss, j->dev.size, &info, file_out, &o, on_progress, &cancel_requested, &r, err, sizeof(err), &rs);
     free(frames);
-    st.total_ptr = NULL;
+    pthread_mutex_lock(&lock);
+    st.total_ptr = NULL;   /* info lebt nur in diesem Thread */
+    pthread_mutex_unlock(&lock);
     set_flags(0, 0);
     job_release(fd);   /* die PS5 bindet den Stick gleich wieder ein */
     if (fflush(o.f) != 0 && !o.err) o.err = errno ? errno : EIO;
@@ -2615,11 +2621,15 @@ static void api_download(int c, const char *query) {
         return;
     }
     set_flags(1, 0);
+    pthread_mutex_lock(&lock);
     st.total_ptr = &info.used;   /* ib_backup setzt info.used nach der Belegungssuche */
+    pthread_mutex_unlock(&lock);
     ib_result_t r;
     int rc = ib_backup(fd, j->dev.ss, j->dev.size, &info, chunk_out, &k, on_progress, &cancel_requested, &r, err,
                        sizeof(err));
-    st.total_ptr = NULL;
+    pthread_mutex_lock(&lock);
+    st.total_ptr = NULL;   /* info lebt nur in diesem Thread */
+    pthread_mutex_unlock(&lock);
     set_flags(0, 0);
     job_release(fd);
     if (!rc && !r.cancelled && send_ok(c, "0\r\n\r\n", 5)) k.broken = 1;
@@ -2793,7 +2803,7 @@ static void api_restore(int c, const char *body) {
     j->replug = replug;
     j->img = f;
     j->rd = rd;
-    snprintf(j->path, sizeof(j->path), "%s", path);
+    snprintf(j->path, sizeof(j->path), "%.511s", path);   /* nur für den Verlauf (Dateiname); geöffnet ist die Datei schon */
     start_job(c, j, restore_worker);
 }
 
@@ -4171,7 +4181,8 @@ static void api_saves_restore(int c, const char *pre, size_t have, unsigned long
         got += n;
         if (!bad && (got & 0xFFFFF) < n) on_progress("Spielstand wird hochgeladen …", (int)(got * 90 / clen));
     }
-    if (bad || close(fd) != 0) {
+    const int cerr = close(fd);   /* immer schließen - auch nach einem Abbruch (sonst bleibt die gelöschte Datei belegt) */
+    if (bad || cerr != 0) {
         fd = -1;
         sb_add(&msg, "%s", T("Das Hochladen wurde unterbrochen"));
         goto fail;
@@ -4650,9 +4661,10 @@ static void *move_worker(void *arg) {
         if (root_dev(it->root) != it->dev || (!j->pkgmode && !lib_same_game(it->path, it->id, it->size))) {
             sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("Spiel hat sich seit der Suche geändert – nichts kopiert. Liste neu laden."));
             fail_n++;
+            m.done += sizes[i] * (m.verify ? 2 : 1);
             continue;
         }
-        if (strncmp(it->path, mbase, rl) != 0 || it->path[rl] != '/') { sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("Pfad liegt nicht im durchsuchten Ordner")); fail_n++; continue; }
+        if (strncmp(it->path, mbase, rl) != 0 || it->path[rl] != '/') { sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("Pfad liegt nicht im durchsuchten Ordner")); fail_n++; m.done += sizes[i] * (m.verify ? 2 : 1); continue; }
         snprintf(rel, sizeof(rel), "%s", it->path + rl + 1);
         if (!j->pkgmode && !strcmp(troot, internal_base()) && strncmp(rel, "homebrew/", 9) != 0 && strncmp(rel, "etaHEN/games/", 13) != 0) {
             const char *nm = strrchr(it->path, '/');   /* intern liegen Spiele nur in homebrew/ bzw. etaHEN/games/ */
@@ -4664,6 +4676,7 @@ static void *move_worker(void *arg) {
         if (lstat(final_path, &sb) == 0) {
             sb_add(&errs, "%s%s: %s", errs.len ? "; " : "", it->name, T("liegt am Ziel schon vor – nichts überschrieben"));
             fail_n++;
+            m.done += sizes[i] * (m.verify ? 2 : 1);
             continue;
         }
         snprintf(m.step, sizeof(m.step), T("%s: %s (%d von %d)"), j->pkgmode ? T("Paket kopieren") : T("Spiel kopieren"), it->name, i + 1, j->nitems);
@@ -4826,7 +4839,8 @@ static void api_move(int c, const char *body) {
     if (pkgmode) keys0 = pkgs0;
     if (!keys0 || !keys0[0] || !dev) { respond_error(c, 400, "keys und device sind erforderlich"); return; }
     char keys[MAX_DELETE * 9 + 16];
-    snprintf(keys, sizeof(keys), "%s", keys0);
+    if (strlen(keys0) >= sizeof(keys)) { respond_error(c, 400, "Zu viele Einträge auf einmal"); return; }   /* nie gekürzt weiterverwenden */
+    memcpy(keys, keys0, strlen(keys0) + 1);
     int nkeys = 1;
     for (const char *p = keys; *p; p++) nkeys += *p == ',';
     if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Spiele auf einmal"); return; }
@@ -4992,7 +5006,8 @@ static void api_pkg_delete(int c, const char *body) {
     const char *keys0 = n > 0 ? kv_get(kv, n, "keys") : NULL;
     if (!keys0 || !keys0[0]) { respond_error(c, 400, "keys ist erforderlich"); return; }
     char keys[MAX_DELETE * 9 + 16];
-    snprintf(keys, sizeof(keys), "%s", keys0);
+    if (strlen(keys0) >= sizeof(keys)) { respond_error(c, 400, "Zu viele Einträge auf einmal"); return; }   /* nie gekürzt weiterverwenden */
+    memcpy(keys, keys0, strlen(keys0) + 1);
     int nkeys = 1;
     for (const char *p = keys; *p; p++) nkeys += *p == ',';
     if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Dateien auf einmal"); return; }
@@ -5362,10 +5377,11 @@ static void *gcmp_worker(void *arg) {
 fin:
     sb_add(&res, "{\"same\":%s,\"comparable\":%s,\"changed\":%d,\"only_first\":%d,\"only_second\":%d}",
            same && !rc ? "true" : "false", kinds ? "true" : "false", chg, miss, extra);
+    const int good = buf && rc == 0 && kinds;
     free(buf);
     free(j->items);
     j->items = NULL;
-    job_done(j, buf && rc == 0 && kinds, &msg, &res, 0);
+    job_done(j, good, &msg, &res, 0);
     return NULL;
 }
 
@@ -5375,7 +5391,8 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
     const char *keys0 = n > 0 ? kv_get(kv, n, "keys") : NULL;
     if (!keys0 || !keys0[0]) { respond_error(c, 400, "keys ist erforderlich"); return; }
     char keys[MAX_DELETE * 9 + 16];
-    snprintf(keys, sizeof(keys), "%s", keys0);
+    if (strlen(keys0) >= sizeof(keys)) { respond_error(c, 400, "Zu viele Einträge auf einmal"); return; }   /* nie gekürzt weiterverwenden */
+    memcpy(keys, keys0, strlen(keys0) + 1);
     int nkeys = 1;
     for (const char *p = keys; *p; p++) nkeys += *p == ',';
     if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Spiele auf einmal"); return; }
@@ -5502,6 +5519,10 @@ static int find_orphans(orph_t *out, int max) {
     int nids = 0, np;
     (void)max;
     pthread_mutex_lock(&lib_lock);
+    if (!lib_snap || lib_busy) {   /* Suche läuft noch: ohne vollständige Spieleliste wäre jeder Backport-Ordner "verwaist" */
+        pthread_mutex_unlock(&lib_lock);
+        return -1;
+    }
     np = partial_roots(pr, 24);
     for (int i = 0; i < lib_n; i++) nids += lib_snap[i].r.ntitles;
     ids = calloc((size_t)nids + 1, sizeof(*ids));
@@ -5518,17 +5539,18 @@ static int find_orphans(orph_t *out, int max) {
             DIR *d = opendir(dir);
             if (!d) continue;
             char (*names)[120] = calloc(600, sizeof(*names));
-            int nn = 0;
+            int nn = 0, cut = 0;
             struct dirent *e;
-            while (names && (e = readdir(d)) && nn < 600) {
+            while (names && (e = readdir(d))) {
                 if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..") || strlen(e->d_name) >= sizeof(*names)) continue;
+                if (nn == 600) { cut = 1; break; }
                 snprintf(names[nn++], sizeof(*names), "%s", e->d_name);
             }
             closedir(d);
             for (int a = 0; a < nn; a++) {
                 static const char *const sfx[] = {".manifest.sha256", ".sha256", ".dump-info.json"};
                 char full[520];
-                for (int x = 0; x < 3; x++) {
+                for (int x = 0; x < 3 && !cut; x++) {
                     if (!ends_with_str(names[a], sfx[x])) continue;
                     char base[120];
                     snprintf(base, sizeof(base), "%.*s", (int)(strlen(names[a]) - strlen(sfx[x])), names[a]);
@@ -5576,6 +5598,7 @@ static void api_orphans(int c) {
     orph_t *o = calloc(ORPH_MAX, sizeof(*o));
     if (!o) { respond_error(c, 500, "Kein Speicher"); return; }
     const int n = find_orphans(o, ORPH_MAX);
+    if (n < 0) { free(o); respond_error(c, 409, N_("Die Spieleliste wird noch gelesen – gleich noch einmal versuchen.")); return; }
     sbuf_t b = {0};
     sb_add(&b, "{\"items\":[");
     for (int i = 0; i < n; i++) {
@@ -5629,12 +5652,14 @@ static void api_orphans_delete(int c, const char *body) {
     const char *keys0 = n > 0 ? kv_get(kv, n, "keys") : NULL;
     if (!keys0 || !keys0[0]) { respond_error(c, 400, "keys ist erforderlich"); return; }
     char keys[ORPH_MAX * 9 + 16];
-    snprintf(keys, sizeof(keys), "%s", keys0);
+    if (strlen(keys0) >= sizeof(keys)) { respond_error(c, 400, "Zu viele Einträge auf einmal"); return; }   /* nie gekürzt weiterverwenden */
+    memcpy(keys, keys0, strlen(keys0) + 1);
     orph_t *o = calloc(ORPH_MAX, sizeof(*o));
     job_t *j = new_job(c, JOB_ORPHDEL);
     if (!o || !j) { free(o); if (j) job_free(j); if (!j) return; respond_error(c, 500, "Kein Speicher"); return; }
     j->items = calloc(MAX_DELETE, sizeof(*j->items));
     const int no = find_orphans(o, ORPH_MAX);   /* nur, was jetzt wirklich verwaist ist */
+    if (no < 0) { free(o); job_free(j); respond_error(c, 409, N_("Die Spieleliste wird noch gelesen – gleich noch einmal versuchen.")); return; }
     int badkey = 0;
     for (char *p = keys, *save = NULL, *tok; j->items && (tok = strtok_r(p, ",", &save)); p = NULL) {
         char *kend;

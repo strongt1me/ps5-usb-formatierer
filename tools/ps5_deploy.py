@@ -19,7 +19,8 @@ update in dieser Reihenfolge:
      --wait-loader Sekunden lang nachgefragt - ein abgewiesener Versuch erreicht ihn nicht, ein angenommener bekommt
      sofort die ELF); warten, bis /api/info die neue Version meldet. Läuft dieselbe Version schon, bleibt er (--resend-elf sendet trotzdem).
   4. Kachel: zeigt, ob sie neu angemeldet werden muss (dann "tile").
-Exit-Code: 0 = fertig, 1 = Fehler/Abbruch, 2 = fertig, aber das Kernel-Log zeigt Auffälliges.
+Exit-Code: 0 = fertig, 1 = Fehler/Abbruch, 2 = fertig, aber das Kernel-Log zeigt Auffälliges, 3 = fertig, aber der Selbsttest
+fand Fehler (bei beidem 2 - die Meldungen nennen beides).
 Nur Python-Standardbibliothek."""
 import argparse
 import ftplib

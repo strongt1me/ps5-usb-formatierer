@@ -595,11 +595,28 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
 
     def go(queued=False):
         target, ex = targets[max(0, box.current())], bool(extras and with_extras.get())
-        if check:   # frisch prüfen: passt es nicht, bleibt der Dialog offen
+        if check:   # frisch prüfen (im Hintergrund, das Fenster bleibt bedienbar): passt es nicht, bleibt der Dialog offen
+            box_r = {}
+
+            def work():
+                try:
+                    box_r["bad"] = check(target, ex)[0]
+                except Exception:   # Prüfung nicht möglich: der Auftrag prüft Platz und FAT32 selbst noch einmal
+                    box_r["bad"] = ""
+
+            t = threading.Thread(target=work, daemon=True)
+            t.start()
             try:
-                bad = check(target, ex)[0]
-            except Exception:
-                bad = ""
+                win.configure(cursor="watch")
+                while t.is_alive():
+                    win.update()
+                    time.sleep(0.03)
+                win.configure(cursor="")
+            except tk.TclError:   # Dialog inzwischen geschlossen
+                return
+            if not win.winfo_exists() or result["v"] is not None:
+                return
+            bad = box_r.get("bad", "")
             if bad:
                 messagebox.showerror(win.title(), bad, parent=win)
                 return
@@ -1569,6 +1586,7 @@ class App(tk.Tk):
 
         was_busy = self.busy
         self.busy = True
+        self._bg_calls = getattr(self, "_bg_calls", 0) + 1
         self._update()
         self.configure(cursor="watch")
         t = threading.Thread(target=run, daemon=True)
@@ -1578,9 +1596,13 @@ class App(tk.Tk):
                 self.update()
                 time.sleep(0.03)
         finally:
+            self._bg_calls -= 1
             self.configure(cursor="")
             self.busy = was_busy
             self._update()
+            if getattr(self, "_close_pending", False) and not self._bg_calls:
+                self._close_pending = False
+                self.after_idle(self._on_close)   # das Schließen kam während des Aufrufs: jetzt nachholen
         if "e" in box:
             raise box["e"]
         return box.get("v")
@@ -1783,6 +1805,7 @@ class App(tk.Tk):
                 api.discard_partial(part["path"])
             except (ConnectionError, ApiError) as e:
                 self.q.put(("bgerror", str(e)))
+                return
             self.q.put(("status", _("{name} verworfen.", name=name)))
             self._load_img_list()
 
@@ -3078,7 +3101,8 @@ class App(tk.Tk):
 
     def _queue_add(self, pkg, keys, target, verify, extras, names):
         label = ", ".join(n for n in names[:2] if n) + (" …" if len(names) > 2 else "") + " → " + target["name"]
-        self.copy_queue.append({"pkg": pkg, "keys": keys, "device": target["name"], "verify": verify, "extras": extras, "label": label})
+        self.copy_queue.append({"pkg": pkg, "keys": keys, "device": target["name"], "ident": target.get("ident") or "",
+                                "verify": verify, "extras": extras, "label": label})
         self.status_var.set(_("Zur Warteschlange hinzugefügt."))
         self._show_queue()
 
@@ -3121,6 +3145,14 @@ class App(tk.Tk):
         it = self.copy_queue.pop(0)
         self._show_queue()
         api = self.api
+        if it.get("ident"):   # Ziel über die Seriennummer suchen; fehlt der Stick, nicht auf einen anderen umleiten
+            td = next((d for d in self.devices if d.get("ident") == it["ident"]), None)
+            if not td:
+                self.queue_log.append(f"{it['label']}: " + _("Ziel-Laufwerk nicht gefunden – nicht gestartet"))
+                self.queue_ok = False
+                self.after(500, self._queue_next)
+                return
+            it = dict(it, device=td["name"])
         try:
             self._call_bg(lambda: (api.move_pkgs(it["keys"], it["device"], it["verify"]) if it["pkg"]
                                    else api.move_games(it["keys"], it["device"], it["verify"], it["extras"])))
@@ -4317,6 +4349,9 @@ class App(tk.Tk):
         show_scan(self.pbar, self.status_var, pct, text)
 
     def _on_close(self):
+        if getattr(self, "_bg_calls", 0):   # ein Aufruf an die PS5 läuft in _call_bg: danach schließen (sonst TclError im Aufrufer)
+            self._close_pending = True
+            return
         if self.elf_sending and not messagebox.askyesno(
                 self.title(), _("Die ELF wird gerade an die PS5 gesendet. Wird das Fenster jetzt geschlossen, läuft dort "
                                 "danach womöglich kein Formatierer. Fenster trotzdem schließen?"),

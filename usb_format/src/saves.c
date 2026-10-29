@@ -235,7 +235,8 @@ static int json_str_utf8(const char *p, char *out, size_t n) {
                 char h[5] = {p[1], p[2], p[3], p[4], 0};
                 cp = (unsigned)strtoul(h, NULL, 16);
                 p += 5;
-                if (cp >= 0xD800 && cp < 0xDC00 && p[0] == '\\' && p[1] == 'u') {   /* Ersatzpaar */
+                if (cp >= 0xD800 && cp < 0xDC00 && p[0] == '\\' && p[1] == 'u' && isxdigit((unsigned char)p[2]) &&
+                    isxdigit((unsigned char)p[3]) && isxdigit((unsigned char)p[4]) && isxdigit((unsigned char)p[5])) {   /* Ersatzpaar */
                     char l[5] = {p[2], p[3], p[4], p[5], 0};
                     unsigned lo = (unsigned)strtoul(l, NULL, 16);
                     if (lo >= 0xDC00 && lo < 0xE000) { cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00); p += 6; }

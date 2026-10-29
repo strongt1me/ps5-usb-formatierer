@@ -7,6 +7,7 @@ T=${FSTOOLS:-$HOME/fstools/root}
 export PATH="$T/usr/sbin:$T/usr/bin:$T/sbin:$PATH"
 export LD_LIBRARY_PATH="$T/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
 W=$(mktemp -d)
+PID=
 trap 'kill $PID 2>/dev/null; rm -rf "$W"' EXIT
 bash test/host_build.sh "$W/srv" -DSERVER_PORT=18093 || exit 1
 truncate -s 2G "$W/a.img"

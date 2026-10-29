@@ -130,7 +130,9 @@ try:
         ctx = browser.new_context(locale="de-DE", viewport={"width": 1100, "height": 1000})
         page = ctx.new_page()
         page.on("pageerror", lambda e: errors.append("pageerror: %s" % e))
-        page.on("console", lambda m: errors.append("console.error: %s (%s)" % (m.text, m.location.get("url", ""))) if m.type == "error" else None)
+        # abgewiesene Abfrage bei GitHub (Update-Hinweis, Abruf-Limit): meldet der Browser selbst, die Seite fängt sie ab - kein Fehler der Seite
+        page.on("console", lambda m: errors.append("console.error: %s (%s)" % (m.text, m.location.get("url", "")))
+                if m.type == "error" and "api.github.com" not in m.location.get("url", "") else None)
         page.on("response", lambda r: print("HTTP %d %s" % (r.status, r.url)) if r.status >= 400 else None)
         page.goto(URL)
         page.wait_for_selector("#devs .dev", timeout=15000)

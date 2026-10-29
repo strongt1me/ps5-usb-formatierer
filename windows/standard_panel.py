@@ -441,8 +441,9 @@ class StandardPanel(ttk.Frame):
 
     def _fill_devices(self, devices, announce=True):
         prev = self._selected()
+        items = [self._drive_item(d) for d in devices]
         self.devices = devices
-        self.dev_combo.set_items([self._drive_item(d) for d in devices])
+        self.dev_combo.set_items(items)
         # nie vorauswählen: am PC hängen oft Platten mit Daten (Sicherungen) - nur die eigene Auswahl bleibt
         idx = next((i for i, d in enumerate(devices) if prev and d["disk"] == prev.get("disk")
                     and d["size"] == prev.get("size") and d.get("model") == prev.get("model")
@@ -692,6 +693,9 @@ class StandardPanel(ttk.Frame):
             return
         if not path.lower().endswith(IMAGE_EXT):   # Linux-Dialoge hängen die Endung nicht immer an
             path += IMAGE_EXT
+            if os.path.exists(path) and not messagebox.askyesno(   # nach diesem Namen hat der Dialog nicht gefragt
+                    title, _("{name} gibt es schon. Ersetzen?", name=os.path.basename(path)), icon="warning", parent=self):
+                return
         if on_device(path, dev):
             messagebox.showerror(title, _("Die Sicherung kann nicht auf dem Datenträger liegen, der gesichert wird – "
                                           "bitte ein anderes Laufwerk wählen."), parent=self)
@@ -798,16 +802,19 @@ class StandardPanel(ttk.Frame):
             return
         hwnd = hwnd_of(self)
         dev = next((d for d in self.devices if len(args) > 1 and str(d["disk"]) == str(args[1])), None)
+        self.job_starting = True   # bis der Helfer läuft (UAC/pkexec-Abfrage): Schließen fragt nach
 
         def work():
             started = time.time()
             try:
                 job = (PlainJob if plain else PcJob)(args, hwnd)
             except (OSError, RuntimeError) as e:
+                self.job_starting = False
                 self.q.put(("error", str(e)))
                 return
             job.cancellable = cancellable
             self.job = job
+            self.job_starting = False
             self.q.put(("started",))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step)))
             record_job(args, ok, msg, None if plain else dev, started, getattr(job, "cancel_requested", False))
@@ -916,7 +923,7 @@ class StandardPanel(ttk.Frame):
 
     def may_close(self):
         """Vor dem Schließen des Fensters: laufenden Auftrag ansprechen. True = schließen."""
-        if self.job and not messagebox.askyesno(
+        if (self.job or getattr(self, "job_starting", False)) and not messagebox.askyesno(
                 self.title_text, _("Der Auftrag läuft am PC im Hintergrund weiter. Fenster trotzdem schließen?"),
                 icon="warning", parent=self):
             return False

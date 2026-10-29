@@ -10,7 +10,6 @@ import os
 import re
 import shutil
 import signal
-import struct
 import subprocess
 import sys
 import tempfile

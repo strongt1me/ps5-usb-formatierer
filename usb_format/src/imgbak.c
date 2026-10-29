@@ -748,7 +748,7 @@ ib_reader_t *ib_open(ib_in_fn in, void *ctx, ib_info_t *info, char *err, size_t 
         if (!nl) goto bad;
         *nl = 0;
         char v[64];
-        if (json_get(js, "size", v, sizeof(v)) || !(r->info.size = strtoull(v, NULL, 10))) goto bad;
+        if (json_get(js, "size", v, sizeof(v)) || !(r->info.size = strtoull(v, NULL, 10)) || r->info.size > (1ULL << 50)) goto bad;
         if (!json_get(js, "used", v, sizeof(v))) r->info.used = strtoull(v, NULL, 10);
         if (json_get(js, "block", v, sizeof(v)) || strtoul(v, NULL, 10) != IB_BLOCK) goto bad;
         if (!json_get(js, "ss", v, sizeof(v))) r->info.ss = (uint32_t)strtoul(v, NULL, 10);
@@ -891,6 +891,9 @@ static int run_image(ib_reader_t *rd, int fd, int vfd, uint32_t ss, uint64_t dev
             if (zr > 0) { r->cancelled = 1; rc = 0; goto out; }
             continue;
         }
+        /* eigene Images: jeder Datenrahmen beginnt an einer Blockgrenze (so schreibt sie ib_backup). Sonst passte die Belegungskarte
+         * nicht zu den Daten - write_page schriebe dann alte Pufferreste hinter das Rahmenende */
+        if (rd->info.has_map && pos % IB_BLOCK) { snprintf(err, errlen, "%s", T("Die Image-Datei ist beschädigt.")); goto out; }
         int done = 0;
         while (!done) {
             if (__atomic_load_n(cancel, __ATOMIC_RELAXED)) { r->cancelled = 1; rc = 0; goto out; }
