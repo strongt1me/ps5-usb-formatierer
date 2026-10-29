@@ -122,6 +122,8 @@ with open(denied, "w") as f:
     f.write("#!/bin/sh\nexit 126\n")   # Abfrage abgebrochen
 os.chmod(denied, 0o755)
 pc_linux.pkexec_path = lambda: denied
+real_geteuid = os.geteuid
+os.geteuid = lambda: 1000   # als normaler Benutzer (die CI baut im Container als root - da fragt das Programm nicht)
 job = pc_linux.LinuxJob(["list"], helper=HELPER, digest=digest)
 res = job.follow(lambda pct, step: None)
 check("Abfrage abgebrochen: verständliche Meldung", not res[0] and "Administratorrechte" in res[1], res)
@@ -131,6 +133,7 @@ try:
     check("ohne pkexec: Meldung", False)
 except PermissionError as e:
     check("ohne pkexec: Meldung mit Paketname", "polkit" in str(e), e)
+os.geteuid = real_geteuid
 
 # ------------------------------------------------------------------ Oberfläche
 import standard_panel as sp  # noqa: E402
