@@ -383,11 +383,13 @@ static void folder_game(lib_root_t *r, const char *path, const char *dname, char
     copy_str(t->version, sizeof(t->version), ver);
     if (copy_str(t->name, sizeof(t->name), name[0] ? name : dname)) t->name[0] = 0;
     copy_str(t->kind, sizeof(t->kind), "Ordner");
-    /* Pflichtdateien: fehlt eine, ist das meist der Rest eines abgebrochenen Kopierens oder Entpackens */
-    static const char *const need[] = {"eboot.bin", "sce_sys/icon0.png"};
+    /* Pflichtdateien: fehlt eine, ist das meist der Rest eines abgebrochenen Kopierens oder Entpackens. Statt eboot.bin
+     * genügt eboot2.bin (ShadowMountPlus ab 1.7 startet beide) */
+    static const char *const need[] = {"eboot.bin", "sce_sys/icon0.png"}, *const alt[] = {"eboot2.bin", NULL};
     for (size_t i = 0; i < sizeof(need) / sizeof(need[0]); i++) {
         struct stat sb;
         if (snprintf(p, sizeof(p), "%s/%s", path, need[i]) < (int)sizeof(p) && stat(p, &sb) == 0 && S_ISREG(sb.st_mode)) continue;
+        if (alt[i] && snprintf(p, sizeof(p), "%s/%s", path, alt[i]) < (int)sizeof(p) && stat(p, &sb) == 0 && S_ISREG(sb.st_mode)) continue;
         size_t l = strlen(t->missing);
         snprintf(t->missing + l, sizeof(t->missing) - l, "%s%s", l ? ", " : "", need[i]);
     }

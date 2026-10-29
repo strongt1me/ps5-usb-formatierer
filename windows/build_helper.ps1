@@ -21,13 +21,14 @@ function Sha256($path) {
 python (Join-Path $src "..\tools\i18n_gen.py")
 if ($LASTEXITCODE -ne 0) { throw "Übersetzungen unvollständig" }
 
-# mke2fs.exe (gebaut, danach wiederverwendet, solange sich Bauskript, config.h und gen\ nicht ändern - die Prüfsumme
-# dieser Dateien steht in mke2fs.exe.inputs) und ihre Prüfsumme für den Helfer
+# mke2fs.exe (gebaut, danach wiederverwendet, solange sich Bauskript, config.h, gen\ und die zig-Fassung nicht ändern -
+# die Prüfsummen und die Fassung stehen in mke2fs.exe.inputs) und ihre Prüfsumme für den Helfer
 $mke2fs = Join-Path $PSScriptRoot "mke2fs.exe"
 $mdir = Join-Path $PSScriptRoot "mke2fs"
 function MkInputs {
-    (Get-ChildItem -Recurse -File $mdir | Where-Object { $_.FullName -notlike (Join-Path $mdir "build\*") } |
-     ForEach-Object { $_.FullName.Substring($mdir.Length + 1) + " " + (Sha256 $_.FullName) } | Sort-Object) -join "`n"
+    $files = (Get-ChildItem -Recurse -File $mdir | Where-Object { $_.FullName -notlike (Join-Path $mdir "build\*") } |
+              ForEach-Object { $_.FullName.Substring($mdir.Length + 1) + " " + (Sha256 $_.FullName) } | Sort-Object) -join "`n"
+    $files + "`nzig " + (python -m ziglang version)
 }
 $inputs = MkInputs
 $stamp = "$mke2fs.inputs"

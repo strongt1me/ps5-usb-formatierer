@@ -1,7 +1,9 @@
 # Linux-Fassung: Helfer bauen und testen (auch als root an echten Loop-Geräten), Oberfläche unter Xvfb prüfen,
 # beide Programme mit PyInstaller bauen - als .tar.gz und als AppImage, für x86_64 und aarch64 (ARM64, z. B. Raspberry
-# Pi). Gebaut wird auf Ubuntu 22.04 (glibc 2.35), damit die Programme auch auf älteren Verteilungen laufen; der Helfer
-# ist statisch. Python wie bei der Entwicklung (3.14). Daneben die Host-Tests des PS5-Codes (eigener Job).
+# Pi). Gebaut wird in einem Ubuntu-22.04-Container (glibc 2.35), damit die Programme auch auf älteren Verteilungen
+# laufen - die 22.04-Läufer selbst schaltet GitHub ab (Aussetzer seit Sept. 2026, ganz weg ab April 2027). Der Helfer ist
+# statisch; seinen Test an echten Loop-Geräten (root) gibt es als eigenen Job direkt auf dem Läufer, weil im Container
+# keine Partitionsgeräte (/dev/loopNpM) entstehen. Python wie bei der Entwicklung (3.14). Daneben die Host-Tests des PS5-Codes (eigener Job).
 # Beim Veröffentlichen eines Releases: mit dessen usb_format.elf bauen und die Dateien an das Release hängen. Von Hand
 # (workflow_dispatch mit tag) dasselbe für ein schon veröffentlichtes Release, etwa nach einem behobenen Testfehler.
 name: Linux
@@ -30,23 +32,29 @@ jobs:
       matrix:
         include:
           - arch: x86_64
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
             appimagetool_sha256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
             runtime_sha256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
           - arch: aarch64
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-24.04-arm
             appimagetool_sha256: f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158
             runtime_sha256: 00cbdfcf917cc6c0ff6d3347d59e0ca1f7f45a6df1a428a0d6d8a78664d87444
     runs-on: ${{ matrix.runner }}
+    container: ubuntu:22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
-      - uses: actions/checkout@v7
-
+      # das nackte Abbild bringt fast nichts mit, was die Läufer sonst vorinstalliert haben (git vor dem Auschecken:
+      # sonst ist der Arbeitsordner kein Repository und die Prüfung der Übersetzungstabelle per git diff scheitert)
       - name: Werkzeuge
         run: |
-          sudo apt-get update
-          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs util-linux xvfb tk-dev \
-            libtk8.6 python3-tk zstd
+          apt-get update
+          apt-get install -y git curl ca-certificates file xz-utils gcc libc6-dev binutils gh xvfb xauth \
+            fonts-dejavu-core e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs util-linux tk-dev libtk8.6 python3-tk zstd
+          git config --global --add safe.directory '*'
           for t in mke2fs mkfs.fat mkntfs fsck.exfat fsck.hfsplus e2fsck sfdisk; do command -v $t || echo "fehlt: $t"; done
+
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7
         with:
@@ -79,10 +87,6 @@ jobs:
         working-directory: usb_format
         run: bash test/linux_helper_test.sh
 
-      - name: Helfer an Loop-Geräten (root)
-        working-directory: usb_format
-        run: sudo -E env "PATH=$PATH" bash test/linux_loop_test.sh
-
       - name: Update-Hinweis und Image prüfen (ohne Root)
         run: xvfb-run -a python windows/tests/pc_tools_test.py /tmp/usbfmt_linux_test
 
@@ -97,7 +101,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
-          command -v gh >/dev/null || sudo apt-get install -y gh   # falls das ARM-Abbild es nicht mitbringt
           gh release download $TAG --repo "$GITHUB_REPOSITORY" --pattern usb_format.elf --dir /tmp/elf
 
       - name: AppImage-Werkzeug (feste Fassung, Prüfsumme)
@@ -162,10 +165,30 @@ jobs:
           name: linux-bilder-${{ matrix.arch }}
           path: shots/
 
+  # Helfer an echten Loop-Geräten (root) - direkt auf dem Läufer, nicht im Container (siehe oben)
+  loop:
+    name: loop (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Werkzeuge
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs util-linux zstd
+
+      - name: Helfer an Loop-Geräten (root; der Test baut ihn selbst)
+        working-directory: usb_format
+        run: sudo -E env "PATH=$PATH" bash test/linux_loop_test.sh
+
   # nur beim Veröffentlichen: die geprüften Archive und AppImages beider Architekturen an das Release hängen
   release:
     if: github.event_name == 'release' || inputs.tag != ''
-    needs: linux
+    needs: [linux, loop]
     runs-on: ubuntu-latest
     permissions:
       contents: write

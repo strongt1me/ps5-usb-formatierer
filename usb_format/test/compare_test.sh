@@ -46,6 +46,7 @@ else
 fi
 game Kaputt PPSA00012
 rm "$H/Kaputt/eboot.bin" "$H/Kaputt/sce_sys/icon0.png"
+game Zwei PPSA00013 && mv "$H/Zwei/eboot.bin" "$H/Zwei/eboot2.bin"   # eboot2.bin genügt (ShadowMountPlus 1.7)
 env USBFMT_IMAGES="$W/a.img" USBFMT_MOUNTED="1" USBFMT_MOUNTROOT="$W/mnt" USBFMT_DATA="$W/cfg" "$W/srv" >"$W/log" 2>&1 &
 PID=$!
 for _ in $(seq 1 50); do curl -s "$U/api/info" >/dev/null 2>&1 && break; sleep 0.1; done
@@ -76,7 +77,8 @@ fi
 [ "$(cmp "$(key Eins),$(key Eins)")" = 400 ] && ok "zweimal dasselbe Spiel: abgelehnt (nicht mit sich selbst vergleichen)" || bad "dasselbe Spiel" "$(cat "$W/body")"
 [ "$(q "[t.get('missing','') for t in d['titles'] if t['path'].endswith('/Kaputt')][0]" <"$W/lib")" = "eboot.bin, sce_sys/icon0.png" ] \
     && [ "$(q "[t.get('missing','') for t in d['titles'] if t['path'].endswith('/Eins')][0]" <"$W/lib")" = "" ] \
-    && ok "fehlende Pflichtdateien gemeldet, vollständiges Spiel ohne Meldung" || bad "fehlende Dateien" "$(grep -o '"missing":"[^"]*"' "$W/lib")"
+    && [ "$(q "[t.get('missing','') for t in d['titles'] if t['path'].endswith('/Zwei')][0]" <"$W/lib")" = "" ] \
+    && ok "fehlende Pflichtdateien gemeldet, vollständiges Spiel (auch mit eboot2.bin) ohne Meldung" || bad "fehlende Dateien" "$(grep -o '"missing":"[^"]*"' "$W/lib")"
 
 # Abbilder: gleich (Kopie) und verschieden; dieselbe Titel-ID über eine eingebettete param.json gibt es im Test nicht, beide ohne ID
 head -c 3000000 /dev/urandom >"$H/x.ffpfs"; cp "$H/x.ffpfs" "$H/y.ffpfs"; head -c 3000000 /dev/urandom >"$H/z.ffpfs"

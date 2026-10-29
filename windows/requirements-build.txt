@@ -3,5 +3,5 @@
 # schlägt Dependabot als Pull Request vor (.github/dependabot.yml); die CI prüft sie, übernommen wird von Hand.
 pyinstaller==6.22.3
 pillow==13.0.0
-pyflakes==4.0.3
-ziglang==0.16.0
+pyflakes==4.1.0
+ziglang==0.16.0   # 0.17.0 (Okt. 2026) gibt es auf PyPI nur für macOS/Linux, nicht für Windows

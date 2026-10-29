@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Baut den Starter app/eboot.bin als nativen PS5-Titel (Ablauf wie ps5-native-app-boilerplate/tools/build.sh):
-#   1. starter.c mit clang-18 und den Zielflags des SDK übersetzen (Header aus PS5_PAYLOAD_SDK, SDK 0.44)
+#   1. starter.c mit clang-18 und den Zielflags des SDK übersetzen (Header aus PS5_PAYLOAD_SDK, SDK 0.45)
 #   2. mit prospero-lld des SDK zu einer Zwischen-PIE linken, Importe gegen die Stubs in target/lib
 #   3. ps5-native-tool: in einen PS5-Titel umwandeln (Prozess-Parameter, SDK-Kennungen) und signieren
 # Aufruf aus dem Projektordner (für .incbin "usb_format.elf"): PS5_PAYLOAD_SDK=... app/build_title.sh

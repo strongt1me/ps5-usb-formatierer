@@ -164,7 +164,6 @@ try:
     check("Pfad-Ausbruch im Schlüssel 404", req("GET", "/api/saves/download?key=..%2F..%2F..%2Fetc%2Fpasswd")[0] == 404
           and req("GET", "/api/saves/download?key=1c3f8a0e%2F..%2F..%2F..%2Fx")[0] == 404)
     # drei Downloads gleichzeitig: der Vorgang ist einfach gesperrt, keiner liefert Müll
-    import threading
     res = []
 
     def dl():
