@@ -78,6 +78,7 @@ try:
         pump(0.5)
     check(len(app.copy_queue) == 2, "zwei Kopieraufträge eingestellt", app.copy_queue)
     check(app.queue_row.winfo_ismapped(), "Warteschlangen-Zeile sichtbar")
+    check(len(uf.load_settings().get("copy_queue") or []) == 2, "Warteschlange in den Einstellungen gemerkt (übersteht einen Neustart)")
     app._queue_start()
     for _ in range(240):
         pump(0.5)
@@ -94,6 +95,7 @@ try:
     check(on_da1 == ["Alpha", "Beta"], "beide Spiele liegen am Ziel (da1)", on_da1)
     check(any("abgearbeitet" in t or "finished" in t.lower() for _n, t, _m in shown), "ein Bericht am Ende", shown[-2:])
     check(not app.queue_row.winfo_ismapped(), "Warteschlangen-Zeile danach ausgeblendet")
+    check(not uf.load_settings().get("copy_queue"), "gemerkte Warteschlange danach leer")
 finally:
     try:
         for _id in app.tk.call("after", "info"):

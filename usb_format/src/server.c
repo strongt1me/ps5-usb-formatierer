@@ -293,9 +293,9 @@ static void set_flags(int cancellable, int replug) {
 }
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
-       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL, JOB_ORPHDEL };
+       JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL, JOB_ORPHDEL, JOB_GCMP };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete"};
+                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete", "game_compare"};
 
 #define LIB_EXTRAS_MAX 8
 
@@ -335,6 +335,8 @@ typedef struct {
     int      thorough;           /* ... mit gründlicher Prüfung der Quelle */
     int      pkgmode;            /* Verschieben/Löschen betrifft .pkg-Dateien statt Spiele */
     int      sumgen;             /* Spiele prüfen: Prüfsummen-Dateien anlegen statt vergleichen */
+    int      cmp;                /* Spiele prüfen: zwei Kopien desselben Spiels miteinander vergleichen */
+    double   mbps;               /* Tempo messen/Formatieren mit Prüfung: Lesetempo für den Verlauf (0 = keins) */
     char     saves_dest[300];
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
@@ -570,6 +572,7 @@ static void history_job(const job_t *j, int ok, int cancelled, const char *msg) 
         sb_str(&e, base ? base + 1 : j->path);
     }
     if (j->kind == JOB_DELETE) sb_add(&e, ",\"count\":%d", j->nitems);
+    if (j->mbps > 0) sb_add(&e, ",\"mbps\":%.0f", j->mbps);   /* Lesetempo: zeigen die Oberflächen bei der Ziel-Auswahl */
     sb_add(&e, ",\"msg\":");
     sb_str(&e, message);
     sb_add(&e, "}");
@@ -711,6 +714,7 @@ static void *format_worker(void *arg) {
         sb_tr(&msg, " %s: echt%s, lesen %.0f MB/s, schreiben %.0f MB/s", tested == 2 ? T("Jede Stelle geprüft")
               : T("Prüfung"), tested == 2 ? T(", keine Fehler") : "", t.read_mbps, t.write_mbps);
         sb_add(&msg, " – %s.", rating_text(t.read_mbps));
+        j->mbps = t.read_mbps;
     }
     if (test_cancelled) sb_tr(&msg, " Die Prüfung wurde abgebrochen – formatiert wurde trotzdem.");
     sb_add(&msg, " %s", native ? T("Die PS5 bindet ihn gleich selbst ein.") : T("Die PS5 kann dieses Format nicht nutzen."));
@@ -770,6 +774,7 @@ static void *speed_worker(void *arg) {
     if (t.cancelled) { sb_tr(&msg, "Abgebrochen."); job_done(j, 0, &msg, &res, 0); return NULL; }
     sb_tr(&msg, "Lesetempo von %s: %.0f MB/s – %s.", dev_title(&j->dev, title, sizeof(title)), t.read_mbps,
           rating_text(t.read_mbps));
+    j->mbps = t.read_mbps;
     sb_add(&res, "{\"x\":0");
     speed_json(&res, &t);
     sb_add(&res, "}");
@@ -1575,6 +1580,7 @@ static void api_library(int c, int refresh) {
             sb_str(&b, t->ext);
             sb_add(&b, ",\"version\":");
             sb_str(&b, t->version);
+            if (t->missing[0]) { sb_add(&b, ",\"missing\":"); sb_str(&b, t->missing); }
             sb_add(&b, ",\"key\":\"%08x\",\"size\":%llu,\"root\":", path_key(t->path), (unsigned long long)t->size);
             sb_str(&b, lib_snap[i].r.root);
             sb_add(&b, ",\"device\":");
@@ -5299,6 +5305,70 @@ fin:
     return NULL;
 }
 
+/* Zwei Kopien desselben Spiels vergleichen (POST /api/game/compare {"keys":"a,b"}): Abbilder über ihre SHA-256, Ordner über eine
+ * Prüfsummenliste der ersten Kopie (vorübergehend im Datenordner), gegen die die zweite geprüft wird. Nichts wird verändert. */
+static void *gcmp_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0};
+    const del_item_t *a = &j->items[0], *b = &j->items[1];
+    uint64_t total = a->size + b->size, done = 0;
+    int rc = 0, same = 0, chg = 0, miss = 0, extra = 0, kinds = a->isdir == b->isdir;
+    char *buf = malloc(MV_BUF), tmp[400] = "", step[360];
+    time_t last = 0;
+    if (!buf) { sb_tr(&msg, "Kein Speicher"); goto fin; }
+    set_flags(1, 0);
+    pthread_mutex_lock(&lock);
+    st.total_ptr = &total;
+    pthread_mutex_unlock(&lock);
+    snprintf(step, sizeof(step), T("Inhalt vergleichen: %s"), a->name);
+    on_progress(step, 1);
+    if (!kinds) rc = 0;
+    else if (!a->isdir) {   /* Abbilder: andere Größe heißt anderer Inhalt, sonst beide lesen */
+        uint8_t ha[32], hb[32];
+        if (a->size != b->size) same = 0;
+        else if ((rc = gv_hash(a, buf, ha, &done, total, &last, step)) == 0 && (rc = gv_hash(b, buf, hb, &done, total, &last, step)) == 0)
+            same = !memcmp(ha, hb, 32);
+    } else {
+        mkdir(plat_data_dir(), 0755);
+        snprintf(tmp, sizeof(tmp), "%s/compare.manifest.tmp", plat_data_dir());
+        FILE *f = root_dev(a->root) == a->dev ? fopen(tmp, "w") : NULL;
+        if (!f) rc = -1;
+        else {
+            mfw_t w = {f, buf, &done, total, &last, step, strlen(a->path)};
+            rc = mf_build_walk(&w, a->path, 0);
+            if (fclose(f) != 0 && !rc) rc = -1;
+        }
+        if (!rc && root_dev(b->root) != b->dev) rc = -1;
+        if (!rc) {
+            del_item_t bb = *b;
+            snprintf(bb.ex[0], sizeof(bb.ex[0]), "%.299s", tmp);
+            rc = manifest_check(&bb, buf, &done, total, &last, step, &chg, &miss, &extra);
+            same = rc == 0;
+            if (rc == 1) rc = 0;
+        }
+        unlink(tmp);
+    }
+    pthread_mutex_lock(&lock);
+    st.total_ptr = NULL;
+    pthread_mutex_unlock(&lock);
+    set_flags(0, 0);
+    if (rc == -2) sb_tr(&msg, "Abgebrochen.");
+    else if (rc) sb_tr(&msg, "Vergleich nicht möglich – eine der Kopien ist nicht lesbar oder das Laufwerk wurde gewechselt.");
+    else if (!kinds) sb_tr(&msg, "Nicht vergleichbar: eine Kopie ist ein Abbild, die andere ein Ordner.");
+    else if (same) sb_tr(&msg, "Inhalt gleich: beide Kopien von %s sind Byte für Byte identisch (%s und %s). Eine davon kann weg.", a->name, a->device, b->device);
+    else if (a->isdir) sb_tr(&msg, "Inhalt verschieden: %d Dateien geändert, %d nur in der ersten Kopie, %d nur in der zweiten.", chg, miss, extra);
+    else sb_tr(&msg, "Inhalt verschieden: die beiden Abbilder von %s sind nicht gleich.", a->name);
+fin:
+    sb_add(&res, "{\"same\":%s,\"comparable\":%s,\"changed\":%d,\"only_first\":%d,\"only_second\":%d}",
+           same && !rc ? "true" : "false", kinds ? "true" : "false", chg, miss, extra);
+    free(buf);
+    free(j->items);
+    j->items = NULL;
+    job_done(j, buf && rc == 0 && kinds, &msg, &res, 0);
+    return NULL;
+}
+
 static void api_game_verify_ex(int c, const char *body, int sumgen) {
     kv_t kv[KV_MAX];
     int n = json_parse(body, kv, KV_MAX);
@@ -5309,9 +5379,12 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
     int nkeys = 1;
     for (const char *p = keys; *p; p++) nkeys += *p == ',';
     if (nkeys > MAX_DELETE) { respond_error(c, 400, "Höchstens 256 Spiele auf einmal"); return; }
-    job_t *j = new_job(c, sumgen ? JOB_GSUM : JOB_GVERIFY);
+    const int cmp = sumgen == 2;
+    if (cmp && nkeys != 2) { respond_error(c, 400, "Genau zwei Spiele zum Vergleichen"); return; }
+    job_t *j = new_job(c, cmp ? JOB_GCMP : sumgen ? JOB_GSUM : JOB_GVERIFY);
     if (!j) return;
-    j->sumgen = sumgen;
+    j->sumgen = sumgen == 1;
+    j->cmp = cmp;
     j->items = calloc(MAX_DELETE, sizeof(*j->items));
     if (!j->items) { job_free(j); respond_error(c, 500, "Kein Speicher"); return; }
     int ambiguous = 0, badkey = 0;
@@ -5367,8 +5440,13 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
         respond_error(c, ambiguous ? 409 : 404, ambiguous ? N_("Auswahl nicht eindeutig – Liste neu laden.") : N_("Spiele nicht gefunden – Liste neu laden"));
         return;
     }
+    if (cmp && (j->nitems != 2 || strcmp(j->items[0].id, j->items[1].id) != 0)) {
+        job_free(j);
+        respond_error(c, 400, N_("Nur zwei Kopien desselben Spiels lassen sich vergleichen."));
+        return;
+    }
     snprintf(j->dev.name, sizeof(j->dev.name), "%s", j->items[0].device);
-    start_job(c, j, gverify_worker);
+    start_job(c, j, cmp ? gcmp_worker : gverify_worker);
 }
 
 
@@ -5583,6 +5661,7 @@ static void api_orphans_delete(int c, const char *body) {
 
 static void api_game_verify(int c, const char *body) { api_game_verify_ex(c, body, 0); }
 static void api_game_checksum(int c, const char *body) { api_game_verify_ex(c, body, 1); }
+static void api_game_compare(int c, const char *body) { api_game_verify_ex(c, body, 2); }
 
 /* ------------------------------------------------------------ Spiel-Einzelheiten
  * POST /api/game/info {"key":"1a2b3c4d"} - Name, Titel-ID, Version, Art, Pfad, Größe, die größten Einträge im Spielordner, zugehörige
@@ -5841,6 +5920,8 @@ static void handle(int c) {
         api_orphans_delete(c, body);
     else if (strcmp(path, "/api/game/checksum") == 0 && is_post)
         api_game_checksum(c, body);
+    else if (strcmp(path, "/api/game/compare") == 0 && is_post)
+        api_game_compare(c, body);
     else if (strcmp(path, "/api/game/info") == 0 && is_post)
         api_game_info(c, body);
     else if (strcmp(path, "/api/partials/discard") == 0 && is_post)

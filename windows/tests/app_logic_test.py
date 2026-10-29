@@ -48,6 +48,29 @@ check("riesig.bin" in bad and bad.count(".") >= 2 and info == "", "move_check_te
 bad, info = uf.move_check_text({"fits": True, "need": 1 << 20, "reserve": 0, "free": 10 << 20, "fat32": False, "big": []})
 check(bad == "" and "9" in info, "move_check_text: passt – Hinweis nennt den freien Platz danach", (bad, info))
 
+# Ziel-Auswahl: Lesetempo aus dem Verlauf, zu wenig Platz, FAT32
+hist = [{"kind": "format", "mbps": 0, "model": "A", "size": 5}, {"kind": "speed", "mbps": 25, "model": "A", "size": 5},
+        {"kind": "speed", "mbps": 300, "ident": "S1", "model": "B", "size": 9}]
+small = {"name": "da1", "model": "A", "size": 5, "format": "FAT32", "mounts": [{"free": 100}]}
+fast = {"name": "da2", "model": "B", "size": 9, "ident": "S1", "format": "exFAT", "mounts": [{"free": 10 << 30}]}
+check(uf.read_mbps(small, hist) == 25 and uf.read_mbps(fast, hist) == 300 and uf.read_mbps({"name": "x"}, hist) == 0,
+      "read_mbps: über Seriennummer bzw. Modell und Größe, Einträge ohne Tempo übersprungen")
+t1, fits1 = uf.target_label(small, need=1000, history=hist)
+t2, fits2 = uf.target_label(fast, need=1000, history=hist)
+check(not fits1 and "25 MB/s" in t1 and "langsam" in t1 and "zu wenig Platz" in t1 and "4 GB" in t1, "target_label: zu klein, langsam, FAT32", t1)
+check(fits2 and "300 MB/s" in t2 and "langsam" not in t2 and "4 GB" not in t2, "target_label: passt, schnell", t2)
+
+# Verlauf als CSV und Namen aller Auftragsarten
+import pc_common  # noqa: E402
+csv_text = pc_common.history_csv([("PC", [{"t": 1, "kind": "format", "ok": True, "model": "M;1", "msg": 'a "b"'}]),
+                                  ("PS5", [{"t": 2, "kind": "speed", "ok": False, "mbps": 88, "device": "da0"}])])
+lines = csv_text.lstrip("\ufeff").split("\r\n")
+check(csv_text.startswith("\ufefftime;where;kind") and lines[1].split(";")[1:4] == ["PS5", "speed", "failed"] and '"M;1"' in lines[2]
+      and '"a ""b"""' in lines[2] and ";88;" in lines[1], "history_csv: neueste zuerst, Semikolon, Anführungszeichen", csv_text[:200])
+check(all(pc_common.history_kind(k) != k for k in ("move", "game_verify", "game_checksum", "partial_discard", "orphan_delete",
+                                                    "game_compare", "pkg_delete", "save_backup", "save_restore")),
+      "history_kind: alle Auftragsarten des Formatierers haben einen Namen")
+
 hints = uf.pkg_hints({"fwhigh": True, "minfw": "9.00", "vs": "older", "inst": "01.005.000", "cat": "update"}, "8.20")
 check([k for k, _t in hints] == ["bad", "warn"], "pkg_hints: Firmware zu alt und ältere Version", hints)
 check(uf.pkg_hints({"cat": "dlc", "fwhigh": False}, "8.20") == [], "pkg_hints: Zusatzinhalt ohne Hinweise")

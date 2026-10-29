@@ -2794,5 +2794,47 @@
   "it": "Seleziona la copia in più …",
   "es": "Seleccionar la copia sobrante …",
   "fr": "Sélectionner la copie en trop …"
+ },
+ "Inhalt vergleichen": {
+  "en": "Compare content",
+  "it": "Confronta contenuto",
+  "es": "Comparar contenido",
+  "fr": "Comparer le contenu"
+ },
+ "unvollständig": {
+  "en": "incomplete",
+  "it": "incompleto",
+  "es": "incompleto",
+  "fr": "incomplet"
+ },
+ "Unvollständig": {
+  "en": "Incomplete",
+  "it": "Incompleto",
+  "es": "Incompleto",
+  "fr": "Incomplet"
+ },
+ "Fehlt: {files}": {
+  "en": "Missing: {files}",
+  "it": "Mancante: {files}",
+  "es": "Falta: {files}",
+  "fr": "Manquant : {files}"
+ },
+ "so startet das Spiel nicht; neu kopieren oder löschen.": {
+  "en": "the game will not start like this; copy it again or delete it.",
+  "it": "così il gioco non si avvia; copialo di nuovo o eliminalo.",
+  "es": "así el juego no arranca; vuelve a copiarlo o bórralo.",
+  "fr": "le jeu ne démarrera pas ainsi ; copiez-le à nouveau ou supprimez-le."
+ },
+ "liest {n} MB/s": {
+  "en": "reads {n} MB/s",
+  "it": "legge {n} MB/s",
+  "es": "lee {n} MB/s",
+  "fr": "lit {n} Mo/s"
+ },
+ "Als Datei speichern (CSV)": {
+  "en": "Save as file (CSV)",
+  "it": "Salva come file (CSV)",
+  "es": "Guardar como archivo (CSV)",
+  "fr": "Enregistrer comme fichier (CSV)"
  }
 }

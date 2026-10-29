@@ -209,6 +209,10 @@ class Api:
         """Liegengebliebene Teilkopie eines abgebrochenen Kopierens auf diesem Laufwerk verwerfen (Auftrag "partial_discard")"""
         return self._call("/api/partials/discard", {"device": device})
 
+    def compare_games(self, keys):
+        """Zwei Kopien desselben Spiels Byte für Byte vergleichen (nur lesen; Auftrag "game_compare")"""
+        return self._call("/api/game/compare", {"keys": ",".join(keys)})
+
     def verify_games(self, keys):
         """Abbilder gegen ihre .sha256-Datei prüfen (nur lesen; Auftrag "game_verify")"""
         return self._call("/api/game/verify", {"keys": ",".join(keys)})
@@ -474,7 +478,37 @@ def pkg_hints(pk, fw):
     return out
 
 
-def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, check=None):
+def read_mbps(d, history):
+    """Zuletzt gemessenes Lesetempo eines Laufwerks aus dem Verlauf des Formatierers (Tempo messen, Formatieren mit Prüfung); 0 = keins"""
+    for e in history or []:
+        if (e.get("mbps") or 0) <= 0:
+            continue
+        if e.get("ident") and d.get("ident"):
+            same = e["ident"] == d["ident"]
+        else:
+            same = (e.get("model") or "") == (d.get("model") or "") and int(e.get("size") or 0) == int(d.get("size") or 0)
+        if same:
+            return e["mbps"]
+    return 0
+
+
+def target_label(d, need=0, history=()):
+    """Eintrag der Ziel-Auswahl beim Kopieren: freier Platz, Lesetempo (langsam unter 40 MB/s wie am Formatierer), zu wenig
+    Platz, FAT32. Liefert (Text, passt)"""
+    free = next((m.get("free") for m in d.get("mounts", []) if m.get("free") is not None), None)
+    small = bool(need and free is not None and free < need)
+    mbps = read_mbps(d, history)
+    text = f"{dev_title(d)} ({d['name']})" + (" · " + _("{size} frei", size=fmt_size(free)) if free is not None else "")
+    if mbps:
+        text += " · " + _("liest {n} MB/s", n=round(mbps)) + (" (" + _("langsam") + ")" if mbps < 40 else "")
+    if small:
+        text += " · " + _("zu wenig Platz")
+    if d.get("format") == "FAT32":
+        text += " · " + _("FAT32: keine Dateien über 4 GB")
+    return text, not small
+
+
+def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, check=None, need=0, history=()):
     """Ziel-Laufwerk und Prüfung wählen. Liefert (Laufwerk, prüfen, zugehörige Dateien mitkopieren) oder None (abgebrochen).
     extras: Aufzählung der zugehörigen Dateien; leer = es gibt keine, der Haken fehlt.
     check(ziel, mit_extras) -> Text: Vorabprüfung des Ziels (leer = passt); läuft beim Wechsel im Hintergrund und vor dem Kopieren"""
@@ -493,12 +527,9 @@ def ask_move(root, dev, targets, names, pkg=False, extras="", copy_only=False, c
     ttk.Label(frm, text=(one if len(names) == 1 else many),
               wraplength=px(460), justify="left").pack(anchor="w")
     ttk.Label(frm, text=shown, justify="left").pack(anchor="w", pady=(px(6), px(10)))
-    items = []
-    for d in targets:
-        free = next((m.get("free") for m in d.get("mounts", []) if m.get("free") is not None), None)
-        items.append(f"{dev_title(d)} ({d['name']})" + (" · " + _("{size} frei", size=fmt_size(free)) if free is not None else ""))
-    box = ttk.Combobox(frm, state="readonly", values=items, width=48)
-    box.current(0)
+    labels = [target_label(d, need, history) for d in targets]
+    box = ttk.Combobox(frm, state="readonly", values=[t for t, _fits in labels], width=56)
+    box.current(next((i for i, (_t, fits) in enumerate(labels) if fits), 0))   # vorgewählt: das erste Ziel, auf das es passt
     box.pack(anchor="w", fill="x")
     verify = tk.BooleanVar(value=True)
     ttk.Checkbutton(frm, variable=verify, style="Switch.TCheckbutton",
@@ -851,7 +882,9 @@ class App(tk.Tk):
         self.page = self.settings.get("page") if self.settings.get("page") in dict(TABS) else "games"
         self.dup_marks = {}        # Pfad -> (Art, Version) für doppelte Spiele (aus /api/library: duplicates)
         self.partials = {}         # Laufwerk -> Bytes einer liegengebliebenen Teilkopie (aus /api/library: partials)
-        self.copy_queue = []       # eingestellte Kopieraufträge (laufen nacheinander); Abbrechen leert den Rest
+        self.dup_paths = []        # Fundorte je doppeltem Spiel (aus /api/library: duplicates)
+        self.copy_queue = [q for q in (self.settings.get("copy_queue") or []) if isinstance(q, dict) and q.get("keys") and q.get("device")]
+        # eingestellte Kopieraufträge (laufen nacheinander, bleiben über einen Neustart); Abbrechen leert den Rest
         self.queue_running = False
         self.queue_log = []
         self.queue_ok = True
@@ -1100,6 +1133,8 @@ class App(tk.Tk):
         self.queue_go_btn = ttk.Button(self.queue_row, text=_("Warteschlange starten"), style="Accent.TButton", command=self._queue_start)
         self.queue_go_btn.pack(side="right", padx=(0, px(8)))
         self.queue_row.grid_remove()
+        if self.copy_queue:   # aus einer früheren Sitzung: zeigen, gestartet wird erst auf Knopfdruck
+            self.after_idle(self._show_queue)
         Tooltip(self.game_search, _("Spiele filtern (Strg+F)"))
         Tooltip(self.sort_combo, _("Sortieren nach"))
         style = ttk.Style(self)
@@ -2415,7 +2450,8 @@ class App(tk.Tk):
         api0 = self.api
         pkg_keys = [x.get("key") or x["path"] for x in picked]
         res = ask_move(self, dev, targets, [x.get("name") for x in picked], pkg=True, copy_only=copy_only,
-                       check=lambda t, ex: move_check_text(api0.move_check(t["name"], pkgs=pkg_keys)))
+                       check=lambda t, ex: move_check_text(api0.move_check(t["name"], pkgs=pkg_keys)),
+                       need=sum(x.get("size") or 0 for x in picked), history=self.ps5_history)
         if not res or self.busy or not self.api:
             return
         target, verify, _extras, queued = res
@@ -2483,6 +2519,8 @@ class App(tk.Tk):
             mark = self.dup_marks.get(g.get("path"))   # doppelt: Hinweis hinter dem Namen, bei der älteren Version "zuerst entfernen"
             tag = "" if not mark else "  · " + (_("doppelt, ältere Version {v}", v=mark[1]) if mark[0] == "older"
                                                 else _("doppelt, neueste Version {v}", v=mark[1]) if mark[0] == "newest" else _("doppelt"))
+            if g.get("missing"):   # Ordner-Spiel ohne eboot.bin oder Titelbild: meist Rest eines abgebrochenen Kopierens
+                tag += "  · " + _("unvollständig")
             rows.append((g.get("key") or None, (g["name"] or g["id"]) + tag, meta))
         if rows != getattr(self, "_games_shown", None):
             top = self.games_tree.yview()[0]
@@ -3045,6 +3083,9 @@ class App(tk.Tk):
         self._show_queue()
 
     def _show_queue(self):
+        if (self.settings.get("copy_queue") or []) != self.copy_queue:   # merken: die Warteschlange übersteht einen Neustart
+            self.settings["copy_queue"] = list(self.copy_queue)
+            save_settings(self.settings)
         n = len(self.copy_queue)
         if not n and not self.queue_running:
             self.queue_row.grid_remove()
@@ -3223,6 +3264,10 @@ class App(tk.Tk):
                 lines.append(_("… und {n} weitere", n=r["more"]))
         if r.get("extras"):
             lines += ["", _("Zugehörige Dateien") + ":"] + ["· " + os.path.basename(x) for x in r["extras"]]
+        g = next((g for gl in self.games.values() for g in gl if g.get("key") == iid), {})
+        if g.get("missing"):
+            lines += ["", _("Unvollständig") + ": " + _("Fehlt: {files}", files=g["missing"]) + " – " +
+                      _("so startet das Spiel nicht; neu kopieren oder löschen.")]
         messagebox.showinfo(r.get("name") or _("Spiel"), "\n".join(lines), parent=self)
 
     def _verify_menu(self):
@@ -3230,11 +3275,44 @@ class App(tk.Tk):
         m = tk.Menu(self, tearoff=0)
         m.add_command(label=_("Gegen die Prüfsummen-Datei prüfen …"), command=self._verify_games)
         m.add_command(label=_("Prüfsumme erstellen …"), command=self._checksum_games)
+        m.add_separator()
+        m.add_command(label=_("Mit der anderen Kopie vergleichen …"), command=self._compare_games)
         b = self.verify_btn
         try:
             m.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
         finally:
             m.grab_release()
+
+    def _compare_games(self):
+        """Ein angehaktes doppeltes Spiel mit seiner anderen Kopie Byte für Byte vergleichen (nur lesen)"""
+        dev = self._selected_device()
+        keys = [k for k in self.games_checked if any(g.get("key") == k for g in self.games.get(dev["name"], []))] if dev else []
+        if self.busy or not dev or not self.api:
+            return
+        allg = [g for gl in self.games.values() for g in gl]
+        g = next((g for g in allg if g.get("key") in keys), None) if len(keys) == 1 else None
+        dup = next((x for x in self.dup_paths if g and g.get("path") in x), None)
+        other = [o for o in allg if dup and o.get("path") in dup and o.get("path") != g.get("path")]
+        if not g or not dup or len(dup) != 2 or len(other) != 1 or (g.get("kind") == "Ordner") != (other[0].get("kind") == "Ordner"):
+            messagebox.showinfo(_("Inhalt vergleichen"), _("Genau ein doppeltes Spiel anhaken, das es noch genau einmal in derselben Form "
+                                                          "(Ordner bzw. Abbild) gibt."), parent=self)
+            return
+        api, pair = self.api, [g["key"], other[0]["key"]]
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+            (messagebox.showinfo if ok else messagebox.showwarning)(_("Inhalt vergleichen"), msg, parent=self)
+
+        def work():
+            try:
+                api.compare_games(pair)
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", _("Vergleich konnte nicht gestartet werden: {e}", e=e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Verglichen."), after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
 
     def _checksum_games(self):
         """Für die angehakten Abbilder ohne .sha256 daneben eine anlegen (nur diese Datei wird geschrieben)"""
@@ -3324,8 +3402,10 @@ class App(tk.Tk):
             messagebox.showinfo(_("Spiele verschieben"), _("Kein anderes eingebundenes Laufwerk als Ziel."), parent=self)
             return
         api0, chk_keys = self.api, list(keys)
+        sizes = [games[k].get("size") or 0 for k in keys if k in games]
         res = ask_move(self, dev, targets, names, extras=extras_text([games[k] for k in keys if k in games]), copy_only=copy_only,
-                       check=lambda t, ex: move_check_text(api0.move_check(t["name"], keys=chk_keys, extras=ex)))
+                       check=lambda t, ex: move_check_text(api0.move_check(t["name"], keys=chk_keys, extras=ex)),
+                       need=sum(sizes) if all(sizes) else 0, history=self.ps5_history)
         if not res or self.busy or not self.api:
             return
         target, verify, with_extras, queued = res
@@ -3895,6 +3975,7 @@ class App(tk.Tk):
     def _cancel(self):
         """Abbrechen: am PC über die Abbruch-Datei des Helfers, an der PS5 über /api/cancel"""
         self.copy_queue.clear()   # der Rest der Warteschlange entfällt
+        self._show_queue()
         keep = False
         if (not self.pc_job and self.api and self.mode_var.get() == "ps5" and self.ps5_flags.get("kind") == "backup"
                 and not getattr(self, "_img_to_pc", False)):
@@ -4104,6 +4185,7 @@ class App(tk.Tk):
                 self.pkgs = pkgs
                 self.ps5_fw = data.get("fw") or ""
                 self.dup_marks = dup_marks(data)
+                self.dup_paths = [x.get("paths") or [] for x in data.get("duplicates", []) or []]
                 self.partials = {p.get("device"): p.get("bytes", 0) for p in data.get("partials", []) or []}
                 known = self.__dict__.setdefault("_game_sizes_known", {})
                 for lst in games.values():

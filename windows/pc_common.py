@@ -849,7 +849,26 @@ def history_kind(kind):
     return {"format": _("Formatieren"), "layout": _("Partitionen anlegen"), "speed": _("Tempo messen"),
             "check": _("Prüfen & reparieren"), "label": _("Umbenennen"), "delete": _("Spiele löschen"),
             "backup": _("Image sichern"), "restore": _("Image wiederherstellen"), "tile": _("Kachel neu anmelden"),
-            "verify": _("Image prüfen")}.get(kind, kind)
+            "verify": _("Image prüfen"), "save_restore": _("Spielstand wiederherstellen"), "save_backup": _("Spielstände sichern"),
+            "move": _("Spiele kopieren"), "pkg_delete": _("Pakete löschen"), "game_verify": _("Spiele prüfen"),
+            "game_checksum": _("Prüfsumme erstellen"), "partial_discard": _("Teilkopie verwerfen"), "orphan_delete": _("Aufräumen"),
+            "game_compare": _("Inhalt vergleichen")}.get(kind, kind)
+
+
+def history_csv(sources):
+    """Verlauf als CSV-Text (Semikolon wie in DE/IT/ES/FR üblich, UTF-8 mit BOM, damit Tabellenprogramme Umlaute richtig lesen):
+    Zeit, Ort, Art, Ergebnis, Laufwerk, Modell, Dauer, Lesetempo, Meldung. sources wie bei history_dialog."""
+    import csv
+    import io
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
+    w.writerow(["time", "where", "kind", "result", "device", "model", "seconds", "read_mbps", "message"])
+    merged = sorted(((o, e) for o, entries in sources for e in entries), key=lambda x: -int(x[1].get("t") or 0))
+    for o, e in merged:
+        w.writerow([time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(int(e.get("t") or 0))), o or "", e.get("kind", ""),
+                    "ok" if e.get("ok") else "cancelled" if e.get("cancelled") else "failed", e.get("device") or "",
+                    e.get("model") or "", int(e.get("secs") or 0), e.get("mbps") or "", e.get("msg") or ""])
+    return "\ufeff" + buf.getvalue()
 
 
 DRIVE_KINDS = ("format", "layout", "check", "label", "speed", "backup", "restore", "delete")
@@ -951,11 +970,28 @@ def history_dialog(root, sources, on_clear):
         if messagebox.askyesno(_("Verlauf leeren?"), _("Die Liste der bisherigen Aufträge wird gelöscht. Laufwerke "
                                                       "und Sicherungen bleiben unverändert."),
                                parent=win, icon="warning"):
-            fill(on_clear())
+            current["srcs"] = on_clear()
+            fill(current["srcs"])
+
+    def save():
+        from tkinter import filedialog
+        path = filedialog.asksaveasfilename(parent=win, title=_("Verlauf speichern"), defaultextension=".csv",
+                                            initialfile="usb-formatierer-verlauf-" + time.strftime("%Y-%m-%d") + ".csv",
+                                            filetypes=[(_("CSV-Datei"), "*.csv")])
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8", newline="") as f:
+                f.write(history_csv(current["srcs"]))
+        except OSError as e:
+            messagebox.showerror(_("Verlauf speichern"), str(e), parent=win)
 
     tree.bind("<<TreeviewSelect>>", show)
     btns = ttk.Frame(frm)
     btns.grid(row=4, column=0, columnspan=2, sticky="e", pady=(ui_theme.px(14), 0))
+    current = {"srcs": sources}
+    save_btn = ttk.Button(btns, text=_("Als Datei speichern (CSV)"), command=save)
+    save_btn.pack(side="left", padx=(0, ui_theme.px(8)))
     clear_btn = ttk.Button(btns, text=_("Verlauf leeren"), command=clear)
     clear_btn.pack(side="left")
     close_btn = ttk.Button(btns, text=_("Schließen"), style="Accent.TButton", command=win.destroy)

@@ -3100,5 +3100,53 @@
   "it": "%s (%d modificati, %d mancanti, %d nuovi)",
   "es": "%s (%d cambiados, %d faltan, %d nuevos)",
   "fr": "%s (%d modifiés, %d manquants, %d nouveaux)"
+ },
+ "Inhalt vergleichen: %s": {
+  "en": "Comparing content: %s",
+  "it": "Confronto contenuto: %s",
+  "es": "Comparando contenido: %s",
+  "fr": "Comparaison du contenu : %s"
+ },
+ "Vergleich nicht möglich – eine der Kopien ist nicht lesbar oder das Laufwerk wurde gewechselt.": {
+  "en": "Comparison not possible – one of the copies cannot be read or the drive was changed.",
+  "it": "Confronto non possibile – una delle copie non è leggibile o l'unità è stata cambiata.",
+  "es": "No se puede comparar: una de las copias no se puede leer o se cambió la unidad.",
+  "fr": "Comparaison impossible – l'une des copies est illisible ou le lecteur a été changé."
+ },
+ "Nicht vergleichbar: eine Kopie ist ein Abbild, die andere ein Ordner.": {
+  "en": "Not comparable: one copy is an image, the other a folder.",
+  "it": "Non confrontabili: una copia è un'immagine, l'altra una cartella.",
+  "es": "No comparables: una copia es una imagen y la otra una carpeta.",
+  "fr": "Non comparables : une copie est une image, l'autre un dossier."
+ },
+ "Inhalt gleich: beide Kopien von %s sind Byte für Byte identisch (%s und %s). Eine davon kann weg.": {
+  "en": "Same content: both copies of %s are identical byte for byte (%s and %s). One of them can go.",
+  "it": "Contenuto uguale: entrambe le copie di %s sono identiche byte per byte (%s e %s). Una può essere eliminata.",
+  "es": "Mismo contenido: las dos copias de %s son idénticas byte a byte (%s y %s). Una de ellas sobra.",
+  "fr": "Contenu identique : les deux copies de %s sont identiques octet par octet (%s et %s). L'une peut partir."
+ },
+ "Inhalt verschieden: %d Dateien geändert, %d nur in der ersten Kopie, %d nur in der zweiten.": {
+  "en": "Content differs: %d files changed, %d only in the first copy, %d only in the second.",
+  "it": "Contenuto diverso: %d file modificati, %d solo nella prima copia, %d solo nella seconda.",
+  "es": "Contenido distinto: %d archivos cambiados, %d solo en la primera copia, %d solo en la segunda.",
+  "fr": "Contenu différent : %d fichiers modifiés, %d seulement dans la première copie, %d seulement dans la seconde."
+ },
+ "Inhalt verschieden: die beiden Abbilder von %s sind nicht gleich.": {
+  "en": "Content differs: the two images of %s are not the same.",
+  "it": "Contenuto diverso: le due immagini di %s non sono uguali.",
+  "es": "Contenido distinto: las dos imágenes de %s no son iguales.",
+  "fr": "Contenu différent : les deux images de %s ne sont pas identiques."
+ },
+ "Genau zwei Spiele zum Vergleichen": {
+  "en": "Exactly two games to compare",
+  "it": "Esattamente due giochi da confrontare",
+  "es": "Exactamente dos juegos para comparar",
+  "fr": "Exactement deux jeux à comparer"
+ },
+ "Nur zwei Kopien desselben Spiels lassen sich vergleichen.": {
+  "en": "Only two copies of the same game can be compared.",
+  "it": "Si possono confrontare solo due copie dello stesso gioco.",
+  "es": "Solo se pueden comparar dos copias del mismo juego.",
+  "fr": "Seules deux copies du même jeu peuvent être comparées."
  }
 }

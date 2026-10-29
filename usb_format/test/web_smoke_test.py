@@ -52,8 +52,11 @@ os.makedirs(W + "/mnt/usb1", exist_ok=True)
 H = W + "/mnt/usb0/homebrew"
 
 
-def game(path, tid, name, version=None):
+def game(path, tid, name, version=None, complete=True):
     os.makedirs(path + "/sce_sys", exist_ok=True)
+    if complete:   # Pflichtdateien; ohne sie gilt ein Ordner-Spiel als unvollständig
+        open(path + "/eboot.bin", "wb").write(b"ELF")
+        open(path + "/sce_sys/icon0.png", "wb").write(b"PNG")
     j = {"titleId": tid, "localizedParameters": {"defaultLanguage": "en-US", "en-US": {"titleName": name}}}
     if version:
         j["contentVersion"] = version
@@ -62,7 +65,7 @@ def game(path, tid, name, version=None):
 
 
 game(H + "/Neu", "PPSA00001", "Alpha Spiel", "01.005.000")
-game(H + "/Alt", "PPSA00001", "Alpha Spiel", "01.003.000")      # Duplikat mit älterer Version
+game(H + "/Alt", "PPSA00001", "Alpha Spiel", "01.003.000", complete=False)   # Duplikat mit älterer Version, ohne eboot.bin
 game(H + "/Beta", "PPSA00002", "Beta Spiel", "01.000.000")
 game(H + "/Gross", "PPSA00003", "Grosses Spiel", "01.000.000")
 with open(H + "/Gross/riesig.bin", "wb") as f:
@@ -186,6 +189,18 @@ try:
         # Duplikat mit älterer Version
         txt = page.inner_text("#content")
         check("ältere Version 01.003.000" in txt and "neueste Version 01.005.000" in txt, "Duplikate: ältere Version gekennzeichnet", txt[-400:], "Duplikate")
+        check(page.locator("#content .game .chip.fake", has_text="unvollständig").count() == 1, "unvollständiges Spiel (ohne eboot.bin) gekennzeichnet, nur dieses",
+              page.locator("#content .game .chip.fake").count())
+        page.locator("#content button:has-text('Inhalt vergleichen')").first.click()
+        t = ""
+        for _ in range(60):   # Ergebnis als Fenster oder als Meldung über der Liste
+            t = page.inner_text("body")
+            if "Inhalt verschieden" in t:
+                break
+            page.wait_for_timeout(250)
+        check("Inhalt verschieden" in t, "Duplikate: Inhalt vergleichen meldet den Unterschied", page.inner_text("#msg")[:200])
+        if page.locator("#dlg:not([hidden])").count():
+            close_result()
 
         # Kopierdialog mit FAT32-Hinweis
         page.click("#content button.tool:has-text('Spiele kopieren')")
@@ -337,6 +352,23 @@ try:
           return [sel.selectedIndex, Array.from(sel.options).map(o => o.text)]; }""")
         check(r[0] == 1 and "4 GB" in r[1][1] and "4 GB" not in r[1][0] and r[1][0] != r[1][1].split(" · FAT32")[0],
               "Ziel-Auswahl: zu kleines Ziel gekennzeichnet, FAT32 benannt, passendes vorgewählt", r)
+
+        # Ziel-Auswahl mit gemessenem Lesetempo
+        r = page.evaluate("""() => { jobHistory.unshift({ kind: "speed", ok: true, mbps: 25, model: "A", size: 5 });
+          const sel = document.createElement("select");
+          fillTargets(sel, [{ name: "x1", model: "A", size: 5, format: "exFAT", mounts: [{ total: 100, free: 90 }] }], 0);
+          jobHistory.shift();
+          return sel.options[0].text; }""")
+        check("25 MB/s" in r and "langsam" in r, "Ziel-Auswahl: zuletzt gemessenes Lesetempo, langsam gekennzeichnet", r)
+        # Verlauf als CSV
+        r = page.evaluate("""() => historyCsv([{ t: 0, kind: "speed", ok: true, device: "da0", model: "M;1", mbps: 88, msg: 'a "b"' }])""")
+        check(r.startswith("\ufefftime;kind;result") and '"M;1"' in r and '"a ""b"""' in r and ";88;" in r, "Verlauf als CSV: Kopf, Trennzeichen und Anführungszeichen richtig", r[:200])
+        page.click("#history")
+        t = dlg_text()
+        with page.expect_download() as dl:
+            dlg_click("Als Datei speichern")
+        check(dl.value.suggested_filename.endswith(".csv"), "Verlauf: Knopf speichert eine CSV-Datei", dl.value.suggested_filename)
+        dlg_click("Schließen")
 
         # Diagnose-Bericht (Fußzeile)
         page.click("#diag")

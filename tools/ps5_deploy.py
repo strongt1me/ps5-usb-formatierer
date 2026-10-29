@@ -15,8 +15,9 @@ update in dieser Reihenfolge:
      das Spiel, nie einen Auftrag). Antwortet Port 8090, aber nicht die API: Abbruch (Zustand unklar).
   2. App-Ordner /data/homebrew/PPSA86920: jede Datei, die anders ist, erst von der PS5 sichern, dann hochladen und
      zurücklesen. Scheitert FTP mittendrin: Abbruch mit Liste der schon ersetzten Dateien und dem Sicherungsordner. Sicherung und Kernel-Log unter ~/.usbfmt-ps5/<zeit>/ (oder --backup <ordner>).
-  3. Formatierer: läuft er, per /api/quit beenden; die neue ELF an den ELF-Loader; warten, bis /api/info die neue
-     Version meldet. Läuft dieselbe Version schon, bleibt er (--resend-elf sendet trotzdem).
+  3. Formatierer: läuft er, per /api/quit beenden; die neue ELF an den ELF-Loader (weist er die Verbindung ab, wird bis
+     --wait-loader Sekunden lang nachgefragt - ein abgewiesener Versuch erreicht ihn nicht, ein angenommener bekommt
+     sofort die ELF); warten, bis /api/info die neue Version meldet. Läuft dieselbe Version schon, bleibt er (--resend-elf sendet trotzdem).
   4. Kachel: zeigt, ob sie neu angemeldet werden muss (dann "tile").
 Exit-Code: 0 = fertig, 1 = Fehler/Abbruch, 2 = fertig, aber das Kernel-Log zeigt Auffälliges.
 Nur Python-Standardbibliothek."""
@@ -238,7 +239,24 @@ def cmd_status(host):
                             ", ".join(f"{rel} ({'fehlt' if r is None else 'anders'})" for rel, _d, r in diff)))
 
 
-def cmd_update(host, dry_run, ignore_running, resend, backup):
+def loader_connect(host, wait):
+    """Verbindung zum ELF-Loader; weist er ab (läuft noch nicht), alle 5 s erneut bis `wait` Sekunden. Kein Abtasten:
+    die erste angenommene Verbindung ist die, über die die ELF geht."""
+    end, told = time.time() + wait, False
+    while True:
+        try:
+            return socket.create_connection((host, LOADER_PORT), timeout=10)
+        except OSError as e:
+            if time.time() >= end:
+                raise
+            if not told:
+                say(f"  ELF-Loader (Port {LOADER_PORT}) nimmt noch nichts an ({e}) - Jailbreak/ELF-Loader auf der PS5 "
+                    f"starten; ich frage bis zu {wait} s lang nach")
+                told = True
+            time.sleep(5)
+
+
+def cmd_update(host, dry_run, ignore_running, resend, backup, wait_loader=300):
     version = read_version()
     elf, files = check_local(version)
     say(f"Stand {version}: usb_format.elf {len(elf) / 1e6:.2f} MB, App-Ordner {len(files)} Dateien")
@@ -317,10 +335,11 @@ def cmd_update(host, dry_run, ignore_running, resend, backup):
                 fail("der alte Formatierer läuft noch")
             time.sleep(1)
         try:
-            s = socket.create_connection((host, LOADER_PORT), timeout=10)
+            s = loader_connect(host, wait_loader)
         except OSError as e:
             klog.finish(0)
-            fail(f"ELF-Loader (Port {LOADER_PORT}) nimmt nichts an ({e}) - Jailbreak/ELF-Loader auf der PS5 starten")
+            fail(f"ELF-Loader (Port {LOADER_PORT}) nimmt nichts an ({e}) - Jailbreak/ELF-Loader auf der PS5 starten. "
+                 + ("Der App-Ordner ist schon aktualisiert; " if diff else "") + "derselbe Befehl sendet danach nur noch die ELF.")
         try:   # die 10 s galten fürs Verbinden; Senden darf bei schwachem WLAN dauern (bis 8 MB)
             s.settimeout(180)
             s.sendall(elf)
@@ -439,6 +458,8 @@ def main():
     ap.add_argument("--ignore-running", action="store_true", help="update: trotz laufendem Spiel/laufender App")
     ap.add_argument("--resend-elf", action="store_true", help="update: ELF auch bei gleicher Version senden")
     ap.add_argument("--backup", help="update: Ordner für Sicherung und Kernel-Log")
+    ap.add_argument("--wait-loader", type=int, default=300, metavar="SEK",
+                    help="update: so lange nachfragen, wenn der ELF-Loader noch nicht annimmt (0 = sofort aufgeben)")
     ap.add_argument("--yes", action="store_true", help="tile: ohne Rückfrage")
     a = ap.parse_args()
     if not a.host:
@@ -447,7 +468,7 @@ def main():
         cmd_status(a.host)
     elif a.command == "update":
         backup = a.backup or os.path.join(os.path.expanduser("~"), ".usbfmt-ps5", time.strftime("%Y%m%d-%H%M%S"))
-        cmd_update(a.host, a.dry_run, a.ignore_running, a.resend_elf, backup)
+        cmd_update(a.host, a.dry_run, a.ignore_running, a.resend_elf, backup, max(0, a.wait_loader))
     else:
         cmd_tile(a.host, a.yes)
 

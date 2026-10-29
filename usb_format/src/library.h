@@ -15,6 +15,7 @@ typedef struct {
     char     ext[8];       /* Abbild: Dateiendung ohne Punkt ("exfat", "ffpkg", "ffpfs", "ffpfsc"), sonst leer */
     uint64_t size;         /* Abbild: Dateigröße; Ordner: 0 */
     char     version[16];  /* installierte Version laut param.json/param.sfo, leer wenn unbekannt */
+    char     missing[40];  /* Ordner-Spiel: fehlende Pflichtdateien ("eboot.bin, sce_sys/icon0.png"), sonst leer */
 } lib_title_t;
 
 /* .pkg-Datei (Installationspaket) */
