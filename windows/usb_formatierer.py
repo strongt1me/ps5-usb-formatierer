@@ -3150,7 +3150,7 @@ class App(tk.Tk):
         self._show_queue()
         api = self.api
         if it.get("ident"):   # Ziel über die Seriennummer suchen; fehlt der Stick, nicht auf einen anderen umleiten
-            td = next((d for d in self.devices if d.get("ident") == it["ident"]), None)
+            td = next((d for d in self.ps5_devices if d.get("ident") == it["ident"]), None)
             if not td:
                 self.queue_log.append(f"{it['label']}: " + _("Ziel-Laufwerk nicht gefunden – nicht gestartet"))
                 self.queue_ok = False

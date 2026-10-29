@@ -190,6 +190,10 @@ def package(version, out):
     sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()  # noqa: E731
     if sha(os.path.join(dump, "eboot.bin")) != sha(os.path.join(USB, "app", "eboot.bin")):
         fail("Dump-Ordner passt nicht zur gebauten App (eboot.bin) - ohne --skip-build neu bauen")
+    # die Kachel startet die in eboot.bin eingebettete ELF: sie muss die sein, die als Release-Datei hochgeht (sonst startete
+    # die Kachel z. B. nach einem "make all" ohne neue App eine ältere ELF mit demselben Versionstext)
+    if open(os.path.join(USB, "usb_format.elf"), "rb").read() not in open(os.path.join(USB, "app", "eboot.bin"), "rb").read():
+        fail("app/eboot.bin enthält nicht die aktuelle usb_format.elf - ohne --skip-build neu bauen")
     if f'"contentVersion": "{content_version(version)}"' not in read(os.path.join(dump, "sce_sys", "param.json")):
         fail("Dump-Ordner hat nicht die neue contentVersion")
     zpath = os.path.join(out, "PPSA86920.zip")

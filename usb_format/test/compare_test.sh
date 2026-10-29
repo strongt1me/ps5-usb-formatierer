@@ -46,6 +46,7 @@ cmp() { curl -s -o "$W/body" -w '%{http_code}' -H "$J" -d "{\"keys\":\"$1\"}" "$
 [ ! -e "$W/cfg/compare.manifest.tmp" ] && [ ! -e "$H/Eins.manifest.sha256" ] && ok "keine Reste: weder Zwischenliste noch Prüfsummenliste angelegt" || bad "Reste" "$(ls -a "$W/cfg" "$H")"
 [ "$(cmp "$(key Eins),$(key Kaputt)")" = 400 ] && ok "verschiedene Spiele: abgelehnt" || bad "verschiedene Spiele" "$(cat "$W/body")"
 [ "$(cmp "$(key Eins)")" = 400 ] && ok "nur ein Spiel: abgelehnt" || bad "ein Spiel"
+[ "$(cmp "$(key Eins),$(key Eins)")" = 400 ] && ok "zweimal dasselbe Spiel: abgelehnt (nicht mit sich selbst vergleichen)" || bad "dasselbe Spiel" "$(cat "$W/body")"
 [ "$(q "[t.get('missing','') for t in d['titles'] if t['path'].endswith('/Kaputt')][0]" <"$W/lib")" = "eboot.bin, sce_sys/icon0.png" ] \
     && [ "$(q "[t.get('missing','') for t in d['titles'] if t['path'].endswith('/Eins')][0]" <"$W/lib")" = "" ] \
     && ok "fehlende Pflichtdateien gemeldet, vollständiges Spiel ohne Meldung" || bad "fehlende Dateien" "$(grep -o '"missing":"[^"]*"' "$W/lib")"

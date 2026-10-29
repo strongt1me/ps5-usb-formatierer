@@ -85,21 +85,50 @@ def load_settings(app_name):
     return data
 
 
+_MISSING = object()
+
+
+def _merge3(base, mine, disk):
+    """Dreiseitig zusammenführen: was hier (mine) gegenüber base geändert oder gelöscht wurde, gewinnt; sonst gilt die Datei (disk,
+    womöglich von einem anderen Fenster geändert). Wörterbücher werden Schlüssel für Schlüssel zusammengeführt."""
+    out = {}
+    for k in set(base) | set(mine) | set(disk):
+        b, m, d = base.get(k, _MISSING), mine.get(k, _MISSING), disk.get(k, _MISSING)
+        if m is _MISSING:
+            if b is _MISSING and d is not _MISSING:
+                out[k] = d                     # vom anderen Fenster neu
+            continue                           # hier gelöscht (oder nirgends)
+        if b is not _MISSING and m == b:       # hier unverändert: was die Datei sagt
+            if d is not _MISSING:
+                out[k] = d
+            continue
+        if isinstance(m, dict) and isinstance(d, dict):
+            out[k] = _merge3(b if isinstance(b, dict) else {}, m, d)
+        else:
+            out[k] = m                         # hier geändert
+    return out
+
+
+def _sync_into(target, src):
+    """target an src angleichen, verschachtelte Wörterbücher dabei als dieselben Objekte behalten (andere Teile des
+    Programms halten Verweise darauf)"""
+    for k in list(target):
+        if k not in src:
+            del target[k]
+    for k, v in src.items():
+        if isinstance(v, dict) and isinstance(target.get(k), dict):
+            _sync_into(target[k], v)
+        else:
+            target[k] = v
+
+
 def save_settings(app_name, data):
     """Atomar (erst neue Datei, dann ersetzen): Ein Absturz mitten im Schreiben hinterlässt keine halbe Datei.
     Laufen zwei Fenster desselben Programms, überschreibt keines die Änderungen des anderen: übernommen wird nur, was
     sich hier seit dem Laden geändert hat; was das andere inzwischen gespeichert hat, kommt dafür auch in data an."""
     base = _settings_base.get(app_name)
     if base is not None:
-        merged = _read_settings(app_name)
-        for k in set(base) | set(data):
-            if k not in data:
-                if k in base:
-                    merged.pop(k, None)   # hier gelöscht
-            elif k not in base or data[k] != base[k]:
-                merged[k] = data[k]       # hier geändert
-        data.clear()
-        data.update(merged)
+        _sync_into(data, _merge3(base, data, _read_settings(app_name)))
     _settings_base[app_name] = json.loads(json.dumps(data))
     path = settings_file(app_name)
     tmp = None

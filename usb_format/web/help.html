@@ -225,7 +225,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#de-ps5">An der PS5</a></li>
   <li><a href="#de-win">Windows-Programm mit PS5</a></li>
   <li><a href="#de-std">USB-Formatierer (eigenständig)</a></li>
-  <li><a href="#de-expert">Expertenmodus &amp; Partitionen</a></li>
+  <li><a href="#de-expert">Eigene Aufteilung (Partitionen)</a></li>
   <li><a href="#de-fs">Dateisysteme im Vergleich</a></li>
   <li><a href="#de-cluster">Zuordnungseinheit &amp; Partitionstabelle</a></li>
   <li><a href="#de-test">Echtheit &amp; Tempo</a></li>
@@ -247,7 +247,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Windows-Programm mit PS5</h3>
       <code class="file">PS5-USB-Formatierer.exe</code><p>Formatiert über das Netzwerk an der PS5 – oder Sticks direkt am PC, im PS5-Format oder ganz frei. Auch für Linux.</p></div>
     <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>USB-Formatierer für Windows und Linux</h3>
-      <code class="file">USB-Formatierer.exe</code><p>Eigenständig und ohne PS5-Funktionen: alle Dateisysteme, freie Zuordnungseinheit, Partitionen und Expertenmodus.</p></div>
+      <code class="file">USB-Formatierer.exe</code><p>Eigenständig und ohne PS5-Funktionen: alle Dateisysteme, freie Zuordnungseinheit, eigene Aufteilung in Partitionen.</p></div>
   </div>
 </section>
 
@@ -306,14 +306,14 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 
 <section id="de-win">
   <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Windows-Programm „PS5-USB-Formatierer“</h2>
-  <p>Oben wählen Sie, wo der Datenträger steckt. Rechts oben stellen Sie die Sprache ein und öffnen diese Hilfe.</p>
+  <p>In der Seitenleiste links („Betriebsart“) wählen Sie, wo der Datenträger steckt. Rechts oben stellen Sie die Sprache ein und öffnen diese Hilfe.</p>
   <div class="cards">
     <div class="card"><h3>An der PS5</h3><p>Der Stick steckt an der PS5. „Suchen“ findet die PS5 im Heimnetz (oder IP-Adresse eingeben).
       Läuft der Formatierer dort noch nicht, schickt das Programm ihn selbst hin. „ELF senden“ schickt ihn von Hand an den ELF-Loader der PS5 (Port 9021) – eine dort laufende ältere Fassung wird nach Rückfrage ersetzt. Danach wie in der Weboberfläche: Laufwerk, Spiele, löschen, formatieren.</p></div>
-    <div class="card"><h3>Am PC – für PS5</h3><p>Der Stick steckt am PC und wird genau wie an der PS5 formatiert: exFAT mit 64 KB oder FAT32 – auch
+    <div class="card"><h3>Am PC – für die PS5</h3><p>Der Stick steckt am PC und wird genau wie an der PS5 formatiert: exFAT mit 64 KB oder FAT32 – auch
       über 32 GB, was Windows selbst nicht kann. Dazu Echtheitstest, Tempo messen, Umbenennen und Ordner-Vorlage.</p></div>
-    <div class="card"><h3>Am PC – frei</h3><p>Frei formatieren ohne PS5-Vorgaben – derselbe Bereich wie im eigenständigen USB-Formatierer
-      (nächster Abschnitt), mit allen Dateisystemen und dem Expertenmodus.</p></div>
+    <div class="card"><h3>Am PC – frei formatieren</h3><p>Frei formatieren ohne PS5-Vorgaben – derselbe Bereich wie im eigenständigen USB-Formatierer
+      (nächster Abschnitt), mit allen Dateisystemen und eigener Aufteilung in Partitionen.</p></div>
   </div>
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Am PC ist nichts vorausgewählt: Wählen Sie das Laufwerk bewusst aus und achten Sie auf Name und Größe.</div></div>
 </section>
@@ -321,11 +321,11 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 <section id="de-std">
   <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>USB-Formatierer (eigenständig)</h2>
   <p>Für alle Datenträger, die nicht an die PS5 sollen: Kamera, Auto, Fernseher, Mac, Linux, Raspberry Pi und mehr.
-    Den gleichen Bereich finden Sie im Windows-Programm unter „Am PC – frei“.</p>
+    Den gleichen Bereich finden Sie im Windows-Programm unter „Am PC – frei formatieren“.</p>
   <ol class="steps">
     <li><b>Laufwerk wählen.</b> „Aktualisieren“ liest die Liste neu ein.</li>
     <li><b>Dateisystem wählen:</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 oder HFS+. Unter der Auswahl steht, wofür es sich eignet.</li>
-    <li><b>Größe der Zuordnungseinheiten</b> und <b>Partitionstabelle</b> (Automatisch, MBR oder GPT) festlegen – oder die Standardwerte lassen.</li>
+    <li><b>Größe der Zuordnungseinheiten</b> und <b>Partitionsschema</b> (Automatisch, MBR oder GPT) festlegen – oder die Standardwerte lassen.</li>
     <li><b>Volumebezeichnung</b> eingeben: A–Z, 0–9, Leerzeichen, - und _ (NTFS und HFS+ bis 32 Zeichen, ext bis 16, sonst 11).</li>
     <li><b>Optionen:</b> „Schnellformatierung“ (ohne Haken wird jede Stelle beschrieben und geprüft) und „Vorher Echtheit und Tempo prüfen“.</li>
     <li><b>„Formatieren …“</b> wählen und bestätigen. Daneben: „Tempo messen“ und „Umbenennen“.</li>
@@ -333,8 +333,8 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="de-expert">
-  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Expertenmodus: Partitionen selbst festlegen</h2>
-  <p>Mit dem Haken „Expertenmodus“ teilen Sie den Datenträger in mehrere Partitionen auf. Ein Balken zeigt die Aufteilung und den freien Platz.</p>
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Eigene Aufteilung: Partitionen selbst festlegen</h2>
+  <p>Mit der Kachel „Eigene Aufteilung“ (unter „Wofür soll der Datenträger dienen?“) teilen Sie den Datenträger in mehrere Partitionen auf. Ein Balken zeigt die Aufteilung und den freien Platz.</p>
   <ul class="check">
     <li><b>Hinzufügen, Bearbeiten, Entfernen</b> – je Partition: Dateisystem (oder „Ohne Dateisystem“), Größe oder „den ganzen Rest“,
       Zuordnungseinheit, Typ und Bezeichnung.</li>
@@ -405,7 +405,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li>Eingebundene Laufwerke meldet der Formatierer dafür kurz per Software ab, wie beim Formatieren. Laufende Spiele vorher beenden.</li>
   </ul>
   <h3>Am PC</h3>
-  <p>Im USB-Formatierer und im Bereich „Am PC – frei“: Laufwerk wählen, dann unter „Image-Sicherung“ auf „Sichern …“ oder
+  <p>Im USB-Formatierer und im Bereich „Am PC – frei formatieren“: Laufwerk wählen, dann unter „Image-Sicherung“ auf „Sichern …“ oder
     „Wiederherstellen …“. Die Datei wählen Sie im gewohnten Dateidialog – sie darf nicht auf dem Laufwerk selbst liegen.</p>
   <p>Im PS5-USB-Formatierer gibt es dieselbe Zeile auch im Modus „An der PS5“: Sticks an der PS5 sichern Sie dort
     auf der PS5 oder <b>auf diesen PC</b> (Download), und Sie stellen sie aus einer Sicherung auf der PS5 oder aus einer
@@ -450,7 +450,9 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><th>Taste</th><th>Wirkung</th></tr>
     <tr><td><code>F1</code></td><td>diese Anleitung öffnen</td></tr>
     <tr><td><code>F5</code></td><td>Laufwerke bzw. die PS5 neu einlesen</td></tr>
-    <tr><td><code>Strg+1</code> … <code>Strg+5</code></td><td>Seiten des PS5-USB-Formatierers (Formatieren, Spiele, Image-Sicherung, Am PC)</td></tr>
+    <tr><td><code>Strg+1</code> … <code>Strg+5</code></td><td>PS5-USB-Formatierer, Reiter „An der PS5“: Spiele, PKG, Spielstände, Werkzeuge, Formatieren</td></tr>
+    <tr><td><code>Strg+6</code> / <code>Strg+7</code></td><td>PS5-USB-Formatierer: „Am PC – für die PS5“ bzw. „Am PC – frei formatieren“</td></tr>
+    <tr><td><code>Strg+Umschalt+B</code></td><td>PS5-USB-Formatierer: Fehlerbericht kopieren</td></tr>
     <tr><td><code>Strg+F</code></td><td>Spiele durchsuchen</td></tr>
     <tr><td><code>Strg+H</code></td><td>Verlauf öffnen</td></tr>
   </table></div>
@@ -496,7 +498,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#en-ps5">On the PS5</a></li>
   <li><a href="#en-win">Windows program with PS5</a></li>
   <li><a href="#en-std">USB Formatter (standalone)</a></li>
-  <li><a href="#en-expert">Expert mode &amp; partitions</a></li>
+  <li><a href="#en-expert">Custom partitions</a></li>
   <li><a href="#en-fs">File systems compared</a></li>
   <li><a href="#en-cluster">Allocation unit &amp; partition table</a></li>
   <li><a href="#en-test">Authenticity &amp; speed</a></li>
@@ -518,7 +520,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Windows program with PS5</h3>
       <code class="file">PS5-USB-Formatierer.exe</code><p>Formats over the network on the PS5 – or sticks directly on the PC, in PS5 format or completely freely. Also for Linux.</p></div>
     <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>USB Formatter for Windows and Linux</h3>
-      <code class="file">USB-Formatierer.exe</code><p>Standalone, without PS5 features: all file systems, any allocation unit, partitions and expert mode.</p></div>
+      <code class="file">USB-Formatierer.exe</code><p>Standalone, without PS5 features: all file systems, any allocation unit, custom partitions.</p></div>
   </div>
 </section>
 
@@ -577,14 +579,14 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 
 <section id="en-win">
   <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Windows program “PS5-USB-Formatierer”</h2>
-  <p>At the top you choose where the drive is plugged in. At the top right you set the language and open this help.</p>
+  <p>In the sidebar on the left (“Mode”) you choose where the drive is plugged in. At the top right you set the language and open this help.</p>
   <div class="cards">
     <div class="card"><h3>On the PS5</h3><p>The stick is plugged into the PS5. “Search” finds the PS5 on your home network (or enter its IP address).
       If the formatter is not running there yet, the program sends it over itself. “Send ELF” sends it manually to the PS5's ELF loader (port 9021) – an older version running there is replaced after confirmation. Then it works like the web interface: drive, games, delete, format.</p></div>
-    <div class="card"><h3>On PC – for PS5</h3><p>The stick is plugged into the PC and formatted exactly as on the PS5: exFAT with 64 KB or FAT32 – even
+    <div class="card"><h3>On the PC – for the PS5</h3><p>The stick is plugged into the PC and formatted exactly as on the PS5: exFAT with 64 KB or FAT32 – even
       above 32 GB, which Windows itself cannot do. Plus authenticity test, speed measurement, renaming and folder template.</p></div>
-    <div class="card"><h3>On PC – any format</h3><p>Format freely without PS5 presets – the same area as in the standalone USB Formatter
-      (next section), with all file systems and expert mode.</p></div>
+    <div class="card"><h3>On the PC – format freely</h3><p>Format freely without PS5 presets – the same area as in the standalone USB Formatter
+      (next section), with all file systems and custom partitions.</p></div>
   </div>
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>On the PC nothing is preselected: choose the drive deliberately and pay attention to its name and size.</div></div>
 </section>
@@ -592,11 +594,11 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 <section id="en-std">
   <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>USB Formatter (standalone)</h2>
   <p>For all drives that are not meant for the PS5: camera, car, TV, Mac, Linux, Raspberry Pi and more.
-    You will find the same area in the Windows program under “On PC – any format”.</p>
+    You will find the same area in the Windows program under “On the PC – format freely”.</p>
   <ol class="steps">
     <li><b>Choose a drive.</b> “Refresh” reloads the list.</li>
     <li><b>Choose a file system:</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 or HFS+. Below the selection you can read what it is good for.</li>
-    <li>Set the <b>allocation unit size</b> and the <b>partition table</b> (automatic, MBR or GPT) – or keep the defaults.</li>
+    <li>Set the <b>allocation unit size</b> and the <b>partition scheme</b> (automatic, MBR or GPT) – or keep the defaults.</li>
     <li>Enter a <b>volume label</b>: A–Z, 0–9, space, - and _ (NTFS and HFS+ up to 32 characters, ext up to 16, otherwise 11).</li>
     <li><b>Options:</b> “Quick format” (unticked, every sector is written and verified) and “Check authenticity and speed first”.</li>
     <li>Choose <b>“Format …”</b> and confirm. Next to it: “Measure speed” and “Rename”.</li>
@@ -604,8 +606,8 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="en-expert">
-  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Expert mode: define partitions yourself</h2>
-  <p>Tick “Expert mode” to divide the drive into several partitions. A bar shows the layout and the free space.</p>
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Custom partitions: define partitions yourself</h2>
+  <p>With the “Custom partitions” tile (under “What will the drive be used for?”) you divide the drive into several partitions. A bar shows the layout and the free space.</p>
   <ul class="check">
     <li><b>Add, Edit, Remove</b> – per partition: file system (or “No file system”), size or “all the rest”,
       allocation unit, type and label.</li>
@@ -676,7 +678,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li>Mounted drives are briefly disconnected by software for this, just like when formatting. Close running games first.</li>
   </ul>
   <h3>On the PC</h3>
-  <p>In the USB Formatter and in the “On PC – any format” area: select the drive, then under “Image backup” click “Back up …” or
+  <p>In the USB Formatter and in the “On the PC – format freely” area: select the drive, then under “Image backup” click “Back up …” or
     “Restore …”. You choose the file in the usual file dialog – it must not be on the drive itself.</p>
   <p>The PS5-USB-Formatierer has the same row in the “On the PS5” mode too: there you back up sticks on the PS5
     to the PS5 or <b>to this PC</b> (download), and restore them from a backup on the PS5 or from a file on the PC
@@ -721,7 +723,9 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><th>Key</th><th>Effect</th></tr>
     <tr><td><code>F1</code></td><td>open this guide</td></tr>
     <tr><td><code>F5</code></td><td>reload the drives or the PS5</td></tr>
-    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>pages of the PS5-USB-Formatierer (Format, Games, Image backup, On the PC)</td></tr>
+    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>PS5-USB-Formatierer, tabs “On the PS5”: Games, PKG, Save Games, Tools, Format</td></tr>
+    <tr><td><code>Ctrl+6</code> / <code>Ctrl+7</code></td><td>PS5-USB-Formatierer: “On the PC – for the PS5” or “On the PC – format freely”</td></tr>
+    <tr><td><code>Ctrl+Shift+B</code></td><td>PS5-USB-Formatierer: copy the error report</td></tr>
     <tr><td><code>Ctrl+F</code></td><td>search games</td></tr>
     <tr><td><code>Ctrl+H</code></td><td>open the history</td></tr>
   </table></div>
@@ -767,7 +771,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#it-ps5">Sulla PS5</a></li>
   <li><a href="#it-win">Programma Windows con PS5</a></li>
   <li><a href="#it-std">Formattatore USB (autonomo)</a></li>
-  <li><a href="#it-expert">Modalità esperto e partizioni</a></li>
+  <li><a href="#it-expert">Partizioni personalizzate</a></li>
   <li><a href="#it-fs">File system a confronto</a></li>
   <li><a href="#it-cluster">Unità di allocazione e tabella</a></li>
   <li><a href="#it-test">Autenticità e velocità</a></li>
@@ -789,7 +793,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Programma Windows con PS5</h3>
       <code class="file">PS5-USB-Formatierer.exe</code><p>Formatta in rete sulla PS5 – oppure chiavette direttamente sul PC, nel formato PS5 o in totale libertà. Anche per Linux.</p></div>
     <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>Formattatore USB per Windows e Linux</h3>
-      <code class="file">USB-Formatierer.exe</code><p>Autonomo e senza funzioni PS5: tutti i file system, unità di allocazione libera, partizioni e modalità esperto.</p></div>
+      <code class="file">USB-Formatierer.exe</code><p>Autonomo e senza funzioni PS5: tutti i file system, unità di allocazione libera, partizioni personalizzate.</p></div>
   </div>
 </section>
 
@@ -848,14 +852,14 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 
 <section id="it-win">
   <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Programma Windows «PS5-USB-Formatierer»</h2>
-  <p>In alto scegli dove è collegata l'unità. In alto a destra imposti la lingua e apri questa guida.</p>
+  <p>Nella barra laterale a sinistra («Modalità») scegli dove è collegata l'unità. In alto a destra imposti la lingua e apri questa guida.</p>
   <div class="cards">
     <div class="card"><h3>Sulla PS5</h3><p>La chiavetta è collegata alla PS5. «Cerca» trova la PS5 nella rete domestica (oppure inserisci l'indirizzo IP).
       Se lì il formattatore non è ancora attivo, il programma lo invia da solo. «Invia ELF» lo invia manualmente all'ELF loader della PS5 (porta 9021) – una versione precedente già attiva viene sostituita dopo conferma. Poi funziona come l'interfaccia web: unità, giochi, eliminare, formattare.</p></div>
-    <div class="card"><h3>Sul PC – per PS5</h3><p>La chiavetta è collegata al PC e viene formattata esattamente come sulla PS5: exFAT con 64 KB o FAT32 – anche
+    <div class="card"><h3>Sul PC – per la PS5</h3><p>La chiavetta è collegata al PC e viene formattata esattamente come sulla PS5: exFAT con 64 KB o FAT32 – anche
       oltre 32 GB, cosa che Windows da solo non sa fare. In più test di autenticità, misura della velocità, rinomina e cartelle predefinite.</p></div>
-    <div class="card"><h3>Sul PC – libero</h3><p>Formattazione libera senza impostazioni PS5 – la stessa sezione del Formattatore USB autonomo
-      (sezione successiva), con tutti i file system e la modalità esperto.</p></div>
+    <div class="card"><h3>Sul PC – formattazione libera</h3><p>Formattazione libera senza impostazioni PS5 – la stessa sezione del Formattatore USB autonomo
+      (sezione successiva), con tutti i file system e le partizioni personalizzate.</p></div>
   </div>
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Sul PC non è preselezionato nulla: scegli l'unità con attenzione e controlla nome e dimensione.</div></div>
 </section>
@@ -863,11 +867,11 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 <section id="it-std">
   <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>Formattatore USB (autonomo)</h2>
   <p>Per tutte le unità che non sono destinate alla PS5: fotocamera, auto, TV, Mac, Linux, Raspberry Pi e altro.
-    La stessa sezione si trova nel programma Windows alla voce «Sul PC – libero».</p>
+    La stessa sezione si trova nel programma Windows alla voce «Sul PC – formattazione libera».</p>
   <ol class="steps">
     <li><b>Scegli l'unità.</b> «Aggiorna» ricarica l'elenco.</li>
     <li><b>Scegli il file system:</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 o HFS+. Sotto la scelta trovi a cosa è adatto.</li>
-    <li>Imposta la <b>dimensione dell'unità di allocazione</b> e la <b>tabella delle partizioni</b> (automatica, MBR o GPT) – oppure lascia i valori predefiniti.</li>
+    <li>Imposta la <b>dimensione dell'unità di allocazione</b> e la <b>schema di partizione</b> (automatica, MBR o GPT) – oppure lascia i valori predefiniti.</li>
     <li>Inserisci l'<b>etichetta del volume</b>: A–Z, 0–9, spazio, - e _ (NTFS e HFS+ fino a 32 caratteri, ext fino a 16, altrimenti 11).</li>
     <li><b>Opzioni:</b> «Formattazione rapida» (senza spunta ogni settore viene scritto e verificato) e «Verifica prima autenticità e velocità».</li>
     <li>Scegli <b>«Formatta …»</b> e conferma. Accanto: «Misura velocità» e «Rinomina».</li>
@@ -875,8 +879,8 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="it-expert">
-  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Modalità esperto: definisci tu le partizioni</h2>
-  <p>Con la spunta «Modalità esperto» dividi l'unità in più partizioni. Una barra mostra la suddivisione e lo spazio libero.</p>
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Partizioni personalizzate: definisci tu le partizioni</h2>
+  <p>Con il riquadro «Partizioni personalizzate» (sotto «A cosa servirà l'unità?») dividi l'unità in più partizioni. Una barra mostra la suddivisione e lo spazio libero.</p>
   <ul class="check">
     <li><b>Aggiungi, Modifica, Rimuovi</b> – per ogni partizione: file system (o «Senza file system»), dimensione o «tutto il resto»,
       unità di allocazione, tipo ed etichetta.</li>
@@ -947,7 +951,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li>Le unità montate vengono scollegate brevemente via software, come per la formattazione. Chiudi prima i giochi in esecuzione.</li>
   </ul>
   <h3>Sul PC</h3>
-  <p>Nel Formattatore USB e nell'area «Sul PC – libero»: scegli l'unità, poi in «Backup immagine» clicca «Salva …» o
+  <p>Nel Formattatore USB e nell'area «Sul PC – formattazione libera»: scegli l'unità, poi in «Backup immagine» clicca «Salva …» o
     «Ripristina …». Il file si sceglie nella solita finestra – non deve trovarsi sull'unità stessa.</p>
   <p>Nel PS5-USB-Formatierer la stessa riga c'è anche nella modalità «Sulla PS5»: lì salvi le chiavette collegate
     alla PS5 sulla PS5 o <b>su questo PC</b> (download) e le ripristini da un backup sulla PS5 o da un file del PC
@@ -992,7 +996,9 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><th>Tasto</th><th>Effetto</th></tr>
     <tr><td><code>F1</code></td><td>apre questa guida</td></tr>
     <tr><td><code>F5</code></td><td>rilegge le unità o la PS5</td></tr>
-    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>pagine del PS5-USB-Formatierer (Formatta, Giochi, Backup immagine, Sul PC)</td></tr>
+    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>PS5-USB-Formatierer, schede «Sulla PS5»: Giochi, PKG, Salvataggi, Strumenti, Formatta</td></tr>
+    <tr><td><code>Ctrl+6</code> / <code>Ctrl+7</code></td><td>PS5-USB-Formatierer: «Sul PC – per la PS5» o «Sul PC – formattazione libera»</td></tr>
+    <tr><td><code>Ctrl+Maiusc+B</code></td><td>PS5-USB-Formatierer: copia il rapporto errori</td></tr>
     <tr><td><code>Ctrl+F</code></td><td>cerca giochi</td></tr>
     <tr><td><code>Ctrl+H</code></td><td>apre la cronologia</td></tr>
   </table></div>
@@ -1038,7 +1044,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#es-ps5">En la PS5</a></li>
   <li><a href="#es-win">Programa de Windows con PS5</a></li>
   <li><a href="#es-std">Formateador USB (independiente)</a></li>
-  <li><a href="#es-expert">Modo experto y particiones</a></li>
+  <li><a href="#es-expert">Particiones propias</a></li>
   <li><a href="#es-fs">Sistemas de archivos</a></li>
   <li><a href="#es-cluster">Unidad de asignación y tabla</a></li>
   <li><a href="#es-test">Autenticidad y velocidad</a></li>
@@ -1060,7 +1066,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Programa de Windows con PS5</h3>
       <code class="file">PS5-USB-Formatierer.exe</code><p>Formatea por red en la PS5 – o pendrives directamente en el PC, en formato PS5 o con total libertad. También para Linux.</p></div>
     <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>Formateador USB para Windows y Linux</h3>
-      <code class="file">USB-Formatierer.exe</code><p>Independiente y sin funciones de PS5: todos los sistemas de archivos, unidad de asignación libre, particiones y modo experto.</p></div>
+      <code class="file">USB-Formatierer.exe</code><p>Independiente y sin funciones de PS5: todos los sistemas de archivos, unidad de asignación libre, particiones propias.</p></div>
   </div>
 </section>
 
@@ -1119,14 +1125,14 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 
 <section id="es-win">
   <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Programa de Windows «PS5-USB-Formatierer»</h2>
-  <p>Arriba eliges dónde está conectada la unidad. Arriba a la derecha ajustas el idioma y abres esta ayuda.</p>
+  <p>En la barra lateral izquierda («Modo») eliges dónde está conectada la unidad. Arriba a la derecha ajustas el idioma y abres esta ayuda.</p>
   <div class="cards">
     <div class="card"><h3>En la PS5</h3><p>El pendrive está conectado a la PS5. «Buscar» encuentra la PS5 en la red doméstica (o escribe su dirección IP).
       Si el formateador aún no está en marcha allí, el programa lo envía por sí mismo. «Enviar ELF» lo envía manualmente al cargador ELF de la PS5 (puerto 9021) – una versión anterior que ya esté en marcha se sustituye tras confirmar. Después funciona como la interfaz web: unidad, juegos, borrar, formatear.</p></div>
-    <div class="card"><h3>En el PC – para PS5</h3><p>El pendrive está conectado al PC y se formatea exactamente como en la PS5: exFAT con 64 KB o FAT32 – incluso
+    <div class="card"><h3>En el PC – para la PS5</h3><p>El pendrive está conectado al PC y se formatea exactamente como en la PS5: exFAT con 64 KB o FAT32 – incluso
       de más de 32 GB, algo que Windows no puede hacer por sí solo. Además, prueba de autenticidad, medición de velocidad, renombrar y carpetas predefinidas.</p></div>
-    <div class="card"><h3>En el PC – libre</h3><p>Formateo libre sin ajustes de PS5 – la misma sección que en el Formateador USB independiente
-      (siguiente apartado), con todos los sistemas de archivos y el modo experto.</p></div>
+    <div class="card"><h3>En el PC – formateo libre</h3><p>Formateo libre sin ajustes de PS5 – la misma sección que en el Formateador USB independiente
+      (siguiente apartado), con todos los sistemas de archivos y particiones propias.</p></div>
   </div>
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>En el PC no hay nada preseleccionado: elige la unidad con cuidado y fíjate en su nombre y tamaño.</div></div>
 </section>
@@ -1134,11 +1140,11 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 <section id="es-std">
   <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>Formateador USB (independiente)</h2>
   <p>Para todas las unidades que no van a la PS5: cámara, coche, televisor, Mac, Linux, Raspberry Pi y más.
-    La misma sección está en el programa de Windows en «En el PC – libre».</p>
+    La misma sección está en el programa de Windows en «En el PC – formateo libre».</p>
   <ol class="steps">
     <li><b>Elegir la unidad.</b> «Actualizar» vuelve a cargar la lista.</li>
     <li><b>Elegir el sistema de archivos:</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 o HFS+. Debajo de la selección se indica para qué sirve.</li>
-    <li>Ajusta el <b>tamaño de la unidad de asignación</b> y la <b>tabla de particiones</b> (automática, MBR o GPT) – o deja los valores predeterminados.</li>
+    <li>Ajusta el <b>tamaño de la unidad de asignación</b> y la <b>esquema de particiones</b> (automática, MBR o GPT) – o deja los valores predeterminados.</li>
     <li>Escribe la <b>etiqueta del volumen</b>: A–Z, 0–9, espacio, - y _ (NTFS y HFS+ hasta 32 caracteres, ext hasta 16, el resto 11).</li>
     <li><b>Opciones:</b> «Formato rápido» (sin marcar se escribe y comprueba cada sector) y «Comprobar antes autenticidad y velocidad».</li>
     <li>Elige <b>«Formatear …»</b> y confirma. Al lado: «Medir velocidad» y «Renombrar».</li>
@@ -1146,8 +1152,8 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="es-expert">
-  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Modo experto: definir tú mismo las particiones</h2>
-  <p>Con la casilla «Modo experto» divides la unidad en varias particiones. Una barra muestra la distribución y el espacio libre.</p>
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Particiones propias: definir tú mismo las particiones</h2>
+  <p>Con el recuadro «Particiones propias» (en «¿Para qué se usará la unidad?») divides la unidad en varias particiones. Una barra muestra la distribución y el espacio libre.</p>
   <ul class="check">
     <li><b>Añadir, Editar, Quitar</b> – para cada partición: sistema de archivos (o «Sin sistema de archivos»), tamaño o «todo el resto»,
       unidad de asignación, tipo y etiqueta.</li>
@@ -1218,7 +1224,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li>Las unidades montadas se desconectan brevemente por software, igual que al formatear. Cierra antes los juegos en ejecución.</li>
   </ul>
   <h3>En el PC</h3>
-  <p>En el Formateador USB y en el área «En el PC – libre»: elige la unidad y, en «Copia de imagen», pulsa «Guardar …» o
+  <p>En el Formateador USB y en el área «En el PC – formateo libre»: elige la unidad y, en «Copia de imagen», pulsa «Guardar …» o
     «Restaurar …». El archivo se elige en el diálogo habitual – no puede estar en la propia unidad.</p>
   <p>En el PS5-USB-Formatierer la misma fila está también en el modo «En la PS5»: allí guardas los pendrives
     conectados a la PS5 en la PS5 o <b>en este PC</b> (descarga) y los restauras desde una copia en la PS5 o desde un
@@ -1263,7 +1269,9 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><th>Tecla</th><th>Efecto</th></tr>
     <tr><td><code>F1</code></td><td>abrir esta guía</td></tr>
     <tr><td><code>F5</code></td><td>volver a leer las unidades o la PS5</td></tr>
-    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>páginas del PS5-USB-Formatierer (Formatear, Juegos, Copia de imagen, En el PC)</td></tr>
+    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>PS5-USB-Formatierer, pestañas «En la PS5»: Juegos, PKG, Partidas, Herramientas, Formatear</td></tr>
+    <tr><td><code>Ctrl+6</code> / <code>Ctrl+7</code></td><td>PS5-USB-Formatierer: «En el PC – para la PS5» o «En el PC – formateo libre»</td></tr>
+    <tr><td><code>Ctrl+Mayús+B</code></td><td>PS5-USB-Formatierer: copiar el informe de errores</td></tr>
     <tr><td><code>Ctrl+F</code></td><td>buscar juegos</td></tr>
     <tr><td><code>Ctrl+H</code></td><td>abrir el historial</td></tr>
   </table></div>
@@ -1309,7 +1317,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
   <li><a href="#fr-ps5">Sur la PS5</a></li>
   <li><a href="#fr-win">Programme Windows avec PS5</a></li>
   <li><a href="#fr-std">Formateur USB (autonome)</a></li>
-  <li><a href="#fr-expert">Mode expert et partitions</a></li>
+  <li><a href="#fr-expert">Partitions personnalisées</a></li>
   <li><a href="#fr-fs">Systèmes de fichiers comparés</a></li>
   <li><a href="#fr-cluster">Unité d'allocation et table</a></li>
   <li><a href="#fr-test">Authenticité et vitesse</a></li>
@@ -1331,7 +1339,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <div class="card"><h3><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg>Programme Windows avec PS5</h3>
       <code class="file">PS5-USB-Formatierer.exe</code><p>Formate via le réseau sur la PS5 – ou des clés directement sur le PC, au format PS5 ou en toute liberté. Existe aussi pour Linux.</p></div>
     <div class="card"><h3><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg>Formateur USB pour Windows et Linux</h3>
-      <code class="file">USB-Formatierer.exe</code><p>Autonome et sans fonctions PS5 : tous les systèmes de fichiers, unité d'allocation libre, partitions et mode expert.</p></div>
+      <code class="file">USB-Formatierer.exe</code><p>Autonome et sans fonctions PS5 : tous les systèmes de fichiers, unité d'allocation libre, partitions personnalisées.</p></div>
   </div>
 </section>
 
@@ -1390,14 +1398,14 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 
 <section id="fr-win">
   <h2><span class="ic"><svg class="i"><use href="#i-win" xlink:href="#i-win"/></svg></span>Programme Windows « PS5-USB-Formatierer »</h2>
-  <p>En haut, vous choisissez où le support est branché. En haut à droite, vous réglez la langue et ouvrez cette aide.</p>
+  <p>Dans la barre latérale à gauche (« Mode »), vous choisissez où le support est branché. En haut à droite, vous réglez la langue et ouvrez cette aide.</p>
   <div class="cards">
     <div class="card"><h3>Sur la PS5</h3><p>La clé est branchée sur la PS5. « Rechercher » trouve la PS5 sur le réseau domestique (ou saisissez son adresse IP).
       Si le formateur n'y tourne pas encore, le programme l'envoie lui-même. « Envoyer l'ELF » l'envoie manuellement au chargeur ELF de la PS5 (port 9021) – une version plus ancienne déjà lancée est remplacée après confirmation. Ensuite, tout se passe comme dans l'interface web : lecteur, jeux, suppression, formatage.</p></div>
-    <div class="card"><h3>Sur le PC – pour PS5</h3><p>La clé est branchée sur le PC et formatée exactement comme sur la PS5 : exFAT avec 64 Ko ou FAT32 – même
+    <div class="card"><h3>Sur le PC – pour la PS5</h3><p>La clé est branchée sur le PC et formatée exactement comme sur la PS5 : exFAT avec 64 Ko ou FAT32 – même
       au-delà de 32 Go, ce que Windows ne sait pas faire seul. En plus : test d'authenticité, mesure de vitesse, renommage et dossiers prédéfinis.</p></div>
-    <div class="card"><h3>Sur le PC – libre</h3><p>Formatage libre sans réglages PS5 – la même partie que dans le Formateur USB autonome
-      (section suivante), avec tous les systèmes de fichiers et le mode expert.</p></div>
+    <div class="card"><h3>Sur le PC – formatage libre</h3><p>Formatage libre sans réglages PS5 – la même partie que dans le Formateur USB autonome
+      (section suivante), avec tous les systèmes de fichiers et des partitions personnalisées.</p></div>
   </div>
   <div class="note info"><svg class="i"><use href="#i-info" xlink:href="#i-info"/></svg><div>Sur le PC, rien n'est présélectionné : choisissez le lecteur en connaissance de cause et vérifiez son nom et sa taille.</div></div>
 </section>
@@ -1405,11 +1413,11 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 <section id="fr-std">
   <h2><span class="ic"><svg class="i"><use href="#i-drive" xlink:href="#i-drive"/></svg></span>Formateur USB (autonome)</h2>
   <p>Pour tous les supports qui ne sont pas destinés à la PS5 : appareil photo, voiture, téléviseur, Mac, Linux, Raspberry Pi et plus.
-    Vous trouvez la même partie dans le programme Windows sous « Sur le PC – libre ».</p>
+    Vous trouvez la même partie dans le programme Windows sous « Sur le PC – formatage libre ».</p>
   <ol class="steps">
     <li><b>Choisir un lecteur.</b> « Actualiser » recharge la liste.</li>
     <li><b>Choisir le système de fichiers :</b> exFAT, FAT32, NTFS, FAT (FAT16), ext4, ext3, ext2 ou HFS+. Sous la sélection, vous lisez à quoi il convient.</li>
-    <li>Réglez la <b>taille d'unité d'allocation</b> et la <b>table de partitions</b> (automatique, MBR ou GPT) – ou gardez les valeurs par défaut.</li>
+    <li>Réglez la <b>taille d'unité d'allocation</b> et la <b>schéma de partition</b> (automatique, MBR ou GPT) – ou gardez les valeurs par défaut.</li>
     <li>Saisissez le <b>nom de volume</b> : A–Z, 0–9, espace, - et _ (NTFS et HFS+ jusqu'à 32 caractères, ext jusqu'à 16, sinon 11).</li>
     <li><b>Options :</b> « Formatage rapide » (décoché, chaque secteur est écrit et vérifié) et « Vérifier d'abord l'authenticité et la vitesse ».</li>
     <li>Choisissez <b>« Formater … »</b> et confirmez. À côté : « Mesurer la vitesse » et « Renommer ».</li>
@@ -1417,8 +1425,8 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
 </section>
 
 <section id="fr-expert">
-  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Mode expert : définir soi-même les partitions</h2>
-  <p>En cochant « Mode expert », vous divisez le support en plusieurs partitions. Une barre montre la répartition et l'espace libre.</p>
+  <h2><span class="ic"><svg class="i"><use href="#i-layers" xlink:href="#i-layers"/></svg></span>Partitions personnalisées : définir soi-même les partitions</h2>
+  <p>Avec la tuile « Partitions personnalisées » (sous « À quoi servira le lecteur ? »), vous divisez le support en plusieurs partitions. Une barre montre la répartition et l'espace libre.</p>
   <ul class="check">
     <li><b>Ajouter, Modifier, Supprimer</b> – pour chaque partition : système de fichiers (ou « Sans système de fichiers »), taille ou « tout le reste »,
       unité d'allocation, type et nom.</li>
@@ -1489,7 +1497,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <li>Les lecteurs montés sont brièvement déconnectés par logiciel, comme pour le formatage. Fermez d'abord les jeux en cours.</li>
   </ul>
   <h3>Sur le PC</h3>
-  <p>Dans le Formateur USB et dans la zone « Sur le PC – libre » : choisissez le lecteur, puis sous « Sauvegarde image » cliquez sur
+  <p>Dans le Formateur USB et dans la zone « Sur le PC – formatage libre » : choisissez le lecteur, puis sous « Sauvegarde image » cliquez sur
     « Sauvegarder … » ou « Restaurer … ». Le fichier se choisit dans la boîte de dialogue habituelle – il ne doit pas se trouver sur le lecteur lui-même.</p>
   <p>Le PS5-USB-Formatierer propose la même ligne dans le mode « Sur la PS5 » : vous y sauvegardez les clés
     branchées sur la PS5 vers la PS5 ou <b>vers ce PC</b> (téléchargement), et vous les restaurez depuis une sauvegarde
@@ -1534,7 +1542,9 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 2
     <tr><th>Touche</th><th>Effet</th></tr>
     <tr><td><code>F1</code></td><td>ouvrir ce guide</td></tr>
     <tr><td><code>F5</code></td><td>relire les lecteurs ou la PS5</td></tr>
-    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>pages du PS5-USB-Formatierer (Formater, Jeux, Sauvegarde d'image, Sur le PC)</td></tr>
+    <tr><td><code>Ctrl+1</code> … <code>Ctrl+5</code></td><td>PS5-USB-Formatierer, onglets « Sur la PS5 » : Jeux, PKG, Sauvegardes, Outils, Formater</td></tr>
+    <tr><td><code>Ctrl+6</code> / <code>Ctrl+7</code></td><td>PS5-USB-Formatierer : « Sur le PC – pour la PS5 » ou « Sur le PC – formatage libre »</td></tr>
+    <tr><td><code>Ctrl+Maj+B</code></td><td>PS5-USB-Formatierer : copier le rapport d'erreur</td></tr>
     <tr><td><code>Ctrl+F</code></td><td>rechercher des jeux</td></tr>
     <tr><td><code>Ctrl+H</code></td><td>ouvrir l'historique</td></tr>
   </table></div>

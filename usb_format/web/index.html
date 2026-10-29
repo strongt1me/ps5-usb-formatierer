@@ -3197,11 +3197,15 @@ async function showHistory() {
 $("history").addEventListener("click", showHistory);
 
 /* Verlauf als CSV: Zeit, Art, Ergebnis, Laufwerk, Modell, Dauer, Lesetempo, Meldung (Semikolon, wie es Tabellen in DE/IT/ES/FR erwarten) */
+function localStamp(t) {   /* "JJJJ-MM-TT hh:mm:ss" in Ortszeit */
+  const d = new Date((t || 0) * 1000), z = n => (n < 10 ? "0" : "") + n;
+  return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()) + " " + z(d.getHours()) + ":" + z(d.getMinutes()) + ":" + z(d.getSeconds());
+}
 function historyCsv(entries) {
   const cell = v => { const t = String(v === undefined || v === null ? "" : v); return /[;"\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
   const rows = [["time", "kind", "result", "device", "model", "seconds", "read_mbps", "message"]];
   for (const e of entries)
-    rows.push([new Date((e.t || 0) * 1000).toISOString().slice(0, 19).replace("T", " "), e.kind, e.ok ? "ok" : e.cancelled ? "cancelled" : "failed",
+    rows.push([localStamp(e.t), e.kind, e.ok ? "ok" : e.cancelled ? "cancelled" : "failed",
                e.device || "", e.model || "", e.secs || 0, e.mbps || "", e.msg || ""]);
   return "\ufeff" + rows.map(r => r.map(cell).join(";")).join("\r\n") + "\r\n";
 }

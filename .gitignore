@@ -10,7 +10,6 @@ usb_format/app/eboot.bin
 usb_format/dump/bin/
 usb_format/dump/obj/
 usb_format/dump/out/
-usb_list/*.elf
 windows/build/
 windows/dist/
 windows/*.spec

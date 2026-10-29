@@ -5457,7 +5457,7 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
         respond_error(c, ambiguous ? 409 : 404, ambiguous ? N_("Auswahl nicht eindeutig – Liste neu laden.") : N_("Spiele nicht gefunden – Liste neu laden"));
         return;
     }
-    if (cmp && (j->nitems != 2 || strcmp(j->items[0].id, j->items[1].id) != 0)) {
+    if (cmp && (j->nitems != 2 || strcmp(j->items[0].id, j->items[1].id) != 0 || !strcmp(j->items[0].path, j->items[1].path))) {
         job_free(j);
         respond_error(c, 400, N_("Nur zwei Kopien desselben Spiels lassen sich vergleichen."));
         return;

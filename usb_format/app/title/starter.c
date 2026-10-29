@@ -9,7 +9,7 @@
  * Prozess-Parameter-Block und eine passende Signatur; ein statisches Programm mit direkten
  * Systemaufrufen (frühere app/eboot.c) startete auf FW 12 nicht (CE-107750-0). Benutzt werden nur
  * Funktionen aus libkernel und libSceSystemService, keine C-Bibliothek: Daher -ffreestanding, kein
- * memset/memcpy und keine libc.prx im Dump-Ordner.
+ * memset/memcpy. (Die libc.prx legt dump/Program.cs trotzdem in den Dump-Ordner: der App-Lader verlangt sie in jedem Titel.)
  */
 #include <stddef.h>
 #include <stdint.h>

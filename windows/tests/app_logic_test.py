@@ -138,5 +138,30 @@ b.pop("copy_queue")
 pc_common.save_settings(APP, b)
 check("copy_queue" not in pc_common.load_settings(APP), "save_settings: hier gelöschter Schlüssel bleibt gelöscht")
 
+# verschachtelt: das Bedienfeld "Am PC – frei" hält einen Verweis auf settings["standard"] - der muss nach jedem Speichern gelten
+APP2 = "merge-test-2"
+pc_common.save_settings(APP2, {})
+s = pc_common.load_settings(APP2)
+panel = s.setdefault("standard", {})
+s["page"] = "games"
+pc_common.save_settings(APP2, s)           # anderes Speichern (Reiterwechsel)
+panel["fs"] = "ntfs"                       # danach ändert das Bedienfeld seine Einstellung
+pc_common.save_settings(APP2, s)
+check(s["standard"] is panel and pc_common.load_settings(APP2).get("standard", {}).get("fs") == "ntfs",
+      "save_settings: verschachtelte Einstellung bleibt dasselbe Objekt und wird gespeichert", pc_common.load_settings(APP2))
+# zwei Fenster ändern verschiedene Schlüssel im selben verschachtelten Wörterbuch
+pc_common.save_settings(APP2, {"standard": {"fs": "exfat", "label": ""}})
+x = pc_common.load_settings(APP2)
+base_x = pc_common._settings_base[APP2]
+y = pc_common.load_settings(APP2)
+pc_common._settings_base[APP2] = base_x
+x["standard"]["fs"] = "fat32"
+pc_common.save_settings(APP2, x)
+pc_common._settings_base[APP2] = {"standard": {"fs": "exfat", "label": ""}}
+y["standard"]["label"] = "STICK"
+pc_common.save_settings(APP2, y)
+now = pc_common.load_settings(APP2)["standard"]
+check(now.get("fs") == "fat32" and now.get("label") == "STICK", "save_settings: Änderungen zweier Fenster im selben Bereich bleiben beide", now)
+
 print("Alle App-Logik-Tests bestanden." if not fails else "%d Fehler" % fails)
 sys.exit(1 if fails else 0)
