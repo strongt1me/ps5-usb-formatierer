@@ -54,7 +54,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y git curl ca-certificates file xz-utils gcc libc6-dev binutils gh xvfb xauth \
-            fonts-dejavu-core e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs util-linux tk-dev libtk8.6 python3-tk zstd
+            fonts-dejavu-core e2fsprogs dosfstools exfatprogs ntfs-3g hfsprogs util-linux fdisk tk-dev libtk8.6 python3-tk zstd
           git config --global --add safe.directory '*'
           for t in mke2fs mkfs.fat mkntfs fsck.exfat fsck.hfsplus e2fsck sfdisk; do command -v $t || echo "fehlt: $t"; done
 
