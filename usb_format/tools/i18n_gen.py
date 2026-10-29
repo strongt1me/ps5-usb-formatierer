@@ -2,7 +2,9 @@
 Findet alle T("...") in src/ (auch "a" "b" aneinandergehängt), prüft Vollständigkeit und dass die %-Platzhalter in
 jeder Sprache genau gleich sind (sonst stürzte printf ab).
     python tools/i18n_gen.py            prüfen und Tabelle schreiben (Exit 1 bei Fehlern)
-    python tools/i18n_gen.py --missing  fehlende Texte als JSON-Gerüst ausgeben"""
+    python tools/i18n_gen.py --missing  fehlende Texte als JSON-Gerüst ausgeben
+Meldet außerdem deutsche Texte, die gar nicht zum Übersetzen markiert sind (etwa snprintf(err, ..., "...") statt T("...")).
+Absichtlich deutsch Bleibendes (nur für Entwickler, Dateinamen) trägt in derselben Zeile den Kommentar /* nicht übersetzt */."""
 import glob
 import json
 import os
@@ -63,14 +65,51 @@ def c_escape(s):
     return '"' + "".join(b) + '"'
 
 
+# deutsche Texte erkennen: Umlaute oder häufige Wörter
+GERMAN = re.compile(r"[äöüßÄÖÜ„]|\b(?:nicht|kein|keine|keinen|und|oder|ist|wird|wurde|werden|fehlgeschlagen|Datenträger|"
+                    r"Laufwerk|Spiel|Spiele|Ordner|Datei|Dateien|bitte|jetzt|zu|wieder|noch|schon)\b")
+# Testplattform des Hosts: ihre Meldungen sieht nur der Testlauf
+UNMARKED_SKIP = ("i18n_table.c", "platform_host.c")
+LITSEQ = re.compile(LITS)
+
+
+def c_files():
+    return [f for d in ("", "win", "pc", "linux") for f in glob.glob(os.path.join(SRC, d, "*.c"))]
+
+
+def strip_comments(text):
+    return re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), text, flags=re.S)
+
+
+def unmarked(texts):
+    """Deutsche Zeichenketten außerhalb der markierten Aufrufe, die auch kein Teil eines markierten Texts sind"""
+    found = []
+    for path in c_files():
+        if os.path.basename(path) in UNMARKED_SKIP:
+            continue
+        raw = open(path, encoding="utf-8").read()
+        lines = raw.split("\n")
+        text = strip_comments(raw)
+        marked = [m.span(1) for pat in CALLS for m in pat.finditer(text)]
+        for m in LITSEQ.finditer(text):
+            if any(a <= m.start() < b for a, b in marked):
+                continue
+            key = "".join(c_unescape(lit) for lit in re.findall(STR, m.group(1)))
+            line = text.count("\n", 0, m.start()) + 1
+            end = text.count("\n", 0, m.end()) + 1
+            if (not GERMAN.search(SPEC.sub("", key)) or key in texts or any(key in t for t in texts)
+                    or any("nicht übersetzt" in lines[i - 1] for i in range(line, end + 1))):
+                continue
+            found.append(f"{os.path.relpath(path, SRC)}:{line}: {key[:80]!r}")
+    return found
+
+
 def source_texts():
     found = {}
-    files = [f for d in ("", "win", "pc", "linux") for f in glob.glob(os.path.join(SRC, d, "*.c"))]
-    for path in files:
+    for path in c_files():
         if path.endswith("i18n_table.c"):
             continue
-        text = open(path, encoding="utf-8").read()
-        text = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), text, flags=re.S)   # Kommentare
+        text = strip_comments(open(path, encoding="utf-8").read())
         for pat in CALLS:
             for m in pat.finditer(text):
                 key = "".join(c_unescape(lit) for lit in re.findall(STR, m.group(1)))
@@ -105,6 +144,9 @@ def main():
             elif SPEC.findall(tr[lg]) != SPEC.findall(t):
                 print(f"PLATZHALTER {lg} {where}: {SPEC.findall(t)} != {SPEC.findall(tr[lg])}: {t[:50]!r}")
                 bad += 1
+    for u in unmarked(texts):
+        print(f"NICHT MARKIERT {u} - in T(\"...\") fassen oder /* nicht übersetzt */ dazuschreiben")
+        bad += 1
     unused = [t for t in cat if t not in texts]
     for t in unused:
         print(f"UNBENUTZT: {t[:70]!r}")

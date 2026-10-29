@@ -2,6 +2,7 @@
  * Nur lesender Zugriff auf exFAT und UFS2 (siehe fsread.h).
  * Referenzen: Microsoft exFAT File System Specification; FreeBSD sys/ufs/ffs/fs.h und sys/ufs/ufs/dinode.h, dir.h.
  */
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -12,7 +13,6 @@
 #define NO_BLOCK   UINT64_MAX
 #define T_EXFAT    1
 #define T_UFS2     2
-#define UFS2_SBOFF 65536
 #define UFS2_MAGIC 0x19540119u
 #define UFS_ROOTINO 2
 #define UFS_NDADDR 12
@@ -227,9 +227,9 @@ int fsr_exfat_label_slot(fsr_t *f, uint64_t *off, int *found) {
 /* ------------------------------------------------------------ UFS2 */
 
 typedef struct {
-    int      dir;
+    int      dir, reg;
     uint64_t size;
-    int64_t  db[UFS_NDADDR];
+    int64_t  db[UFS_NDADDR], ib[3];   /* direkte Blöcke, einfach/zweifach/dreifach indirekt (in Fragmenten) */
 } ufsino_t;
 
 static int ufs_inode(fsr_t *f, uint32_t ino, ufsino_t *out) {
@@ -238,8 +238,10 @@ static int ufs_inode(fsr_t *f, uint32_t ino, ufsino_t *out) {
     int64_t fsba = f->fpg * (int64_t)cg + f->iblkno + (((int64_t)(ino % f->ipg) / f->inopb) << f->fragshift);
     if (fsba < 0 || rd(f, (uint64_t)fsba * f->fsize + (uint64_t)(ino % f->inopb) * 256, d, sizeof(d))) return -1;
     out->dir = (le16(d) & 0xF000) == 0x4000;
+    out->reg = (le16(d) & 0xF000) == 0x8000;
     out->size = le64(d + 16);
     for (int i = 0; i < UFS_NDADDR; i++) out->db[i] = (int64_t)le64(d + 112 + 8 * i);
+    for (int i = 0; i < 3; i++) out->ib[i] = (int64_t)le64(d + 208 + 8 * i);
     return 0;
 }
 
@@ -292,8 +294,12 @@ static int ufs_lookup(fsr_t *f, const char *path, ufsino_t *out) {
 }
 
 static int ufs_open(fsr_t *f) {
+    /* Superblock wie FreeBSD (SBLOCKSEARCH) suchen: meist bei 64 KiB, bei kleinen Blöcken (makefs) auch bei 8 KiB */
+    static const uint64_t SBOFF[] = {65536, 8192, 262144};
     uint8_t sb[2048];
-    if (rd(f, UFS2_SBOFF, sb, sizeof(sb)) || le32(sb + 0x55c) != UFS2_MAGIC) return -1;
+    int found = 0;
+    for (int i = 0; i < 3 && !found; i++) found = rd(f, SBOFF[i], sb, sizeof(sb)) == 0 && le32(sb + 0x55c) == UFS2_MAGIC;
+    if (!found) return -1;
     f->iblkno = le32(sb + 0x10);
     f->bsize = le32(sb + 0x30);
     f->fsize = le32(sb + 0x34);
@@ -347,6 +353,183 @@ int fsr_is_dir(fsr_t *f, const char *path) {
     }
     ufsino_t n;
     return ufs_lookup(f, path, &n) && n.dir;
+}
+
+/* ------------------------------------------------------------ Dateien der Reihe nach lesen, Ordner durchgehen
+ * Für Abbild-Dateien: die Daten kommen ohne den 4-KiB-Puffer direkt per pread (schneller; Rohgeräte verlangten
+ * ausgerichtete Zugriffe). Der Puffer bleibt so für Verzeichnisse und die Zeiger-Blöcke von UFS2 frei. */
+
+struct fsr_file {
+    fsr_t   *f;
+    uint64_t size, pos;
+    exnode_t ex;       /* exFAT */
+    uint32_t clus;     /* exFAT: Cluster an pos */
+    ufsino_t ufs;      /* UFS2 */
+};
+
+#define WALK_DEPTH 32
+#define REL_MAX    1024
+
+static int rd_direct(fsr_t *f, uint64_t off, void *buf, size_t len) {
+    uint8_t *out = buf;
+    while (len) {
+        ssize_t n = pread(f->fd, out, len, (off_t)(f->base + off));
+        if (n <= 0) return -1;
+        out += n; off += (uint64_t)n; len -= (size_t)n;
+    }
+    return 0;
+}
+
+static long ex_fread(fsr_file_t *h, uint8_t *buf, size_t len) {
+    fsr_t *f = h->f;
+    size_t got = 0;
+    while (got < len && h->pos < h->size) {
+        uint64_t in = h->pos % f->cs;
+        if (in == 0 && h->pos && ex_next_clus(f, h->clus, h->ex.nofat, &h->clus)) return -1;
+        if (!ex_valid(f, h->clus)) return -1;
+        uint64_t take = f->cs - in;
+        if (take > h->size - h->pos) take = h->size - h->pos;
+        if (take > len - got) take = len - got;
+        if (rd_direct(f, ex_clus_off(f, h->clus) + in, buf + got, (size_t)take)) return -1;
+        got += take;
+        h->pos += take;
+    }
+    return (long)got;
+}
+
+static int ufs_ptr(fsr_t *f, int64_t blk, uint64_t idx, int64_t *out) {
+    uint8_t v[8];
+    if (blk <= 0) { *out = 0; return 0; }   /* Loch in einer dünn belegten Datei */
+    if (rd(f, (uint64_t)blk * f->fsize + idx * 8, v, 8)) return -1;
+    *out = (int64_t)le64(v);
+    return 0;
+}
+
+/* Block lbn der Datei -> Adresse in Fragmenten (0 = Loch) */
+static int ufs_bmap(fsr_t *f, const ufsino_t *n, uint64_t lbn, int64_t *out) {
+    if (lbn < UFS_NDADDR) { *out = n->db[lbn]; return 0; }
+    lbn -= UFS_NDADDR;
+    const uint64_t per = f->bsize / 8;
+    uint64_t span = per;
+    for (int lvl = 0; lvl < 3; lvl++, lbn -= span, span *= per) {
+        if (lbn >= span) continue;
+        int64_t b = n->ib[lvl];
+        for (uint64_t div = span / per;; div /= per) {
+            if (ufs_ptr(f, b, (lbn / div) % per, &b)) return -1;
+            if (div == 1) break;
+        }
+        *out = b;
+        return 0;
+    }
+    return -1;
+}
+
+static long ufs_fread(fsr_file_t *h, uint8_t *buf, size_t len) {
+    fsr_t *f = h->f;
+    size_t got = 0;
+    while (got < len && h->pos < h->size) {
+        uint64_t in = h->pos % f->bsize, take = f->bsize - in;
+        int64_t b;
+        if (take > h->size - h->pos) take = h->size - h->pos;
+        if (take > len - got) take = len - got;
+        if (ufs_bmap(f, &h->ufs, h->pos / f->bsize, &b)) return -1;
+        if (b <= 0) memset(buf + got, 0, (size_t)take);
+        else if (rd_direct(f, (uint64_t)b * f->fsize + in, buf + got, (size_t)take)) return -1;
+        got += take;
+        h->pos += take;
+    }
+    return (long)got;
+}
+
+long fsr_fread(fsr_file_t *h, void *buf, size_t len) {
+    return h->f->type == T_EXFAT ? ex_fread(h, buf, len) : ufs_fread(h, buf, len);
+}
+
+/* rel (REL_MAX Bytes, bisher rl Zeichen) um name verlängern; 0 = ok */
+static int rel_push(char *rel, size_t rl, const char *name) {
+    return strchr(name, '\n') || snprintf(rel + rl, REL_MAX - rl, "%s%s", rl ? "/" : "", name) >= (int)(REL_MAX - rl) ? -1 : 0;
+}
+
+static int ex_walk(fsr_t *f, const exnode_t *dir, char *rel, int depth, fsr_walk_cb cb, void *ctx) {
+    dirit_t it;
+    uint8_t e[32], u16[255 * 2];
+    char name[255 * 3 + 1];
+    const size_t rl = strlen(rel);
+    int rc = 0;
+    if (depth > WALK_DEPTH) return -1;
+    dir_begin(&it, dir);
+    while (!rc && dir_next(f, &it, e, NULL)) {
+        if (e[0] == 0x00) break;
+        if (e[0] != 0x85) continue;
+        int secondary = e[1], attr = le16(e + 4), namelen = 0, got = 0;
+        exnode_t n = {0};
+        for (int s = 0; s < secondary; s++) {
+            if (!dir_next(f, &it, e, NULL)) return -1;
+            if (e[0] == 0xC0) {
+                n.nofat = (e[1] & 2) != 0;
+                namelen = e[3];
+                n.clus = le32(e + 20);
+                n.len = le64(e + 24);
+            } else if (e[0] == 0xC1) {
+                for (int k = 0; k < 15 && got < namelen; k++, got++) memcpy(u16 + 2 * got, e + 2 + 2 * k, 2);
+            }
+        }
+        if (!namelen || got != namelen) continue;
+        fsr_utf16_to_utf8(u16, namelen, name, sizeof(name));
+        if (rel_push(rel, rl, name)) { rc = -1; break; }
+        if (attr & 0x10) {
+            n.dir = 1;
+            rc = ex_walk(f, &n, rel, depth + 1, cb, ctx);
+        } else {
+            fsr_file_t h = { .f = f, .size = n.len, .ex = n, .clus = n.clus };
+            rc = cb(ctx, rel, &h, n.len);
+        }
+        rel[rl] = 0;
+    }
+    return rc;
+}
+
+static int ufs_walk(fsr_t *f, const ufsino_t *dir, char *rel, int depth, fsr_walk_cb cb, void *ctx) {
+    const size_t rl = strlen(rel);
+    if (depth > WALK_DEPTH || dir->size > 16u * 1024 * 1024) return -1;
+    uint8_t *buf = malloc(dir->size ? (size_t)dir->size : 1);
+    fsr_file_t dh = { .f = f, .size = dir->size, .ufs = *dir };
+    long len = buf ? ufs_fread(&dh, buf, (size_t)dir->size) : -1;
+    int rc = len < 0 ? -1 : 0;
+    for (long p = 0; !rc && p + 8 <= len; ) {
+        uint32_t ino = le32(buf + p);
+        uint16_t reclen = le16(buf + p + 4);
+        uint8_t namlen = buf[p + 7];
+        if (reclen < 8 || p + reclen > len) break;
+        if (ino && namlen && 8 + (long)namlen <= reclen) {
+            char name[256];
+            memcpy(name, buf + p + 8, namlen);
+            name[namlen] = 0;
+            ufsino_t n;
+            if (strcmp(name, ".") && strcmp(name, "..")) {
+                if (ufs_inode(f, ino, &n) || rel_push(rel, rl, name)) rc = -1;
+                else if (n.dir) rc = ufs_walk(f, &n, rel, depth + 1, cb, ctx);
+                else if (n.reg) {
+                    fsr_file_t h = { .f = f, .size = n.size, .ufs = n };
+                    rc = cb(ctx, rel, &h, n.size);
+                }
+                rel[rl] = 0;
+            }
+        }
+        p += reclen;
+    }
+    free(buf);
+    return rc;
+}
+
+int fsr_walk(fsr_t *f, const char *dir, fsr_walk_cb cb, void *ctx) {
+    char rel[REL_MAX] = "";
+    if (f->type == T_EXFAT) {
+        exnode_t n;
+        return ex_lookup(f, dir, &n) && n.dir ? ex_walk(f, &n, rel, 0, cb, ctx) : -1;
+    }
+    ufsino_t n;
+    return ufs_lookup(f, dir, &n) && n.dir ? ufs_walk(f, &n, rel, 0, cb, ctx) : -1;
 }
 
 int fsr_label(fsr_t *f, char *out, size_t n) {

@@ -3113,12 +3113,6 @@
   "es": "No se puede comparar: una de las copias no se puede leer o se cambió la unidad.",
   "fr": "Comparaison impossible – l'une des copies est illisible ou le lecteur a été changé."
  },
- "Nicht vergleichbar: eine Kopie ist ein Abbild, die andere ein Ordner.": {
-  "en": "Not comparable: one copy is an image, the other a folder.",
-  "it": "Non confrontabili: una copia è un'immagine, l'altra una cartella.",
-  "es": "No comparables: una copia es una imagen y la otra una carpeta.",
-  "fr": "Non comparables : une copie est une image, l'autre un dossier."
- },
  "Inhalt gleich: beide Kopien von %s sind Byte für Byte identisch (%s und %s). Eine davon kann weg.": {
   "en": "Same content: both copies of %s are identical byte for byte (%s and %s). One of them can go.",
   "it": "Contenuto uguale: entrambe le copie di %s sono identiche byte per byte (%s e %s). Una può essere eliminata.",
@@ -3166,5 +3160,23 @@
   "it": "Troppe voci in una volta",
   "es": "Demasiadas entradas a la vez",
   "fr": "Trop d’entrées à la fois"
+ },
+ " Deutlich langsamer als bei früheren Messungen (%.0f MB/s) – der Stick ist womöglich verschlissen.": {
+  "en": " Much slower than in earlier measurements (%.0f MB/s) – the stick may be wearing out.",
+  "it": " Molto più lenta rispetto alle misurazioni precedenti (%.0f MB/s) – la chiavetta potrebbe essere usurata.",
+  "es": " Mucho más lenta que en mediciones anteriores (%.0f MB/s) – puede que la memoria esté desgastada.",
+  "fr": " Nettement plus lente que lors des mesures précédentes (%.0f MB/s) – la clé est peut-être usée."
+ },
+ "Nicht vergleichbar: dieses Abbild lässt sich nicht Datei für Datei lesen (nur exFAT und UFS2, kein PFS).": {
+  "en": "Not comparable: this image cannot be read file by file (only exFAT and UFS2, not PFS).",
+  "it": "Non confrontabili: questa immagine non può essere letta file per file (solo exFAT e UFS2, non PFS).",
+  "es": "No comparables: esta imagen no se puede leer archivo por archivo (solo exFAT y UFS2, no PFS).",
+  "fr": "Non comparables : cette image ne peut pas être lue fichier par fichier (seulement exFAT et UFS2, pas PFS)."
+ },
+ "Inhalt gleich: Abbild und Ordner von %s enthalten dieselben Dateien, Byte für Byte (%s und %s). Eine Kopie kann weg.": {
+  "en": "Same content: the image and the folder of %s contain the same files, byte for byte (%s and %s). One copy can go.",
+  "it": "Contenuto uguale: l'immagine e la cartella di %s contengono gli stessi file, byte per byte (%s e %s). Una copia può essere eliminata.",
+  "es": "Mismo contenido: la imagen y la carpeta de %s contienen los mismos archivos, byte a byte (%s y %s). Una copia puede eliminarse.",
+  "fr": "Contenu identique : l'image et le dossier de %s contiennent les mêmes fichiers, octet par octet (%s et %s). Une copie peut être supprimée."
  }
 }

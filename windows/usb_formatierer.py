@@ -33,7 +33,7 @@ from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choic
                        disk_name, enable_dpi_awareness, enable_history, fmt_size, footer, history_clear, history_dialog,
                        history_load, hwnd_of, image_file_name, image_info, irreversible_admin_text, keep_on_screen,
                        lang_selector, last_job, last_job_text, open_help, pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job,
-                       resource_path, serial_args, setup_window, show_centered, show_scan, version_tuple)
+                       resource_path, same_drive, serial_args, setup_window, show_centered, show_scan, version_tuple)
 from standard_panel import StandardPanel
 from ui_widgets import THEME_NEXT, ChoiceChips, DriveList, Tooltip, header_tools
 
@@ -478,18 +478,15 @@ def pkg_hints(pk, fw):
     return out
 
 
+def comparable(a, b):
+    """Inhalt vergleichen: zwei Ordner, zwei Abbilder oder ein Ordner und ein Abbild, das der Formatierer Datei für Datei
+    lesen kann (exFAT/UFS2 - PFS liest nur die PS5 selbst)"""
+    return (a.get("kind") == "Ordner") == (b.get("kind") == "Ordner") or any(g.get("kind") in ("exFAT", "UFS2") for g in (a, b))
+
+
 def read_mbps(d, history):
     """Zuletzt gemessenes Lesetempo eines Laufwerks aus dem Verlauf des Formatierers (Tempo messen, Formatieren mit Prüfung); 0 = keins"""
-    for e in history or []:
-        if (e.get("mbps") or 0) <= 0:
-            continue
-        if e.get("ident") and d.get("ident"):
-            same = e["ident"] == d["ident"]
-        else:
-            same = (e.get("model") or "") == (d.get("model") or "") and int(e.get("size") or 0) == int(d.get("size") or 0)
-        if same:
-            return e["mbps"]
-    return 0
+    return next((e["mbps"] for e in history or [] if (e.get("mbps") or 0) > 0 and same_drive(e, d)), 0)
 
 
 def target_label(d, need=0, history=()):
@@ -3329,9 +3326,9 @@ class App(tk.Tk):
         g = next((g for g in allg if g.get("key") in keys), None) if len(keys) == 1 else None
         dup = next((x for x in self.dup_paths if g and g.get("path") in x), None)
         other = [o for o in allg if dup and o.get("path") in dup and o.get("path") != g.get("path")]
-        if not g or not dup or len(dup) != 2 or len(other) != 1 or (g.get("kind") == "Ordner") != (other[0].get("kind") == "Ordner"):
-            messagebox.showinfo(_("Inhalt vergleichen"), _("Genau ein doppeltes Spiel anhaken, das es noch genau einmal in derselben Form "
-                                                          "(Ordner bzw. Abbild) gibt."), parent=self)
+        if not g or not dup or len(dup) != 2 or len(other) != 1 or not comparable(g, other[0]):
+            messagebox.showinfo(_("Inhalt vergleichen"), _("Genau ein doppeltes Spiel anhaken, das es noch genau einmal gibt. Vergleichbar sind "
+                                                          "zwei Ordner, zwei Abbilder sowie ein Ordner mit einem exFAT- oder UFS2-Abbild."), parent=self)
             return
         api, pair = self.api, [g["key"], other[0]["key"]]
 
@@ -3906,7 +3903,7 @@ class App(tk.Tk):
             self.pc_job = job
             self.q.put(("formatting", False))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step, {})))
-            record_job(args, ok, msg, dev, started, getattr(job, "cancel_requested", False))
+            msg = (msg or "") + record_job(args, ok, msg, dev, started, getattr(job, "cancel_requested", False), info)
             self.q.put(("jobended",))   # der Helfer ist fertig - "Abbrechen" weg, auch während des Neueinlesens
             try:
                 # danach neu einlesen - mit Fortschritt, schlafende Platten laufen dabei womöglich erst an

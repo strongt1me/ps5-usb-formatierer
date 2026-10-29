@@ -849,11 +849,37 @@ def history_clear():
             pass
 
 
-def record_job(args, ok, msg, dev=None, started=None, cancelled=False):
-    """Auftrag des Helfers (args wie an den Helfer) in den Verlauf schreiben - still, wenn es nicht geht"""
+SLOW_FACTOR = 0.7
+
+
+def same_drive(a, b):
+    """Verlaufseinträge desselben Datenträgers: Seriennummer, sonst Modell und Größe"""
+    if a.get("ident") and b.get("ident"):
+        return a["ident"] == b["ident"]
+    return (a.get("model") or "") == (b.get("model") or "") and int(a.get("size") or 0) == int(b.get("size") or 0)
+
+
+def earlier_mbps(history, e):
+    """Median der letzten bis zu 5 früheren Lesetempo-Messungen desselben Datenträgers; 0 = keine"""
+    v = sorted([x["mbps"] for x in history if (x.get("mbps") or 0) > 0 and same_drive(x, e)][:5])
+    return 0 if not v else v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2
+
+
+def slower_note(history, e):
+    """Verschleiß erkennen (SMART liefern USB-Sticks nicht): deutlich langsamer als früher (30 % und 5 MB/s weniger)"""
+    before = earlier_mbps(history, e)
+    if before and e.get("mbps") and e["mbps"] < before * SLOW_FACTOR and before - e["mbps"] >= 5:
+        return " " + _("Deutlich langsamer als bei früheren Messungen ({n} MB/s) – der Datenträger ist womöglich "
+                       "verschlissen.", n=round(before))
+    return ""
+
+
+def record_job(args, ok, msg, dev=None, started=None, cancelled=False, info=None):
+    """Auftrag des Helfers (args wie an den Helfer) in den Verlauf schreiben - still, wenn es nicht geht. Liefert einen
+    Hinweis zum Anhängen an die Meldung (Datenträger liest deutlich langsamer als früher) oder """""
     path = _history["path"]
     if not path or not args:
-        return
+        return ""
     kind = str(args[0])
     e = {"t": int(time.time()), "kind": kind, "ok": bool(ok), "cancelled": bool(cancelled and not ok),
          "secs": max(0, int(time.time() - started)) if started else 0}
@@ -872,10 +898,15 @@ def record_job(args, ok, msg, dev=None, started=None, cancelled=False):
         e["file"] = os.path.basename(args[3])
     elif kind == "verify" and len(args) > 1:
         e["file"] = os.path.basename(args[1])
-    e["msg"] = str(msg or "")[:600]
+    read = (info or {}).get("read") if ok and isinstance(info, dict) else 0
+    if isinstance(read, (int, float)) and read > 0:
+        e["mbps"] = round(read)   # Lesetempo: für die Ziel-Auswahl und den Vergleich mit späteren Messungen
     e = {k: v for k, v in e.items() if v != ""}
     with _history_lock:
-        entries = [e] + history_load()[:HISTORY_MAX - 1]
+        old = history_load()
+        note = slower_note(old, e) if dev else ""
+        e["msg"] = (str(msg or "") + note)[:600]
+        entries = [e] + old[:HISTORY_MAX - 1]
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             fd, tmp = tempfile.mkstemp(prefix="history-", suffix=".tmp", dir=os.path.dirname(path))
@@ -895,6 +926,7 @@ def record_job(args, ok, msg, dev=None, started=None, cancelled=False):
                 os.remove(tmp)
             except (OSError, UnboundLocalError):
                 pass
+    return note
 
 
 def history_kind(kind):

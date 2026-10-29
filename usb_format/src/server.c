@@ -65,6 +65,7 @@
 #include "mkfs.h"
 #include "platform.h"
 #include "saves.h"
+#include "fsread.h"
 #include "sha256.h"
 #include "server.h"
 #include "vollabel.h"
@@ -580,6 +581,41 @@ static void history_job(const job_t *j, int ok, int cancelled, const char *msg) 
     free(e.p);
 }
 
+/* Verschleiß erkennen (SMART liefern USB-Sticks nicht): Median der letzten bis zu 5 früheren Messungen desselben
+ * Datenträgers (Seriennummer, sonst Modell und Größe) aus dem Verlauf; 0 = keine. Vor history_job aufrufen. */
+#define SLOW_FACTOR 0.7
+static double earlier_mbps(const usbdev_t *d) {
+    sbuf_t key = {0};
+    if (d->ident[0]) { sb_add(&key, "\"ident\":"); sb_str(&key, d->ident); }
+    else { sb_add(&key, "\"model\":"); sb_str(&key, d->model); sb_add(&key, ",\"size\":%llu,", (unsigned long long)d->size); }
+    char *lines[HIST_MAX];
+    double v[5];
+    int nv = 0;
+    pthread_mutex_lock(&hist_lock);
+    int n = history_read(lines, HIST_MAX);
+    pthread_mutex_unlock(&hist_lock);
+    for (int i = 0; i < n; i++) {
+        const char *m = strstr(lines[i], "\"mbps\":");
+        if (nv < 5 && key.p && m && strstr(lines[i], key.p)) {
+            double x = strtod(m + 7, NULL);
+            if (x > 0) v[nv++] = x;
+        }
+        free(lines[i]);
+    }
+    free(key.p);
+    for (int a = 1; a < nv; a++)   /* sortieren für den Median */
+        for (int b = a; b > 0 && v[b - 1] > v[b]; b--) { double t = v[b]; v[b] = v[b - 1]; v[b - 1] = t; }
+    return nv ? (nv % 2 ? v[nv / 2] : (v[nv / 2 - 1] + v[nv / 2]) / 2) : 0;
+}
+
+/* Hinweis anhängen, wenn der Stick deutlich langsamer liest als früher (mindestens 30 % und 5 MB/s weniger) */
+static void slower_note(const usbdev_t *d, double mbps, sbuf_t *msg) {
+    double before = earlier_mbps(d);
+    if (before > 0 && mbps < before * SLOW_FACTOR && before - mbps >= 5)
+        sb_tr(msg, " Deutlich langsamer als bei früheren Messungen (%.0f MB/s) – der Stick ist womöglich verschlissen.",
+              before);
+}
+
 static void job_done(job_t *j, int ok, sbuf_t *msg, sbuf_t *res, int refresh) {
     int cancelled = !ok && __atomic_load_n(&cancel_requested, __ATOMIC_RELAXED);   /* wie finish() */
     finish(ok, msg->p, res->p);
@@ -714,6 +750,7 @@ static void *format_worker(void *arg) {
         sb_tr(&msg, " %s: echt%s, lesen %.0f MB/s, schreiben %.0f MB/s", tested == 2 ? T("Jede Stelle geprüft")
               : T("Prüfung"), tested == 2 ? T(", keine Fehler") : "", t.read_mbps, t.write_mbps);
         sb_add(&msg, " – %s.", rating_text(t.read_mbps));
+        slower_note(&j->dev, t.read_mbps, &msg);
         j->mbps = t.read_mbps;
     }
     if (test_cancelled) sb_tr(&msg, " Die Prüfung wurde abgebrochen – formatiert wurde trotzdem.");
@@ -774,6 +811,7 @@ static void *speed_worker(void *arg) {
     if (t.cancelled) { sb_tr(&msg, "Abgebrochen."); job_done(j, 0, &msg, &res, 0); return NULL; }
     sb_tr(&msg, "Lesetempo von %s: %.0f MB/s – %s.", dev_title(&j->dev, title, sizeof(title)), t.read_mbps,
           rating_text(t.read_mbps));
+    slower_note(&j->dev, t.read_mbps, &msg);
     j->mbps = t.read_mbps;
     sb_add(&res, "{\"x\":0");
     speed_json(&res, &t);
@@ -5078,6 +5116,14 @@ static int read_sha_file(const char *path, uint8_t out[32]) {
     return p[64] == 0 || p[64] == ' ' || p[64] == '\t' || p[64] == '\n' || p[64] == '\r' || p[64] == '*' ? 0 : -1;
 }
 
+/* gelesene Menge zählen, höchstens einmal je Sekunde den Balken (1-98 %) nachführen */
+static void gv_tick(uint64_t *done, uint64_t add, uint64_t total, time_t *last, const char *step) {
+    *done += add;
+    time_t now = time(NULL);
+    if (now != *last) { *last = now; on_progress(step, total ? 1 + (int)((*done > total ? total : *done) * 97 / total) : 1); }
+    plat_throttle();
+}
+
 /* Eine Datei ganz lesen und hashen; 0 = ok, -1 = nicht lesbar, -2 = abgebrochen */
 static int gv_hash_path(const char *path, char *buf, uint8_t out[32], uint64_t *done, uint64_t total, time_t *last, const char *step) {
     int fd = open(path, O_RDONLY);
@@ -5092,10 +5138,7 @@ static int gv_hash_path(const char *path, char *buf, uint8_t out[32], uint64_t *
         if (r < 0) { rc = -1; break; }
         if (r == 0) break;
         sha256_update(&sh, buf, (size_t)r);
-        *done += (uint64_t)r;
-        time_t now = time(NULL);
-        if (now != *last) { *last = now; on_progress(step, total ? 1 + (int)((*done > total ? total : *done) * 97 / total) : 1); }
-        plat_throttle();
+        gv_tick(done, (uint64_t)r, total, last, step);
     }
     close(fd);
     if (rc == 0) sha256_final(&sh, out);
@@ -5157,6 +5200,38 @@ static int mf_build_walk(mfw_t *w, const char *dir, int depth) {
         }
     }
     mf_free(v, n);
+    return rc;
+}
+
+/* Dieselbe Liste aus einem Abbild (exFAT/UFS2, Datei für Datei gelesen) - zum Vergleich mit einem Ordner-Spiel */
+static int mf_image_cb(void *ctx, const char *rel, fsr_file_t *h, uint64_t size) {
+    mfw_t *w = ctx;
+    sha256_t sh;
+    uint8_t d[32];
+    char hex[65];
+    (void)size;
+    sha256_init(&sh);
+    for (;;) {
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) return -2;
+        long r = fsr_fread(h, w->buf, MV_BUF);
+        if (r < 0) return -1;
+        if (r == 0) break;
+        sha256_update(&sh, w->buf, (size_t)r);
+        gv_tick(w->done, (uint64_t)r, w->total, w->last, w->step);
+    }
+    sha256_final(&sh, d);
+    mf_hex(d, hex);
+    return fprintf(w->out, "%s  %s\n", hex, rel) < 0 ? -1 : 0;
+}
+
+/* 0 = ok, -1 = nicht lesbar, -2 = abgebrochen, -3 = kein exFAT/UFS2 (etwa PFS: das liest nur der Kernel der PS5) */
+static int mf_build_image(mfw_t *w, const char *path) {
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return -1;
+    fsr_t *f = fsr_open(fd, 0);
+    const int rc = f ? fsr_walk(f, "", mf_image_cb, w) : -3;
+    fsr_close(f);
+    close(fd);
     return rc;
 }
 
@@ -5328,7 +5403,7 @@ static void *gcmp_worker(void *arg) {
     sbuf_t msg = {0}, res = {0};
     const del_item_t *a = &j->items[0], *b = &j->items[1];
     uint64_t total = a->size + b->size, done = 0;
-    int rc = 0, same = 0, chg = 0, miss = 0, extra = 0, kinds = a->isdir == b->isdir;
+    int rc = 0, same = 0, chg = 0, miss = 0, extra = 0, kinds = 1;
     char *buf = malloc(MV_BUF), tmp[400] = "", step[360];
     time_t last = 0;
     if (!buf) { sb_tr(&msg, "Kein Speicher"); goto fin; }
@@ -5338,29 +5413,32 @@ static void *gcmp_worker(void *arg) {
     pthread_mutex_unlock(&lock);
     snprintf(step, sizeof(step), T("Inhalt vergleichen: %s"), a->name);
     on_progress(step, 1);
-    if (!kinds) rc = 0;
-    else if (!a->isdir) {   /* Abbilder: andere Größe heißt anderer Inhalt, sonst beide lesen */
+    if (!a->isdir && !b->isdir) {   /* Abbilder: andere Größe heißt anderer Inhalt, sonst beide lesen */
         uint8_t ha[32], hb[32];
         if (a->size != b->size) same = 0;
         else if ((rc = gv_hash(a, buf, ha, &done, total, &last, step)) == 0 && (rc = gv_hash(b, buf, hb, &done, total, &last, step)) == 0)
             same = !memcmp(ha, hb, 32);
     } else {
+        /* Prüfsummenliste der einen Kopie (Ordner, oder ein Abbild Datei für Datei), dann die andere (Ordner) damit prüfen */
+        const del_item_t *src = a->isdir ? (b->isdir ? a : b) : a, *dst = src == a ? b : a;
         mkdir(plat_data_dir(), 0755);
         snprintf(tmp, sizeof(tmp), "%s/compare.manifest.tmp", plat_data_dir());
-        FILE *f = root_dev(a->root) == a->dev ? fopen(tmp, "w") : NULL;
+        FILE *f = root_dev(src->root) == src->dev ? fopen(tmp, "w") : NULL;
         if (!f) rc = -1;
         else {
-            mfw_t w = {f, buf, &done, total, &last, step, strlen(a->path)};
-            rc = mf_build_walk(&w, a->path, 0);
+            mfw_t w = {f, buf, &done, total, &last, step, strlen(src->path)};
+            rc = src->isdir ? mf_build_walk(&w, src->path, 0) : mf_build_image(&w, src->path);
             if (fclose(f) != 0 && !rc) rc = -1;
         }
-        if (!rc && root_dev(b->root) != b->dev) rc = -1;
-        if (!rc) {
-            del_item_t bb = *b;
-            snprintf(bb.ex[0], sizeof(bb.ex[0]), "%.299s", tmp);
-            rc = manifest_check(&bb, buf, &done, total, &last, step, &chg, &miss, &extra);
+        if (rc == -3) { kinds = 0; rc = 0; }
+        else if (!rc && root_dev(dst->root) != dst->dev) rc = -1;
+        if (!rc && kinds) {
+            del_item_t dd = *dst;
+            snprintf(dd.ex[0], sizeof(dd.ex[0]), "%.299s", tmp);
+            rc = manifest_check(&dd, buf, &done, total, &last, step, &chg, &miss, &extra);
             same = rc == 0;
             if (rc == 1) rc = 0;
+            if (src != a) { int t = miss; miss = extra; extra = t; }   /* "nur in der ersten" bezieht sich auf a */
         }
         unlink(tmp);
     }
@@ -5370,9 +5448,11 @@ static void *gcmp_worker(void *arg) {
     set_flags(0, 0);
     if (rc == -2) sb_tr(&msg, "Abgebrochen.");
     else if (rc) sb_tr(&msg, "Vergleich nicht möglich – eine der Kopien ist nicht lesbar oder das Laufwerk wurde gewechselt.");
-    else if (!kinds) sb_tr(&msg, "Nicht vergleichbar: eine Kopie ist ein Abbild, die andere ein Ordner.");
+    else if (!kinds) sb_tr(&msg, "Nicht vergleichbar: dieses Abbild lässt sich nicht Datei für Datei lesen (nur exFAT und UFS2, kein PFS).");
+    else if (same && a->isdir != b->isdir)
+        sb_tr(&msg, "Inhalt gleich: Abbild und Ordner von %s enthalten dieselben Dateien, Byte für Byte (%s und %s). Eine Kopie kann weg.", a->name, a->device, b->device);
     else if (same) sb_tr(&msg, "Inhalt gleich: beide Kopien von %s sind Byte für Byte identisch (%s und %s). Eine davon kann weg.", a->name, a->device, b->device);
-    else if (a->isdir) sb_tr(&msg, "Inhalt verschieden: %d Dateien geändert, %d nur in der ersten Kopie, %d nur in der zweiten.", chg, miss, extra);
+    else if (a->isdir || b->isdir) sb_tr(&msg, "Inhalt verschieden: %d Dateien geändert, %d nur in der ersten Kopie, %d nur in der zweiten.", chg, miss, extra);
     else sb_tr(&msg, "Inhalt verschieden: die beiden Abbilder von %s sind nicht gleich.", a->name);
 fin:
     sb_add(&res, "{\"same\":%s,\"comparable\":%s,\"changed\":%d,\"only_first\":%d,\"only_second\":%d}",

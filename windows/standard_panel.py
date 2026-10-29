@@ -821,7 +821,7 @@ class StandardPanel(ttk.Frame):
             self.job_starting = False
             self.q.put(("started",))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step)))
-            record_job(args, ok, msg, None if plain else dev, started, getattr(job, "cancel_requested", False))
+            msg = (msg or "") + record_job(args, ok, msg, None if plain else dev, started, getattr(job, "cancel_requested", False), info)
             self.q.put(("jobended",))   # der Helfer ist fertig - "Abbrechen" weg, auch während des Neueinlesens
             if plain:
                 self.q.put(("done", ok, msg, info, None, after))

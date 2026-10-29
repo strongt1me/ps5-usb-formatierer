@@ -21,11 +21,22 @@ function Sha256($path) {
 python (Join-Path $src "..\tools\i18n_gen.py")
 if ($LASTEXITCODE -ne 0) { throw "Übersetzungen unvollständig" }
 
-# mke2fs.exe (einmalig gebaut, danach wiederverwendet) und ihre Prüfsumme für den Helfer
+# mke2fs.exe (gebaut, danach wiederverwendet, solange sich Bauskript, config.h und gen\ nicht ändern - die Prüfsumme
+# dieser Dateien steht in mke2fs.exe.inputs) und ihre Prüfsumme für den Helfer
 $mke2fs = Join-Path $PSScriptRoot "mke2fs.exe"
-if (-not (Test-Path $mke2fs)) {
+$mdir = Join-Path $PSScriptRoot "mke2fs"
+function MkInputs {
+    (Get-ChildItem -Recurse -File $mdir | Where-Object { $_.FullName -notlike (Join-Path $mdir "build\*") } |
+     ForEach-Object { $_.FullName.Substring($mdir.Length + 1) + " " + (Sha256 $_.FullName) } | Sort-Object) -join "`n"
+}
+$inputs = MkInputs
+$stamp = "$mke2fs.inputs"
+if (-not (Test-Path $mke2fs) -or -not (Test-Path $stamp) -or (Get-Content -Raw $stamp).Trim() -ne $inputs.Trim()) {
+    if (Test-Path $mke2fs) { Write-Host "mke2fs-Quellen geändert: mke2fs.exe wird neu gebaut" }
+    Remove-Item -Force -ErrorAction SilentlyContinue $mke2fs, $stamp
     & (Join-Path $PSScriptRoot "mke2fs\build_mke2fs.ps1")
     if (-not (Test-Path $mke2fs)) { throw "mke2fs.exe fehlt" }
+    Set-Content -Encoding ascii -NoNewline -Path $stamp -Value (MkInputs)
 }
 $mhash = Sha256 $mke2fs
 Set-Content -Encoding ascii (Join-Path $src "win\mke2fs_hash.h") @"

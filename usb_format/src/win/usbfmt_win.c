@@ -747,7 +747,7 @@ static int run_mke2fs(const WCHAR *dev, uint64_t offset, uint64_t bytes, const c
              L"\"%ls\" %lluk", exe, type, (unsigned long long)offset, opt, dev, (unsigned long long)(bytes / 1024));
     /* eigene, kleine Umgebung: keine mke2fs.conf von irgendwo (MKE2FS_CONFIG zeigt ins Leere -> eingebaute Werte) */
     if (!GetWindowsDirectoryW(win, MAX_PATH)) wcscpy(win, L"C:\\Windows");
-    int el = swprintf(env, 700, L"MKE2FS_CONFIG=%ls\\System32\\usbfmt-keine-mke2fs.conf", win);
+    int el = swprintf(env, 700, L"MKE2FS_CONFIG=%ls\\System32\\usbfmt-keine-mke2fs.conf", win);   /* nicht übersetzt */
     el += 1 + swprintf(env + el + 1, 700 - el - 2, L"SystemRoot=%ls", win);
     env[el + 1] = 0;
 

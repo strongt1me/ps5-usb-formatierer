@@ -71,6 +71,29 @@ check(all(pc_common.history_kind(k) != k for k in ("move", "game_verify", "game_
                                                     "game_compare", "pkg_delete", "save_backup", "save_restore")),
       "history_kind: alle Auftragsarten des Formatierers haben einen Namen")
 
+# Inhalt vergleichen: welche Paare der Server vergleichen kann
+F, EX, UFS, PFS = {"kind": "Ordner"}, {"kind": "exFAT"}, {"kind": "UFS2"}, {"kind": "PFS"}
+check(uf.comparable(F, F) and uf.comparable(PFS, EX) and uf.comparable(F, EX) and uf.comparable(UFS, F) and not uf.comparable(F, PFS)
+      and not uf.comparable({"kind": "?"}, F), "comparable: Ordner/Abbild gemischt nur mit exFAT- oder UFS2-Abbild")
+
+# Verschleiß: Lesetempo kommt in den Verlauf, eine deutlich langsamere Messung desselben Datenträgers bringt einen Hinweis
+pc_common.enable_history("wear-test")
+stick = {"disk": 4, "model": "M", "size": 8 << 30, "serial": "S9", "volumes": []}
+other = dict(stick, serial="S8")
+for mbps in (100, 110, 95):
+    check(pc_common.record_job(["speed", "4", str(stick["size"])], True, "gemessen", stick, info={"read": mbps}) == "",
+          "record_job: ähnliches Tempo ohne Hinweis (%d MB/s)" % mbps)
+check(pc_common.history_load()[0].get("mbps") == 95, "record_job: Lesetempo im Verlauf", pc_common.history_load()[0])
+check(pc_common.record_job(["speed", "4", str(stick["size"])], True, "gemessen", other, info={"read": 30}) == "",
+      "record_job: anderer Stick (andere Seriennummer) ohne Hinweis")
+note = pc_common.record_job(["speed", "4", str(stick["size"])], True, "gemessen", stick, info={"read": 40})
+check("100 MB/s" in note and "verschlissen" in note and "verschlissen" in pc_common.history_load()[0]["msg"],
+      "record_job: deutlich langsamer als der Median früherer Messungen - Hinweis in Meldung und Verlauf", note)
+check(pc_common.slower_note([{"mbps": 8, "ident": "A"}], {"mbps": 4, "ident": "A"}) == "",
+      "slower_note: langsame Sticks schwanken - unter 5 MB/s Unterschied kein Hinweis")
+check(pc_common.record_job(["speed", "4", "1"], False, "Abgebrochen.", stick, info={"read": 1}) == ""
+      and "mbps" not in pc_common.history_load()[0], "record_job: fehlgeschlagene Messung ohne Tempo und ohne Hinweis")
+
 hints = uf.pkg_hints({"fwhigh": True, "minfw": "9.00", "vs": "older", "inst": "01.005.000", "cat": "update"}, "8.20")
 check([k for k, _t in hints] == ["bad", "warn"], "pkg_hints: Firmware zu alt und ältere Version", hints)
 check(uf.pkg_hints({"cat": "dlc", "fwhigh": False}, "8.20") == [], "pkg_hints: Zusatzinhalt ohne Hinweise")

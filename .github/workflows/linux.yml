@@ -201,9 +201,15 @@ jobs:
           if grep -qv '^[0-9a-f]\{64\}  [^ /]' SHA256SUMS; then echo "Datei ohne Prüfsumme von GitHub"; exit 1; fi
           gh release upload "$TAG" SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
 
-  # Der PS5-Code (Payload) als Host-Programm - FreeBSD hat arc4random, glibc erst ab 2.36: daher Ubuntu 24.04
+  # Der PS5-Code (Payload) als Host-Programm - FreeBSD hat arc4random, glibc erst ab 2.36: daher Ubuntu 24.04.
+  # Zweiter Durchlauf mit AddressSanitizer und UBSan: dieselben Testreihen, jeder Speicherfehler lässt ihn scheitern.
   payload:
+    name: payload${{ matrix.san && ' (Sanitizer)' || '' }}
     if: github.event_name != 'release'   # beim Release schon beim Push des Tags geprüft
+    strategy:
+      fail-fast: false
+      matrix:
+        san: ["", "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g"]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -215,6 +221,7 @@ jobs:
             xvfb python3-tk
 
       - name: Image-Sicherung mit dem zstd-Programm entpackbar?
+        if: matrix.san == ''
         working-directory: usb_format
         run: |
           set -o pipefail
@@ -223,14 +230,17 @@ jobs:
           ! grep -q FEHLER /tmp/ib.log
 
       - name: PC-Programm "An der PS5" - Image-Sicherung gegen den Testserver (Xvfb)
+        if: matrix.san == ''
         working-directory: usb_format
         run: bash test/pc_flow_test.sh
 
       - name: Weboberfläche - Update-Hinweis und Verlauf (node, Code aus web/index.html)
+        if: matrix.san == ''
         working-directory: usb_format
         run: node --version && node test/web_logic_test.js web/index.html
 
       - name: Weboberfläche im Browser (Playwright, alle Reiter und Dialoge, keine JavaScript-Fehler)
+        if: matrix.san == ''
         working-directory: usb_format
         run: |
           python3 -m pip install --user playwright
@@ -240,7 +250,13 @@ jobs:
 
       - name: Payload-Tests (Host)
         working-directory: usb_format
+        env:
+          HOST_CFLAGS: ${{ matrix.san }}
+          # Berichte landen in Dateien: auch ein Fehler im Hintergrund-Server, den der Test selbst nicht bemerkt, zählt
+          ASAN_OPTIONS: log_path=/tmp/san/asan:detect_leaks=0
+          UBSAN_OPTIONS: log_path=/tmp/san/ubsan:print_stacktrace=1
         run: |
+          mkdir -p /tmp/san
           fails=0
           for t in test/run_tests.sh test/extfs_test.sh test/mounted_test.sh test/format_settings_test.sh \
                    test/open_test.sh test/layout_test.sh test/devtest_test.sh test/library_test.sh test/fsck_test.sh \
@@ -249,5 +265,6 @@ jobs:
                    test/places_test.sh test/pkginfo_test.sh test/precheck_test.sh test/gverify_test.sh test/partials_test.sh test/orphans_test.sh test/manifest_test.sh test/compare_test.sh; do
             echo "== $t"
             bash "$t" >/tmp/t.log 2>&1 && tail -n 1 /tmp/t.log || { cat /tmp/t.log; fails=$((fails + 1)); }
+            if ls /tmp/san/* >/dev/null 2>&1; then cat /tmp/san/*; rm -f /tmp/san/*; fails=$((fails + 1)); fi
           done
           exit $fails

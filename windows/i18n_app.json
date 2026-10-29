@@ -3719,12 +3719,6 @@
   "es": "Comparar contenido",
   "fr": "Comparer le contenu"
  },
- "Genau ein doppeltes Spiel anhaken, das es noch genau einmal in derselben Form (Ordner bzw. Abbild) gibt.": {
-  "en": "Tick exactly one duplicate game that exists exactly once more in the same form (folder or image).",
-  "it": "Seleziona esattamente un gioco doppio che esiste ancora esattamente una volta nella stessa forma (cartella o immagine).",
-  "es": "Marca exactamente un juego duplicado que exista exactamente una vez más en la misma forma (carpeta o imagen).",
-  "fr": "Cochez exactement un jeu en double qui existe encore exactement une fois sous la même forme (dossier ou image)."
- },
  "Vergleich konnte nicht gestartet werden: {e}": {
   "en": "Comparison could not be started: {e}",
   "it": "Impossibile avviare il confronto: {e}",
@@ -3766,5 +3760,17 @@
   "it": "{name} esiste già. Sostituirlo?",
   "es": "{name} ya existe. ¿Reemplazarlo?",
   "fr": "{name} existe déjà. Le remplacer ?"
+ },
+ "Deutlich langsamer als bei früheren Messungen ({n} MB/s) – der Datenträger ist womöglich verschlissen.": {
+  "en": "Much slower than in earlier measurements ({n} MB/s) – the drive may be wearing out.",
+  "it": "Molto più lenta rispetto alle misurazioni precedenti ({n} MB/s) – l'unità potrebbe essere usurata.",
+  "es": "Mucho más lenta que en mediciones anteriores ({n} MB/s) – puede que la unidad esté desgastada.",
+  "fr": "Nettement plus lente que lors des mesures précédentes ({n} MB/s) – le support est peut-être usé."
+ },
+ "Genau ein doppeltes Spiel anhaken, das es noch genau einmal gibt. Vergleichbar sind zwei Ordner, zwei Abbilder sowie ein Ordner mit einem exFAT- oder UFS2-Abbild.": {
+  "en": "Tick exactly one duplicate game that exists exactly once more. Comparable are two folders, two images, or a folder with an exFAT or UFS2 image.",
+  "it": "Seleziona esattamente un gioco doppio che esiste ancora esattamente una volta. Si possono confrontare due cartelle, due immagini oppure una cartella con un'immagine exFAT o UFS2.",
+  "es": "Marca exactamente un juego duplicado que exista exactamente una vez más. Se pueden comparar dos carpetas, dos imágenes o una carpeta con una imagen exFAT o UFS2.",
+  "fr": "Cochez exactement un jeu en double qui existe encore exactement une fois. Sont comparables deux dossiers, deux images ou un dossier avec une image exFAT ou UFS2."
  }
 }

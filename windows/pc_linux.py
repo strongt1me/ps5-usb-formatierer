@@ -15,7 +15,7 @@ import time
 from i18n import _, lang
 
 # als root: kopieren, Prüfsumme der Kopie prüfen, starten; Exit 99 = verändert, 98 = Kopie scheiterte.
-# Befehle ohne festen Pfad (liegen je nach Verteilung in /bin oder /usr/bin) - pkexec setzt einen sicheren PATH.
+# Befehle ohne festen Pfad (liegen je nach Verteilung in /bin oder /usr/bin) - pkexec setzt einen sicheren PATH. Shell-Skript, nicht übersetzt.
 _START = r'''
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 d=

@@ -1330,7 +1330,10 @@ function renderContent() {
         n.appendChild(rb);
       }
     }
-    if (infos.length === 2 && (infos[0].kind === "Ordner") === (infos[1].kind === "Ordner") && !busy) {
+    /* zwei Ordner, zwei Abbilder oder Ordner und ein Abbild, das sich Datei für Datei lesen lässt (exFAT/UFS2, kein PFS) */
+    const comparable = infos.length === 2 && ((infos[0].kind === "Ordner") === (infos[1].kind === "Ordner")
+                                              || infos.some(t => t.kind === "exFAT" || t.kind === "UFS2"));
+    if (comparable && !busy) {
       const cb2 = el("button", "tool", tr("Inhalt vergleichen"));   /* liest beide ganz: Byte für Byte gleich oder nicht */
       cb2.type = "button";
       cb2.addEventListener("click", () => runJob("/api/game/compare", { keys: infos.map(t => t.key).join(",") }));
