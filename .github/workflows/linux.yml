@@ -130,6 +130,10 @@ jobs:
             APPIMAGE_EXTRACT_AND_RUN=1 "$GITHUB_WORKSPACE/windows/dist/$app-${{ matrix.arch }}.AppImage" --appimage-extract >/dev/null
             cmp squashfs-root/usr/bin/$app "$GITHUB_WORKSPACE/windows/dist/$app" || { echo "$app.AppImage weicht ab"; exit 1; }
             echo "$app.AppImage: Programm identisch"
+            upd="gh-releases-zsync|${GITHUB_REPOSITORY%%/*}|${GITHUB_REPOSITORY#*/}|latest|$app-${{ matrix.arch }}.AppImage.zsync"
+            grep -qaF "$upd" "$GITHUB_WORKSPACE/windows/dist/$app-${{ matrix.arch }}.AppImage" || { echo "$app.AppImage ohne Update-Information"; exit 1; }
+            grep -q "^Filename: $app-${{ matrix.arch }}.AppImage$" "$GITHUB_WORKSPACE/windows/dist/$app-${{ matrix.arch }}.AppImage.zsync" || { echo "$app.AppImage.zsync passt nicht"; exit 1; }
+            echo "$app.AppImage: Update-Information und .zsync da"
             cd "$GITHUB_WORKSPACE"
           done
 
@@ -162,6 +166,7 @@ jobs:
           path: |
             windows/dist/*.tar.gz
             windows/dist/*.AppImage
+            windows/dist/*.AppImage.zsync
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -189,7 +194,8 @@ jobs:
         working-directory: usb_format
         run: sudo -E env "PATH=$PATH" bash test/linux_loop_test.sh
 
-  # nur beim Veröffentlichen: die geprüften Archive und AppImages beider Architekturen an das Release hängen
+  # nur beim Veröffentlichen: die geprüften Archive und AppImages (samt .zsync für AppImageUpdate) beider Architekturen an
+  # das Release hängen
   release:
     if: github.event_name == 'release' || inputs.tag != ''
     needs: [linux, loop]
@@ -209,7 +215,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           ls -l dist
-          gh release upload "$TAG" dist/*.tar.gz dist/*.AppImage --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload "$TAG" dist/*.tar.gz dist/*.AppImage dist/*.AppImage.zsync --clobber --repo "$GITHUB_REPOSITORY"
 
       # von Hand neu angehängt (workflow_dispatch): die Dateien sind neu gebaut, also SHA256SUMS erneuern - beim
       # Veröffentlichen erledigt das checksums.yml

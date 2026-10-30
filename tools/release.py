@@ -263,7 +263,8 @@ def publish(version, title, notes, message):
 
 # Dateien, die nach den CI-Läufen am Release hängen müssen
 EXPECTED_ASSETS = ["usb_format.elf", "PPSA86920.zip", "SHA256SUMS", "PS5-USB-Formatierer.exe", "USB-Formatierer.exe"] + [
-    f"{n}-{a}.AppImage" for n in ("PS5-USB-Formatierer", "USB-Formatierer") for a in ("x86_64", "aarch64")] + [
+    f"{n}-{a}.AppImage{z}" for n in ("PS5-USB-Formatierer", "USB-Formatierer") for a in ("x86_64", "aarch64")
+    for z in ("", ".zsync")] + [
     f"{n}-linux-{a}.tar.gz" for n in ("PS5-USB-Formatierer", "USB-Formatierer") for a in ("x86_64", "aarch64")]
 
 

@@ -5,6 +5,7 @@
 #   USB-Formatierer       nur "Am PC – frei": frei formatieren, ohne PS5-Funktionen
 # Benötigt: python3 mit tkinter, python3 -m pip install -r requirements-build.txt; gcc (statische glibc empfohlen).
 #   [APPIMAGETOOL=pfad/appimagetool] [APPIMAGE_RUNTIME=pfad/runtime] windows/build_linux.sh [pfad/zu/usb_format.elf]
+# Die Update-Information der AppImages zeigt auf GITHUB_REPOSITORY (in der CI gesetzt, sonst das Projekt selbst).
 set -euo pipefail
 cd "$(dirname "$0")"
 ELF=${1:-../usb_format/usb_format.elf}
@@ -12,6 +13,9 @@ ELF=${1:-../usb_format/usb_format.elf}
 PY=${PYTHON:-python3}
 ARCH=$(uname -m)
 case "$ARCH" in amd64) ARCH=x86_64 ;; arm64) ARCH=aarch64 ;; esac
+REPO=${GITHUB_REPOSITORY:-strongt1me/ps5-usb-formatierer}
+REPO_OWNER=${REPO%%/*}
+REPO_NAME=${REPO#*/}
 
 # Übersetzungen vollständig?
 "$PY" i18n_check.py
@@ -93,7 +97,11 @@ Icon=$app
 Terminal=false
 Categories=Utility;System;
 EOF
+    # Update-Information für AppImageUpdate: holt die .zsync-Datei vom neuesten Release; appimagetool legt sie neben
+    # das AppImage (zsyncmake steckt in appimagetool)
     ARCH=$ARCH APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" --no-appstream \
+        -u "gh-releases-zsync|${REPO_OWNER}|${REPO_NAME}|latest|$app-$ARCH.AppImage.zsync" \
         ${APPIMAGE_RUNTIME:+--runtime-file "$APPIMAGE_RUNTIME"} "$a" "dist/$app-$ARCH.AppImage"
+    [ -s "dist/$app-$ARCH.AppImage.zsync" ] || { echo "dist/$app-$ARCH.AppImage.zsync fehlt"; exit 1; }
 done
-ls -l dist/*.AppImage
+ls -l dist/*.AppImage dist/*.zsync
