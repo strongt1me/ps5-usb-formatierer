@@ -204,6 +204,7 @@ class StandardPanel(ttk.Frame):
         self.opt_hint = ttk.Label(opts, style="Hint.TLabel", wraplength=wrap, justify="left")
 
         right.rowconfigure(row, weight=1)
+        self._spacer_row = row   # Ausgleich: einfacher Bereich und Partitionstabelle verlangen gleich viel Höhe
         row += 1
         self.start_btn = ttk.Button(right, text=_("Formatieren …"), style="Danger.TButton", command=self._start)
         self.start_btn.grid(row=row, column=0, columnspan=2, sticky="e", pady=(px(14), 0), ipadx=px(12))
@@ -298,6 +299,7 @@ class StandardPanel(ttk.Frame):
         else:
             self.editor.grid_remove()
             self.simple_box.grid()
+        self._balance()
         if not initial:
             self.settings["expert"] = exp
             self.save()
@@ -372,6 +374,18 @@ class StandardPanel(ttk.Frame):
         self._hint(self.label_hint, text)
         self._sync_purpose(names)
         self._update()
+        self.after_idle(self._balance)   # die Hinweise ändern die Höhe des einfachen Bereichs
+
+    def _balance(self):
+        """Einfacher Bereich und Partitionstabelle verlangen gleich viel Platz: der Leerraum über "Formatieren …"
+        gleicht die Höhe aus, eine Mindestbreite die Breite - sonst springt das Fenster beim Umschalten auf
+        "Eigene Aufteilung" und zurück"""
+        if not self.winfo_exists():
+            return
+        shown = self.editor if self.expert_var.get() else self.simple_box
+        need = max(self.editor.winfo_reqheight(), self.simple_box.winfo_reqheight())
+        self.form.rowconfigure(self._spacer_row, minsize=need - shown.winfo_reqheight())
+        self.form.columnconfigure(1, minsize=max(self.editor.winfo_reqwidth(), self.simple_box.winfo_reqwidth()))
 
     def _update(self):
         idle = not self.busy

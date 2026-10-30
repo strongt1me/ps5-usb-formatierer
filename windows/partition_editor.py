@@ -11,6 +11,7 @@ import fsinfo
 from fsinfo import FS_EXPERT, GB, MB, NO_FS, PTYPES, fs_display, size_text, unit_text
 from i18n import _, number, quote, unit
 from pc_common import grab
+from ui_widgets import Tooltip
 
 COLORS = {"exFAT": "#2f6fb5", "FAT32": "#2a8c8c", "NTFS": "#5b5fc7", "FAT (FAT16)": "#6b7f99",
           "ext4 (Linux)": "#3c8d40", "ext3 (Linux)": "#5a9a3c", "ext2 (Linux)": "#7aa53a",
@@ -223,30 +224,36 @@ class PartitionEditor(ttk.Frame):
         self.bar.bind("<Double-Button-1>", lambda e: self.edit())
 
         cols = ("nr", "size", "fs", "label", "cluster", "type")
-        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=5, selectmode="browse")
+        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=4, selectmode="browse")
         head_font = tkfont.nametofont("UfSection") if "UfSection" in tkfont.names(self) else tkfont.nametofont(
             "TkHeadingFont")
-        for c, text, w, anchor in (("nr", _("Nr."), 36, "center"), ("size", _("Größe"), 110, "e"),
-                                   ("fs", _("Dateisystem"), 150, "w"), ("label", _("Bezeichnung"), 110, "w"),
-                                   ("cluster", _("Einheit"), 80, "e"), ("type", _("Typ"), 100, "w")):
+        # schmale Grundbreiten, alle Spalten wachsen mit: die Tabelle verlangt nicht mehr Breite als der einfache
+        # Bereich - sonst würde das ganze Fenster beim Umschalten auf "Eigene Aufteilung" breiter
+        for c, text, w, anchor in (("nr", _("Nr."), 36, "center"), ("size", _("Größe"), 100, "e"),
+                                   ("fs", _("Dateisystem"), 90, "w"), ("label", _("Bezeichnung"), 80, "w"),
+                                   ("cluster", _("Einheit"), 60, "e"), ("type", _("Typ"), 80, "w")):
             self.tree.heading(c, text=text, anchor=anchor)
             # mit der Skalierung mitwachsen, mindestens so breit wie die Überschrift
             width = max(ui_theme.px(w), head_font.measure(text) + ui_theme.px(20))
-            self.tree.column(c, width=width, minwidth=width if c == "nr" else 30, anchor=anchor, stretch=c == "fs")
-        self.tree.grid(row=1, column=0, sticky="ew", pady=(6, 0))
+            self.tree.column(c, width=width, minwidth=width if c == "nr" else 30, anchor=anchor, stretch=c != "nr")
+        self.tree.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         self.tree.bind("<Double-1>", lambda e: self.edit())
         self.tree.bind("<<TreeviewSelect>>", lambda e: (self._buttons(), self._draw()))
-        side = ttk.Frame(self)
-        side.grid(row=1, column=1, sticky="n", padx=(6, 0), pady=(6, 0))
-        self.add_btn = ttk.Button(side, text=_("Hinzufügen …"), command=self.add)
-        self.edit_btn = ttk.Button(side, text=_("Bearbeiten …"), command=self.edit)
-        self.del_btn = ttk.Button(side, text=_("Entfernen"), command=self.remove)
-        self.up_btn = ttk.Button(side, text="▲ " + _("nach vorn"), command=lambda: self.move(-1))
-        self.down_btn = ttk.Button(side, text="▼ " + _("nach hinten"), command=lambda: self.move(1))
-        for b in (self.add_btn, self.edit_btn, self.del_btn, self.up_btn, self.down_btn):
-            b.pack(fill="x", pady=(0, 3))
-        self.info = ttk.Label(self, style="Hint.TLabel", wraplength=ui_theme.px(560), justify="left")
-        self.info.grid(row=2, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        row = ttk.Frame(self)   # Knöpfe unter der Tabelle statt daneben (auch das hält den Bereich schmal)
+        row.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        self.add_btn = ttk.Button(row, text=_("Hinzufügen …"), command=self.add)
+        self.edit_btn = ttk.Button(row, text=_("Bearbeiten …"), command=self.edit)
+        self.del_btn = ttk.Button(row, text=_("Entfernen"), command=self.remove)
+        self.up_btn = ttk.Button(row, text="▲", width=3, command=lambda: self.move(-1))
+        self.down_btn = ttk.Button(row, text="▼", width=3, command=lambda: self.move(1))
+        for b in (self.add_btn, self.edit_btn, self.del_btn):
+            b.pack(side="left", padx=(0, 6))
+        for b in (self.down_btn, self.up_btn):
+            b.pack(side="right", padx=(6, 0))
+        Tooltip(self.up_btn, _("nach vorn"))
+        Tooltip(self.down_btn, _("nach hinten"))
+        self.info = ttk.Label(self, style="Hint.TLabel", wraplength=ui_theme.px(500), justify="left")
+        self.info.grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
         self.enabled = True
         self.refresh()
 
