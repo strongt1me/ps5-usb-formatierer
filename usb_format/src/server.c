@@ -33,6 +33,10 @@
  *   POST /api/eject      {"device","size"} eingebundenes Laufwerk über ShadowMountPlus sicher auswerfen - "eject"
  *   POST /api/game/toggle {"keys":"…"} Abbilder deaktivieren bzw. wieder aktivieren (".off" anhängen/entfernen) -
  *                         Auftrag "game_toggle"
+ *   POST /api/game/smp   {"key"} Stand bei ShadowMountPlus: {"smp", "known", "this" (verwaltet genau diese Kopie),
+ *                         "mounted", "patch":{installed,version,size_bytes}, "dlc":[{content_id,title_name,version,size_bytes}]}
+ *   POST /api/game/mount {"key","mount":true|false} Spiel über ShadowMountPlus ein- bzw. aushängen - "game_mount"
+ *   POST /api/game/content/uninstall {"key","kind":"patch"|"dlc","content_id"} Patch bzw. DLC entfernen - "content_uninstall"
  *   GET  /api/history    {"entries":[{t, kind, ok, cancelled, secs, device, model, size, ident, label, fs, file, count,
  *                         msg}]}
  *                         die letzten 100 Aufträge, neueste zuerst; POST /api/history/clear {} leert den Verlauf
@@ -302,9 +306,9 @@ static void set_flags(int cancellable, int replug) {
 
 enum { JOB_FORMAT = 1, JOB_SPEED, JOB_CHECK, JOB_LABEL, JOB_DELETE, JOB_BACKUP, JOB_RESTORE, JOB_TILE, JOB_VERIFY,
        JOB_SAVE_RESTORE, JOB_SAVE_BACKUP, JOB_MOVE, JOB_PKGDEL, JOB_GVERIFY, JOB_GSUM, JOB_PARTDEL, JOB_ORPHDEL, JOB_GCMP,
-       JOB_EJECT, JOB_GTOGGLE };
+       JOB_EJECT, JOB_GTOGGLE, JOB_GMOUNT, JOB_GCONTENT };
 static const char *const JOB_KIND[] = {"", "format", "speed", "check", "label", "delete", "backup", "restore",
-                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete", "game_compare", "eject", "game_toggle"};
+                                       "tile", "verify", "save_restore", "save_backup", "move", "pkg_delete", "game_verify", "game_checksum", "partial_discard", "orphan_delete", "game_compare", "eject", "game_toggle", "game_mount", "content_uninstall"};
 
 #define LIB_EXTRAS_MAX 8
 
@@ -6030,6 +6034,148 @@ static void api_icon(int c, const char *q) {
     free(img);
 }
 
+/* ------------------------------------------------------------ Spiel bei ShadowMountPlus: Einhängen, Patch, DLC */
+
+/* Spiel zum Schlüssel aus der Bibliothek (eindeutig); 0 = gefunden, sonst Antwort schon gesendet */
+static int title_of_key(int c, const char *k0, lib_title_t *t, char *root, size_t rn, dev_t *dev) {
+    char *kend = NULL;
+    const uint32_t want = k0 ? (uint32_t)strtoul(k0, &kend, 16) : 0;
+    int hits = 0;
+    if (!k0 || !*k0 || *kend) { respond_error(c, 400, "key ist erforderlich"); return -1; }
+    pthread_mutex_lock(&lib_lock);
+    for (int i = 0; i < lib_n; i++)
+        for (int k = 0; k < lib_snap[i].r.ntitles; k++)
+            if (path_key(lib_snap[i].r.titles[k].path) == want) {
+                if (!hits) { *t = lib_snap[i].r.titles[k]; snprintf(root, rn, "%s", lib_snap[i].r.root); *dev = lib_snap[i].dev; }
+                hits++;
+            }
+    pthread_mutex_unlock(&lib_lock);
+    if (hits != 1) { respond_error(c, hits ? 409 : 404, hits ? N_("Auswahl nicht eindeutig – Liste neu laden.") : N_("Spiele nicht gefunden – Liste neu laden")); return -1; }
+    return 0;
+}
+
+static int bool_of(const char *json, size_t len, const char *key) {
+    const char *v;
+    size_t vl;
+    return lib_json_raw(json, len, key, &v, &vl) == 0 && vl == 4 && !memcmp(v, "true", 4);
+}
+
+static void api_game_smp(int c, const char *body) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX), http;
+    lib_title_t t;
+    char root[96], spath[300] = "", ibody[64];
+    dev_t dev;
+    size_t len, pl, dl;
+    const char *praw, *draw;
+    if (title_of_key(c, n > 0 ? kv_get(kv, n, "key") : NULL, &t, root, sizeof(root), &dev)) return;
+    sbuf_t b = {0};
+    if (!id_safe(t.id)) { sb_add(&b, "{\"smp\":false}"); respond_json(c, 200, &b); free(b.p); return; }
+    snprintf(ibody, sizeof(ibody), "{\"title_id\":\"%s\"}", t.id);
+    char *r = plat_smp_post("/api/v1/games/info", ibody, &http, &len);
+    if (!r) sb_add(&b, "{\"smp\":null}");
+    else if (http != 200) sb_add(&b, "{\"smp\":true,\"known\":false}");
+    else {
+        lib_json_str(r, len, "path", spath, sizeof(spath));
+        sb_add(&b, "{\"smp\":true,\"known\":true,\"this\":%s,\"mounted\":%s,\"installed\":%s",
+               spath[0] && same_path(spath, t.path) ? "true" : "false", bool_of(r, len, "mounted") ? "true" : "false",
+               bool_of(r, len, "installed") ? "true" : "false");
+        /* Patch und DLC so weitergeben, wie ShadowMountPlus sie meldet (nur Objekt bzw. Array) */
+        if (lib_json_raw(r, len, "patch", &praw, &pl) == 0 && pl && praw[0] == '{') sb_add(&b, ",\"patch\":%.*s", (int)pl, praw);
+        if (lib_json_raw(r, len, "dlc", &draw, &dl) == 0 && dl && draw[0] == '[') sb_add(&b, ",\"dlc\":%.*s", (int)dl, draw);
+        sb_add(&b, "}");
+    }
+    free(r);
+    respond_json(c, 200, &b);
+    free(b.p);
+}
+
+/* Aufruf an ShadowMountPlus, der sofort (200) oder als Auftrag (202 + job_id) erledigt wird; 0 = erledigt */
+static int smp_call_follow(const char *route, const char *body, const char *step, char *err, size_t n) {
+    size_t len;
+    int http;
+    long long job = 0;
+    char *r = plat_smp_post(route, body, &http, &len);
+    if (!r) { snprintf(err, n, "%s", T("ShadowMountPlus nicht erreichbar")); return -1; }
+    if (http == 200) { free(r); return 0; }
+    if (http != 202 || lib_json_num(r, len, "job_id", &job) != 0) { smp_error(r, len, http, err, n); free(r); return -1; }
+    free(r);
+    return smp_follow(job, step, 10, 85, err, n, NULL, 0);
+}
+
+static int content_id_ok(const char *s) {
+    size_t i = 0;
+    for (; s[i]; i++)
+        if (!((s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= '0' && s[i] <= '9') || s[i] == '-' || s[i] == '_')) return 0;
+    return i >= 9 && i < 48;
+}
+
+/* Einhängen/Aushängen (fs 1/2) bzw. Patch/DLC entfernen (fs 3/4, path = content_id) - items[0] ist das Spiel */
+static void *smp_game_worker(void *arg) {
+    job_t *j = arg;
+    i18n_set(j->lang);
+    sbuf_t msg = {0}, res = {0};
+    char err[320] = "", body[160], step[200], gid[16];
+    const del_item_t *it = &j->items[0];
+    const int op = j->fs;
+    snprintf(step, sizeof(step), "%s: %s", op <= 2 ? T("ShadowMountPlus") : T("Inhalt entfernen"), it->name);
+    on_progress(step, 5);
+    int ok = 0;
+    if (op <= 2 && (root_dev(it->root) != it->dev || !lib_same_game(it->path, it->id, it->size)))
+        snprintf(err, sizeof(err), "%s", T("Spiel hat sich seit der Suche geändert – Liste neu laden."));
+    else if (op >= 3 && game_running(gid, sizeof(gid)) && !strcmp(gid, it->id))
+        snprintf(err, sizeof(err), "%s", T("Das Spiel läuft gerade – erst beenden."));
+    else {
+        if (op == 4) snprintf(body, sizeof(body), "{\"title_id\":\"%s\",\"kind\":\"dlc\",\"content_id\":\"%.47s\"}", it->id, j->path);
+        else if (op == 3) snprintf(body, sizeof(body), "{\"title_id\":\"%s\",\"kind\":\"patch\"}", it->id);
+        else snprintf(body, sizeof(body), "{\"title_id\":\"%s\"}", it->id);
+        ok = smp_call_follow(op == 1 ? "/api/v1/games/mount" : op == 2 ? "/api/v1/games/unmount" : "/api/v1/games/content/uninstall",
+                             body, step, err, sizeof(err)) == 0;
+    }
+    if (!ok) sb_add(&msg, "%s", err);
+    else if (op == 1) sb_tr(&msg, "„%s“ ist eingehängt.", it->name);
+    else if (op == 2) sb_tr(&msg, "„%s“ ist ausgehängt.", it->name);
+    else if (op == 3) sb_tr(&msg, "Patch von „%s“ entfernt.", it->name);
+    else sb_tr(&msg, "DLC %s von „%s“ entfernt.", j->path, it->name);
+    free(j->items);
+    j->items = NULL;
+    job_done(j, ok, &msg, &res, 0);
+    return NULL;
+}
+
+/* gemeinsamer Start: Spiel zum Schlüssel, nur Titel mit gültiger ID; mount: nur die Kopie, die ShadowMountPlus verwaltet */
+static void smp_game_start(int c, const char *body, int content) {
+    kv_t kv[KV_MAX];
+    int n = json_parse(body, kv, KV_MAX), op;
+    lib_title_t t;
+    char root[96], cid[48] = "";
+    dev_t dev;
+    if (title_of_key(c, n > 0 ? kv_get(kv, n, "key") : NULL, &t, root, sizeof(root), &dev)) return;
+    if (!id_safe(t.id)) { respond_error(c, 400, N_("Titel-ID unbekannt – ShadowMountPlus kennt dieses Spiel nicht.")); return; }
+    if (content) {
+        const char *kind = kv_get(kv, n, "kind"), *ci = kv_get(kv, n, "content_id");
+        if (kind && !strcmp(kind, "patch")) op = 3;
+        else if (kind && !strcmp(kind, "dlc") && ci && content_id_ok(ci)) { op = 4; snprintf(cid, sizeof(cid), "%.47s", ci); }
+        else { respond_error(c, 400, "kind (patch|dlc) und content_id erforderlich"); return; }
+    } else op = kv_true(kv, n, "mount") ? 1 : 2;
+    job_t *j = new_job(c, content ? JOB_GCONTENT : JOB_GMOUNT);
+    if (!j) return;
+    j->items = calloc(1, sizeof(*j->items));
+    if (!j->items) { job_free(j); respond_error(c, 500, "Kein Speicher"); return; }
+    del_item_t *it = &j->items[0];
+    j->nitems = 1;
+    snprintf(it->id, sizeof(it->id), "%s", t.id);
+    snprintf(it->name, sizeof(it->name), "%s", t.name[0] ? t.name : t.id);
+    snprintf(it->path, sizeof(it->path), "%s", t.path);
+    snprintf(it->root, sizeof(it->root), "%s", root);
+    it->dev = dev;
+    struct stat fs;
+    it->size = !t.ext[0] ? 0 : lstat(t.path, &fs) == 0 ? (uint64_t)fs.st_size : t.size;
+    j->fs = op;
+    snprintf(j->path, sizeof(j->path), "%s", cid);
+    start_job(c, j, smp_game_worker);
+}
+
 static void api_game_info(int c, const char *body) {
     kv_t kv[KV_MAX];
     int n = json_parse(body, kv, KV_MAX);
@@ -6287,6 +6433,12 @@ static void handle(int c) {
         api_game_checksum(c, body);
     else if (strcmp(path, "/api/game/compare") == 0 && is_post)
         api_game_compare(c, body);
+    else if (strcmp(path, "/api/game/smp") == 0 && is_post)
+        api_game_smp(c, body);
+    else if (strcmp(path, "/api/game/mount") == 0 && is_post)
+        smp_game_start(c, body, 0);
+    else if (strcmp(path, "/api/game/content/uninstall") == 0 && is_post)
+        smp_game_start(c, body, 1);
     else if (strcmp(path, "/api/game/toggle") == 0 && is_post)
         api_game_verify_ex(c, body, 3);   /* Abbilder deaktivieren bzw. aktivieren */
     else if (strcmp(path, "/api/game/info") == 0 && is_post)

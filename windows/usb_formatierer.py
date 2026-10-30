@@ -226,6 +226,19 @@ class Api:
         """Einzelheiten zu einem Spiel (nur lesen)"""
         return self._call("/api/game/info", {"key": key}, timeout=40)
 
+    def game_smp(self, key):
+        """Stand des Spiels bei ShadowMountPlus: eingehängt, Patch, DLCs (ab Formatierer 2.6.60)"""
+        return self._call("/api/game/smp", {"key": key}, timeout=15)
+
+    def game_mount(self, key, mount):
+        return self._call("/api/game/mount", {"key": key, "mount": bool(mount)})
+
+    def content_uninstall(self, key, kind, content_id=""):
+        body = {"key": key, "kind": kind}
+        if content_id:
+            body["content_id"] = content_id
+        return self._call("/api/game/content/uninstall", body)
+
     def discard_copy_partial(self, device):
         """Liegengebliebene Teilkopie eines abgebrochenen Kopierens auf diesem Laufwerk verwerfen (Auftrag "partial_discard")"""
         return self._call("/api/partials/discard", {"device": device})
@@ -1161,6 +1174,9 @@ class App(tk.Tk):
         self.partial_lbl = ttk.Label(self.hint_row, style="Warn.TLabel")
         self.partial_btn = ttk.Button(self.hint_row, text=_("Teilkopie verwerfen …"), command=self._discard_partial)
         self.older_btn = ttk.Button(self.hint_row, text=_("Ältere Duplikate anhaken"), command=self._check_older)
+        self.older_off_btn = ttk.Button(self.hint_row, text=_("Ältere deaktivieren …"), command=lambda: self._check_older(deactivate=True))
+        Tooltip(self.older_off_btn, lambda: self._why(self.older_off_btn) or _(
+            "Ältere Versionen doppelter Abbilder deaktivieren (Endung .off) statt löschen – ShadowMountPlus wechselt dann nicht mehr"))
         self.clean_btn = ttk.Button(self.hint_row, text=_("Aufräumen …"), command=self._cleanup)
         self.toggle_btn = ttk.Button(self.hint_row, text=_("Aktivieren / Deaktivieren …"), command=self._toggle_games)
         Tooltip(self.toggle_btn, lambda: self._why(self.toggle_btn) or _(
@@ -2313,6 +2329,7 @@ class App(tk.Tk):
         enable(self.copy_btn, idle and not pc and self.api and self.games_checked and len(self.devices) > 1)
         enable(self.verify_btn, idle and not pc and self.api and self.games_checked)
         enable(self.toggle_btn, idle and not pc and self.api and self.games_checked)
+        enable(self.older_off_btn, idle and not pc and self.api)
         for w in (self.backup_btn, self.restore_btn):
             enable(w, idle and not pc and self.api and dev and not dev.get("locked") and not dev.get("place"))
         has_img = bool(self.img_tree.selection())
@@ -3306,7 +3323,7 @@ class App(tk.Tk):
         """Teilkopie und ältere Duplikate dieses Laufwerks: Hinweiszeile unter der Suche"""
         part = self.partials.get(dev["name"]) if dev else None
         older = [g for g in games if self.dup_marks.get(g.get("path"), ("",))[0] == "older"]
-        for w in (self.partial_lbl, self.partial_btn, self.older_btn, self.clean_btn, self.toggle_btn):
+        for w in (self.partial_lbl, self.partial_btn, self.older_btn, self.older_off_btn, self.clean_btn, self.toggle_btn):
             w.pack_forget()
         ps5 = self.mode_var.get() == "ps5" and bool(dev)
         if ps5:
@@ -3319,6 +3336,8 @@ class App(tk.Tk):
             self.partial_btn.pack(side="left", padx=(ui_theme.px(8), 0))
         if older and self.mode_var.get() == "ps5":
             self.older_btn.pack(side="right", padx=(0, ui_theme.px(8)))
+            if any(g.get("kind") != "Ordner" and not g.get("off") for g in older):   # Abbilder: deaktivieren statt löschen
+                self.older_off_btn.pack(side="right", padx=(0, ui_theme.px(8)))
         if ps5:
             self.hint_row.grid()
         else:
@@ -3384,17 +3403,24 @@ class App(tk.Tk):
         self.pbar["value"] = 0
         self._run(work)
 
-    def _check_older(self):
-        """Die älteren Versionen doppelter Spiele dieses Laufwerks anhaken (danach "Angehakte Spiele löschen …")"""
+    def _check_older(self, deactivate=False):
+        """Die älteren Versionen doppelter Spiele dieses Laufwerks anhaken (danach "Angehakte Spiele löschen …");
+        deactivate: nur die Abbilder darunter anhaken und gleich deaktivieren (".off") - nichts geht verloren"""
         dev = self._selected_device()
         games = self.games.get(dev["name"], []) if dev else []
-        keys = {g.get("key") for g in games if self.dup_marks.get(g.get("path"), ("",))[0] == "older" and g.get("key")}
+        keys = {g.get("key") for g in games if self.dup_marks.get(g.get("path"), ("",))[0] == "older" and g.get("key")
+                and (not deactivate or (g.get("kind") != "Ordner" and not g.get("off")))}
         if self.busy or not keys:
             return
-        self.games_checked |= keys
+        if deactivate:
+            self.games_checked = set(keys)
+        else:
+            self.games_checked |= keys
         self._games_shown = None   # Liste neu aufbauen: Häkchen setzen
         self._show_games()
         self._update()
+        if deactivate:
+            self._toggle_games()
 
     def _game_info(self, iid):
         """Einzelheiten zu einem Spiel (Doppelklick oder Enter): Titel-ID, Version, Art, Größe, größte Einträge, Prüfsumme"""
@@ -3421,7 +3447,68 @@ class App(tk.Tk):
         if g.get("missing"):
             lines += ["", _("Unvollständig") + ": " + _("Fehlt: {files}", files=g["missing"]) + " – " +
                       _("so startet das Spiel nicht; neu kopieren oder löschen.")]
-        messagebox.showinfo(r.get("name") or _("Spiel"), "\n".join(lines), parent=self)
+        try:   # Stand bei ShadowMountPlus (ältere Formatierer kennen das nicht)
+            s = self._call_bg(lambda: api.game_smp(iid))
+        except (ConnectionError, ApiError):
+            s = {}
+        acts = []   # (Beschriftung, Aktion)
+        if isinstance(s, dict) and s.get("smp") and s.get("known"):
+            lines += ["", "ShadowMountPlus:"]
+            if s.get("this"):
+                lines.append(_("eingehängt") if s.get("mounted") else _("nicht eingehängt"))
+                acts.append((_("Aushängen") if s.get("mounted") else _("Einhängen"), ("mount", not s.get("mounted"))))
+            else:
+                lines.append(_("verwaltet eine andere Kopie dieses Spiels"))
+            p = s.get("patch") if isinstance(s.get("patch"), dict) else {}
+            if p.get("installed"):
+                lines.append(_("Patch {v} · {size}", v=p.get("version") or "?", size=fmt_size(p.get("size_bytes") or 0)))
+                acts.append((_("Patch entfernen …"), ("patch", "")))
+            for x in s.get("dlc") if isinstance(s.get("dlc"), list) else []:
+                if not isinstance(x, dict) or not x.get("content_id"):
+                    continue
+                name = x.get("title_name") or x["content_id"]
+                lines.append(_("DLC: {name}", name=name + (" · " + fmt_size(x["size_bytes"]) if x.get("size_bytes") else "")))
+                acts.append((_("DLC „{name}“ entfernen …", name=name), ("dlc", x["content_id"], name)))
+            if not p.get("installed") and not any(a[1][0] == "dlc" for a in acts):
+                lines.append(_("Kein Patch und keine DLCs installiert."))
+        title = r.get("name") or _("Spiel")
+        if not acts:
+            messagebox.showinfo(title, "\n".join(lines), parent=self)
+            return
+        pick = ask_choice(self, title, "\n".join(lines), [_("Nichts ändern")] + [a[0] for a in acts], _("OK"))
+        if pick:
+            self._smp_game_action(iid, title, acts[pick - 1][1])
+
+    def _smp_game_action(self, key, name, act):
+        """Spiel über ShadowMountPlus ein-/aushängen bzw. Patch/DLC entfernen (Auftrag mit Meldung am Ende)"""
+        if self.busy or not self.api:
+            return
+        if act[0] in ("patch", "dlc"):
+            what = _("den Patch von {name}", name=quote(name)) if act[0] == "patch" else _("„{dlc}“ von {name}", dlc=act[2], name=quote(name))
+            if not messagebox.askyesno(_("Patch entfernen") if act[0] == "patch" else _("DLC entfernen"),
+                                       _("ShadowMountPlus entfernt {what} von der PS5.", what=what) + "\n\n" +
+                                       _("Das Spiel selbst bleibt. Neu installieren geht nur mit der PKG-Datei."),
+                                       parent=self, icon="warning"):
+                return
+        api = self.api
+
+        def done(ok, msg, result):
+            self.status_var.set(msg)
+            (messagebox.showinfo if ok else messagebox.showwarning)(name, msg, parent=self)
+
+        def work():
+            try:
+                if act[0] == "mount":
+                    api.game_mount(key, act[1])
+                else:
+                    api.content_uninstall(key, act[0], act[1] if act[0] == "dlc" else "")
+            except (ConnectionError, ApiError) as e:
+                self.q.put(("error", str(e)))
+                return
+            self._follow(api, foreign=False, done_title=_("Fertig."), after=done)
+
+        self.pbar["value"] = 0
+        self._run(work)
 
     def _verify_menu(self):
         """Knopf "Prüfsumme …": gegen vorhandene Datei prüfen oder eine anlegen"""

@@ -3922,5 +3922,131 @@
   "it": "Su {name} ({dev}):",
   "es": "En {name} ({dev}):",
   "fr": "Sur {name} ({dev}) :"
+ },
+ "den Patch von {name}": {
+  "en": "the patch of {name}",
+  "it": "la patch di {name}",
+  "es": "el parche de {name}",
+  "fr": "le patch de {name}"
+ },
+ "„{dlc}“ von {name}": {
+  "en": "“{dlc}” of {name}",
+  "it": "«{dlc}» di {name}",
+  "es": "«{dlc}» de {name}",
+  "fr": "« {dlc} » de {name}"
+ },
+ "verwaltet eine andere Kopie dieses Spiels": {
+  "en": "manages another copy of this game",
+  "it": "gestisce un'altra copia di questo gioco",
+  "es": "gestiona otra copia de este juego",
+  "fr": "gère une autre copie de ce jeu"
+ },
+ "Patch {v} · {size}": {
+  "en": "Patch {v} · {size}",
+  "it": "Patch {v} · {size}",
+  "es": "Parche {v} · {size}",
+  "fr": "Patch {v} · {size}"
+ },
+ "DLC: {name}": {
+  "en": "DLC: {name}",
+  "it": "DLC: {name}",
+  "es": "DLC: {name}",
+  "fr": "DLC : {name}"
+ },
+ "Kein Patch und keine DLCs installiert.": {
+  "en": "No patch and no DLCs installed.",
+  "it": "Nessuna patch e nessun DLC installati.",
+  "es": "No hay parche ni DLC instalados.",
+  "fr": "Aucun patch ni DLC installé."
+ },
+ "Nichts ändern": {
+  "en": "Change nothing",
+  "it": "Non cambiare nulla",
+  "es": "No cambiar nada",
+  "fr": "Ne rien changer"
+ },
+ "Fertig.": {
+  "en": "Done.",
+  "it": "Fatto.",
+  "es": "Hecho.",
+  "fr": "Terminé."
+ },
+ "eingehängt": {
+  "en": "mounted",
+  "it": "montato",
+  "es": "montado",
+  "fr": "monté"
+ },
+ "Patch entfernen …": {
+  "en": "Remove patch …",
+  "it": "Rimuovi patch …",
+  "es": "Quitar parche …",
+  "fr": "Supprimer le patch …"
+ },
+ "DLC „{name}“ entfernen …": {
+  "en": "Remove DLC “{name}” …",
+  "it": "Rimuovi DLC «{name}» …",
+  "es": "Quitar DLC «{name}» …",
+  "fr": "Supprimer le DLC « {name} » …"
+ },
+ "Patch entfernen": {
+  "en": "Remove patch",
+  "it": "Rimuovi patch",
+  "es": "Quitar parche",
+  "fr": "Supprimer le patch"
+ },
+ "DLC entfernen": {
+  "en": "Remove DLC",
+  "it": "Rimuovi DLC",
+  "es": "Quitar DLC",
+  "fr": "Supprimer le DLC"
+ },
+ "Das Spiel selbst bleibt. Neu installieren geht nur mit der PKG-Datei.": {
+  "en": "The game itself stays. Reinstalling needs the PKG file.",
+  "it": "Il gioco resta. Per reinstallare serve il file PKG.",
+  "es": "El juego se conserva. Para reinstalar hace falta el archivo PKG.",
+  "fr": "Le jeu lui-même reste. Pour réinstaller, il faut le fichier PKG."
+ },
+ "Aushängen": {
+  "en": "Unmount",
+  "it": "Smonta",
+  "es": "Desmontar",
+  "fr": "Démonter"
+ },
+ "Einhängen": {
+  "en": "Mount",
+  "it": "Monta",
+  "es": "Montar",
+  "fr": "Monter"
+ },
+ "ShadowMountPlus entfernt {what} von der PS5.": {
+  "en": "ShadowMountPlus removes {what} from the PS5.",
+  "it": "ShadowMountPlus rimuove {what} dalla PS5.",
+  "es": "ShadowMountPlus quita {what} de la PS5.",
+  "fr": "ShadowMountPlus supprime {what} de la PS5."
+ },
+ "Ein-/Aushängen": {
+  "en": "Mount/unmount",
+  "it": "Monta/smonta",
+  "es": "Montar/desmontar",
+  "fr": "Monter/démonter"
+ },
+ "Patch/DLC entfernen": {
+  "en": "Remove patch/DLC",
+  "it": "Rimuovi patch/DLC",
+  "es": "Quitar parche/DLC",
+  "fr": "Supprimer patch/DLC"
+ },
+ "Ältere deaktivieren …": {
+  "en": "Disable older …",
+  "it": "Disattiva le più vecchie …",
+  "es": "Desactivar las anteriores …",
+  "fr": "Désactiver les anciennes …"
+ },
+ "Ältere Versionen doppelter Abbilder deaktivieren (Endung .off) statt löschen – ShadowMountPlus wechselt dann nicht mehr": {
+  "en": "Disable older versions of duplicate images (extension .off) instead of deleting them – ShadowMountPlus then stops switching",
+  "it": "Disattiva le versioni più vecchie delle immagini doppie (estensione .off) invece di eliminarle – ShadowMountPlus non alterna più",
+  "es": "Desactivar las versiones anteriores de imágenes duplicadas (extensión .off) en lugar de borrarlas – ShadowMountPlus deja de alternar",
+  "fr": "Désactiver les anciennes versions des images en double (extension .off) au lieu de les supprimer – ShadowMountPlus cesse d'alterner"
  }
 }

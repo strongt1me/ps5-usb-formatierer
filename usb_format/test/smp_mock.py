@@ -1,7 +1,8 @@
 """Attrappe der ShadowMountPlus-API (1.7) für die Host-Tests: smp_mock.py <port> <games.json> <protokoll> [<mounts.json>]
 
 games.json: [{"title_id": "...", "path": "...", "busy": false}, ...] - "busy" lässt delete/uninstall mit 409 scheitern;
-"icon": true - GET /api/v1/games/icon liefert ein (winziges) PNG.
+"icon": true - GET /api/v1/games/icon liefert ein (winziges) PNG; "mounted", "patch" ({installed,version,size_bytes})
+und "dlc" ([{content_id,...}]) für games/info, games/mount|unmount und games/content/uninstall.
 mounts.json: Laufwerksliste für /api/v1/storage, [{"source", "mount_point", "ejectable", "mount_id", "fail": "<Code>"}];
 storage/eject prüft source und mount_id wie ShadowMountPlus und meldet "fail" als result_error des Auftrags.
 SMP_MOCK_NOVERSION=1: /api/v1/version fehlt (frühe 1.7-Fassungen).
@@ -110,6 +111,33 @@ class H(http.server.BaseHTTPRequestHandler):
             jobs[jid] = 0
             ejects[jid] = m
             return self.reply(202, {"status": 0, "job_id": jid, "operation": "eject", "state": "preparing"})
+        if self.path == "/api/v1/games/info":
+            if not g:
+                return self.reply(404, {"status": 2, "error": "unknown title"})
+            return self.reply(200, {"status": 0, "title_id": tid, "path": g["path"], "installed": tid in installed,
+                                    "mounted": bool(g.get("mounted")), "patch_info_status": 0, "dlc_info_status": 0,
+                                    "patch": g.get("patch", {"installed": False, "version": "", "size_bytes": 0}),
+                                    "dlc": g.get("dlc", [])})
+        if self.path in ("/api/v1/games/mount", "/api/v1/games/unmount"):
+            log(f"{self.path.rsplit('/', 1)[1]} {tid}")
+            if not g:
+                return self.reply(404, {"status": 2, "error": "unknown title"})
+            if g.get("busy"):
+                return self.reply(409, {"status": 16, "error": "game_active"})
+            g["mounted"] = self.path.endswith("/mount")
+            return self.reply(200, {"status": 0, "mounted": g["mounted"]})
+        if self.path == "/api/v1/games/content/uninstall":
+            log(f"content {tid} {req.get('kind')} {req.get('content_id', '')}")
+            if not g:
+                return self.reply(404, {"status": 2, "error": "unknown title"})
+            if req.get("kind") == "patch":
+                g["patch"] = {"installed": False, "version": "", "size_bytes": 0}
+            else:
+                before = len(g.get("dlc", []))
+                g["dlc"] = [x for x in g.get("dlc", []) if x.get("content_id") != req.get("content_id")]
+                if len(g["dlc"]) == before:
+                    return self.reply(404, {"status": 2, "error": "content not found"})
+            return self.reply(200, {"status": 0})
         if self.path == "/api/v1/games":
             return self.reply(200, {"status": 0, "count": len(games), "games": [
                 {"title_id": x["title_id"], "path": x["path"], "title_name": x["title_id"],

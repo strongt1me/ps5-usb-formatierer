@@ -153,6 +153,21 @@ def build(version):
     print(f"/api/info meldet {version}")
 
 
+def linux_ui():
+    """Oberflächentest der Linux-Fassung über die Anzeige von WSL (WSLg) - vor dem Tag: ein Fehler hier ließe sonst
+    erst die CI scheitern und das Release ohne Linux-Dateien zurück (so geschehen bei 2.6.57)"""
+    step("Linux-Oberfläche (WSLg)")
+    if not wsl('[ -n "$DISPLAY" ] && python3 -c "import tkinter" 2>/dev/null && echo ja', capture=True, check=False).strip().endswith("ja"):
+        fail("keine Anzeige bzw. kein tkinter in WSL (WSLg) - mit --skip-ui-test überspringen, wenn das gewollt ist")
+    out = wsl(f'cd "{wsl_path(USB)}" && bash src/linux/build.sh /tmp/usbfmt_linux_test -DUSBFMT_TEST >/dev/null && '
+              f'mkdir -p /tmp/usbfmt_ui_shots && cd .. && timeout 900 python3 windows/tests/linux_ui_test.py '
+              f'/tmp/usbfmt_linux_test /tmp/usbfmt_ui_shots 2>&1 | tail -15', capture=True, check=False)
+    if "0 fehlgeschlagen" not in out:
+        print(out[-3000:])
+        fail("Linux-Oberflächentest")
+    print(next((ln for ln in out.splitlines() if "bestanden" in ln), "bestanden"))
+
+
 def images():
     step("README-Bilder")
     tools = os.path.join(ROOT, "tools", "readme")
@@ -314,6 +329,7 @@ def main():
     ap.add_argument("--notes", help="Markdown-Datei mit den Release-Hinweisen (für --publish)")
     ap.add_argument("--skip-build", action="store_true", help="nicht bauen (schon gebaut)")
     ap.add_argument("--skip-images", action="store_true", help="README-Bilder nicht erneuern")
+    ap.add_argument("--skip-ui-test", action="store_true", help="Linux-Oberflächentest (WSLg) auslassen")
     ap.add_argument("--publish", action="store_true", help="einchecken, taggen, pushen und das Release anlegen")
     ap.add_argument("--no-wait", action="store_true", help="nach --publish nicht auf die CI warten")
     ap.add_argument("--check", action="store_true", help="nur die CI-Läufe und Dateien eines veröffentlichten Releases prüfen")
@@ -330,6 +346,8 @@ def main():
     bump(a.version)
     if not a.skip_build:
         build(a.version)
+    if not a.skip_ui_test:
+        linux_ui()
     if not a.skip_images:
         images()
     step("Geändert")

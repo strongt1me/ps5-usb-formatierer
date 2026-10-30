@@ -943,7 +943,8 @@ def history_kind(kind):
             "move": _("Spiele kopieren"), "pkg_delete": _("Pakete löschen"), "game_verify": _("Spiele prüfen"),
             "game_checksum": _("Prüfsumme erstellen"), "partial_discard": _("Teilkopie verwerfen"), "orphan_delete": _("Aufräumen"),
             "game_compare": _("Inhalt vergleichen"), "eject": _("Auswerfen"),
-            "game_toggle": _("Aktivieren / Deaktivieren")}.get(kind, kind)
+            "game_toggle": _("Aktivieren / Deaktivieren"), "game_mount": _("Ein-/Aushängen"),
+            "content_uninstall": _("Patch/DLC entfernen")}.get(kind, kind)
 
 
 def history_csv(sources):

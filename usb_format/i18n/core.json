@@ -3304,5 +3304,65 @@
   "it": "%sNon cambiati: %d – %s.",
   "es": "%sNo cambiados: %d – %s.",
   "fr": "%sNon basculés : %d – %s."
+ },
+ "ShadowMountPlus": {
+  "en": "ShadowMountPlus",
+  "it": "ShadowMountPlus",
+  "es": "ShadowMountPlus",
+  "fr": "ShadowMountPlus"
+ },
+ "Inhalt entfernen": {
+  "en": "Removing content",
+  "it": "Rimozione contenuto",
+  "es": "Quitando contenido",
+  "fr": "Suppression du contenu"
+ },
+ "Spiel hat sich seit der Suche geändert – Liste neu laden.": {
+  "en": "The game has changed since the scan – reload the list.",
+  "it": "Il gioco è cambiato dopo la ricerca – ricarica l'elenco.",
+  "es": "El juego ha cambiado desde la búsqueda – vuelve a cargar la lista.",
+  "fr": "Le jeu a changé depuis la recherche – rechargez la liste."
+ },
+ "Das Spiel läuft gerade – erst beenden.": {
+  "en": "The game is running – quit it first.",
+  "it": "Il gioco è in esecuzione – chiudilo prima.",
+  "es": "El juego está en marcha – ciérralo primero.",
+  "fr": "Le jeu est en cours – quittez-le d'abord."
+ },
+ "Titel-ID unbekannt – ShadowMountPlus kennt dieses Spiel nicht.": {
+  "en": "Title ID unknown – ShadowMountPlus does not know this game.",
+  "it": "ID titolo sconosciuto – ShadowMountPlus non conosce questo gioco.",
+  "es": "ID de título desconocido – ShadowMountPlus no conoce este juego.",
+  "fr": "ID de titre inconnu – ShadowMountPlus ne connaît pas ce jeu."
+ },
+ "„%s“ ist eingehängt.": {
+  "en": "“%s” is mounted.",
+  "it": "«%s» è montato.",
+  "es": "«%s» está montado.",
+  "fr": "« %s » est monté."
+ },
+ "„%s“ ist ausgehängt.": {
+  "en": "“%s” is unmounted.",
+  "it": "«%s» è smontato.",
+  "es": "«%s» está desmontado.",
+  "fr": "« %s » est démonté."
+ },
+ "Patch von „%s“ entfernt.": {
+  "en": "Patch of “%s” removed.",
+  "it": "Patch di «%s» rimossa.",
+  "es": "Parche de «%s» eliminado.",
+  "fr": "Patch de « %s » supprimé."
+ },
+ "DLC %s von „%s“ entfernt.": {
+  "en": "DLC %s of “%s” removed.",
+  "it": "DLC %s di «%s» rimosso.",
+  "es": "DLC %s de «%s» eliminado.",
+  "fr": "DLC %s de « %s » supprimé."
+ },
+ "kind (patch|dlc) und content_id erforderlich": {
+  "en": "kind (patch|dlc) and content_id required",
+  "it": "kind (patch|dlc) e content_id obbligatori",
+  "es": "se requieren kind (patch|dlc) y content_id",
+  "fr": "kind (patch|dlc) et content_id requis"
  }
 }

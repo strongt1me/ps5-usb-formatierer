@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Zusammenspiel mit ShadowMountPlus 1.7 gegen die Attrappe (test/smp_mock.py): Umgebung (/api/system: Firmware,
 # Kernel-Erweiterungen, Version und Fähigkeiten), Laufwerk sicher auswerfen (Erfolg, belegt, nicht auswerfbar, ohne
-# ShadowMountPlus), Spielbilder (Vorschau von ShadowMountPlus, sonst icon0.png des Spiels) und debug.log nur ohne API.
+# ShadowMountPlus), Spielbilder (Vorschau von ShadowMountPlus, sonst icon0.png des Spiels), debug.log nur ohne API,
+# Spiel ein-/aushängen sowie Patch und DLC anzeigen und entfernen.
 # Aufruf: test/smp_test.sh   (baut selbst, Ports 18152/18153)
 set -u
 cd "$(dirname "$0")/.."
@@ -39,7 +40,7 @@ done
 printf '\x89PNG\r\n\x1a\nEIGENES-BILD' >"$H/Eigenes/sce_sys/icon0.png"
 printf 'kein Bild' >"$H/Ohne/sce_sys/icon0.png"
 head -c 4096 /dev/zero >"$H/Spiel.ffpfs"
-printf '[{"title_id":"PPSA00071","path":"%s","icon":true},{"title_id":"PPSA00072","path":"%s"}]' "$H/MitBild" "$H/Eigenes" >"$W/games.json"
+printf '[{"title_id":"PPSA00071","path":"%s","icon":true,"mounted":true,"patch":{"installed":true,"version":"01.050.000","size_bytes":1048576},"dlc":[{"content_id":"EP0001-PPSA00071_00-DLCEINS000000000","title_name":"Erweiterung","version":"01.000","size_bytes":2048},{"content_id":"EP0001-PPSA00071_00-DLCZWEI000000000","title_name":"Zweite","version":"01.000","size_bytes":4096}]},{"title_id":"PPSA00072","path":"%s"}]' "$H/MitBild" "$H/Eigenes" >"$W/games.json"
 # debug.log einer älteren Fassung: Titel-ID des .ffpfs (die Attrappe kennt das Abbild nicht)
 printf '[LINK] mount_img.lnk created: /user/app/PPSA03117/mount_img.lnk -> %s layers=1\n' "$H/Spiel.ffpfs" >"$W/debug.log"
 env USBFMT_IMAGES="$W/a.img" USBFMT_MOUNTED="1" USBFMT_MOUNTROOT="$W/mnt" USBFMT_DATA="$W/cfg" USBFMT_FW="12.00" \
@@ -89,6 +90,29 @@ smp "[{\"source\":\"/dev/da0s1\",\"mount_point\":\"$MP\",\"ejectable\":false}]"
     && ok "Auswerfen: nicht auswerfbar laut ShadowMountPlus - nichts gesendet" || bad "nicht auswerfbar" "$(cat "$W/st")"
 smp '[]'
 [ "$(eject)" = 202 ] && wait_job && grep -q 'kennt' "$W/st" && ok "Auswerfen: Einbindung unbekannt" || bad "unbekannt" "$(cat "$W/st")"
+
+# Spiel bei ShadowMountPlus: Zustand, ein-/aushängen, Patch und DLC entfernen
+gsmp() { curl -s -H "$J" -d "{\"key\":\"$(key "$1")\"}" "$U/api/game/smp"; }
+gpost() { curl -s -o "$W/body" -w '%{http_code}' -H "$J" -d "$2" "$U/api/game/$1"; }
+[ "$(gsmp MitBild | q 'd["this"], d["mounted"], d["patch"]["installed"], len(d["dlc"])')" = "(True, True, True, 2)" ] \
+    && ok "Spiel bei ShadowMountPlus: verwaltet diese Kopie, eingehängt, Patch und 2 DLCs" || bad "game/smp" "$(gsmp MitBild)"
+[ "$(gsmp Spiel.ffpfs | q 'd["smp"]')" = False ] && ok "Spiel ohne Titel-ID: ShadowMountPlus nicht gefragt" || bad "ohne ID" "$(gsmp Spiel.ffpfs)"
+[ "$(gpost mount "{\"key\":\"$(key MitBild)\",\"mount\":false}")" = 202 ] && wait_job && grep -q 'ausgehängt' "$W/st" \
+    && grep -q "unmount PPSA00071" "$W/smp.log" && [ "$(gsmp MitBild | q 'd["mounted"]')" = False ] \
+    && ok "Spiel ausgehängt" || bad "aushängen" "$(cat "$W/st" "$W/body")"
+[ "$(gpost mount "{\"key\":\"$(key MitBild)\",\"mount\":true}")" = 202 ] && wait_job && grep -q 'eingehängt' "$W/st" \
+    && [ "$(gsmp MitBild | q 'd["mounted"]')" = True ] && ok "Spiel wieder eingehängt" || bad "einhängen" "$(cat "$W/st")"
+[ "$(gpost content/uninstall "{\"key\":\"$(key MitBild)\",\"kind\":\"patch\"}")" = 202 ] && wait_job && grep -q 'Patch von' "$W/st" \
+    && [ "$(gsmp MitBild | q 'd["patch"]["installed"]')" = False ] && ok "Patch entfernt" || bad "Patch" "$(cat "$W/st")"
+[ "$(gpost content/uninstall "{\"key\":\"$(key MitBild)\",\"kind\":\"dlc\",\"content_id\":\"EP0001-PPSA00071_00-DLCEINS000000000\"}")" = 202 ] \
+    && wait_job && grep -q '"ok":true' "$W/st" && grep -q "content PPSA00071 dlc EP0001-PPSA00071_00-DLCEINS000000000" "$W/smp.log" \
+    && [ "$(gsmp MitBild | q 'len(d["dlc"])')" = 1 ] && ok "DLC entfernt (genau dieser)" || bad "DLC" "$(cat "$W/st")"
+[ "$(gpost content/uninstall "{\"key\":\"$(key MitBild)\",\"kind\":\"dlc\",\"content_id\":\"../../x\"}")" = 400 ] \
+    && [ "$(gpost content/uninstall "{\"key\":\"$(key MitBild)\",\"kind\":\"alles\"}")" = 400 ] \
+    && ok "ungültige content_id bzw. Art: abgelehnt" || bad "ungültig" "$(cat "$W/body")"
+[ "$(gpost content/uninstall "{\"key\":\"$(key MitBild)\",\"kind\":\"dlc\",\"content_id\":\"EP0001-PPSA00071_00-GIBTESNICHT00000\"}")" = 202 ] \
+    && wait_job && grep -q '"ok":false' "$W/st" && ok "unbekannter DLC: Fehler von ShadowMountPlus gemeldet" || bad "unbekannter DLC" "$(cat "$W/st")"
+curl -s "$U/api/history" | q '[e["kind"] for e in d["entries"]][:6]' | grep -q "game_mount" && ok "Ein-/Aushängen und Entfernen im Verlauf" || bad "Verlauf"
 
 kill $MPID 2>/dev/null; wait $MPID 2>/dev/null
 SMP_MOCK_NOVERSION=1 smp '[]'
