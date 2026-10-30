@@ -224,6 +224,7 @@ const i18n_entry_t i18n_table[] = {
     {{"Echtheit prüfen", "Checking authenticity", "Verifica autenticità", "Comprobando autenticidad", "Vérification de l'authenticité"}},
     {{"Echtheit prüfen: Grenze suchen", "Checking authenticity: finding the limit", "Verifica autenticità: ricerca del limite", "Comprobando autenticidad: buscando el límite", "Vérification de l'authenticité : recherche de la limite"}},
     {{"Echtheit prüfen: lesen", "Checking authenticity: reading", "Verifica autenticità: lettura", "Comprobando autenticidad: leyendo", "Vérification de l'authenticité : lecture"}},
+    {{"Ein Spiel ist noch eingehängt – solange meldet ShadowMountPlus keine Kachel ab. Das Spiel aushängen und erneut versuchen.", "A game is still mounted – while it is, ShadowMountPlus unregisters no tile. Unmount the game and try again.", "Un gioco è ancora montato – finché lo è, ShadowMountPlus non annulla la registrazione di alcun riquadro. Smonta il gioco e riprova.", "Un juego sigue montado – mientras lo esté, ShadowMountPlus no da de baja ningún icono. Desmonta el juego e inténtalo de nuevo.", "Un jeu est encore monté – tant qu'il l'est, ShadowMountPlus ne désinscrit aucune vignette. Démontez le jeu et réessayez."}},
     {{"Einbinden", "Mounting", "Montaggio", "Montaje", "Montage"}},
     {{"Einstellung ließ sich nicht speichern", "Could not save the setting", "Impossibile salvare l'impostazione", "No se pudo guardar el ajuste", "Impossible d'enregistrer le réglage"}},
     {{"Ergebnis prüfen", "Checking the result", "Verifica del risultato", "Comprobando el resultado", "Vérification du résultat"}},
@@ -563,5 +564,6 @@ const i18n_entry_t i18n_table[] = {
     {{"Übernehmen am Ziel fehlgeschlagen: %s", "Adopting on the target failed: %s", "Adozione sulla destinazione non riuscita: %s", "Falló la adopción en el destino: %s", "Échec de la reprise sur la destination : %s"}},
     {{"„%s“ ist ausgehängt.", "“%s” is unmounted.", "«%s» è smontato.", "«%s» está desmontado.", "« %s » est démonté."}},
     {{"„%s“ ist eingehängt.", "“%s” is mounted.", "«%s» è montato.", "«%s» está montado.", "« %s » est monté."}},
+    {{"„%s“ ist noch eingehängt – solange meldet ShadowMountPlus keine Kachel ab. Das Spiel aushängen (Spiele: Spiel wählen, „Aushängen“) und erneut versuchen.", "“%s” is still mounted – while it is, ShadowMountPlus unregisters no tile. Unmount the game (Games: select the game, “Unmount”) and try again.", "«%s» è ancora montato – finché lo è, ShadowMountPlus non annulla la registrazione di alcun riquadro. Smonta il gioco (Giochi: scegli il gioco, «Smonta») e riprova.", "«%s» sigue montado – mientras lo esté, ShadowMountPlus no da de baja ningún icono. Desmonta el juego (Juegos: elige el juego, «Desmontar») e inténtalo de nuevo.", "« %s » est encore monté – tant qu'il l'est, ShadowMountPlus ne désinscrit aucune vignette. Démontez le jeu (Jeux : choisir le jeu, « Démonter ») et réessayez."}},
 };
-const unsigned i18n_count = 561;
+const unsigned i18n_count = 563;

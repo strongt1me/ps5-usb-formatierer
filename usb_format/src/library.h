@@ -63,6 +63,8 @@ int  lib_parse_smp_games(const char *json, size_t len, lib_hint_t **h, int *n);
  * Quelle, ob angemeldet. 1 = gefunden, 0 = nicht in der Liste, -1 = keine gültige Liste */
 int  lib_smp_title(const char *json, size_t len, const char *id, char *version, size_t vn, char *path, size_t pn,
                    int *installed);
+/* Name (sonst Titel-ID) des ersten eingehängten Titels in derselben Liste: 1 = gefunden, 0 = keiner, -1 = keine Liste */
+int  lib_smp_mounted(const char *json, size_t len, char *name, size_t nn);
 int  lib_parse_smp_log(const char *log, size_t len, lib_hint_t **h, int *n);
 
 /* usb_root: Wurzel eines Laufwerks (sucht auch homebrew/, etaHEN/games/, pkg/); sonst nur der Ordner selbst */

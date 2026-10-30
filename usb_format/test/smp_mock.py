@@ -1,8 +1,9 @@
 """Attrappe der ShadowMountPlus-API (1.7) für die Host-Tests: smp_mock.py <port> <games.json> <protokoll> [<mounts.json>]
 
 games.json: [{"title_id": "...", "path": "...", "busy": false}, ...] - "busy" lässt delete/uninstall mit 409 scheitern;
-"icon": true - GET /api/v1/games/icon liefert ein (winziges) PNG; "mounted", "patch" ({installed,version,size_bytes})
-und "dlc" ([{content_id,...}]) für games/info, games/mount|unmount und games/content/uninstall.
+"icon": true - GET /api/v1/games/icon liefert ein (winziges) PNG; "name" ist title_name; "mounted", "patch"
+({installed,version,size_bytes}) und "dlc" ([{content_id,...}]) für games/info, games/mount|unmount und
+games/content/uninstall. Ist irgendein Titel eingehängt, lehnt uninstall mit 409 runtime_prepared ab.
 mounts.json: Laufwerksliste für /api/v1/storage, [{"source", "mount_point", "ejectable", "mount_id", "fail": "<Code>"}];
 storage/eject prüft source und mount_id wie ShadowMountPlus und meldet "fail" als result_error des Auftrags.
 SMP_MOCK_NOVERSION=1: /api/v1/version fehlt (frühe 1.7-Fassungen).
@@ -140,9 +141,9 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.reply(200, {"status": 0})
         if self.path == "/api/v1/games":
             return self.reply(200, {"status": 0, "count": len(games), "games": [
-                {"title_id": x["title_id"], "path": x["path"], "title_name": x["title_id"],
+                {"title_id": x["title_id"], "path": x["path"], "title_name": x.get("name", x["title_id"]),
                  "version": x.get("version", "") if x["title_id"] in installed else "",
-                 "installed": x["title_id"] in installed} for x in games]})
+                 "installed": x["title_id"] in installed, "mounted": bool(x.get("mounted"))} for x in games]})
         if self.path == "/api/v1/scan":   # wie ShadowMountPlus: Fehlendes anmelden, Angemeldetes in Ruhe lassen
             log(f"scan reset_attempts={str(req.get('reset_attempts', False)).lower()}")
             for x in games:
@@ -154,6 +155,9 @@ class H(http.server.BaseHTTPRequestHandler):
             log(f"{self.path.rsplit('/', 1)[1]} {tid}")
             if g and g.get("busy"):
                 return self.reply(409, {"status": 16, "error": "EBUSY"})
+            if self.path.endswith("uninstall") and any(x.get("mounted") for x in games):   # wie ShadowMountPlus 1.7
+                return self.reply(409, {"status": 16, "error": "a title has a prepared runtime mount; close or unmount it "
+                                        "first", "error_reason": "runtime_prepared"})
             if self.path.endswith("uninstall"):
                 if tid not in installed:
                     return self.reply(404, {"status": 2, "error": "not installed"})

@@ -3364,5 +3364,17 @@
   "it": "kind (patch|dlc) e content_id obbligatori",
   "es": "se requieren kind (patch|dlc) y content_id",
   "fr": "kind (patch|dlc) et content_id requis"
+ },
+ "„%s“ ist noch eingehängt – solange meldet ShadowMountPlus keine Kachel ab. Das Spiel aushängen (Spiele: Spiel wählen, „Aushängen“) und erneut versuchen.": {
+  "en": "“%s” is still mounted – while it is, ShadowMountPlus unregisters no tile. Unmount the game (Games: select the game, “Unmount”) and try again.",
+  "it": "«%s» è ancora montato – finché lo è, ShadowMountPlus non annulla la registrazione di alcun riquadro. Smonta il gioco (Giochi: scegli il gioco, «Smonta») e riprova.",
+  "es": "«%s» sigue montado – mientras lo esté, ShadowMountPlus no da de baja ningún icono. Desmonta el juego (Juegos: elige el juego, «Desmontar») e inténtalo de nuevo.",
+  "fr": "« %s » est encore monté – tant qu'il l'est, ShadowMountPlus ne désinscrit aucune vignette. Démontez le jeu (Jeux : choisir le jeu, « Démonter ») et réessayez."
+ },
+ "Ein Spiel ist noch eingehängt – solange meldet ShadowMountPlus keine Kachel ab. Das Spiel aushängen und erneut versuchen.": {
+  "en": "A game is still mounted – while it is, ShadowMountPlus unregisters no tile. Unmount the game and try again.",
+  "it": "Un gioco è ancora montato – finché lo è, ShadowMountPlus non annulla la registrazione di alcun riquadro. Smonta il gioco e riprova.",
+  "es": "Un juego sigue montado – mientras lo esté, ShadowMountPlus no da de baja ningún icono. Desmonta el juego e inténtalo de nuevo.",
+  "fr": "Un jeu est encore monté – tant qu'il l'est, ShadowMountPlus ne désinscrit aucune vignette. Démontez le jeu et réessayez."
  }
 }

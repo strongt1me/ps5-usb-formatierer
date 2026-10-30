@@ -3758,7 +3758,18 @@ static void *tile_worker(void *arg) {
     if (t.installed) {
         char *r = plat_smp_post("/api/v1/games/uninstall", "{\"title_id\":\"" APP_TITLE "\"}", &http, &len);
         if (!r || (http != 200 && http != 404)) {
-            if (r && http == 409)
+            char reason[32] = "", name[160] = "";
+            if (r && http == 409) lib_json_str(r, len, "error_reason", reason, sizeof(reason));
+            if (!strcmp(reason, "runtime_prepared")) {   /* solange irgendein Spiel eingehängt ist, meldet ShadowMountPlus nichts ab */
+                char *g = plat_smp_post("/api/v1/games", "{}", &http, &len);
+                if (g && http == 200 && lib_smp_mounted(g, len, name, sizeof(name)) == 1)
+                    sb_tr(&msg, "„%s“ ist noch eingehängt – solange meldet ShadowMountPlus keine Kachel ab. Das Spiel "
+                                "aushängen (Spiele: Spiel wählen, „Aushängen“) und erneut versuchen.", name);
+                else
+                    sb_add(&msg, "%s", T("Ein Spiel ist noch eingehängt – solange meldet ShadowMountPlus keine Kachel ab. "
+                                        "Das Spiel aushängen und erneut versuchen."));
+                free(g);
+            } else if (r && http == 409)
                 sb_add(&msg, "%s", T("Die App „USB-Formatierer“ ist noch geöffnet oder ShadowMountPlus ist beschäftigt – die "
                                     "App schließen (der Formatierer läuft weiter) und erneut versuchen."));
             else {

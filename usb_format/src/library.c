@@ -302,6 +302,25 @@ int lib_smp_title(const char *json, size_t len, const char *id, char *version, s
     return p < e && *p == ']' ? 0 : -1;
 }
 
+int lib_smp_mounted(const char *json, size_t len, char *name, size_t nn) {
+    const char *e = json + len, *p = jget(json, e, "games");
+    if (!p || *p != '[') return -1;
+    for (p = jws(p + 1, e); p < e && *p == '{'; ) {
+        const char *next = jskip(p, e);
+        if (!next) return -1;
+        const char *v = jget(p, next, "mounted");
+        if (v && next - v >= 4 && !strncmp(v, "true", 4)) {
+            name[0] = 0;
+            if (jget_str(p, next, "title_name", name, nn) != 0 || !name[0]) jget_str(p, next, "title_id", name, nn);
+            trim_utf8(name);
+            return 1;
+        }
+        p = jws(next, e);
+        if (p < e && *p == ',') p = jws(p + 1, e);
+    }
+    return p < e && *p == ']' ? 0 : -1;
+}
+
 /* Zeilen wie "[LINK] mount_img.lnk created: /user/app/PPSA03117/mount_img.lnk -> /mnt/usb1/x.ffpkg layers=1" */
 int lib_parse_smp_log(const char *log, size_t len, lib_hint_t **h, int *n) {
     static const char key[] = "mount_img.lnk created: /user/app/";

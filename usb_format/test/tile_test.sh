@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # App-Kachel neu anmelden (GET/POST /api/tile) gegen die ShadowMountPlus-Attrappe (test/smp_mock.py): veraltete
 # Anmeldung erkannt, Uninstall + Scan, danach neue Version; laufendes Spiel, geöffnete App und fehlendes ShadowMountPlus
-# abgelehnt.
+# abgelehnt; ein eingehängtes Spiel wird beim Namen genannt.
 set -u
 cd "$(dirname "$0")/.."
 W=$(mktemp -d)
@@ -66,6 +66,12 @@ code=$(curl -s -o "$W/body" -w '%{http_code}' -H "$J" -d '{}' "$U/api/tile")
 [ "$code" = 202 ] && wait_job && grep -q '"ok":false' "$W/st" && grep -q 'noch geöffnet' "$W/st" \
     && ! grep -q scan "$W/smp.log" && ok "App geöffnet (ShadowMountPlus 409): abgelehnt, kein Scan" \
     || bad "App geöffnet" "$code $(cat "$W/st") $(cat "$W/smp.log")"
+smp "[{\"title_id\":\"PPSA86920\",\"path\":\"$A\",\"version\":\"02.005.006\"},
+      {\"title_id\":\"PPSA18089\",\"path\":\"/x\",\"name\":\"Matchbox™ Driving Adventures\",\"mounted\":true}]"
+code=$(curl -s -o "$W/body" -w '%{http_code}' -H "$J" -d '{}' "$U/api/tile")
+[ "$code" = 202 ] && wait_job && grep -q '"ok":false' "$W/st" && grep -q 'Matchbox™ Driving Adventures“ ist noch eingehängt' "$W/st" \
+    && ! grep -q scan "$W/smp.log" && ok "Spiel eingehängt (runtime_prepared): Name genannt, kein Scan" \
+    || bad "Spiel eingehängt" "$code $(cat "$W/st") $(cat "$W/smp.log")"
 
 # ---------------------------------------------------------------- nicht in der Liste
 smp "[]"
