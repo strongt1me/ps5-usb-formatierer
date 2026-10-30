@@ -60,6 +60,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/socket.h>
@@ -6336,6 +6337,36 @@ static void api_partials_discard(int c, const char *body) {
 }
 
 
+/* Wer hat den Formatierer beendet? Eine Zeile je /api/quit in <datenordner>/quit.log (Zeit, Adresse, "from" der
+ * Anfrage, User-Agent) - beendet er sich scheinbar von selbst, steht hier, woher der Befehl kam. Über 32 KiB wird die
+ * Datei zu quit.log.1. */
+#define QUIT_LOG_MAX (32 * 1024)
+static void quit_log(int c, const char *req, const char *body) {
+    char path[256], old[264], when[32] = "?", ip[INET_ADDRSTRLEN] = "?", from[24] = "", agent[160] = "";
+    struct sockaddr_in a;
+    socklen_t al = sizeof(a);
+    if (getpeername(c, (struct sockaddr *)&a, &al) == 0 && a.sin_family == AF_INET)
+        inet_ntop(AF_INET, &a.sin_addr, ip, sizeof(ip));
+    time_t now = time(NULL);
+    struct tm tm;
+    if (localtime_r(&now, &tm)) strftime(when, sizeof(when), "%Y-%m-%d %H:%M:%S", &tm);
+    if (body) lib_json_str(body, strlen(body), "from", from, sizeof(from));
+    header(req, "User-Agent", agent, sizeof(agent));
+    for (char *p = from; *p; p++) if (*p < ' ' || *p == 127) *p = '?';   /* eine Zeile je Eintrag */
+    for (char *p = agent; *p; p++) if (*p < ' ' || *p == 127) *p = '?';
+    mkdir(plat_data_dir(), 0755);
+    snprintf(path, sizeof(path), "%s/quit.log", plat_data_dir());
+    struct stat sb;
+    if (stat(path, &sb) == 0 && sb.st_size > QUIT_LOG_MAX) {
+        snprintf(old, sizeof(old), "%s.1", path);
+        rename(path, old);
+    }
+    FILE *f = fopen(path, "a");
+    if (!f) return;
+    fprintf(f, "%s  %s  %s  %s %s\n", when, ip, from[0] ? from : "-", USBFMT_VERSION, agent[0] ? agent : "-");
+    fclose(f);
+}
+
 static void handle(int c) {
     char *req = malloc(REQ_MAX + 1);
     size_t len = 0;
@@ -6539,6 +6570,7 @@ static void handle(int c) {
         pthread_mutex_unlock(&lock);
         if (busy) respond_error(c, 409, "Es läuft noch ein Auftrag");
         else {
+            quit_log(c, req, body);
             respond_ok(c, 200);
             __atomic_store_n(&quit_requested, 1, __ATOMIC_RELAXED);
         }

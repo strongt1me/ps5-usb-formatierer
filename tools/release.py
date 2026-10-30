@@ -192,7 +192,7 @@ def images():
     finally:
         proxy.terminate()
         try:
-            req = urllib.request.Request("http://127.0.0.1:8090/api/quit", data=b"{}",
+            req = urllib.request.Request("http://127.0.0.1:8090/api/quit", data=b'{"from":"release"}',
                                          headers={"Content-Type": "application/json"})
             urllib.request.urlopen(req, timeout=5).close()
         except OSError:

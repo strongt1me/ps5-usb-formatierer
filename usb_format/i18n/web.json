@@ -851,36 +851,6 @@
   "es": "Cancelando …",
   "fr": "Annulation …"
  },
- "Formatierer beenden?": {
-  "en": "Quit the formatter?",
-  "it": "Chiudere il formattatore?",
-  "es": "¿Cerrar el formateador?",
-  "fr": "Fermer le formateur ?"
- },
- "Der Formatierer läuft danach nicht mehr auf der PS5.": {
-  "en": "The formatter will then no longer run on the PS5.",
-  "it": "Il formattatore poi non sarà più attivo sulla PS5.",
-  "es": "El formateador dejará de ejecutarse en la PS5.",
-  "fr": "Le formateur ne tournera alors plus sur la PS5."
- },
- "Zum erneuten Benutzen einfach die App „USB-Formatierer“ starten.": {
-  "en": "To use it again, simply start the “USB-Formatierer” app.",
-  "it": "Per usarlo di nuovo, avvia semplicemente l'app «USB-Formatierer».",
-  "es": "Para volver a usarlo, inicia la aplicación «USB-Formatierer».",
-  "fr": "Pour l'utiliser à nouveau, lancez simplement l'application « USB-Formatierer »."
- },
- "Beenden": {
-  "en": "Quit",
-  "it": "Chiudi",
-  "es": "Cerrar",
-  "fr": "Fermer"
- },
- "Der Formatierer wurde beendet. Diese Seite kann geschlossen werden.": {
-  "en": "The formatter has been closed. You can close this page.",
-  "it": "Il formattatore è stato chiuso. Puoi chiudere questa pagina.",
-  "es": "El formateador se ha cerrado. Puedes cerrar esta página.",
-  "fr": "Le formateur a été fermé. Vous pouvez fermer cette page."
- },
  "USB-Formatierer": {
   "en": "USB Formatter",
   "it": "Formattatore USB",
@@ -1102,12 +1072,6 @@
   "it": "Scuro",
   "es": "Oscuro",
   "fr": "Sombre"
- },
- "Formatierer auf der PS5 beenden": {
-  "en": "Quit the formatter on the PS5",
-  "it": "Chiudi il formattatore sulla PS5",
-  "es": "Cerrar el formateador en la PS5",
-  "fr": "Fermer le formateur sur la PS5"
  },
  "Die Hilfe lässt sich öffnen, sobald der Auftrag fertig ist.": {
   "en": "The help can be opened as soon as the job is finished.",
@@ -3124,5 +3088,53 @@
   "it": "Scegli sopra l'unità da formattare.",
   "es": "Elige arriba la unidad que quieres formatear.",
   "fr": "Choisissez ci-dessus le lecteur à formater."
+ },
+ "Formatierer auf der PS5 stoppen – zum Schließen der App nicht nötig": {
+  "en": "Stop the formatter on the PS5 – not needed to close the app",
+  "it": "Arresta il formattatore sulla PS5 – non serve per chiudere l'app",
+  "es": "Detener el formateador en la PS5 – no hace falta para cerrar la aplicación",
+  "fr": "Arrêter le formateur sur la PS5 – inutile pour fermer l'application"
+ },
+ "Formatierer stoppen": {
+  "en": "Stop formatter",
+  "it": "Arresta formattatore",
+  "es": "Detener formateador",
+  "fr": "Arrêter le formateur"
+ },
+ "Formatierer stoppen?": {
+  "en": "Stop the formatter?",
+  "it": "Arrestare il formattatore?",
+  "es": "¿Detener el formateador?",
+  "fr": "Arrêter le formateur ?"
+ },
+ "Nur die App schließen? Dafür nicht stoppen – einfach die PS-Taste drücken. Der Formatierer läuft im Hintergrund weiter.": {
+  "en": "Just want to close the app? Don't stop it for that – simply press the PS button. The formatter keeps running in the background.",
+  "it": "Vuoi solo chiudere l'app? Non serve arrestarlo – premi semplicemente il tasto PS. Il formattatore continua a funzionare in background.",
+  "es": "¿Solo quieres cerrar la aplicación? Para eso no lo detengas – basta con pulsar el botón PS. El formateador sigue funcionando en segundo plano.",
+  "fr": "Vous voulez juste fermer l'application ? Inutile de l'arrêter – appuyez simplement sur la touche PS. Le formateur continue de tourner en arrière-plan."
+ },
+ "Gestoppt geht nichts mehr – kein Formatieren, keine Spiele, keine Kachel –, bis die App „USB-Formatierer“ ihn wieder startet.": {
+  "en": "Once stopped, nothing works – no formatting, no games, no tile – until the “USB-Formatierer” app starts it again.",
+  "it": "Una volta arrestato non funziona più nulla – niente formattazione, niente giochi, niente riquadro – finché l'app «USB-Formatierer» non lo riavvia.",
+  "es": "Detenido, ya no funciona nada – ni formatear, ni juegos, ni icono – hasta que la aplicación «USB-Formatierer» lo vuelva a iniciar.",
+  "fr": "Une fois arrêté, plus rien ne fonctionne – ni formatage, ni jeux, ni vignette – jusqu'à ce que l'application « USB-Formatierer » le relance."
+ },
+ "Stoppen": {
+  "en": "Stop",
+  "it": "Arresta",
+  "es": "Detener",
+  "fr": "Arrêter"
+ },
+ "Weiterlaufen lassen": {
+  "en": "Keep running",
+  "it": "Lascia in esecuzione",
+  "es": "Dejar en marcha",
+  "fr": "Laisser tourner"
+ },
+ "Der Formatierer wurde gestoppt. Diese Seite kann geschlossen werden.": {
+  "en": "The formatter has been stopped. You can close this page.",
+  "it": "Il formattatore è stato arrestato. Puoi chiudere questa pagina.",
+  "es": "El formateador se ha detenido. Puedes cerrar esta página.",
+  "fr": "Le formateur a été arrêté. Vous pouvez fermer cette page."
  }
 }

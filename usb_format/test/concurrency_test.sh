@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Parallele Verbindungen: ein langsamer Client blockiert andere nicht, viele gleichzeitige Anfragen werden beantwortet,
-# ein laufender Auftrag bleibt währenddessen bedienbar, "Beenden" wirkt sofort. Mit HOST_CFLAGS=-fsanitize=thread
-# zusätzlich auf Datenrennen prüfbar.
+# ein laufender Auftrag bleibt währenddessen bedienbar, "Beenden" wirkt sofort und steht in quit.log. Mit
+# HOST_CFLAGS=-fsanitize=thread zusätzlich auf Datenrennen prüfbar.
 set -u
 cd "$(dirname "$0")/.."
 W=$(mktemp -d)
@@ -59,10 +59,14 @@ for _ in $(seq 1 100); do curl -s "$U/api/status" | grep -q '"busy":false' && br
 curl -s "$U/api/status" | grep -q '"busy":false' && ok "Abbrechen wirkt" || bad "Abbrechen"
 
 # 4. Beenden wirkt sofort (Server-Prozess endet binnen 2 s), obwohl noch ein langsamer Client hängt
-code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d '{}' "$U/api/quit")
+code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -A 'Testbrowser/1.0' \
+    -d '{"from":"web\nX"}' "$U/api/quit")
 for _ in $(seq 1 100); do kill -0 $PID 2>/dev/null || break; sleep 0.1; done   # wartet bis 5 s auf offene Antworten
 if [ "$code" = 200 ] && ! kill -0 $PID 2>/dev/null; then ok "Beenden: Server endet"; PID=; else bad "Beenden" "HTTP $code, läuft noch"; fi
 kill $DRIP 2>/dev/null
+# wer beendet hat, steht in quit.log - eine Zeile, Steuerzeichen ersetzt; der abgelehnte Versuch (Auftrag lief) fehlt
+[ "$(wc -l <"$W/cfg/quit.log" 2>/dev/null)" = 1 ] && grep -Eq '^20[0-9-]{8} [0-9:]{8}  127\.0\.0\.1  web\?X  [0-9.]+ Testbrowser/1\.0$' "$W/cfg/quit.log" \
+    && ok "quit.log: $(cat "$W/cfg/quit.log")" || bad "quit.log" "$(cat "$W/cfg/quit.log" 2>&1)"
 grep -E "WARNING: ThreadSanitizer|ERROR: AddressSanitizer" "$W/log" >/dev/null && bad "Sanitizer-Bericht" "$(head -30 "$W/log")"
 
 echo

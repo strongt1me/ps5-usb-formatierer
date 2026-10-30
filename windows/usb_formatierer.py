@@ -350,7 +350,7 @@ class Api:
 
     def quit(self):
         """Formatierer auf der PS5 beenden (lehnt ab, solange ein Auftrag läuft)"""
-        return self._call("/api/quit", {})
+        return self._call("/api/quit", {"from": "windows"})   # steht in quit.log auf der PS5
 
     # Spielstände: auflisten, sichern, wiederherstellen
     def get(self, path, timeout=8):

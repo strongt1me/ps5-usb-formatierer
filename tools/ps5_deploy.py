@@ -234,6 +234,9 @@ def cmd_status(host):
     f = ftp_connect(host)
     titles = running_titles(f)
     say(f"Spiele/Apps:  {', '.join(titles) if titles else 'keine laufen'}")
+    log = ftp_get(f, "/data/usb_format/quit.log") or b""   # wer den Formatierer zuletzt beendet hat (/api/quit)
+    last = log.decode("utf-8", "replace").strip().splitlines()[-1:]
+    say(f"Zuletzt beendet: {last[0] if last else 'nicht protokolliert'}")
     diff = [(rel, data, remote) for rel, data, remote in compare(f, local_app()) if remote != data]
     f.quit()
     say("App-Ordner:   " + ("gleich wie der Bau" if not diff else
@@ -323,7 +326,7 @@ def cmd_update(host, dry_run, ignore_running, resend, backup, wait_loader=300):
 
     if send_elf:
         if info:
-            r = api(host, "/api/quit", {})
+            r = api(host, "/api/quit", {"from": "deploy"})
             if not r or r.get("error"):
                 klog.finish(0)
                 fail(f"Formatierer lässt sich nicht beenden: {r}")
