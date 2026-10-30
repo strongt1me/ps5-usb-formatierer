@@ -31,7 +31,7 @@ import ui_msgbox as messagebox
 import ui_theme
 from i18n import _, quote
 from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, check_images, confirm,
-                       disk_name, enable_dpi_awareness, enable_history, fmt_size, footer, history_clear, history_dialog,
+                       date_text, disk_name, enable_dpi_awareness, enable_history, fmt_size, footer, history_clear, history_dialog,
                        history_load, hwnd_of, image_file_name, image_info, irreversible_admin_text, keep_on_screen,
                        lang_selector, last_job, last_job_text, open_help, pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job,
                        resource_path, same_drive, serial_args, setup_window, show_centered, show_scan, system_report,
@@ -753,7 +753,7 @@ def _same_save(b, x):
 
 
 def _when(t):
-    return time.strftime("%x %H:%M", time.localtime(t or 0))
+    return date_text(t)
 
 
 def save_backup_state(save, backups):
@@ -765,8 +765,8 @@ def save_backup_state(save, backups):
         return _("noch nie gesichert"), True
     b = max(mine, key=lambda x: x.get("time") or 0)
     if (b.get("save_mtime") or 0) > 0 and (save.get("mtime") or 0) > b["save_mtime"] + 1:
-        return _("seit der Sicherung vom {date} geändert", date=_when(b.get("time"))), True
-    return _("gesichert am {date}", date=_when(b.get("time"))), False
+        return _("geändert seit {date}", date=date_text(b.get("time"), with_time=False)), True
+    return _when(b.get("time")), False
 
 
 def backup_vs_current(b, saves):
@@ -817,7 +817,7 @@ def ask_backups(root, backups, locations=(), saves=()):
         for ui, (who, items) in enumerate(users.items()):
             tree.insert("", "end", iid=f"u{ui}", text=who, open=True)
             for b in items:
-                when = time.strftime("%x %H:%M", time.localtime(b.get("time") or 0))
+                when = date_text(b.get("time"))
                 tree.insert(f"u{ui}", "end", iid=b["path"], text=b.get("title_name") or b.get("title_id", ""),
                             values=(" · ".join(x for x in (b.get("platform") or "PS5", fmt_size(b.get("size", 0)), when, b.get("save_dir", "").removeprefix("sdimg_"), where_of(b), backup_vs_current(b, saves)) if x),),
                             image=imgs[False])
@@ -1006,8 +1006,9 @@ class App(tk.Tk):
         self.lang_box = header_tools(head, self.settings.get("theme", "auto"), self._toggle_theme,
                                      lambda par: lang_selector(par, i18n.lang(), self._set_lang),
                                      lambda: open_help(i18n.lang(), self), self._history)
-        content = ttk.Frame(main, style="Page.TFrame")
+        content = self.content = ttk.Frame(main, style="Page.TFrame")
         content.grid(row=1, column=0, sticky="nsew")
+        self._gap = gap
         content.columnconfigure(0, weight=1)
         content.rowconfigure(0, weight=1)
 
@@ -1067,7 +1068,8 @@ class App(tk.Tk):
         self.ps5_warn.pack(side="bottom", anchor="w", pady=(px(8), 0))
         self.dev_combo = DriveList(drives)
         self.dev_combo.pack(fill="both", expand=True)
-        self.dev_combo.bind("<<ComboboxSelected>>", lambda e: (self._update(), self._show_games()))
+        self.dev_combo.bind("<<ComboboxSelected>>", lambda e: (setattr(self, "_auto_sel", None), self._update(),
+                                                               self._show_games()))
 
         self.tools = ui_theme.card(left)   # nur am PC
         self.tools.grid(row=2, column=0, sticky="ew", pady=(gap, 0))
@@ -1104,13 +1106,15 @@ class App(tk.Tk):
         colors = ui_theme.colors()
         fwrap = self.format_card = tk.Frame(right, background=colors["danger"], highlightthickness=0)
         fwrap.grid(row=1, column=0, sticky="nsew")
-        banner = tk.Frame(fwrap, background=colors["danger_bg"])
+        banner = self.fmt_banner = tk.Frame(fwrap, background=colors["danger_bg"])
         banner.pack(fill="x", padx=1, pady=(1, 0))
-        tk.Label(banner, text="⚠  " + _("Formatieren löscht alle Daten auf diesem Laufwerk."), background=colors["danger_bg"],
-                 foreground=colors["danger"], font="UfBold", anchor="w", justify="left").pack(anchor="w", padx=px(14), pady=(px(9), 0))
+        self.fmt_warn_lbl = tk.Label(banner, text="", background=colors["danger_bg"], foreground=colors["danger"],
+                                     font="UfBold", anchor="w", justify="left")
+        self.fmt_warn_lbl.pack(anchor="w", padx=px(14), pady=(px(9), 0))
         self.fmt_drive_lbl = tk.Label(banner, text="", background=colors["danger_bg"], foreground=colors["text"],
                                       anchor="w", justify="left")
         self.fmt_drive_lbl.pack(anchor="w", padx=px(14), pady=(0, px(9)))
+        self.fmt_pad = tk.Frame(banner, height=px(9), background=colors["danger_bg"])   # unterer Rand ohne Laufwerkszeile
         fc = ui_theme.card(fwrap)
         fc.pack(fill="both", expand=True, padx=1, pady=(0, 1))
         fc.columnconfigure(1, weight=1)
@@ -1212,12 +1216,13 @@ class App(tk.Tk):
         sb = ttk.Scrollbar(gb, orient="vertical", command=self.games_tree.yview)
         sb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
         self.games_tree.configure(yscrollcommand=ui_theme.autohide(sb))
+        self.games_empty = ttk.Label(gb, style="Muted.TLabel", justify="center", anchor="center", wraplength=px(360))
         self.uninstall_chk = ttk.Checkbutton(gb, variable=self.uninstall_var, style="Switch.TCheckbutton",
                                              text=_("Kachel auch von der Startseite entfernen"))
         self.uninstall_chk.grid(row=2, column=0, columnspan=2, sticky="w", pady=(px(10), 0))
         gbar = ttk.Frame(gb)
         gbar.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(px(8), 0))
-        self.games_sum = ttk.Label(gbar, style="Muted.TLabel")   # eigene Zeile über den Knöpfen: sonst wird er abgeschnitten
+        self.games_sum = ttk.Label(gbar, style="Muted.TLabel", wraplength=px(440), justify="left")   # eigene Zeile über den Knöpfen: sonst wird er abgeschnitten
         self.games_sum.pack(side="top", anchor="w", pady=(0, px(6)))
         self.del_btn = ttk.Button(gbar, text=_("Angehakte Spiele löschen …"), style="Danger.TButton",
                                   command=self._delete_games)
@@ -1238,8 +1243,8 @@ class App(tk.Tk):
         iw.rowconfigure(1, weight=1)
         tc = self.tools_card = ui_theme.card(iw)
         tc.grid(row=0, column=0, sticky="ew", pady=(0, px(12)))
-        tc.columnconfigure((0, 1, 2), weight=1, uniform="tl")
-        ttk.Label(tc, text=_("Werkzeuge").upper(), style="Section.TLabel").grid(row=0, column=0, columnspan=3, sticky="w",
+        tc.columnconfigure((0, 1, 2, 3), weight=1)   # nicht gleich breit: vier gleiche Spalten machten das Fenster breiter
+        ttk.Label(tc, text=_("Werkzeuge").upper(), style="Section.TLabel").grid(row=0, column=0, columnspan=4, sticky="w",
                                                                               pady=(0, px(8)))
         self.ps5_speed_btn = ttk.Button(tc, text=_("Tempo messen"), command=self._ps5_speed)
         self.ps5_speed_btn.grid(row=1, column=0, sticky="ew")
@@ -1248,7 +1253,9 @@ class App(tk.Tk):
         self.ps5_rename_btn = ttk.Button(tc, text=_("Umbenennen"), command=self._ps5_rename)
         self.ps5_rename_btn.grid(row=1, column=2, sticky="ew", padx=(px(6), 0))
         self.ps5_eject_btn = ttk.Button(tc, text=_("Auswerfen"), command=self._ps5_eject)
-        self.ps5_eject_btn.grid(row=2, column=0, sticky="ew", pady=(px(6), 0))
+        self.ps5_eject_btn.grid(row=1, column=3, sticky="ew", padx=(px(6), 0))
+        self.tools_why = ttk.Label(tc, style="Hint.TLabel")   # warum die Knöpfe gesperrt sind (nur dann sichtbar)
+        self.tools_why.grid(row=2, column=0, columnspan=4, sticky="w", pady=(px(6), 0))
         Tooltip(self.ps5_eject_btn, lambda: self._why(self.ps5_eject_btn) or (
             _("Laufwerk sicher auswerfen, danach kann es abgezogen werden") if self._smp_can("storage_eject")
             else _("Sicher auswerfen braucht ShadowMountPlus ab Version 1.7.")))
@@ -1353,14 +1360,15 @@ class App(tk.Tk):
         psb = ttk.Scrollbar(pk, orient="vertical", command=self.pkg_tree.yview)
         psb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
         self.pkg_tree.configure(yscrollcommand=ui_theme.autohide(psb))
+        self.pkg_empty = ttk.Label(pk, style="Muted.TLabel", justify="center", anchor="center", wraplength=px(360))
         pbar = ttk.Frame(pk)
         pbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(px(8), 0))
         self.pkg_del_btn = ttk.Button(pbar, text=_("Angehakte Pakete löschen …"), style="Danger.TButton", command=self._pkg_delete)
         self.pkg_del_btn.pack(side="right")
-        self.pkg_sum = ttk.Label(pbar, style="Muted.TLabel")   # eigene Zeile über den Knöpfen: sonst wird er abgeschnitten
+        self.pkg_sum = ttk.Label(pbar, style="Muted.TLabel", wraplength=px(440), justify="left")   # eigene Zeile über den Knöpfen: sonst wird er abgeschnitten
         self.pkg_sum.pack(side="top", anchor="w", pady=(0, px(6)))
-        self.pkg_hint = ttk.Label(pbar, style="Warn.TLabel", justify="left", wraplength=px(640))   # Hinweise zu Update und Firmware
-        self.pkg_hint.pack(side="top", anchor="w", pady=(0, px(6)))
+        self.pkg_warn = ttk.Label(pbar, style="Warn.TLabel", justify="left", wraplength=px(640))   # Hinweise zu Update und Firmware
+        self.pkg_warn.pack(side="top", anchor="w", pady=(0, px(6)))
         self.pkg_del_btn.pack_forget()
         self.pkg_del_btn.pack(side="right")
         self.pkg_move_btn = ttk.Button(pbar, text=_("Angehakte Pakete verschieben …"), command=self._pkg_move)
@@ -1423,6 +1431,7 @@ class App(tk.Tk):
         self.saves_tree.grid(row=1, column=0, sticky="nsew")
         ssb = ttk.Scrollbar(sf, orient="vertical", command=self.saves_tree.yview)
         ssb.grid(row=1, column=1, sticky="ns", padx=(px(4), 0))
+        self.saves_sb = ssb
         self.saves_tree.configure(yscrollcommand=ui_theme.autohide(ssb))
         self.saves_tree.bind("<Button-1>", self._save_click)
         self.saves_tree.bind("<space>", lambda e: self._save_toggle(self.saves_tree.focus()))
@@ -1472,6 +1481,13 @@ class App(tk.Tk):
         if name not in dict(TABS) or name not in self._tab_keys():
             return
         self.page = name
+        if name == "format" and getattr(self, "_auto_sel", None):   # selbst vorgewählt: fürs Formatieren nicht übernehmen
+            dev = self._selected_device()
+            if dev and dev.get("name") == self._auto_sel:
+                self.dev_combo.current(-1)
+                self._update()
+                self._show_games()
+            self._auto_sel = None
         if persist:
             self.settings["page"] = self.page
         if self.mode_var.get() != "ps5":
@@ -1510,6 +1526,7 @@ class App(tk.Tk):
             self.ps5_body.grid_remove()
             self.status_card.grid_remove()
             self.std_panel.grid()
+            self._level()
             return
         self.std_panel.grid_remove()
         self.ps5_body.grid()
@@ -1530,6 +1547,65 @@ class App(tk.Tk):
             _("Kein USB-Datenträger am PC gefunden. Stick einstecken und „Aktualisieren“ klicken.") if not ps5 else
             _("Kein USB-Stick an der PS5 gefunden. Stick einstecken und „Aktualisieren“ klicken.") if self.api else
             _("Erst oben mit der PS5 verbinden."))
+        self._level()
+
+    def _level(self):
+        """Alle Betriebsarten gleich hoch: der Inhalt verlangt immer die größte Höhe (An der PS5, am PC für die PS5,
+        frei formatieren) - sonst springt das Fenster bei jedem Wechsel"""
+        if not hasattr(self, "content"):
+            return
+        self.update_idletasks()
+        heights = self.__dict__.setdefault("_body_heights", {})
+        mode = self.mode_var.get()
+        if mode != "std":
+            heights[mode] = self.ps5_body.winfo_reqheight()
+        if len(heights) < 2:   # die andere Anordnung (mit Verbindung bzw. mit Werkzeugen) einmal messen
+            ps5 = mode != "ps5"
+            for w, show in ((self.conn_card, ps5), (self.tools, not ps5)):
+                w.grid() if show else w.grid_remove()
+            self.update_idletasks()
+            heights["ps5" if ps5 else "pc"] = self.ps5_body.winfo_reqheight()
+            for w, show in ((self.conn_card, not ps5), (self.tools, ps5)):
+                w.grid() if show else w.grid_remove()
+            if mode == "std":
+                heights.setdefault("pc", heights.get("ps5", 0))
+        status = self.status_card.winfo_reqheight() + self._gap
+        total = max(max(heights.values()) + status, self.std_panel.winfo_reqheight())
+        self.content.rowconfigure(0, minsize=total if mode == "std" else total - status)
+
+    def _format_banner(self, dev):
+        """Kopf der Seite "Formatieren": rot mit dem Laufwerk erst, wenn eins gewählt ist - vorher nur ein Hinweis"""
+        c = ui_theme.colors()
+        on = bool(dev and dev.get("size"))
+        bg = c["danger_bg"] if on else c["card2"]
+        self.format_card.configure(background=c["danger"] if on else c["border"])
+        for w in (self.fmt_banner, self.fmt_warn_lbl, self.fmt_drive_lbl, self.fmt_pad):
+            w.configure(background=bg)
+        if on:
+            self.fmt_warn_lbl.configure(text="⚠  " + _("Formatieren löscht alle Daten auf diesem Laufwerk."),
+                                        foreground=c["danger"], font="UfBold")
+            self.fmt_drive_lbl.configure(text=f"{dev_title(dev)} ({dev.get('name') or dev.get('disk', '')}, "
+                                              f"{fmt_size(dev['size'])})")
+            self.fmt_pad.pack_forget()
+            self.fmt_drive_lbl.pack(anchor="w", padx=ui_theme.px(14), pady=(0, ui_theme.px(9)))
+        else:
+            self.fmt_warn_lbl.configure(text="←  " + _("Links das Laufwerk wählen, das formatiert werden soll."),
+                                        foreground=c["muted"], font="TkDefaultFont")
+            self.fmt_drive_lbl.pack_forget()
+            self.fmt_pad.pack(fill="x")
+
+    def _auto_pick(self):
+        """Nach dem Verbinden einmal das erste Laufwerk mit Spielen bzw. PKG wählen, damit Spiele und PKG nicht leer
+        bleiben - nur auf diesen Reitern und nur, wenn noch keins gewählt ist (fürs Formatieren nie, siehe _set_tab)"""
+        if getattr(self, "_auto_api", None) is self.api or self.page not in ("games", "pkg") or self._selected_device():
+            return
+        idx = next((i for i, d in enumerate(self.devices) if self.games.get(d.get("name")) or self.pkgs.get(d.get("name"))), -1)
+        if idx < 0:
+            return
+        self._auto_api = self.api
+        self.dev_combo.current(idx)
+        self._auto_sel = self.devices[idx].get("name")
+        self._update()
 
     def _shortcuts(self):
         """Tastenkürzel: F1 Anleitung, F5 neu einlesen, Strg+1 … 5 Reiter, Strg+6/7 Betriebsart, Strg+F Spiele suchen"""
@@ -1801,7 +1877,7 @@ class App(tk.Tk):
         self.part_tree.delete(*self.part_tree.get_children())
         for n, x in enumerate(mine):
             where = _("intern") if not x.get("device") else x["device"]
-            when = time.strftime("%x %H:%M", time.localtime(x.get("when") or 0))
+            when = date_text(x.get("when"))
             self.part_tree.insert("", "end", iid=x["path"], tags=("odd",) if n % 2 else (),
                                   text="  " + _("{pct} % gesichert ({done} von {used})", pct=self._part_pct(x),
                                                done=fmt_size(x.get("done", 0)), used=fmt_size(x.get("used", 0))),
@@ -1962,6 +2038,7 @@ class App(tk.Tk):
         # eine Spalte "Benutzer" lohnt nur bei mehreren Benutzern: sonst bekommt der Spielname den Platz
         multi = len({x.get("uid") for x in shown}) > 1
         tree.configure(displaycolumns=("user", "console", "size", "backup") if multi else ("console", "size", "backup"))
+        self._fit_saves_columns()
         groups = {}   # ein Spiel mit mehreren Containern: Kopfzeile mit den Containern darunter
         for x in shown:
             groups.setdefault((x.get("uid"), x.get("title_id"), x.get("platform")), []).append(x)
@@ -1979,7 +2056,7 @@ class App(tk.Tk):
                 gid = f"g:{uid}/{tid}/{plat}"
                 tree.insert("", "end", iid=gid, text="  " + name, open=False,
                             values=(who, plat or "PS5", fmt_size(sum(x.get("size", 0) for x in items)),
-                                    "" if st1[0] is None else (_("{n} ohne aktuelle Sicherung", n=sum(1 for z in st1 if z[1])) if any(z[1] for z in st1) else _("alle gesichert"))),
+                                    "" if st1[0] is None else (_("{n} ungesichert", n=sum(1 for z in st1 if z[1])) if any(z[1] for z in st1) else _("alle gesichert"))),
                             image=self.check_imgs[all(x["key"] in self.saves_checked for x in items)],
                             tags=("odd",) if n % 2 else ())
                 for x, sx in zip(items, st1):
@@ -2287,9 +2364,7 @@ class App(tk.Tk):
             self._tabs_shown = keys
         if self.mode_var.get() == "ps5" and self.page not in keys:
             self._set_tab("games", persist=False)
-        fdev = self._selected_device()
-        self.fmt_drive_lbl.configure(text=(f"{dev_title(fdev)} ({fdev.get('name') or fdev.get('disk', '')}, {fmt_size(fdev['size'])})"
-                                           if fdev and fdev.get("size") else _("Erst ein Laufwerk wählen.")))
+        self._format_banner(self._selected_device())
 
         def enable(w, on, *extra):
             w.state(list(extra) + (["!disabled"] if on else ["disabled"]))
@@ -2319,6 +2394,9 @@ class App(tk.Tk):
         enable(self.ps5_check_btn, idle and ps5dev and (ps5dev or {}).get("format") == "exFAT")
         enable(self.ps5_rename_btn, idle and ps5dev and (ps5dev or {}).get("format") in ("exFAT", "FAT32"))
         enable(self.ps5_eject_btn, idle and ps5dev and (ps5dev or {}).get("mounts") and self._smp_can("storage_eject"))
+        why = self._why(self.ps5_speed_btn)
+        self.tools_why.configure(text=why)
+        self.tools_why.grid() if why else self.tools_why.grid_remove()
         enable(self.part_resume_btn, idle and not pc and self.api and self._part_selected())
         enable(self.part_discard_btn, idle and not pc and self.api and self._part_selected())
         enable(self.del_btn, idle and not pc and self.api and self.games_checked)
@@ -2436,6 +2514,20 @@ class App(tk.Tk):
         return {"text": self._ps5_dev_text(d), "title": dev_title(d), "size": fmt_size(d["size"]), "sub": sub,
                 "pills": pills, "used": used, "last": last_job_text(last) if last else ""}
 
+    def _fit_saves_columns(self):
+        """Wird die Spalte "Benutzer" aus- bzw. eingeblendet, bekommt "Sicherung" ihre Breite bzw. gibt sie zurück: der
+        Treeview verteilt den Platz erst bei der nächsten Größenänderung neu - bis dahin bliebe rechts eine Lücke.
+        Die Summe der Spalten (und damit die verlangte Breite) bleibt gleich."""
+        tree = self.saves_tree
+        hidden = "user" not in tree.cget("displaycolumns")
+        if hidden == getattr(self, "_saves_user_hidden", False):
+            return
+        self._saves_user_hidden = hidden
+        # ohne den Platz der Bildlaufleiste: sonst verlangte die Tabelle mehr Breite und das Fenster würde breiter
+        user = int(tree.column("user", "width")) - self.saves_sb.winfo_reqwidth() - ui_theme.px(4)
+        backup = int(tree.column("backup", "width"))
+        tree.column("backup", width=max(ui_theme.px(110), backup + (user if hidden else -user)))
+
     def _show_pkgs(self):
         """PKG-Reiter: Pakete des gewählten Laufwerks (Plattform, PKG/fPKG, Update, Titel-ID, Größe) + Zähler an den Reitern"""
         dev = self._selected_device()
@@ -2463,12 +2555,17 @@ class App(tk.Tk):
             self._pkgs_shown = rows
         picked = [self._pkg_by_key[k] for k in self.pkg_checked if k in self._pkg_by_key]
         self.pkg_sum.configure(text=_("{n} angehakt · {size}", n=len(picked), size=fmt_size(sum(x.get("size", 0) for x in picked)))
-                               if picked else "")
+                               if picked else _("Pakete anklicken, um sie anzuhaken – dann lassen sie sich kopieren, "
+                                                "verschieben oder löschen.") if rows else "")
+        self._action_bar((self.pkg_copy_btn, self.pkg_move_btn, self.pkg_del_btn), bool(picked))
+        self._empty_note(self.pkg_empty, self.pkg_tree, "" if rows else self._list_note(
+            dev, self.lib_known, _("Links ein Laufwerk wählen, um seine PKG-Dateien zu sehen."),
+            _("PKG-Dateien werden gesucht …"), _("Keine PKG-Dateien auf diesem Laufwerk.")))
         focus = self.pkg_tree.focus()   # Hinweise: zu den angehakten Paketen, sonst zur gewählten Zeile
         hint_src = picked or ([self._pkg_by_key[focus]] if focus in self._pkg_by_key else [])
         lines = [f"{pk.get('name') or pk.get('title')}: " + "; ".join(t for _k, t in pkg_hints(pk, self.ps5_fw))
                  for pk in hint_src if pkg_hints(pk, self.ps5_fw)]
-        self.pkg_hint.configure(text="\n".join(lines[:3]) + ("\n…" if len(lines) > 3 else ""))
+        self.pkg_warn.configure(text="\n".join(lines[:3]) + ("\n…" if len(lines) > 3 else ""))
         self.pkg_caption.configure(text=_("PKG-Dateien auf diesem Datenträger: {n}", n=len(rows)) if rows
                                    else _("Keine PKG-Dateien auf diesem Datenträger."))
         games = self.games.get(dev["name"], []) if dev and dev.get("name") else []
@@ -2589,6 +2686,10 @@ class App(tk.Tk):
             self.games_checked.clear()
             self._games_shown = None
             self.games_caption.configure(text=_("Spiele auf diesem Datenträger:"))
+            self._empty_note(self.games_empty, self.games_tree, self._list_note(
+                None, False, _("Links ein Laufwerk wählen, um seine Spiele zu sehen."), "", ""))
+            self._games_sum()
+            self._show_pkgs()
             return
         games = self.games.get(dev["name"], [])
         q = self._game_query()
@@ -2632,6 +2733,9 @@ class App(tk.Tk):
         else:
             text = _("Spiele auf diesem Datenträger: keine gefunden")
         self.games_caption.configure(text=text)
+        self._empty_note(self.games_empty, self.games_tree, "" if rows else _("Kein Spiel passt zur Suche.") if games else
+                         self._list_note(dev, self.lib_known, "", _("Spiele werden gesucht …"),
+                                         _("Keine Spiele auf diesem Laufwerk.")))
         self._show_pkgs()
 
     def _ensure_game_sizes(self, dev, games):
@@ -2746,7 +2850,39 @@ class App(tk.Tk):
         games = {g.get("key"): g for g in self.games.get(dev["name"], [])} if dev and "name" in dev else {}
         picked = [games[k] for k in self.games_checked if k in games]
         self.games_sum.configure(text=_("{n} angehakt · {size}", n=len(picked), size=fmt_size(
-            sum(g.get("size") or 0 for g in picked))) if picked else "")
+            sum(g.get("size") or 0 for g in picked))) if picked else _(
+            "Spiele anklicken, um sie anzuhaken – dann lassen sie sich kopieren, verschieben oder löschen.") if games else "")
+        self._action_bar((self.copy_btn, self.move_btn, self.del_btn), bool(picked))
+        self.uninstall_chk.grid() if picked else self.uninstall_chk.grid_remove()
+
+    def _action_bar(self, buttons, on):
+        """Knopfleiste unter einer Liste erst zeigen, wenn etwas angehakt ist (vorher steht dort, wie es geht)"""
+        if bool(buttons[0].winfo_manager()) == on:
+            return
+        for b in reversed(buttons):
+            b.pack_forget()
+            if on:
+                b.pack(side="right", padx=(0, 0 if b is buttons[-1] else ui_theme.px(8)))
+
+    @staticmethod
+    def _empty_note(lbl, tree, text):
+        """Hinweis mitten in einer leeren Liste; leer: ausblenden"""
+        if text:
+            lbl.configure(text=text)
+            lbl.place(in_=tree, relx=0.5, rely=0.4, anchor="center")
+            lbl.lift()
+        else:
+            lbl.place_forget()
+
+    def _list_note(self, dev, known, pick_text, wait_text, none_text):
+        """Text für eine leere Spiele- bzw. PKG-Liste: was als Nächstes zu tun ist"""
+        if not self.api:
+            return _("Erst links mit der PS5 verbinden.")
+        if not dev:
+            return pick_text
+        if self.lib_loading or not known:
+            return wait_text
+        return none_text
 
     def _relibrary(self, api=None):
         if api is not None and api is not self.api:
@@ -4520,6 +4656,7 @@ class App(tk.Tk):
             if self.mode_var.get() == "ps5" and self.api:
                 self.devices = self.ps5_devices + self.place_devs
                 self.dev_combo.refresh([self._ps5_drive_item(d) for d in self.devices])
+                self._auto_pick()
             self._show_games()
         elif kind == "pcdevices":
             self.busy = False

@@ -1943,12 +1943,6 @@
   "es": "No hay archivos PKG en esta unidad.",
   "fr": "Aucun fichier PKG sur ce lecteur."
  },
- "Erst ein Laufwerk wählen.": {
-  "en": "Choose a drive first.",
-  "it": "Scegli prima un'unità.",
-  "es": "Elige primero una unidad.",
-  "fr": "Choisissez d'abord un lecteur."
- },
  "Werkzeuge": {
   "en": "Tools",
   "it": "Strumenti",
@@ -3124,5 +3118,11 @@
   "it": "si può scollegare",
   "es": "se puede desconectar",
   "fr": "peut être débranché"
+ },
+ "Oben das Laufwerk wählen, das formatiert werden soll.": {
+  "en": "Select the drive to format above.",
+  "it": "Scegli sopra l'unità da formattare.",
+  "es": "Elige arriba la unidad que quieres formatear.",
+  "fr": "Choisissez ci-dessus le lecteur à formater."
  }
 }

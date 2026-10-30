@@ -2741,24 +2741,6 @@
   "es": "nunca guardado",
   "fr": "jamais sauvegardé"
  },
- "gesichert am {date}": {
-  "en": "backed up on {date}",
-  "it": "salvato il {date}",
-  "es": "guardado el {date}",
-  "fr": "sauvegardé le {date}"
- },
- "seit der Sicherung vom {date} geändert": {
-  "en": "changed since the backup of {date}",
-  "it": "modificato dopo il backup del {date}",
-  "es": "modificado desde la copia del {date}",
-  "fr": "modifié depuis la sauvegarde du {date}"
- },
- "{n} ohne aktuelle Sicherung": {
-  "en": "{n} without a current backup",
-  "it": "{n} senza backup aggiornato",
-  "es": "{n} sin copia actual",
-  "fr": "{n} sans sauvegarde à jour"
- },
  "alle gesichert": {
   "en": "all backed up",
   "it": "tutti salvati",
@@ -4048,5 +4030,83 @@
   "it": "Disattiva le versioni più vecchie delle immagini doppie (estensione .off) invece di eliminarle – ShadowMountPlus non alterna più",
   "es": "Desactivar las versiones anteriores de imágenes duplicadas (extensión .off) en lugar de borrarlas – ShadowMountPlus deja de alternar",
   "fr": "Désactiver les anciennes versions des images en double (extension .off) au lieu de les supprimer – ShadowMountPlus cesse d'alterner"
+ },
+ "Links das Laufwerk wählen, das formatiert werden soll.": {
+  "en": "Select the drive to format on the left.",
+  "it": "Scegli a sinistra l'unità da formattare.",
+  "es": "Elige a la izquierda la unidad que quieres formatear.",
+  "fr": "Choisissez à gauche le lecteur à formater."
+ },
+ "{n} ungesichert": {
+  "en": "{n} not backed up",
+  "it": "{n} senza backup",
+  "es": "{n} sin copia",
+  "fr": "{n} non sauvegardé(s)"
+ },
+ "geändert seit {date}": {
+  "en": "changed since {date}",
+  "it": "modificato dal {date}",
+  "es": "cambiado desde el {date}",
+  "fr": "modifié depuis le {date}"
+ },
+ "Pakete anklicken, um sie anzuhaken – dann lassen sie sich kopieren, verschieben oder löschen.": {
+  "en": "Click packages to tick them – then you can copy, move or delete them.",
+  "it": "Fai clic sui pacchetti per spuntarli – poi puoi copiarli, spostarli o eliminarli.",
+  "es": "Haz clic en los paquetes para marcarlos – luego puedes copiarlos, moverlos o borrarlos.",
+  "fr": "Cliquez sur des paquets pour les cocher – vous pourrez ensuite les copier, déplacer ou supprimer."
+ },
+ "Spiele anklicken, um sie anzuhaken – dann lassen sie sich kopieren, verschieben oder löschen.": {
+  "en": "Click games to tick them – then you can copy, move or delete them.",
+  "it": "Fai clic sui giochi per spuntarli – poi puoi copiarli, spostarli o eliminarli.",
+  "es": "Haz clic en los juegos para marcarlos – luego puedes copiarlos, moverlos o borrarlos.",
+  "fr": "Cliquez sur des jeux pour les cocher – vous pourrez ensuite les copier, déplacer ou supprimer."
+ },
+ "Links ein Laufwerk wählen, um seine PKG-Dateien zu sehen.": {
+  "en": "Select a drive on the left to see its PKG files.",
+  "it": "Scegli un'unità a sinistra per vederne i file PKG.",
+  "es": "Elige una unidad a la izquierda para ver sus archivos PKG.",
+  "fr": "Choisissez un lecteur à gauche pour voir ses fichiers PKG."
+ },
+ "Links ein Laufwerk wählen, um seine Spiele zu sehen.": {
+  "en": "Select a drive on the left to see its games.",
+  "it": "Scegli un'unità a sinistra per vederne i giochi.",
+  "es": "Elige una unidad a la izquierda para ver sus juegos.",
+  "fr": "Choisissez un lecteur à gauche pour voir ses jeux."
+ },
+ "PKG-Dateien werden gesucht …": {
+  "en": "Looking for PKG files …",
+  "it": "Ricerca dei file PKG …",
+  "es": "Buscando archivos PKG …",
+  "fr": "Recherche des fichiers PKG …"
+ },
+ "Spiele werden gesucht …": {
+  "en": "Looking for games …",
+  "it": "Ricerca dei giochi …",
+  "es": "Buscando juegos …",
+  "fr": "Recherche des jeux …"
+ },
+ "Keine PKG-Dateien auf diesem Laufwerk.": {
+  "en": "No PKG files on this drive.",
+  "it": "Nessun file PKG su questa unità.",
+  "es": "No hay archivos PKG en esta unidad.",
+  "fr": "Aucun fichier PKG sur ce lecteur."
+ },
+ "Keine Spiele auf diesem Laufwerk.": {
+  "en": "No games on this drive.",
+  "it": "Nessun gioco su questa unità.",
+  "es": "No hay juegos en esta unidad.",
+  "fr": "Aucun jeu sur ce lecteur."
+ },
+ "Kein Spiel passt zur Suche.": {
+  "en": "No game matches the search.",
+  "it": "Nessun gioco corrisponde alla ricerca.",
+  "es": "Ningún juego coincide con la búsqueda.",
+  "fr": "Aucun jeu ne correspond à la recherche."
+ },
+ "Erst links mit der PS5 verbinden.": {
+  "en": "Connect to the PS5 on the left first.",
+  "it": "Prima collegati alla PS5 a sinistra.",
+  "es": "Primero conéctate a la PS5 a la izquierda.",
+  "fr": "Connectez-vous d'abord à la PS5 à gauche."
  }
 }

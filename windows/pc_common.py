@@ -981,13 +981,18 @@ def last_job(entries, model, size, ident=""):
     return None
 
 
+def date_text(t, with_time=True):
+    """Datum (und Uhrzeit) in der Schreibweise der Sprache - nicht %x: das ist unter Windows US-Schreibweise"""
+    fmt = {"de": "%d.%m.%Y", "en": "%Y-%m-%d"}.get(lang(), "%d/%m/%Y")
+    return time.strftime(fmt + (" %H:%M" if with_time else ""), time.localtime(int(t or 0)))
+
+
 def last_job_text(e):
     """"Zuletzt: Formatieren (exFAT), 20.10.2026" für die Laufwerkskarte"""
     what = history_kind(e.get("kind", "")) + (f" ({e['fs']})" if e.get("fs") else "")
     if not e.get("ok"):
         what += " – " + (_("abgebrochen") if e.get("cancelled") else _("fehlgeschlagen"))
-    fmt = {"de": "%d.%m.%Y", "en": "%Y-%m-%d"}.get(lang(), "%d/%m/%Y")
-    return _("Zuletzt: {what}, {date}", what=what, date=time.strftime(fmt, time.localtime(int(e.get("t") or 0))))
+    return _("Zuletzt: {what}, {date}", what=what, date=date_text(e.get("t"), with_time=False))
 
 
 def system_report(system):
