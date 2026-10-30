@@ -3568,6 +3568,54 @@ $("reload").addEventListener("click", async () => {   /* sichtbar reagieren, sol
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("dlg").hidden) closeDialog(false); });
 
+/* Controller: L2 scrollt nach oben, R2 nach unten - je fester gedrückt, desto schneller (die Trigger sind analog).
+   Zuerst die Liste, in der die Auswahl steht (Spiele, Spielstände, Verlauf …), an ihrem Ende die Seite; bei offenem
+   Dialog nur der Dialog. Gamepad-API; meldet der Browser die Trigger stattdessen als Tasten (keyCode 118/119 wie der
+   PS4-Browser), scrollen die. */
+(function () {
+  function canScroll(el, dy) {
+    if (!el || el.scrollHeight <= el.clientHeight + 1) return false;
+    const oy = getComputedStyle(el).overflowY;
+    if (oy !== "auto" && oy !== "scroll") return false;
+    return dy < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+  }
+  function scrollBy(dy) {
+    const dlg = $("dlg"), open = !dlg.hidden;
+    for (let el = document.activeElement; el && el !== document.body; el = el.parentElement) {
+      if (open && !dlg.contains(el)) break;
+      if (canScroll(el, dy)) { el.scrollTop += dy; return; }
+    }
+    if (open) {   /* zuerst eine Liste im Dialog (Verlauf, Spiele …), an ihrem Ende der Dialog selbst */
+      const lists = dlg.querySelectorAll(".hist, .games, div[style*='overflow']");
+      let box = null;
+      for (let i = 0; i < lists.length && !box; i++) if (canScroll(lists[i], dy)) box = lists[i];
+      box = box || dlg.querySelector(".dialog");
+      if (box) box.scrollTop += dy;
+      return;
+    }
+    window.scrollBy(0, dy);
+  }
+  let pad = false, last = 0;
+  function value(b) { return !b ? 0 : typeof b === "object" ? (b.value || (b.pressed ? 1 : 0)) : b; }
+  function poll() {
+    const ts = Date.now(), pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let gp = null;
+    for (let i = 0; i < pads.length; i++) if (pads[i] && pads[i].buttons && pads[i].buttons.length > 7) { gp = pads[i]; break; }
+    if (gp) {
+      const amount = value(gp.buttons[7]) - value(gp.buttons[6]);   /* Standardbelegung: 6 = L2, 7 = R2 */
+      const dt = last ? Math.min(50, ts - last) : 16;
+      if (Math.abs(amount) > 0.08) { pad = true; scrollBy(amount * dt * 1.6); }   /* voll gedrückt: ca. 1600 px/s */
+    }
+    last = ts;
+  }
+  if (navigator.getGamepads) setInterval(poll, 16);   /* Zeitgeber statt requestAnimationFrame: läuft in jedem Browser */
+  document.addEventListener("keydown", e => {
+    if (pad || (e.keyCode !== 118 && e.keyCode !== 119) || e.target.tagName === "INPUT") return;
+    e.preventDefault();
+    scrollBy((e.keyCode === 119 ? 1 : -1) * Math.round(window.innerHeight * 0.25));
+  });
+})();
+
 const onConsole = location.hostname === "127.0.0.1" || location.hostname === "localhost";
 let lanUrl = "";   /* Adresse für Handy/PC, nur im PS5-Browser gezeigt */
 function showHost() {
