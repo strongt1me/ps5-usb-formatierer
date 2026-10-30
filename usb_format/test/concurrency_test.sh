@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Parallele Verbindungen: ein langsamer Client blockiert andere nicht, viele gleichzeitige Anfragen werden beantwortet,
-# ein laufender Auftrag bleibt währenddessen bedienbar, "Beenden" wirkt sofort und steht in quit.log. Mit
+# ein laufender Auftrag bleibt währenddessen bedienbar, "Beenden" wirkt sofort, steht in quit.log und entfernt die
+# Markierung running; der Diagnose-Bericht filtert das Kernel-Log. Mit
 # HOST_CFLAGS=-fsanitize=thread zusätzlich auf Datenrennen prüfbar.
 set -u
 cd "$(dirname "$0")/.."
@@ -15,7 +16,10 @@ ok()  { echo "OK      $1"; }
 bad() { echo "FEHLER  $1"; [ -n "${2:-}" ] && echo "        $2"; fails=$((fails + 1)); }
 
 truncate -s 512M "$W/a.img"
-USBFMT_IMAGES="$W/a.img" USBFMT_DATA="$W/cfg" USBFMT_SLOW=1 "$W/srv" >"$W/log" 2>&1 &
+# Kernel-Log für den Diagnose-Bericht: nur Auffälliges soll durchkommen
+printf '%s\n' '[SceShellCore] FMEM 4.5/17.8 payload.elf' '# process pid=120, payload.elf calls exit() exit_value=0.' \
+    'ftpsrv: 192.168.1.50 connected' 'usbfmt_helper: Kernel panic simulated' >"$W/klog"
+USBFMT_IMAGES="$W/a.img" USBFMT_DATA="$W/cfg" USBFMT_SLOW=1 USBFMT_KLOG="$W/klog" "$W/srv" >"$W/log" 2>&1 &
 PID=$!
 for _ in $(seq 1 50); do curl -s "$U/api/info" >/dev/null 2>&1 && break; sleep 0.1; done
 
@@ -58,6 +62,17 @@ curl -s -o /dev/null -H 'Content-Type: application/json' -d '{}' "$U/api/cancel"
 for _ in $(seq 1 100); do curl -s "$U/api/status" | grep -q '"busy":false' && break; sleep 0.1; done
 curl -s "$U/api/status" | grep -q '"busy":false' && ok "Abbrechen wirkt" || bad "Abbrechen"
 
+# Markierung "läuft" und Diagnose-Bericht (Kernel-Log gefiltert, noch kein Stopp-Befehl)
+grep -Eq '^20[0-9-]{8} [0-9:]{8}  [0-9.]+$' "$W/cfg/running" 2>/dev/null && ok "running: $(cat "$W/cfg/running")" \
+    || bad "running fehlt" "$(cat "$W/cfg/running" 2>&1)"
+curl -s "$U/api/diag" >"$W/diag"
+python3 - "$W/diag" <<'EOF' && ok "Diagnose: Kernel-Log gefiltert, keine Adresse, noch kein Stopp" || bad "Diagnose" "$(cat "$W/diag")"
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["quits"] == [], d
+assert d["klog"] == ["# process pid=120, payload.elf calls exit() exit_value=0.", "usbfmt_helper: Kernel panic simulated"], d
+EOF
+
 # 4. Beenden wirkt sofort (Server-Prozess endet binnen 2 s), obwohl noch ein langsamer Client hängt
 code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -A 'Testbrowser/1.0' \
     -d '{"from":"web\nX"}' "$U/api/quit")
@@ -67,6 +82,7 @@ kill $DRIP 2>/dev/null
 # wer beendet hat, steht in quit.log - eine Zeile, Steuerzeichen ersetzt; der abgelehnte Versuch (Auftrag lief) fehlt
 [ "$(wc -l <"$W/cfg/quit.log" 2>/dev/null)" = 1 ] && grep -Eq '^20[0-9-]{8} [0-9:]{8}  127\.0\.0\.1  web\?X  [0-9.]+ Testbrowser/1\.0$' "$W/cfg/quit.log" \
     && ok "quit.log: $(cat "$W/cfg/quit.log")" || bad "quit.log" "$(cat "$W/cfg/quit.log" 2>&1)"
+[ ! -e "$W/cfg/running" ] && ok "running nach sauberem Ende entfernt" || bad "running noch da"
 grep -E "WARNING: ThreadSanitizer|ERROR: AddressSanitizer" "$W/log" >/dev/null && bad "Sanitizer-Bericht" "$(head -30 "$W/log")"
 
 echo

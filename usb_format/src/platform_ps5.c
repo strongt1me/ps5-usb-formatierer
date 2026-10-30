@@ -721,6 +721,35 @@ static char *slurp_file(const char *path, size_t *len) {
     return buf;
 }
 
+#define KLOG_PORT 3232   /* klogsrv: schickt beim Verbinden den Rückstand des Kernel-Logs, danach laufend Neues */
+
+size_t plat_kernel_log(char *out, size_t n) {
+    size_t got = 0;
+    out[0] = 0;
+    struct sockaddr_in sa = {0};
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons(KLOG_PORT);
+    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    int s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s < 0) return 0;
+    struct timeval tv = {0, 300 * 1000};   /* Rückstand kommt sofort; 0,3 s Ruhe = fertig */
+    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    if (connect(s, (struct sockaddr *)&sa, sizeof(sa)) == 0) {
+        struct timespec t0, now;
+        clock_gettime(CLOCK_MONOTONIC, &t0);
+        while (got + 1 < n) {
+            ssize_t r = recv(s, out + got, n - 1 - got, 0);
+            if (r <= 0) break;
+            got += (size_t)r;
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            if (now.tv_sec - t0.tv_sec >= 1) break;
+        }
+    }
+    close(s);
+    out[got] = 0;
+    return got;
+}
+
 char *plat_smp_post(const char *path, const char *body, int *http, size_t *len) {
     return smp_http_post(SMP_API_PORT, path, body, http, len);
 }

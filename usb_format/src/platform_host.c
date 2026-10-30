@@ -261,6 +261,16 @@ static char *slurp_file(const char *path, size_t *len) {
     return buf;
 }
 
+/* Test: Kernel-Log aus der Datei USBFMT_KLOG */
+size_t plat_kernel_log(char *out, size_t n) {
+    const char *p = getenv("USBFMT_KLOG");
+    FILE *f = p ? fopen(p, "rb") : NULL;
+    size_t got = f ? fread(out, 1, n - 1, f) : 0;
+    if (f) fclose(f);
+    out[got] = 0;
+    return got;
+}
+
 /* Test: ShadowMountPlus-Attrappe auf 127.0.0.1:USBFMT_SMP_PORT (test/smp_mock.py), sonst nicht erreichbar */
 char *plat_smp_post(const char *path, const char *body, int *http, size_t *len) {
     const char *port = getenv("USBFMT_SMP_PORT");

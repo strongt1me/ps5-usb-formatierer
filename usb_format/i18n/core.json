@@ -3376,5 +3376,53 @@
   "it": "Un gioco è ancora montato – finché lo è, ShadowMountPlus non annulla la registrazione di alcun riquadro. Smonta il gioco e riprova.",
   "es": "Un juego sigue montado – mientras lo esté, ShadowMountPlus no da de baja ningún icono. Desmonta el juego e inténtalo de nuevo.",
   "fr": "Un jeu est encore monté – tant qu'il l'est, ShadowMountPlus ne désinscrit aucune vignette. Démontez le jeu et réessayez."
+ },
+ "Weboberfläche": {
+  "en": "the web UI",
+  "it": "l'interfaccia web",
+  "es": "la interfaz web",
+  "fr": "l'interface web"
+ },
+ "PC-Programm": {
+  "en": "the PC program",
+  "it": "il programma per PC",
+  "es": "el programa de PC",
+  "fr": "le programme PC"
+ },
+ "Entwicklerwerkzeug": {
+  "en": "a developer tool",
+  "it": "uno strumento per sviluppatori",
+  "es": "una herramienta de desarrollo",
+  "fr": "un outil de développement"
+ },
+ "USB-Formatierer beendet – über %s von %s": {
+  "en": "USB-Formatierer stopped – via %s from %s",
+  "it": "USB-Formatierer arrestato – tramite %s da %s",
+  "es": "USB-Formatierer detenido – mediante %s desde %s",
+  "fr": "USB-Formatierer arrêté – via %s depuis %s"
+ },
+ "USB-Formatierer beendet – Befehl von %s": {
+  "en": "USB-Formatierer stopped – command from %s",
+  "it": "USB-Formatierer arrestato – comando da %s",
+  "es": "USB-Formatierer detenido – orden desde %s",
+  "fr": "USB-Formatierer arrêté – commande depuis %s"
+ },
+ "Spiel aushängen": {
+  "en": "Unmount game",
+  "it": "Smonta gioco",
+  "es": "Desmontar juego",
+  "fr": "Démonter le jeu"
+ },
+ "Ein Spiel ist noch eingehängt – solange lehnt ShadowMountPlus das ab. Das Spiel aushängen und erneut versuchen.": {
+  "en": "A game is still mounted – while it is, ShadowMountPlus refuses this. Unmount the game and try again.",
+  "it": "Un gioco è ancora montato – finché lo è, ShadowMountPlus rifiuta. Smonta il gioco e riprova.",
+  "es": "Un juego sigue montado – mientras lo esté, ShadowMountPlus lo rechaza. Desmonta el juego e inténtalo de nuevo.",
+  "fr": "Un jeu est encore monté – tant qu'il l'est, ShadowMountPlus refuse. Démontez le jeu et réessayez."
+ },
+ "Ungültige Titel-ID": {
+  "en": "Invalid title ID",
+  "it": "ID titolo non valido",
+  "es": "ID de título no válido",
+  "fr": "ID de titre non valide"
  }
 }

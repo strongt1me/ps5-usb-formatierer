@@ -637,7 +637,7 @@
  },
  "Fertig": {
   "en": "Done",
-  "it": "Completato",
+  "it": "Fatto",
   "es": "Listo",
   "fr": "Terminé"
  },
@@ -1968,10 +1968,10 @@
   "fr": "Nouvelle version {version} disponible"
  },
  "Prüfen …": {
-  "en": "Check …",
+  "en": "Verifying …",
   "it": "Verifica …",
-  "es": "Comprobar …",
-  "fr": "Vérifier …"
+  "es": "Comprobando …",
+  "fr": "Vérification …"
  },
  "Image prüfen": {
   "en": "Check image",
@@ -4108,5 +4108,53 @@
   "it": "Prima collegati alla PS5 a sinistra.",
   "es": "Primero conéctate a la PS5 a la izquierda.",
   "fr": "Connectez-vous d'abord à la PS5 à gauche."
+ },
+ "Eingehängt": {
+  "en": "Mounted",
+  "it": "Montati",
+  "es": "Montados",
+  "fr": "Montés"
+ },
+ "„Jetzt aktualisieren“ lädt nur die geänderten Teile und ersetzt dieses AppImage – danach das Programm neu starten.": {
+  "en": "“Update now” downloads only the changed parts and replaces this AppImage – then restart the program.",
+  "it": "«Aggiorna ora» scarica solo le parti modificate e sostituisce questo AppImage – poi riavvia il programma.",
+  "es": "«Actualizar ahora» descarga solo las partes cambiadas y sustituye este AppImage – después reinicia el programa.",
+  "fr": "« Mettre à jour » ne télécharge que les parties modifiées et remplace cet AppImage – puis redémarrez le programme."
+ },
+ "Jetzt aktualisieren": {
+  "en": "Update now",
+  "it": "Aggiorna ora",
+  "es": "Actualizar ahora",
+  "fr": "Mettre à jour"
+ },
+ "Blockliste laden …": {
+  "en": "Loading block list …",
+  "it": "Caricamento elenco blocchi …",
+  "es": "Cargando lista de bloques …",
+  "fr": "Chargement de la liste des blocs …"
+ },
+ "Vorhandene Teile suchen …": {
+  "en": "Looking for existing parts …",
+  "it": "Ricerca delle parti esistenti …",
+  "es": "Buscando partes existentes …",
+  "fr": "Recherche des parties existantes …"
+ },
+ "Geänderte Teile laden …": {
+  "en": "Downloading changed parts …",
+  "it": "Scaricamento delle parti modificate …",
+  "es": "Descargando partes cambiadas …",
+  "fr": "Téléchargement des parties modifiées …"
+ },
+ "Aktualisiert auf {version} – {mb} von {total} MB geladen. Bitte das Programm neu starten.": {
+  "en": "Updated to {version} – {mb} of {total} MB downloaded. Please restart the program.",
+  "it": "Aggiornato a {version} – scaricati {mb} di {total} MB. Riavvia il programma.",
+  "es": "Actualizado a {version} – descargados {mb} de {total} MB. Reinicia el programa.",
+  "fr": "Mis à jour vers {version} – {mb} sur {total} Mo téléchargés. Veuillez redémarrer le programme."
+ },
+ "Aktualisieren fehlgeschlagen: {error} – die bisherige Datei ist unverändert. Stattdessen herunterladen.": {
+  "en": "Update failed: {error} – the existing file is unchanged. Download it instead.",
+  "it": "Aggiornamento non riuscito: {error} – il file attuale è invariato. Scaricalo invece.",
+  "es": "La actualización falló: {error} – el archivo actual no ha cambiado. Descárgalo en su lugar.",
+  "fr": "Échec de la mise à jour : {error} – le fichier actuel est inchangé. Téléchargez-le plutôt."
  }
 }

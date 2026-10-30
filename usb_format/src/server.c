@@ -35,6 +35,7 @@
  *                         Auftrag "game_toggle"
  *   POST /api/game/smp   {"key"} Stand bei ShadowMountPlus: {"smp", "known", "this" (verwaltet genau diese Kopie),
  *                         "mounted", "patch":{installed,version,size_bytes}, "dlc":[{content_id,title_name,version,size_bytes}]}
+ *   GET  /api/mounted    eingehängte Spiele laut ShadowMountPlus: {"smp", "mounted":[{id,name,keys:[Schlüssel]}]}
  *   POST /api/game/mount {"key","mount":true|false} Spiel über ShadowMountPlus ein- bzw. aushängen - "game_mount"
  *   POST /api/game/content/uninstall {"key","kind":"patch"|"dlc","content_id"} Patch bzw. DLC entfernen - "content_uninstall"
  *   GET  /api/history    {"entries":[{t, kind, ok, cancelled, secs, device, model, size, ident, label, fs, file, count,
@@ -46,6 +47,7 @@
  *   Sprache der Antworten und Meldungen: ?lang=de|en|it|es|fr an jeder Adresse, sonst Accept-Language, sonst die
  *   gespeicherte Einstellung. Ein Auftrag meldet sich in der Sprache der Anfrage, die ihn gestartet hat.
  *   POST /api/diag       Darstellungsbericht der Seite ablegen; GET liefert {"tv":"...","pc":"..."}
+ *                         sowie "quits" (letzte Stopp-Befehle ohne Adresse) und "klog" (auffällige Kernel-Log-Zeilen)
  *   POST /api/quit       Server beenden
  */
 #include <ctype.h>
@@ -1996,8 +1998,67 @@ static void fake_put(const usbdev_t *d, uint64_t real) {
  * über GET /api/diag. Je ein Bericht für den PS5-Browser und für andere Browser, nur im Speicher. */
 static char diag_tv[BODY_MAX], diag_pc[BODY_MAX];
 
+/* Diagnose-Bericht: die letzten Stopp-Befehle (quit.log ohne Adresse) und auffällige Zeilen des Kernel-Logs
+ * (Absturz, Beenden von Payloads, dieser Formatierer) - damit "er war plötzlich weg" aus einem Bericht klar wird */
+#define DIAG_KLOG (512 * 1024)
+static int has_ci(const char *s, const char *pat) {   /* pat klein geschrieben; strcasestr gibt es nicht überall */
+    for (; *s; s++) {
+        size_t i = 0;
+        while (pat[i] && tolower((unsigned char)s[i]) == pat[i]) i++;
+        if (!pat[i]) return 1;
+    }
+    return 0;
+}
+
+static void diag_logs(sbuf_t *b) {
+    char path[256], line[400];
+    char quits[5][400];
+    int nq = 0;
+    snprintf(path, sizeof(path), "%s/quit.log", plat_data_dir());
+    FILE *f = fopen(path, "r");
+    while (f && fgets(line, sizeof(line), f)) {   /* "zeit  adresse  absender  version browser": ohne Adresse */
+        line[strcspn(line, "\r\n")] = 0;
+        char *ip = strstr(line, "  "), *rest = ip ? strstr(ip + 2, "  ") : NULL;
+        if (!rest) continue;
+        snprintf(quits[nq % 5], sizeof(quits[0]), "%.*s%s", (int)(ip - line), line, rest);
+        nq++;
+    }
+    if (f) fclose(f);
+    sb_add(b, ",\"quits\":[");
+    for (int i = nq > 5 ? nq - 5 : 0, first = 1; i < nq; i++, first = 0) {
+        if (!first) sb_add(b, ",");
+        sb_str(b, quits[i % 5]);
+    }
+    sb_add(b, "],\"klog\":");
+    char *k = malloc(DIAG_KLOG);
+    size_t kl = k ? plat_kernel_log(k, DIAG_KLOG) : 0;
+    if (!kl) { sb_add(b, "null"); free(k); return; }
+    static const char *const pat[] = {"panic", "fatal", "segv", "abort", "calls exit", "usb_format", "usbfmt", NULL};
+    const char *hits[20];
+    int nh = 0;
+    for (char *p = k, *e; *p; p = e ? e + 1 : p + strlen(p)) {
+        e = strchr(p, '\n');
+        if (e) *e = 0;
+        int hit = 0;
+        for (int i = 0; pat[i] && !hit; i++) hit = has_ci(p, pat[i]);
+        if (hit) hits[nh++ % 20] = p;
+        if (!e) break;
+    }
+    sb_add(b, "[");
+    for (int i = nh > 20 ? nh - 20 : 0, first = 1; i < nh; i++, first = 0) {
+        snprintf(line, sizeof(line), "%s", hits[i % 20]);
+        for (char *q = line; *q; q++) if ((unsigned char)*q < 0x20) *q = ' ';
+        if (!first) sb_add(b, ",");
+        sb_str(b, line);
+    }
+    sb_add(b, "]");
+    free(k);
+}
+
 static void api_diag(int c, int is_post, const char *body) {
     sbuf_t b = {0};
+    sbuf_t lg = {0};
+    if (!is_post) diag_logs(&lg);   /* vor dem Sperren: das Kernel-Log zu lesen dauert bis ~1 s */
     pthread_mutex_lock(&lock);
     if (is_post) {
         char *dst = strstr(body, "PlayStation") ? diag_tv : diag_pc;
@@ -2011,9 +2072,11 @@ static void api_diag(int c, int is_post, const char *body) {
         sb_str(&b, diag_tv);
         sb_add(&b, ",\"pc\":");
         sb_str(&b, diag_pc);
+        if (lg.p) sb_add(&b, "%s", lg.p);
         sb_add(&b, "}");
     }
     pthread_mutex_unlock(&lock);
+    free(lg.p);
     respond_json(c, 200, &b);
     free(b.p);
 }
@@ -3269,8 +3332,13 @@ static void api_images(int c) {
 /* Fehlertext einer ShadowMountPlus-Antwort ({"status":<errno>,"error":"..."}) */
 static void smp_error(const char *resp, size_t len, int http, char *out, size_t n) {
     char e[160] = "";
+    char reason[32] = "";
     if (resp) lib_json_str(resp, len, "error", e, sizeof(e));
-    if (http == 409) snprintf(out, n, "%s", T("ShadowMountPlus ist beschäftigt oder das Spiel läuft gerade – Spiel beenden und "
+    if (resp) lib_json_str(resp, len, "error_reason", reason, sizeof(reason));
+    if (http == 409 && !strcmp(reason, "runtime_prepared"))
+        snprintf(out, n, "%s", T("Ein Spiel ist noch eingehängt – solange lehnt ShadowMountPlus das ab. Das Spiel aushängen und "
+                                "erneut versuchen."));
+    else if (http == 409) snprintf(out, n, "%s", T("ShadowMountPlus ist beschäftigt oder das Spiel läuft gerade – Spiel beenden und "
                                      "erneut versuchen"));
     else if (http == 400 || http == 501) snprintf(out, n, T("ShadowMountPlus kann das nicht (ab Version 1.7 nötig)%s%s"),
                                                   e[0] ? ": " : "", e);
@@ -3740,14 +3808,27 @@ static int tile_wait(int want, const char *version, const char *step, int from, 
     }
 }
 
+static int smp_call_follow(const char *route, const char *body, const char *step, char *err, size_t n);
+
+/* Kachel neu anmelden; j->path: Titel-ID eines eingehängten Spiels, das vorher ausgehängt werden soll (der Nutzer hat
+ * es nach der Meldung "ist noch eingehängt" bestätigt) */
 static void *tile_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0};
-    char err[200];
+    char err[320];
     int ok = 0, http;
     size_t len;
     tile_t t;
+    if (j->path[0]) {
+        char body[64];
+        on_progress("Spiel aushängen", 3);
+        snprintf(body, sizeof(body), "{\"title_id\":\"%.15s\"}", j->path);   /* api_tile prüft: höchstens 15 Zeichen */
+        if (smp_call_follow("/api/v1/games/unmount", body, T("Spiel aushängen"), err, sizeof(err)) != 0) {
+            sb_add(&msg, "%s", err);
+            goto out;
+        }
+    }
     on_progress("Kachel abmelden", 5);
     tile_state(&t);
     if (!t.smp) { sb_add(&msg, "%s", T("ShadowMountPlus nicht erreichbar")); goto out; }
@@ -3759,14 +3840,20 @@ static void *tile_worker(void *arg) {
     if (t.installed) {
         char *r = plat_smp_post("/api/v1/games/uninstall", "{\"title_id\":\"" APP_TITLE "\"}", &http, &len);
         if (!r || (http != 200 && http != 404)) {
-            char reason[32] = "", name[160] = "";
+            char reason[32] = "", id[16] = "", name[160] = "";
             if (r && http == 409) lib_json_str(r, len, "error_reason", reason, sizeof(reason));
             if (!strcmp(reason, "runtime_prepared")) {   /* solange irgendein Spiel eingehängt ist, meldet ShadowMountPlus nichts ab */
                 char *g = plat_smp_post("/api/v1/games", "{}", &http, &len);
-                if (g && http == 200 && lib_smp_mounted(g, len, name, sizeof(name)) == 1)
+                if (g && http == 200 && lib_smp_mounted(g, len, id, sizeof(id), name, sizeof(name)) == 1 && id[0]) {
                     sb_tr(&msg, "„%s“ ist noch eingehängt – solange meldet ShadowMountPlus keine Kachel ab. Das Spiel "
                                 "aushängen (Spiele: Spiel wählen, „Aushängen“) und erneut versuchen.", name);
-                else
+                    /* für "Aushängen und fortfahren" in Weboberfläche und Programm */
+                    sb_add(&res, "{\"mounted\":{\"id\":");
+                    sb_str(&res, id);
+                    sb_add(&res, ",\"name\":");
+                    sb_str(&res, name);
+                    sb_add(&res, "}}");
+                } else
                     sb_add(&msg, "%s", T("Ein Spiel ist noch eingehängt – solange meldet ShadowMountPlus keine Kachel ab. "
                                         "Das Spiel aushängen und erneut versuchen."));
                 free(g);
@@ -4378,16 +4465,60 @@ fail:
     if (!bad && got < clen) drain_body(c, clen - got);
 }
 
-static void api_tile(int c, int is_post) {
+/* GET /api/mounted: von ShadowMountPlus eingehängte Spiele, mit dem Schlüssel des passenden Spiels der Bibliothek
+ * (gleiche Titel-ID, gleiche Datei bzw. gleicher Ordner) - für das Kennzeichen "eingehängt" in der Spieleliste */
+static void api_mounted(int c) {
+    int http, n = 0;
+    size_t len;
+    lib_hint_t *h = NULL;
+    sbuf_t b = {0};
+    char *g = plat_smp_post("/api/v1/games", "{}", &http, &len);
+    if (!g || http != 200 || lib_smp_mounted_all(g, len, &h, &n) != 0) {
+        sb_add(&b, "{\"smp\":false,\"mounted\":[]}");
+    } else {
+        sb_add(&b, "{\"smp\":true,\"mounted\":[");
+        pthread_mutex_lock(&lib_lock);
+        for (int m = 0; m < n; m++) {
+            sb_add(&b, "%s{\"id\":", m ? "," : "");
+            sb_str(&b, h[m].id);
+            sb_add(&b, ",\"name\":");
+            sb_str(&b, h[m].name);
+            sb_add(&b, ",\"keys\":[");
+            int first = 1;
+            for (int i = 0; i < lib_n; i++)
+                for (int k = 0; k < lib_snap[i].r.ntitles; k++) {
+                    const lib_title_t *t = &lib_snap[i].r.titles[k];
+                    if (strcmp(t->id, h[m].id) || !h[m].path[0] || !same_path(h[m].path, t->path)) continue;
+                    sb_add(&b, "%s\"%08x\"", first ? "" : ",", path_key(t->path));
+                    first = 0;
+                }
+            sb_add(&b, "]}");
+        }
+        pthread_mutex_unlock(&lib_lock);
+        sb_add(&b, "]}");
+    }
+    free(g);
+    free(h);
+    respond_json(c, 200, &b);
+    free(b.p);
+}
+
+static void api_tile(int c, int is_post, const char *body) {
     if (is_post) {
         char gid[16], err[320];
+        kv_t kv[KV_MAX];
+        int n = json_parse(body, kv, KV_MAX);
+        const char *um = n > 0 ? kv_get(kv, n, "unmount") : NULL;   /* Titel-ID: vorher aushängen */
+        if (um && (strlen(um) >= 16 || !id_safe(um))) { respond_error(c, 400, "Ungültige Titel-ID"); return; }
         if (game_running(gid, sizeof(gid))) {
             game_error(gid, err, sizeof(err));
             respond_error(c, 409, err);
             return;
         }
         job_t *j = new_job(c, JOB_TILE);
-        if (j) start_job(c, j, tile_worker);
+        if (!j) return;
+        if (um) snprintf(j->path, sizeof(j->path), "%s", um);
+        start_job(c, j, tile_worker);
         return;
     }
     tile_t t;
@@ -6341,6 +6472,16 @@ static void api_partials_discard(int c, const char *body) {
  * Anfrage, User-Agent) - beendet er sich scheinbar von selbst, steht hier, woher der Befehl kam. Über 32 KiB wird die
  * Datei zu quit.log.1. */
 #define QUIT_LOG_MAX (32 * 1024)
+static char quit_from[24], quit_ip[INET_ADDRSTRLEN];   /* Herkunft des angenommenen Stopp-Befehls (für main.c) */
+
+void server_quit_message(char *out, size_t n) {
+    const char *who = !strcmp(quit_from, "web") ? T("Weboberfläche") : !strcmp(quit_from, "windows") ? T("PC-Programm")
+                    : !strcmp(quit_from, "deploy") || !strcmp(quit_from, "release") ? T("Entwicklerwerkzeug") : NULL;
+    if (!quit_ip[0]) snprintf(out, n, "%s", T("USB-Formatierer beendet"));
+    else if (who) snprintf(out, n, T("USB-Formatierer beendet – über %s von %s"), who, quit_ip);
+    else snprintf(out, n, T("USB-Formatierer beendet – Befehl von %s"), quit_ip);
+}
+
 static void quit_log(int c, const char *req, const char *body) {
     char path[256], old[264], when[32] = "?", ip[INET_ADDRSTRLEN] = "?", from[24] = "", agent[160] = "";
     struct sockaddr_in a;
@@ -6354,6 +6495,8 @@ static void quit_log(int c, const char *req, const char *body) {
     header(req, "User-Agent", agent, sizeof(agent));
     for (char *p = from; *p; p++) if (*p < ' ' || *p == 127) *p = '?';   /* eine Zeile je Eintrag */
     for (char *p = agent; *p; p++) if (*p < ' ' || *p == 127) *p = '?';
+    snprintf(quit_from, sizeof(quit_from), "%s", from);
+    snprintf(quit_ip, sizeof(quit_ip), "%s", strcmp(ip, "?") ? ip : "");
     mkdir(plat_data_dir(), 0755);
     snprintf(path, sizeof(path), "%s/quit.log", plat_data_dir());
     struct stat sb;
@@ -6511,8 +6654,10 @@ static void handle(int c) {
         api_check(c, body);
     else if (strcmp(path, "/api/label") == 0 && is_post)
         api_label(c, body);
+    else if (strcmp(path, "/api/mounted") == 0 && is_get)
+        api_mounted(c);
     else if (strcmp(path, "/api/tile") == 0 && (is_get || is_post))
-        api_tile(c, is_post);
+        api_tile(c, is_post, body);
     else if (strcmp(path, "/api/system") == 0 && is_get)
         api_system(c);
     else if (strcmp(path, "/api/icon") == 0 && is_get)

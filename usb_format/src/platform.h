@@ -48,6 +48,9 @@ char *plat_smp_post(const char *path, const char *body, int *http, size_t *len);
 /* dasselbe als GET (Spielbilder; der Körper sind Bytes) */
 char *plat_smp_get(const char *path, int *http, size_t *len);
 
+/* Rückstand des Kernel-Logs für den Diagnose-Bericht (PS5: klogsrv auf 127.0.0.1:3232, höchstens ~1 s und n-1 Bytes;
+ * Host-Tests: Datei USBFMT_KLOG). Länge, 0 = nicht erreichbar. out ist nullterminiert. */
+size_t plat_kernel_log(char *out, size_t n);
 /* geladene Kernel-Erweiterungen für den Diagnose-Bericht, z. B. "kstuff, etaHEN" (leer: keine erkannt) */
 void plat_kernel_ext(char *out, size_t n);
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # App-Kachel neu anmelden (GET/POST /api/tile) gegen die ShadowMountPlus-Attrappe (test/smp_mock.py): veraltete
 # Anmeldung erkannt, Uninstall + Scan, danach neue Version; laufendes Spiel, geöffnete App und fehlendes ShadowMountPlus
-# abgelehnt; ein eingehängtes Spiel wird beim Namen genannt.
+# abgelehnt; ein eingehängtes Spiel wird beim Namen genannt, auf Wunsch ausgehängt (unmount), /api/mounted meldet es.
 set -u
 cd "$(dirname "$0")/.."
 W=$(mktemp -d)
@@ -66,12 +66,26 @@ code=$(curl -s -o "$W/body" -w '%{http_code}' -H "$J" -d '{}' "$U/api/tile")
 [ "$code" = 202 ] && wait_job && grep -q '"ok":false' "$W/st" && grep -q 'noch geöffnet' "$W/st" \
     && ! grep -q scan "$W/smp.log" && ok "App geöffnet (ShadowMountPlus 409): abgelehnt, kein Scan" \
     || bad "App geöffnet" "$code $(cat "$W/st") $(cat "$W/smp.log")"
-smp "[{\"title_id\":\"PPSA86920\",\"path\":\"$A\",\"version\":\"02.005.006\"},
+smp "[{\"title_id\":\"PPSA86920\",\"path\":\"$A\",\"version\":\"02.005.006\",\"rescan_version\":\"02.005.007\"},
       {\"title_id\":\"PPSA18089\",\"path\":\"/x\",\"name\":\"Matchbox™ Driving Adventures\",\"mounted\":true}]"
 code=$(curl -s -o "$W/body" -w '%{http_code}' -H "$J" -d '{}' "$U/api/tile")
 [ "$code" = 202 ] && wait_job && grep -q '"ok":false' "$W/st" && grep -q 'Matchbox™ Driving Adventures“ ist noch eingehängt' "$W/st" \
     && ! grep -q scan "$W/smp.log" && ok "Spiel eingehängt (runtime_prepared): Name genannt, kein Scan" \
     || bad "Spiel eingehängt" "$code $(cat "$W/st") $(cat "$W/smp.log")"
+[ "$(q '(d["result"]["mounted"]["id"], d["result"]["mounted"]["name"])' <"$W/st")" = "('PPSA18089', 'Matchbox™ Driving Adventures')" ] \
+    && ok "Ergebnis nennt das eingehängte Spiel (für „Aushängen und fortfahren“)" || bad "Ergebnis mounted" "$(cat "$W/st")"
+curl -s "$U/api/mounted" >"$W/m"
+[ "$(q '(d["smp"], [(m["id"], m["name"]) for m in d["mounted"]])' <"$W/m")" = "(True, [('PPSA18089', 'Matchbox™ Driving Adventures')])" ] \
+    && ok "/api/mounted: eingehängtes Spiel gemeldet" || bad "/api/mounted" "$(cat "$W/m")"
+code=$(curl -s -o "$W/body" -w '%{http_code}' -H "$J" -d '{"unmount":"PPSA1/../x"}' "$U/api/tile")
+[ "$code" = 400 ] && ok "unmount: ungültige Titel-ID abgelehnt" || bad "unmount ungültig" "$code $(cat "$W/body")"
+: >"$W/smp.log"
+code=$(curl -s -o "$W/body" -w '%{http_code}' -H "$J" -d '{"unmount":"PPSA18089"}' "$U/api/tile")
+[ "$code" = 202 ] && wait_job && grep -q '"ok":true' "$W/st" \
+    && [ "$(tr '\n' '|' <"$W/smp.log")" = "unmount PPSA18089|uninstall PPSA86920|scan reset_attempts=true|" ] \
+    && ok "Aushängen und fortfahren: erst aushängen, dann ab- und anmelden" || bad "Aushängen und fortfahren" "$code $(cat "$W/st") $(cat "$W/smp.log")"
+curl -s "$U/api/mounted" >"$W/m"
+[ "$(q 'len(d["mounted"])' <"$W/m")" = 0 ] && ok "/api/mounted: danach nichts mehr eingehängt" || bad "/api/mounted danach" "$(cat "$W/m")"
 
 # ---------------------------------------------------------------- nicht in der Liste
 smp "[]"

@@ -1558,6 +1558,18 @@ def release_file(found, app):
     return None
 
 
+def zsync_source(found, target):
+    """Läuft dieses Programm als AppImage und liegt die .zsync-Datei im Release: (zsync-Link, AppImage-Link, Pfad des
+    laufenden AppImage) - dann lädt "Jetzt aktualisieren" nur die geänderten Teile (zsync_update). Sonst None."""
+    appimage = os.environ.get("APPIMAGE", "")
+    if IS_WIN or not target or not target[0].endswith(".AppImage") or not appimage or not os.path.isfile(appimage):
+        return None
+    z = found.get("assets", {}).get(target[0] + ".zsync")
+    if not z or not os.access(os.path.dirname(os.path.abspath(appimage)), os.W_OK):
+        return None
+    return z, target[1], appimage
+
+
 def note_lines(md):
     """Release-Hinweise (Markdown) als schlichte Zeilen [(text, überschrift?)]: Überschriften ohne #, Aufzählungen
     mit •, Links nur als Text, keine doppelten Leerzeilen"""
@@ -1640,12 +1652,15 @@ def update_dialog(root, found, app):
         hint = _("Für dieses System liegt keine passende Datei im Release – bitte auf der Release-Seite wählen.")
     elif IS_WIN:
         hint = _("Die neue Datei ersetzt einfach die alte – die Einstellungen bleiben erhalten.")
+    elif zsync_source(found, target):
+        hint = _("„Jetzt aktualisieren“ lädt nur die geänderten Teile und ersetzt dieses AppImage – danach das Programm "
+                 "neu starten.")
     elif target[0].endswith(".AppImage"):
         hint = _("Unter Linux die geladene Datei ausführbar machen (chmod +x) und starten.")
     else:
         hint = _("Unter Linux das Archiv entpacken und das Programm starten.")
-    ttk.Label(frm, text=hint, style="Hint.TLabel", wraplength=ui_theme.px(520), justify="left").grid(
-        row=3, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(10), 0))
+    hint_lbl = ttk.Label(frm, text=hint, style="Hint.TLabel", wraplength=ui_theme.px(520), justify="left")
+    hint_lbl.grid(row=3, column=0, columnspan=2, sticky="w", pady=(ui_theme.px(10), 0))
     digest = found.get("digests", {}).get(target[0]) if target else None
     if digest:   # zum Vergleichen nach dem Laden - markier- und kopierbar
         ttk.Label(frm, text=_("Prüfsumme (SHA-256) von {file}:", file=target[0]), style="Hint.TLabel").grid(
@@ -1665,10 +1680,16 @@ def update_dialog(root, found, app):
         win.destroy()
 
     first = None
+    zs = zsync_source(found, target)
+    if zs:
+        first = ttk.Button(btns, text=_("Jetzt aktualisieren"), style="Accent.TButton")
+        first.configure(command=lambda: _zsync_run(win, first, hint_lbl, zs, found, target))
+        first.pack(side="left", padx=(0, ui_theme.px(8)))
     if target:
-        first = ttk.Button(btns, text=_("Herunterladen ({file})", file=target[0]), style="Accent.TButton",
-                           command=lambda: open_url(target[1]))
-        first.pack(side="left")
+        dl = ttk.Button(btns, text=_("Herunterladen ({file})", file=target[0]),
+                        style="TButton" if zs else "Accent.TButton", command=lambda: open_url(target[1]))
+        dl.pack(side="left")
+        first = first or dl
     page = ttk.Button(btns, text=_("Release-Seite öffnen"), style="TButton" if target else "Accent.TButton",
                       command=lambda: open_url(found["url"]))
     page.pack(side="left", padx=(ui_theme.px(8), 0))
@@ -1684,6 +1705,56 @@ def update_dialog(root, found, app):
     ui_theme.dark_titlebar(win)
     (first or page).focus_set()
     return win
+
+
+def _zsync_run(win, btn, lbl, zs, found, target):
+    """"Jetzt aktualisieren": im Hintergrund mit zsync die neue Fassung bauen, prüfen und das AppImage ersetzen"""
+    import queue
+    import zsync_update
+    zurl, furl, appimage = zs
+    q = queue.Queue()
+    btn.configure(state="disabled")
+    steps = {"zsync": _("Blockliste laden …"), "match": _("Vorhandene Teile suchen …"),
+             "load": _("Geänderte Teile laden …"), "done": _("Prüfen …")}
+
+    def work():
+        tmp = appimage + ".neu"
+        try:
+            need, total = zsync_update.update(appimage, zurl, furl, tmp, found.get("digests", {}).get(target[0]),
+                                              lambda step, frac: q.put(("p", step, frac)))
+            zsync_update.replace_appimage(tmp, appimage)
+            q.put(("ok", need, total))
+        except (OSError, ValueError, zsync_update.ZsyncError) as e:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            q.put(("err", str(e)))
+
+    def poll():
+        try:
+            while True:
+                m = q.get_nowait()
+                if m[0] == "p":
+                    lbl.configure(text=f"{steps.get(m[1], '')} {int(m[2] * 100)} %")
+                elif m[0] == "ok":
+                    lbl.configure(text=_("Aktualisiert auf {version} – {mb} von {total} MB geladen. Bitte das Programm neu "
+                                         "starten.", version=found["version"], mb=f"{m[1] / 1e6:.1f}",
+                                         total=f"{m[2] / 1e6:.1f}"))
+                    btn.configure(text=_("Fertig"), command=win.destroy, state="normal")
+                    return
+                else:
+                    lbl.configure(text=_("Aktualisieren fehlgeschlagen: {error} – die bisherige Datei ist unverändert. "
+                                         "Stattdessen herunterladen.", error=m[1]))
+                    btn.configure(state="normal")
+                    return
+        except queue.Empty:
+            pass
+        if win.winfo_exists():
+            win.after(150, poll)
+
+    threading.Thread(target=work, daemon=True).start()
+    poll()
 
 
 def update_note(parent, app):

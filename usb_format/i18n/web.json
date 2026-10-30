@@ -3136,5 +3136,35 @@
   "it": "Il formattatore è stato arrestato. Puoi chiudere questa pagina.",
   "es": "El formateador se ha detenido. Puedes cerrar esta página.",
   "fr": "Le formateur a été arrêté. Vous pouvez fermer cette page."
+ },
+ "Nur eingehängte ({n})": {
+  "en": "Mounted only ({n})",
+  "it": "Solo montati ({n})",
+  "es": "Solo montados ({n})",
+  "fr": "Montés uniquement ({n})"
+ },
+ "Alle zeigen": {
+  "en": "Show all",
+  "it": "Mostra tutti",
+  "es": "Mostrar todos",
+  "fr": "Tout afficher"
+ },
+ "ShadowMountPlus hat dieses Spiel eingehängt. Aushängen: Spiel anklicken, „Aushängen“.": {
+  "en": "ShadowMountPlus has mounted this game. To unmount: click the game, “Unmount”.",
+  "it": "ShadowMountPlus ha montato questo gioco. Per smontarlo: fai clic sul gioco, «Smonta».",
+  "es": "ShadowMountPlus ha montado este juego. Para desmontarlo: haz clic en el juego, «Desmontar».",
+  "fr": "ShadowMountPlus a monté ce jeu. Pour le démonter : cliquez sur le jeu, « Démonter »."
+ },
+ "Das Spiel wird nur ausgehängt, nicht gelöscht – seine Kachel und seine Dateien bleiben.": {
+  "en": "The game is only unmounted, not deleted – its tile and its files stay.",
+  "it": "Il gioco viene solo smontato, non eliminato – il suo riquadro e i suoi file restano.",
+  "es": "El juego solo se desmonta, no se borra – su icono y sus archivos se quedan.",
+  "fr": "Le jeu est seulement démonté, pas supprimé – sa vignette et ses fichiers restent."
+ },
+ "Aushängen und fortfahren": {
+  "en": "Unmount and continue",
+  "it": "Smonta e continua",
+  "es": "Desmontar y continuar",
+  "fr": "Démonter et continuer"
  }
 }

@@ -915,6 +915,7 @@ class App(tk.Tk):
         self.pc_job = None         # laufender Auftrag des PC-Helfers
         self.place_devs = []       # feste Orte der PS5 mit Spielen (intern, ext1), aus /api/library
         self.games = {}            # PS5-Gerätename (da1 ...) -> Spiele darauf (aus /api/library)
+        self.mounted_keys = set()  # Schlüssel der von ShadowMountPlus eingehängten Spiele (/api/mounted)
         self.lib_loading = False
         self.lib_known = False     # Spieleliste mindestens einmal geladen (sonst Inhalt unbekannt)
         self._lib_step = (0, 0, "", 0.0)
@@ -1166,7 +1167,8 @@ class App(tk.Tk):
         self.game_search.grid(row=1, column=0, columnspan=2, sticky="ew")
         self._placeholder(self.game_search, self.game_filter, _("Suchen: Name oder Titel-ID …"))
         self.game_filter.trace_add("write", lambda *a: self._show_games())
-        self.sort_keys = [("name", _("Name")), ("size", _("Größe")), ("id", _("Titel-ID"))]
+        self.sort_keys = [("name", _("Name")), ("size", _("Größe")), ("id", _("Titel-ID")),
+                          ("mounted", _("Eingehängt"))]
         self.sort_combo = ttk.Combobox(ghead, state="readonly", width=10, values=[t for _k, t in self.sort_keys])
         self.sort_combo.current(0)
         self.sort_combo.grid(row=1, column=2, sticky="e", padx=(px(6), 0))
@@ -2697,7 +2699,8 @@ class App(tk.Tk):
         if sort == "size":
             self._ensure_game_sizes(dev, games)
         key = {"name": lambda g: (g["name"] or g["id"]).lower(), "size": lambda g: -(g.get("size") or 0),
-               "id": lambda g: g.get("id", "")}[sort]
+               "id": lambda g: g.get("id", ""),
+               "mounted": lambda g: (g.get("key") not in self.mounted_keys, (g["name"] or g["id"]).lower())}[sort]
         shown = [g for g in games if not q or q in (g["name"] or "").lower() or q in g.get("id", "").lower()]
         rows = []
         for g in sorted(shown, key=key):
@@ -2710,6 +2713,8 @@ class App(tk.Tk):
                 tag += "  · " + _("unvollständig")
             if g.get("off"):   # Endung .off: ShadowMountPlus bindet das Abbild nicht ein
                 tag += "  · " + _("deaktiviert")
+            if g.get("key") in self.mounted_keys:   # eingehängt: solange meldet ShadowMountPlus z. B. keine Kachel ab
+                tag += "  · " + _("eingehängt")
             rows.append((g.get("key") or None, (g["name"] or g["id"]) + tag, meta))
         self._icons_for(self.api)   # andere PS5: Bilder vergessen, bevor Zeilen mit ihnen entstehen
         if rows != getattr(self, "_games_shown", None):
@@ -2901,6 +2906,12 @@ class App(tk.Tk):
             data = None
             try:
                 data = api.library()
+                if isinstance(data, dict) and not data.get("scanning"):
+                    try:   # eingehängte Spiele (ab 2.6.62; ältere Formatierer kennen das nicht)
+                        m = api.get("/api/mounted")
+                        data["_mounted"] = [k for x in m.get("mounted", []) for k in x.get("keys", [])]
+                    except (ConnectionError, ApiError, AttributeError, TypeError):
+                        pass
             except (ConnectionError, ApiError):
                 pass
             finally:   # immer melden - sonst bliebe lib_loading stehen und die Liste käme nie wieder
@@ -4624,6 +4635,8 @@ class App(tk.Tk):
                         if g.get("kind") == "Ordner" and not g.get("size") and known.get(g.get("key")):
                             g["size"] = known[g["key"]]
                 self.games = games
+                if "_mounted" in data:
+                    self.mounted_keys = set(data["_mounted"])
                 self._lib_fail = 0
                 places = place_devices(data.get("roots"))
                 if [d["name"] for d in places] != [d["name"] for d in self.place_devs]:

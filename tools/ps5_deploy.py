@@ -3,7 +3,9 @@
     python tools/ps5_deploy.py status            nur lesen: Formatierer, Kachel, laufende Spiele, App-Ordner-Vergleich
     python tools/ps5_deploy.py update            App-Ordner (vorher gesichert) und Formatierer auf diesen Stand bringen
     python tools/ps5_deploy.py update --dry-run  nur zeigen, was update täte
-    python tools/ps5_deploy.py tile              App-Kachel neu anmelden (fragt vorher; --yes ohne Frage)
+    python tools/ps5_deploy.py tile              App-Kachel neu anmelden (fragt vorher; --yes ohne Frage; --unmount hängt
+                                                 ein eingehängtes Spiel aus, an dem es sonst scheitert)
+    python tools/ps5_deploy.py update --tile     dazu die Kachel gleich mit anmelden, wenn sie veraltet ist
 
 PS5: --host 192.168.x.y oder Umgebungsvariable USBFMT_PS5_HOST. Gebraucht werden der FTP-Server (Port 2121) und für den
 Formatierer der ELF-Loader (9021, wird nur zum Senden geöffnet, nie vorab abgetastet), dazu - wenn er läuft - das
@@ -18,9 +20,9 @@ update in dieser Reihenfolge:
   3. Formatierer: läuft er, per /api/quit beenden; die neue ELF an den ELF-Loader (weist er die Verbindung ab, wird bis
      --wait-loader Sekunden lang nachgefragt - ein abgewiesener Versuch erreicht ihn nicht, ein angenommener bekommt
      sofort die ELF); warten, bis /api/info die neue Version meldet. Läuft dieselbe Version schon, bleibt er (--resend-elf sendet trotzdem).
-  4. Kachel: zeigt, ob sie neu angemeldet werden muss (dann "tile").
+  4. Kachel: zeigt, ob sie neu angemeldet werden muss (dann "tile"); mit --tile wird sie gleich angemeldet.
 Exit-Code: 0 = fertig, 1 = Fehler/Abbruch, 2 = fertig, aber das Kernel-Log zeigt Auffälliges, 3 = fertig, aber der Selbsttest
-fand Fehler (bei beidem 2 - die Meldungen nennen beides).
+fand Fehler (bei beidem 2 - die Meldungen nennen beides), 4 = fertig, aber die Kachel (--tile) ist nicht neu angemeldet.
 Nur Python-Standardbibliothek."""
 import argparse
 import ftplib
@@ -42,6 +44,7 @@ APP_LOCAL = os.path.join(USB, "dump", "out", "PPSA86920")
 APP_REMOTE = "/data/homebrew/PPSA86920"
 OWN_TITLE = "PPSA86920"
 FTP_PORT, API_PORT, LOADER_PORT, KLOG_PORT = 2121, 8090, 9021, 3232
+DATA_REMOTE = "/data/usb_format"   # Datenordner des Formatierers (running, quit.log)
 
 
 def say(text):
@@ -223,20 +226,38 @@ class Klog:
 
 # ------------------------------------------------------------------ Befehle
 
+def last_line(f, path):
+    data = ftp_get(f, path) or b""
+    lines = data.decode("utf-8", "replace").strip().splitlines()
+    return lines[-1] if lines else ""
+
+
+def stopped_state(f):
+    """Port 8090 ist zu - warum? Der Formatierer legt beim Start /data/usb_format/running an (Startzeit, Version) und
+    löscht sie beim sauberen Ende; jedes /api/quit steht in quit.log (Zeit, Adresse, Absender)."""
+    running = last_line(f, f"{DATA_REMOTE}/running")
+    quit_line = last_line(f, f"{DATA_REMOTE}/quit.log")
+    if not running:
+        return "läuft nicht (Port 8090 zu)"
+    started = running[:19]
+    if quit_line[:19] >= started:   # gleiche Uhr (PS5), gleiches Format: als Text vergleichbar
+        return f"beendet sich gerade (Port 8090 schon zu) - Stopp-Befehl: {quit_line}"
+    return f"Port 8090 zu, aber nicht sauber beendet (gestartet {running}, seitdem kein Stopp-Befehl) - abgestürzt?"
+
+
 def cmd_status(host):
     version = read_version()
     info = api(host, "/api/info")
+    f = ftp_connect(host)
     say(f"Projekt:      {version}")
-    say(f"Formatierer:  {info.get('version') if info else 'läuft nicht (Port 8090 zu)'}")
+    say(f"Formatierer:  {info.get('version') if info else stopped_state(f)}")
     tile = api(host, "/api/tile") if info else None
     if tile and "registered" in tile:
         say(f"Kachel:       angemeldet {tile.get('registered')}, App-Ordner {tile.get('folder')}")
-    f = ftp_connect(host)
     titles = running_titles(f)
     say(f"Spiele/Apps:  {', '.join(titles) if titles else 'keine laufen'}")
-    log = ftp_get(f, "/data/usb_format/quit.log") or b""   # wer den Formatierer zuletzt beendet hat (/api/quit)
-    last = log.decode("utf-8", "replace").strip().splitlines()[-1:]
-    say(f"Zuletzt beendet: {last[0] if last else 'nicht protokolliert'}")
+    last = last_line(f, f"{DATA_REMOTE}/quit.log")   # wer den Formatierer zuletzt beendet hat (/api/quit)
+    say(f"Zuletzt beendet: {last or 'nicht protokolliert'}")
     diff = [(rel, data, remote) for rel, data, remote in compare(f, local_app()) if remote != data]
     f.quit()
     say("App-Ordner:   " + ("gleich wie der Bau" if not diff else
@@ -260,7 +281,7 @@ def loader_connect(host, wait):
             time.sleep(5)
 
 
-def cmd_update(host, dry_run, ignore_running, resend, backup, wait_loader=300):
+def cmd_update(host, dry_run, ignore_running, resend, backup, wait_loader=300, tile_too=False, unmount=False):
     version = read_version()
     elf, files = check_local(version)
     say(f"Stand {version}: usb_format.elf {len(elf) / 1e6:.2f} MB, App-Ordner {len(files)} Dateien")
@@ -280,7 +301,7 @@ def cmd_update(host, dry_run, ignore_running, resend, backup, wait_loader=300):
         fail("der Formatierer arbeitet gerade an einem Auftrag (oder meldet seinen Zustand nicht) - abwarten")
     diff = [(rel, data, remote) for rel, data, remote in compare(f, files) if remote != data]
     send_elf = not info or info.get("version") != version or resend
-    say(f"Formatierer: {info.get('version') if info else 'läuft nicht'} -> "
+    say(f"Formatierer: {info.get('version') if info else stopped_state(f)} -> "
         + (f"{version} (ELF senden)" if send_elf else "bleibt (gleiche Version)"))
     say("App-Ordner: " + (", ".join(rel for rel, _d, _r in diff) if diff else "schon aktuell"))
     if dry_run:
@@ -372,9 +393,13 @@ def cmd_update(host, dry_run, ignore_running, resend, backup, wait_loader=300):
     elif bad is not None:
         say("Kernel-Log: unauffällig")
     tile = api(host, "/api/tile")
+    tile_bad = False
     if tile and tile.get("registered") and tile.get("registered") != tile.get("folder"):
-        say(f"Kachel: angemeldet {tile['registered']}, App-Ordner {tile['folder']} - "
-            "neu anmelden mit: python tools/ps5_deploy.py tile")
+        if tile_too:
+            tile_bad = not cmd_tile(host, True, unmount)
+        else:
+            say(f"Kachel: angemeldet {tile['registered']}, App-Ordner {tile['folder']} - "
+                "neu anmelden mit: python tools/ps5_deploy.py tile (oder update --tile)")
     elif tile and tile.get("registered"):
         say(f"Kachel: {tile['registered']} - aktuell")
     broken = selftest(host, version)
@@ -382,11 +407,15 @@ def cmd_update(host, dry_run, ignore_running, resend, backup, wait_loader=300):
         say(f"Selbsttest: {broken} Fehler - der Formatierer läuft, aber nicht alles antwortet wie erwartet (Exit-Code 3).")
     else:
         say("Selbsttest: alles antwortet.")
+    if tile_bad:
+        say("Kachel: nicht neu angemeldet (Exit-Code 4).")
     say("Fertig." if not bad else "Fertig - aber das Kernel-Log ist auffällig (Exit-Code 2).")
     if bad:
         sys.exit(2)
     if broken:
         sys.exit(3)
+    if tile_bad:
+        sys.exit(4)
 
 
 def selftest(host, version):
@@ -429,29 +458,46 @@ def selftest(host, version):
     return bad
 
 
-def cmd_tile(host, yes):
-    tile = api(host, "/api/tile")
-    if not tile or "registered" not in tile:
-        fail("der Formatierer antwortet nicht oder kennt keine Kachel (ShadowMountPlus?)")
-    say(f"Kachel: angemeldet {tile.get('registered')}, App-Ordner {tile.get('folder')}")
-    if tile.get("registered") == tile.get("folder"):
-        say("schon aktuell - nichts zu tun")
-        return
-    if not yes and input("Kachel jetzt neu anmelden? Sie steht danach womöglich an anderer Stelle [j/N] ").strip().lower() \
-            not in ("j", "ja", "y", "yes"):
-        say("nicht angemeldet")
-        return
-    r = api(host, "/api/tile", {})
+def tile_job(host, body):
+    """Auftrag "Kachel neu anmelden" starten und abwarten; Rückgabe: Status am Ende (oder None)"""
+    r = api(host, "/api/tile", body)
     if not r or r.get("error"):
-        fail(f"abgelehnt: {r.get('error') if r else 'keine Antwort'}")
+        say(f"FEHLER: abgelehnt: {r.get('error') if r else 'keine Antwort'}")
+        return None
+    st = None
     for _ in range(120):
         st = api(host, "/api/status")
         if st and not st.get("busy"):
             break
         time.sleep(1)
-    say(f"{'ok' if st and st.get('ok') else 'FEHLER'}: {st.get('message') if st else 'keine Antwort'}")
-    if not (st and st.get("ok")):
-        sys.exit(1)
+    return st
+
+
+def cmd_tile(host, yes, unmount):
+    """Kachel neu anmelden; True = angemeldet oder schon aktuell. unmount: ein eingehängtes Spiel, an dem es scheitert,
+    aushängen und noch einmal versuchen (ShadowMountPlus meldet sonst keine Kachel ab)."""
+    tile = api(host, "/api/tile")
+    if not tile or "registered" not in tile:
+        say("FEHLER: der Formatierer antwortet nicht oder kennt keine Kachel (ShadowMountPlus?)")
+        return False
+    say(f"Kachel: angemeldet {tile.get('registered')}, App-Ordner {tile.get('folder')}")
+    if tile.get("registered") == tile.get("folder"):
+        say("schon aktuell - nichts zu tun")
+        return True
+    if not yes and input("Kachel jetzt neu anmelden? Sie steht danach womöglich an anderer Stelle [j/N] ").strip().lower() \
+            not in ("j", "ja", "y", "yes"):
+        say("nicht angemeldet")
+        return False
+    st = tile_job(host, {})
+    mounted = (st.get("result") or {}).get("mounted") if st and not st.get("ok") else None
+    if mounted and unmount:
+        say(f"„{mounted.get('name')}“ ({mounted.get('id')}) ist eingehängt - aushängen und erneut anmelden")
+        st = tile_job(host, {"unmount": mounted.get("id")})
+    if st:
+        say(f"{'ok' if st.get('ok') else 'FEHLER'}: {st.get('message')}")
+    if mounted and not unmount:
+        say("  erneut mit --unmount: hängt das Spiel aus und meldet die Kachel dann an")
+    return bool(st and st.get("ok"))
 
 
 def main():
@@ -465,6 +511,10 @@ def main():
     ap.add_argument("--wait-loader", type=int, default=300, metavar="SEK",
                     help="update: so lange nachfragen, wenn der ELF-Loader noch nicht annimmt (0 = sofort aufgeben)")
     ap.add_argument("--yes", action="store_true", help="tile: ohne Rückfrage")
+    ap.add_argument("--tile", action="store_true",
+                    help="update: danach die Kachel neu anmelden, wenn sie veraltet ist (ohne Rückfrage)")
+    ap.add_argument("--unmount", action="store_true",
+                    help="tile, update --tile: ein eingehängtes Spiel, an dem das Anmelden scheitert, aushängen")
     a = ap.parse_args()
     if not a.host:
         fail("PS5-Adresse fehlt: --host <ip> oder USBFMT_PS5_HOST setzen")
@@ -472,9 +522,9 @@ def main():
         cmd_status(a.host)
     elif a.command == "update":
         backup = a.backup or os.path.join(os.path.expanduser("~"), ".usbfmt-ps5", time.strftime("%Y%m%d-%H%M%S"))
-        cmd_update(a.host, a.dry_run, a.ignore_running, a.resend_elf, backup, max(0, a.wait_loader))
-    else:
-        cmd_tile(a.host, a.yes)
+        cmd_update(a.host, a.dry_run, a.ignore_running, a.resend_elf, backup, max(0, a.wait_loader), a.tile, a.unmount)
+    elif not cmd_tile(a.host, a.yes, a.unmount):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -76,7 +76,7 @@ jobs:
           v=$(cat VERSION); for f in README*.md; do grep -q "badge/[^-]*-$v-" "$f" || { echo "$f: Version $v fehlt"; exit 1; }; done
           cd windows && python -m pyflakes usb_formatierer.py usb_standard.py standard_panel.py partition_editor.py \
             pc_common.py pc_linux.py fsinfo.py i18n.py ps5_discovery.py ui_theme.py ui_widgets.py ui_msgbox.py \
-            tests/linux_ui_test.py tests/ps5_image_flow_test.py tests/pc_tools_test.py
+            tests/linux_ui_test.py tests/ps5_image_flow_test.py tests/pc_tools_test.py zsync_update.py tests/zsync_test.py
           cd .. && python -m pyflakes tools/release.py tools/ps5_deploy.py && python tools/ps5_deploy.py --help >/dev/null
 
       - name: Helfer bauen
@@ -93,6 +93,9 @@ jobs:
 
       - name: Update-Hinweis und Image prüfen (ohne Root)
         run: xvfb-run -a python windows/tests/pc_tools_test.py /tmp/usbfmt_linux_test
+
+      - name: AppImage mit zsync aktualisieren (nur geänderte Teile)
+        run: python windows/tests/zsync_test.py
 
       - name: Oberfläche (Xvfb)
         timeout-minutes: 20   # ein unerwarteter Dialog hielte den Test sonst bis zur 6-Stunden-Grenze an

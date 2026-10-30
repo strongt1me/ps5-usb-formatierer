@@ -302,7 +302,7 @@ int lib_smp_title(const char *json, size_t len, const char *id, char *version, s
     return p < e && *p == ']' ? 0 : -1;
 }
 
-int lib_smp_mounted(const char *json, size_t len, char *name, size_t nn) {
+int lib_smp_mounted(const char *json, size_t len, char *id, size_t idn, char *name, size_t nn) {
     const char *e = json + len, *p = jget(json, e, "games");
     if (!p || *p != '[') return -1;
     for (p = jws(p + 1, e); p < e && *p == '{'; ) {
@@ -310,8 +310,10 @@ int lib_smp_mounted(const char *json, size_t len, char *name, size_t nn) {
         if (!next) return -1;
         const char *v = jget(p, next, "mounted");
         if (v && next - v >= 4 && !strncmp(v, "true", 4)) {
-            name[0] = 0;
-            if (jget_str(p, next, "title_name", name, nn) != 0 || !name[0]) jget_str(p, next, "title_id", name, nn);
+            id[0] = name[0] = 0;
+            jget_str(p, next, "title_id", id, idn);
+            keep_valid_id(id);
+            if (jget_str(p, next, "title_name", name, nn) != 0 || !name[0]) snprintf(name, nn, "%s", id);
             trim_utf8(name);
             return 1;
         }
@@ -319,6 +321,31 @@ int lib_smp_mounted(const char *json, size_t len, char *name, size_t nn) {
         if (p < e && *p == ',') p = jws(p + 1, e);
     }
     return p < e && *p == ']' ? 0 : -1;
+}
+
+int lib_smp_mounted_all(const char *json, size_t len, lib_hint_t **h, int *n) {
+    const char *e = json + len, *p = jget(json, e, "games");
+    const int n0 = *n;
+    if (!p || *p != '[') return -1;
+    for (p = jws(p + 1, e); p < e && *p == '{'; ) {
+        const char *next = jskip(p, e);
+        if (!next) { *n = n0; return -1; }
+        const char *v = jget(p, next, "mounted");
+        if (v && next - v >= 4 && !strncmp(v, "true", 4)) {
+            lib_hint_t t, *dst;
+            memset(&t, 0, sizeof(t));
+            jget_str(p, next, "path", t.path, sizeof(t.path));
+            jget_str(p, next, "title_id", t.id, sizeof(t.id));
+            jget_str(p, next, "title_name", t.name, sizeof(t.name));
+            trim_utf8(t.name);
+            keep_valid_id(t.id);
+            if (t.id[0] && (dst = hint_add(h, n))) *dst = t;
+        }
+        p = jws(next, e);
+        if (p < e && *p == ',') p = jws(p + 1, e);
+    }
+    if (p >= e || *p != ']') { *n = n0; return -1; }
+    return 0;
 }
 
 /* Zeilen wie "[LINK] mount_img.lnk created: /user/app/PPSA03117/mount_img.lnk -> /mnt/usb1/x.ffpkg layers=1" */
