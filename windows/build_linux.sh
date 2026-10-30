@@ -97,11 +97,12 @@ Icon=$app
 Terminal=false
 Categories=Utility;System;
 EOF
-    # Update-Information für AppImageUpdate: holt die .zsync-Datei vom neuesten Release; appimagetool legt sie neben
-    # das AppImage (zsyncmake steckt in appimagetool)
+    # Update-Information für AppImageUpdate: holt die .zsync-Datei vom neuesten Release; appimagetool (zsyncmake steckt
+    # darin) legt sie in den aktuellen Ordner, nicht neben das AppImage - also nach dist/ verschieben
     ARCH=$ARCH APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" --no-appstream \
         -u "gh-releases-zsync|${REPO_OWNER}|${REPO_NAME}|latest|$app-$ARCH.AppImage.zsync" \
         ${APPIMAGE_RUNTIME:+--runtime-file "$APPIMAGE_RUNTIME"} "$a" "dist/$app-$ARCH.AppImage"
+    mv -f "$app-$ARCH.AppImage.zsync" dist/
     [ -s "dist/$app-$ARCH.AppImage.zsync" ] || { echo "dist/$app-$ARCH.AppImage.zsync fehlt"; exit 1; }
 done
 ls -l dist/*.AppImage dist/*.zsync
