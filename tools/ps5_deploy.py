@@ -15,7 +15,7 @@ update in dieser Reihenfolge:
   1. Vorprüfung: gebaute ELF und App-Ordner (usb_format/dump/out/PPSA86920) haben die Version aus VERSION, laufen auf der
      PS5 ein Spiel/eine App (/mnt/sandbox) oder ein Auftrag des Formatierers: Abbruch (--ignore-running übergeht nur
      das Spiel, nie einen Auftrag). Antwortet Port 8090, aber nicht die API: Abbruch (Zustand unklar).
-  2. App-Ordner /data/homebrew/PPSA86920: jede Datei, die anders ist, erst von der PS5 sichern, dann hochladen und
+  2. App-Ordner /data/homebrew/PPSA86920: jede Datei, die anders ist (eboot.bin immer), erst von der PS5 sichern, dann hochladen und
      zurücklesen. Scheitert FTP mittendrin: Abbruch mit Liste der schon ersetzten Dateien und dem Sicherungsordner. Sicherung und Kernel-Log unter ~/.usbfmt-ps5/<zeit>/ (oder --backup <ordner>).
   3. Formatierer: läuft er, per /api/quit beenden; die neue ELF an den ELF-Loader (weist er die Verbindung ab, wird bis
      --wait-loader Sekunden lang nachgefragt - ein abgewiesener Versuch erreicht ihn nicht, ein angenommener bekommt
@@ -299,7 +299,9 @@ def cmd_update(host, dry_run, ignore_running, resend, backup, wait_loader=300, t
     if info and (st is None or st.get("busy")):
         f.quit()
         fail("der Formatierer arbeitet gerade an einem Auftrag (oder meldet seinen Zustand nicht) - abwarten")
-    diff = [(rel, data, remote) for rel, data, remote in compare(f, files) if remote != data]
+    # eboot.bin (der Starter mit eingebauter ELF) immer schicken, auch wenn sie gleich aussieht - so steht nach jedem
+    # update sicher der Starter dieses Baus im App-Ordner
+    diff = [(rel, data, remote) for rel, data, remote in compare(f, files) if remote != data or rel == "eboot.bin"]
     send_elf = not info or info.get("version") != version or resend
     say(f"Formatierer: {info.get('version') if info else stopped_state(f)} -> "
         + (f"{version} (ELF senden)" if send_elf else "bleibt (gleiche Version)"))
