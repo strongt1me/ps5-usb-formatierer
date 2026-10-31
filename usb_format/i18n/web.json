@@ -3089,41 +3089,41 @@
   "es": "Elige arriba la unidad que quieres formatear.",
   "fr": "Choisissez ci-dessus le lecteur à formater."
  },
- "Formatierer auf der PS5 stoppen – zum Schließen der App nicht nötig": {
-  "en": "Stop the formatter on the PS5 – not needed to close the app",
-  "it": "Arresta il formattatore sulla PS5 – non serve per chiudere l'app",
-  "es": "Detener el formateador en la PS5 – no hace falta para cerrar la aplicación",
-  "fr": "Arrêter le formateur sur la PS5 – inutile pour fermer l'application"
+ "Formatierer auf der PS5 ausschalten – zum Schließen der App nicht nötig": {
+  "en": "Turn off the formatter on the PS5 – not needed to close the app",
+  "it": "Spegni il formattatore sulla PS5 – non serve per chiudere l'app",
+  "es": "Apagar el formateador en la PS5 – no hace falta para cerrar la aplicación",
+  "fr": "Éteindre le formateur sur la PS5 – inutile pour fermer l'application"
  },
- "Formatierer stoppen": {
-  "en": "Stop formatter",
-  "it": "Arresta formattatore",
-  "es": "Detener formateador",
-  "fr": "Arrêter le formateur"
+ "Formatierer ausschalten": {
+  "en": "Turn off formatter",
+  "it": "Spegni formattatore",
+  "es": "Apagar formateador",
+  "fr": "Éteindre le formateur"
  },
- "Formatierer stoppen?": {
-  "en": "Stop the formatter?",
-  "it": "Arrestare il formattatore?",
-  "es": "¿Detener el formateador?",
-  "fr": "Arrêter le formateur ?"
+ "Formatierer ausschalten?": {
+  "en": "Turn off the formatter?",
+  "it": "Spegnere il formattatore?",
+  "es": "¿Apagar el formateador?",
+  "fr": "Éteindre le formateur ?"
  },
- "Nur die App schließen? Dafür nicht stoppen – einfach die PS-Taste drücken. Der Formatierer läuft im Hintergrund weiter.": {
-  "en": "Just want to close the app? Don't stop it for that – simply press the PS button. The formatter keeps running in the background.",
-  "it": "Vuoi solo chiudere l'app? Non serve arrestarlo – premi semplicemente il tasto PS. Il formattatore continua a funzionare in background.",
-  "es": "¿Solo quieres cerrar la aplicación? Para eso no lo detengas – basta con pulsar el botón PS. El formateador sigue funcionando en segundo plano.",
-  "fr": "Vous voulez juste fermer l'application ? Inutile de l'arrêter – appuyez simplement sur la touche PS. Le formateur continue de tourner en arrière-plan."
+ "Nur die App schließen? Dafür nicht ausschalten – einfach die PS-Taste drücken. Der Formatierer läuft im Hintergrund weiter.": {
+  "en": "Just want to close the app? Don't turn it off for that – simply press the PS button. The formatter keeps running in the background.",
+  "it": "Vuoi solo chiudere l'app? Non serve spegnerlo – premi semplicemente il tasto PS. Il formattatore continua a funzionare in background.",
+  "es": "¿Solo quieres cerrar la aplicación? Para eso no lo apagues – basta con pulsar el botón PS. El formateador sigue funcionando en segundo plano.",
+  "fr": "Vous voulez juste fermer l'application ? Inutile de l'éteindre – appuyez simplement sur la touche PS. Le formateur continue de tourner en arrière-plan."
  },
- "Gestoppt geht nichts mehr – kein Formatieren, keine Spiele, keine Kachel –, bis die App „USB-Formatierer“ ihn wieder startet.": {
-  "en": "Once stopped, nothing works – no formatting, no games, no tile – until the “USB-Formatierer” app starts it again.",
-  "it": "Una volta arrestato non funziona più nulla – niente formattazione, niente giochi, niente riquadro – finché l'app «USB-Formatierer» non lo riavvia.",
-  "es": "Detenido, ya no funciona nada – ni formatear, ni juegos, ni icono – hasta que la aplicación «USB-Formatierer» lo vuelva a iniciar.",
-  "fr": "Une fois arrêté, plus rien ne fonctionne – ni formatage, ni jeux, ni vignette – jusqu'à ce que l'application « USB-Formatierer » le relance."
+ "Ausgeschaltet geht nichts mehr – kein Formatieren, keine Spiele, keine Kachel –, bis die App „USB-Formatierer“ ihn wieder startet.": {
+  "en": "Once turned off, nothing works – no formatting, no games, no tile – until the “USB-Formatierer” app starts it again.",
+  "it": "Una volta spento non funziona più nulla – niente formattazione, niente giochi, niente riquadro – finché l'app «USB-Formatierer» non lo riavvia.",
+  "es": "Apagado, ya no funciona nada – ni formatear, ni juegos, ni icono – hasta que la aplicación «USB-Formatierer» lo vuelva a iniciar.",
+  "fr": "Une fois éteint, plus rien ne fonctionne – ni formatage, ni jeux, ni vignette – jusqu'à ce que l'application « USB-Formatierer » le relance."
  },
- "Stoppen": {
-  "en": "Stop",
-  "it": "Arresta",
-  "es": "Detener",
-  "fr": "Arrêter"
+ "Ausschalten": {
+  "en": "Turn off",
+  "it": "Spegni",
+  "es": "Apagar",
+  "fr": "Éteindre"
  },
  "Weiterlaufen lassen": {
   "en": "Keep running",
@@ -3131,11 +3131,11 @@
   "es": "Dejar en marcha",
   "fr": "Laisser tourner"
  },
- "Der Formatierer wurde gestoppt. Diese Seite kann geschlossen werden.": {
-  "en": "The formatter has been stopped. You can close this page.",
-  "it": "Il formattatore è stato arrestato. Puoi chiudere questa pagina.",
-  "es": "El formateador se ha detenido. Puedes cerrar esta página.",
-  "fr": "Le formateur a été arrêté. Vous pouvez fermer cette page."
+ "Der Formatierer wurde ausgeschaltet. Diese Seite kann geschlossen werden.": {
+  "en": "The formatter has been turned off. You can close this page.",
+  "it": "Il formattatore è stato spento. Puoi chiudere questa pagina.",
+  "es": "El formateador se ha apagado. Puedes cerrar esta página.",
+  "fr": "Le formateur a été éteint. Vous pouvez fermer cette page."
  },
  "Nur eingehängte ({n})": {
   "en": "Mounted only ({n})",
