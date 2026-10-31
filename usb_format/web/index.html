@@ -3630,8 +3630,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("dlg").
 /* Controller: L2 scrollt nach oben, R2 nach unten - je fester gedrückt, desto schneller (die Trigger sind analog).
    Zuerst die Liste, in der die Auswahl steht (Spiele, Spielstände, Verlauf …), an ihrem Ende die Seite; bei offenem
    Dialog nur der Dialog. Gamepad-API; meldet der Browser die Trigger stattdessen als Tasten (keyCode 118/119 wie der
-   PS4-Browser), scrollen die. L1/R1 wechseln zum vorigen bzw. nächsten Reiter (nicht bei offenem Dialog); das
-   Steuerkreuz bewegt den Fokus wie gehabt der Browser selbst. */
+   PS4-Browser), scrollen die. Das Steuerkreuz bewegt den Fokus wie gehabt der Browser selbst. */
 (function () {
   function canScroll(el, dy) {
     if (!el || el.scrollHeight <= el.clientHeight + 1) return false;
@@ -3655,18 +3654,8 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("dlg").
     }
     window.scrollBy(0, dy);
   }
-  let pad = false, last = 0, shoulder = 0;
+  let pad = false, last = 0;
   function value(b) { return !b ? 0 : typeof b === "object" ? (b.value || (b.pressed ? 1 : 0)) : b; }
-  function nextTab(step) {
-    if (!$("dlg").hidden) return;
-    const tabs = Array.from($("tabbar").querySelectorAll("button")).filter(b => !b.hidden && !b.disabled && b.offsetParent);
-    if (tabs.length < 2) return;
-    const cur = tabs.findIndex(b => b.getAttribute("aria-selected") === "true");
-    const to = tabs[Math.max(0, Math.min(tabs.length - 1, (cur < 0 ? 0 : cur) + step))];
-    if (to.getAttribute("aria-selected") === "true") return;   /* am Rand: stehen bleiben, nicht im Kreis */
-    to.click();
-    to.focus({ preventScroll: true });
-  }
   function poll() {
     const ts = Date.now(), pads = navigator.getGamepads ? navigator.getGamepads() : [];
     let gp = null;
@@ -3675,10 +3664,6 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("dlg").
       const amount = value(gp.buttons[7]) - value(gp.buttons[6]);   /* Standardbelegung: 6 = L2, 7 = R2 */
       const dt = last ? Math.min(50, ts - last) : 16;
       if (Math.abs(amount) > 0.08) { pad = true; scrollBy(amount * dt * 1.6); }   /* voll gedrückt: ca. 1600 px/s */
-      /* 4 = L1, 5 = R1: einmal je Druck (Flanke), nicht so lange gehalten */
-      const sh = value(gp.buttons[4]) > 0.5 ? -1 : value(gp.buttons[5]) > 0.5 ? 1 : 0;
-      if (sh && sh !== shoulder) nextTab(sh);
-      shoulder = sh;
     }
     last = ts;
   }
