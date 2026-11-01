@@ -223,24 +223,38 @@ def package(version, out):
 
 
 CHANGELOG = os.path.join(ROOT, "CHANGELOG.md")
-CHANGELOG_HEAD = ("# Änderungen\n\nAlle Versionen mit ihren Release-Hinweisen, die neueste oben. Die Dateien zu jeder Version "
-                  f"liegen unter [Releases](https://github.com/{REPO}/releases).\n")
+# Rubriken nach Keep a Changelog, in dieser Reihenfolge
+CHANGELOG_KINDS = ("Hinzugefügt", "Geändert", "Veraltet", "Entfernt", "Behoben", "Sicherheit")
 
 
-def changelog_entry(version, date, notes):
-    """ein Abschnitt für CHANGELOG.md: Überschriften der Release-Hinweise eine Ebene tiefer (## -> ###)"""
-    body = re.sub(r"^(#{1,5}) ", r"#\1 ", notes.replace("\r\n", "\n").strip(), flags=re.M)
-    return f"## [{version}](https://github.com/{REPO}/releases/tag/v{version}) – {date}\n\n{body}\n"
+def changelog_sections(notes):
+    """Rubriken aus den Release-Hinweisen: '## Hinzugefügt' usw. mit ihren Punkten, in fester Reihenfolge.
+    Alles andere (Aktualisieren, Dateien, Getestet …) gehört nur ins GitHub-Release."""
+    found, kind = {}, None
+    for line in notes.replace("\r\n", "\n").split("\n"):
+        m = re.match(r"#{2,3} +(.+?)\s*$", line)
+        if m:
+            kind = m.group(1) if m.group(1) in CHANGELOG_KINDS else None
+            continue
+        if kind:
+            found.setdefault(kind, []).append(line)
+    return [(k, "\n".join(found[k]).strip()) for k in CHANGELOG_KINDS if "\n".join(found.get(k, [])).strip()]
 
 
 def add_changelog(version, notes):
-    """Release-Hinweise oben in CHANGELOG.md eintragen (gehört mit in den Release-Commit)"""
-    text = read(CHANGELOG) if os.path.isfile(CHANGELOG) else CHANGELOG_HEAD
+    """Rubriken der Release-Hinweise als neue Version oben in CHANGELOG.md eintragen, samt Link unten
+    (gehört mit in den Release-Commit)"""
+    text = read(CHANGELOG)
     if re.search(rf"^## \[{re.escape(version)}\]", text, re.M):
         return   # schon eingetragen (z. B. zweiter --publish-Versuch)
-    head, sep, rest = text.partition("\n## ")
-    entry = changelog_entry(version, time.strftime("%Y-%m-%d"), read(notes))
-    write(CHANGELOG, head.rstrip("\n") + "\n\n" + entry + ("\n## " + rest if sep else ""))
+    body = "\n\n".join(f"### {k}\n\n{v}" for k, v in changelog_sections(read(notes)))
+    entry = f"## [{version}] – {time.strftime('%Y-%m-%d')}\n\n{body}\n\n"
+    i = text.find("\n## [")
+    text = text[:i + 1] + entry + text[i + 1:] if i >= 0 else text.rstrip("\n") + "\n\n" + entry
+    link = f"[{version}]: https://github.com/{REPO}/releases/tag/v{version}\n"
+    j = re.search(r"^\[\d+\.\d+\.\d+\]: ", text, re.M)
+    text = text[:j.start()] + link + text[j.start():] if j else text.rstrip("\n") + "\n\n" + link
+    write(CHANGELOG, text)
 
 
 # was der Release-Commit enthalten darf - alles andere gehört in einen eigenen Commit davor
@@ -351,7 +365,8 @@ def main():
     ap.add_argument("version", help="neue Version X.Y.Z")
     ap.add_argument("--title", help="Kurztext für den Commit (\"X.Y.Z: <Kurztext>\")")
     ap.add_argument("--message", help="Datei mit der ganzen Commit-Nachricht (statt --title)")
-    ap.add_argument("--notes", help="Markdown-Datei mit den Release-Hinweisen (für --publish)")
+    ap.add_argument("--notes", help="Markdown-Datei mit den Release-Hinweisen (für --publish); die Rubriken "
+                    "## Hinzugefügt/Geändert/Entfernt/Behoben/… kommen auch in CHANGELOG.md")
     ap.add_argument("--skip-build", action="store_true", help="nicht bauen (schon gebaut)")
     ap.add_argument("--skip-images", action="store_true", help="README-Bilder nicht erneuern")
     ap.add_argument("--skip-ui-test", action="store_true", help="Linux-Oberflächentest (WSLg) auslassen")
@@ -367,6 +382,8 @@ def main():
         fail("--publish braucht --notes <datei>")
     if a.publish and not (a.title or a.message):
         fail("--publish braucht --title oder --message")
+    if a.publish and not changelog_sections(read(a.notes)):
+        fail("--notes braucht für CHANGELOG.md mindestens eine Rubrik: " + ", ".join("## " + k for k in CHANGELOG_KINDS))
     preflight(a.version, a.publish)
     bump(a.version)
     if not a.skip_build:
