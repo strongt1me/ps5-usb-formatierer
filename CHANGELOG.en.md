@@ -6,6 +6,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+## [2.6.65] – 2026-11-01
+
 ### Added
 
 - Changelog in English (CHANGELOG.en.md).
@@ -852,7 +854,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 - The app launcher tears down the sandbox cleanly.
 
-[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.64...HEAD
+[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.65...HEAD
+[2.6.65]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.65
 [2.6.64]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.64
 [2.6.63]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.63
 [2.6.62]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.62

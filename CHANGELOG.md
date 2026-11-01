@@ -6,6 +6,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+## [2.6.65] – 2026-11-01
+
 ### Hinzugefügt
 
 - Changelog auf Englisch (CHANGELOG.en.md).
@@ -852,7 +854,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 - App-Starter baut die Sandbox sauber ab.
 
-[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.64...HEAD
+[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.65...HEAD
+[2.6.65]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.65
 [2.6.64]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.64
 [2.6.63]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.63
 [2.6.62]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.62
