@@ -3,7 +3,7 @@ README-Bilder erneuern - und erst mit --publish einchecken, taggen, hochladen un
 
     python tools/release.py 2.5.12                       vorbereiten (Version, Bauen, Prüfen, Bilder), nichts einchecken
     python tools/release.py 2.5.12 --title "Kurztext" --notes hinweise.md --publish --skip-build --skip-images
-                                                         danach: Commit, Tag, Push, Release mit ELF und Kachel-ZIP
+                                                         danach: CHANGELOG.md, Commit, Tag, Push, Release mit ELF und Kachel-ZIP
 
 Die Windows-Programme und die Linux-Fassungen (Archive und AppImages, x86_64 und aarch64) baut und hängt die CI an
 das Release (release: published), danach die SHA256SUMS (checksums.yml). Die eigene PS5 danach mit
@@ -222,8 +222,29 @@ def package(version, out):
     return [zpath, elf]
 
 
+CHANGELOG = os.path.join(ROOT, "CHANGELOG.md")
+CHANGELOG_HEAD = ("# Änderungen\n\nAlle Versionen mit ihren Release-Hinweisen, die neueste oben. Die Dateien zu jeder Version "
+                  f"liegen unter [Releases](https://github.com/{REPO}/releases).\n")
+
+
+def changelog_entry(version, date, notes):
+    """ein Abschnitt für CHANGELOG.md: Überschriften der Release-Hinweise eine Ebene tiefer (## -> ###)"""
+    body = re.sub(r"^(#{1,5}) ", r"#\1 ", notes.replace("\r\n", "\n").strip(), flags=re.M)
+    return f"## [{version}](https://github.com/{REPO}/releases/tag/v{version}) – {date}\n\n{body}\n"
+
+
+def add_changelog(version, notes):
+    """Release-Hinweise oben in CHANGELOG.md eintragen (gehört mit in den Release-Commit)"""
+    text = read(CHANGELOG) if os.path.isfile(CHANGELOG) else CHANGELOG_HEAD
+    if re.search(rf"^## \[{re.escape(version)}\]", text, re.M):
+        return   # schon eingetragen (z. B. zweiter --publish-Versuch)
+    head, sep, rest = text.partition("\n## ")
+    entry = changelog_entry(version, time.strftime("%Y-%m-%d"), read(notes))
+    write(CHANGELOG, head.rstrip("\n") + "\n\n" + entry + ("\n## " + rest if sep else ""))
+
+
 # was der Release-Commit enthalten darf - alles andere gehört in einen eigenen Commit davor
-RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/")
+RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md")
 
 
 def publish(version, title, notes, message):
@@ -243,6 +264,9 @@ def publish(version, title, notes, message):
         if stray:
             fail("nicht zum Release gehörende Änderungen - erst einchecken oder wegräumen: " + ", ".join(stray))
         print(f"{len(files)} Dateien, ELF {len(elf) / 1e6:.2f} MB, gh angemeldet")
+        step("CHANGELOG.md")
+        add_changelog(version, notes)
+        print(f"{version} oben eingetragen")
         step("Einchecken, Tag, Push")
         run(["git", "add", "-A"])
         if message:
