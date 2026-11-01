@@ -74,19 +74,64 @@ bad = nr({"tag_name": "v" + newer, "body": 5, "assets": 7})
 check("Unsinn in Hinweisen/Dateien: leer", bad and bad["notes"] == "" and bad["assets"] == {}, bad)
 check("zweistellig verglichen (2.10.0 > 2.9.9)", nr({"tag_name": "v2.10.0"}, current="2.9.9") is not None)
 
+# Changelog: alle Versionen seit der installierten
+cur_s = pc_common.APP_VERSION
+top = f"{cur[0]}.{cur[1]}.{cur[2] + 2}"
+older = f"{cur[0]}.{cur[1]}.{cur[2] - 1}" if cur[2] else "0.0.1"
+log = (f"# Changelog\n\nText\n\n## [Unreleased]\n\n### Added\n\n- noch nicht\n\n## [{top}] – 2099-01-02\n\n### Fixed\n\n"
+       f"- neuester\n\n## [{newer}] – 2099-01-01\n\n### Added\n\n- dazwischen\n\n## [{cur_s}] – 2026-01-01\n\n### Added\n\n"
+       f"- installiert\n\n## [{older}] – 2025-01-01\n\n### Added\n\n- alt\n\n[Unreleased]: https://x\n[{top}]: https://y\n")
+since = pc_common.changes_since(log, cur_s, top)
+check("Changelog: nur Versionen nach der installierten bis zur neuen, neueste zuerst",
+      since.startswith(f"## {top} – 2099-01-02") and "dazwischen" in since and since.index("neuester") < since.index("dazwischen")
+      and "installiert" not in since and "alt" not in since and "noch nicht" not in since and "https://" not in since, since)
+check("Changelog: nur bis zur angebotenen Version", "neuester" not in pc_common.changes_since(log, cur_s, newer))
+check("Changelog: Unsinn ergibt nichts", pc_common.changes_since("kaputt", cur_s, top) == ""
+      and pc_common.changes_since(log, "neu", top) == "" and pc_common.changes_since(None, cur_s, top) == "")
+check("Changelog als Text: Überschriften ohne Klammern",
+      pc_common.note_lines(since)[0] == (f"{top} – 2099-01-02", True), pc_common.note_lines(since)[:2])
+saved_lang = pc_common.lang()
+import i18n  # noqa: E402
+for code, want in (("de", "DE"), ("it", "EN"), ("en", "EN")):
+    i18n.set_lang(code)
+    check(f"Was ist neu in Sprache {code}: Changelog {want}",
+          pc_common.update_notes({"changes": {"de": "DE", "en": "EN"}, "notes": "R"}) == want)
+check("ohne Changelog: Release-Hinweise", pc_common.update_notes({"changes": {}, "notes": "R"}) == "R"
+      and pc_common.update_notes({"notes": "R"}) == "R")
+i18n.set_lang(saved_lang)
+
 work = tempfile.mkdtemp(prefix="pctools-")
 try:
     feed = os.path.join(work, "latest.json")
     with open(feed, "w", encoding="utf-8") as f:
         json.dump(dict(rel, draft=False, prerelease=False), f)
+    for name, text in (("CHANGELOG.md", log.replace("dazwischen", "dazwischen (de)")), ("CHANGELOG.en.md", log)):
+        with open(os.path.join(work, name), "w", encoding="utf-8") as f:
+            f.write(text)
     os.environ["USBFMT_UPDATE_URL"] = pathlib.Path(feed).as_uri()
+    os.environ["USBFMT_CHANGELOG_URL"] = pathlib.Path(work).as_uri() + "/{file}"
     pc_common.start_update_check()
     for _ in range(100):
         with pc_common._update_lock:
             if pc_common._update["state"] == "done":
                 break
         time.sleep(0.05)
-    check("Abruf: neue Version gefunden", pc_common._update["found"] == found, pc_common._update)
+    got = pc_common._update["found"] or {}
+    check("Abruf: neue Version gefunden", {k: v for k, v in got.items() if k != "changes"} == found, pc_common._update)
+    check("Abruf: Changelogs beider Sprachen seit der installierten Version",
+          "dazwischen (de)" in got.get("changes", {}).get("de", "") and "dazwischen" in got.get("changes", {}).get("en", "")
+          and "neuester" not in got.get("changes", {}).get("en", "x")
+          and "installiert" not in got.get("changes", {}).get("en", "x"), got.get("changes"))
+    pc_common._update.update(state=None, found=None)
+    os.environ["USBFMT_CHANGELOG_URL"] = pathlib.Path(work).as_uri() + "/fehlt-{file}"
+    pc_common.start_update_check()
+    for _ in range(100):
+        if pc_common._update["state"] == "done":
+            break
+        time.sleep(0.05)
+    got = pc_common._update["found"] or {}
+    check("Abruf ohne Changelog: Release-Hinweise bleiben", got.get("changes") == {} and pc_common.update_notes(got)
+          == found["notes"], got)
     pc_common._update.update(state=None, found=None)
     os.environ["USBFMT_UPDATE_URL"] = pathlib.Path(os.path.join(work, "fehlt.json")).as_uri()
     pc_common.start_update_check()

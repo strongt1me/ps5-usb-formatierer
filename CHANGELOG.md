@@ -2,7 +2,14 @@
 
 Alle nennenswerten Änderungen am PS5 USB-Formatierer. Das Format folgt [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). Die Dateien zu jeder Version liegen unter
-[Releases](https://github.com/strongt1me/ps5-usb-formatierer/releases).
+[Releases](https://github.com/strongt1me/ps5-usb-formatierer/releases). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
+
+## [Unveröffentlicht]
+
+### Hinzugefügt
+
+- Changelog auf Englisch (CHANGELOG.en.md).
+- „Was ist neu“ in den PC-Programmen zeigt die Änderungen aller Versionen seit der installierten; in der Weboberfläche zeigt sie ein Klick auf „Neue Version … verfügbar“ ebenfalls an.
 
 ## [2.6.64] – 2026-10-31
 
@@ -845,6 +852,7 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 - App-Starter baut die Sandbox sauber ab.
 
+[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.64...HEAD
 [2.6.64]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.64
 [2.6.63]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.63
 [2.6.62]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.62

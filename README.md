@@ -138,7 +138,7 @@ PC programs: F1 guide, F5 reload, Ctrl+1 … 5 pages, Ctrl+F search games, Ctrl+
 
 ## 📦 Download
 
-All files are in the [latest release](../../releases/latest). What changed in each version: [CHANGELOG.md](CHANGELOG.md) (German).
+All files are in the [latest release](../../releases/latest). What changed in each version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
 | File | Purpose |
 |---|---|

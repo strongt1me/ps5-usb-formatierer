@@ -57,12 +57,16 @@ const ctx = {
   fmtSize: b => (b / 1e9).toFixed(1) + " GB",
   el: (tag, cls, text) => { const e = makeEl(tag); if (cls) e.className = cls; if (text !== undefined) e._text = String(text); return e; },
   fetch: (url, opt) => { fetchCalls.push({ url, opt }); return fetchImpl(url, opt); },
+  dialog: o => { dialogs.push(o); return Promise.resolve(dialogAnswer); },
+  open: (...a) => { opened.push(a); },
 };
+let dialogs = [], dialogAnswer = "yes", opened = [];
 ctx.window = ctx;
 vm.createContext(ctx);
 vm.runInContext("var jobHistory = [];", ctx);
 for (const src of [grab("const REPO ="), grab("function verTuple("), grab("function newerVersion("),
-                   grab("function checkUpdate("), grab("const HIST_KIND ="), grab("function historyList("),
+                   grab("function checkUpdate("), grab("function changesSince("),
+                   grab("function mdText("), grab("function showChanges("), grab("const HIST_KIND ="), grab("function historyList("),
                    grab("const DRIVE_KINDS ="), grab("function lastJobOf("), grab("function lastJobText(")])
   vm.runInContext(src, ctx);
 const run = code => vm.runInContext(code, ctx);
@@ -107,6 +111,54 @@ const flush = () => new Promise(r => setImmediate(r));
   run('checkUpdate("2.6.2")');
   await flush(); await flush();
   ok("gleiche Version: kein Hinweis", newver.hidden);
+
+  // --------------------------------------------------------------- Was ist neu (Changelog seit der laufenden Version)
+  const log = "# Changelog\n\nText\n\n## [Unveröffentlicht]\n\n### Hinzugefügt\n\n- noch nicht\n\n" +
+    "## [2.7.1] – 2099-01-02\n\n### Behoben\n\n- **neuester** mit [Link](https://x) und `code`\n  weiter\n\n" +
+    "## [2.7.0] – 2099-01-01\n\n### Hinzugefügt\n\n- dazwischen\n\n### Entfernt\n\n- weg\n\n" +
+    "## [2.6.2] – 2026-01-01\n\n### Hinzugefügt\n\n- installiert\n\n[Unveröffentlicht]: https://x\n[2.7.1]: https://y\n";
+  const cs = run("changesSince(" + JSON.stringify(log) + ', "2.6.2", "2.7.1")');
+  ok("Changelog: Versionen nach der laufenden bis zur neuen, neueste zuerst",
+     cs.length === 2 && cs[0].head === "2.7.1 – 2099-01-02" && cs[1].head === "2.7.0 – 2099-01-01", cs);
+  ok("Changelog: Rubriken und Punkte, Fortsetzungszeile angehängt",
+     cs[1].kinds.length === 2 && cs[1].kinds[1].kind === "Entfernt" && cs[1].kinds[1].items[0] === "weg"
+     && cs[0].kinds[0].items[0].endsWith(" weiter"), cs);
+  ok("Changelog: nur bis zur angebotenen Version", run("changesSince(" + JSON.stringify(log) + ', "2.6.2", "2.7.0")').length === 1);
+  ok("Changelog: Unsinn ergibt nichts", run('changesSince("kaputt", "2.6.2", "2.7.1").length === 0 && ' +
+     'changesSince(null, "2.6.2", "2.7.1").length === 0 && changesSince("## [2.7.0]", "neu", "2.7.1").length === 0'));
+  ok("Markdown ohne Formatierung", run('mdText("**fett** [Text](https://x) `c`")') === "fett Text c");
+  const textAnswer = (status, body) => () => Promise.resolve({ ok: status === 200, text: () => Promise.resolve(body) });
+  dialogs = []; fetchCalls = []; opened = []; dialogAnswer = "alt";
+  fetchImpl = textAnswer(200, log);
+  run('showChanges("2.6.2", "2.7.1")');
+  for (let i = 0; i < 6; i++) await flush();
+  const d = dialogs[0] || {};
+  ok("Was ist neu: deutsches Changelog im Stand des neuen Releases",
+     fetchCalls[0] && fetchCalls[0].url === "https://api.github.com/repos/strongt1me/ps5-usb-formatierer/contents/CHANGELOG.md?ref=v2.7.1"
+     && fetchCalls[0].opt.credentials === "omit" && fetchCalls[0].opt.headers.Accept === "application/vnd.github.raw", fetchCalls);
+  ok("Was ist neu: Dialog mit beiden Versionen als Text",
+     d.extra && d.extra.textContent.includes("2.7.1 – 2099-01-02") && d.extra.textContent.includes("neuester mit Link und code")
+     && d.extra.textContent.includes("dazwischen") && !d.extra.textContent.includes("installiert") && d.text.includes("2.6.2"),
+     d.extra && d.extra.textContent);
+  ok("Was ist neu: Release-Seite öffnen (nicht am PS5-Browser)", d.alt && opened.length === 1
+     && opened[0][0] === "https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.7.1", opened);
+  dialogs = []; fetchCalls = []; ctx.LANG = "it"; ctx.isTv = true; dialogAnswer = "yes";
+  fetchImpl = textAnswer(404, "");
+  run('showChanges("2.6.2", "2.7.1")');
+  for (let i = 0; i < 6; i++) await flush();
+  ok("andere Sprache: englisches Changelog", fetchCalls[0] && fetchCalls[0].url.includes("/CHANGELOG.en.md?ref=v2.7.1"), fetchCalls);
+  ok("nicht ladbar: Hinweis statt Liste, am PS5-Browser ohne Release-Knopf", dialogs[0] && !dialogs[0].extra
+     && dialogs[0].text.includes("nicht laden") && !dialogs[0].alt, dialogs[0]);
+  ctx.LANG = "de"; ctx.isTv = false;
+  reset();
+  fetchImpl = answer(200, { tag_name: "v2.7.0" });
+  run('checkUpdate("2.6.2")');
+  await flush(); await flush();
+  let prevented = false;
+  dialogs = []; fetchImpl = textAnswer(200, log);
+  newver.onclick({ preventDefault: () => { prevented = true; } });
+  for (let i = 0; i < 6; i++) await flush();
+  ok("Hinweis öffnet Was ist neu beim Klick", prevented && dialogs.length === 1 && dialogs[0].title.includes("2.7.0"), dialogs);
   reset();
   fetchImpl = answer(403, { message: "rate limit" });
   run('checkUpdate("2.6.2")');

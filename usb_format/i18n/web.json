@@ -3166,5 +3166,29 @@
   "it": "Smonta e continua",
   "es": "Desmontar y continuar",
   "fr": "Démonter et continuer"
+ },
+ "Neue Version {version}": {
+  "en": "New version {version}",
+  "it": "Nuova versione {version}",
+  "es": "Nueva versión {version}",
+  "fr": "Nouvelle version {version}"
+ },
+ "Installiert ist v{version}. Was ist neu:": {
+  "en": "Installed: v{version}. What's new:",
+  "it": "Installata: v{version}. Novità:",
+  "es": "Instalada: v{version}. Novedades:",
+  "fr": "Installée : v{version}. Nouveautés :"
+ },
+ "Die Änderungen ließen sich nicht laden – sie stehen auf der Release-Seite bei GitHub.": {
+  "en": "The changes could not be loaded – they are on the release page on GitHub.",
+  "it": "Impossibile caricare le modifiche: sono nella pagina della release su GitHub.",
+  "es": "No se pudieron cargar los cambios: están en la página de la versión en GitHub.",
+  "fr": "Impossible de charger les changements – ils figurent sur la page de la version sur GitHub."
+ },
+ "Release-Seite öffnen": {
+  "en": "Open release page",
+  "it": "Apri la pagina della release",
+  "es": "Abrir la página de la versión",
+  "fr": "Ouvrir la page de la version"
  }
 }

@@ -77,7 +77,13 @@ jobs:
           cd windows && python -m pyflakes usb_formatierer.py usb_standard.py standard_panel.py partition_editor.py \
             pc_common.py pc_linux.py fsinfo.py i18n.py ps5_discovery.py ui_theme.py ui_widgets.py ui_msgbox.py \
             tests/linux_ui_test.py tests/ps5_image_flow_test.py tests/pc_tools_test.py zsync_update.py tests/zsync_test.py
-          cd .. && python -m pyflakes tools/release.py tools/ps5_deploy.py && python tools/ps5_deploy.py --help >/dev/null
+          cd .. && python -m pyflakes tools/release.py tools/ps5_deploy.py tools/changelog.py tools/changelog_test.py \
+            && python tools/ps5_deploy.py --help >/dev/null
+
+      - name: Changelog (Format, beide Sprachen, Linkverweise)
+        run: |
+          python tools/changelog.py
+          python tools/changelog_test.py
 
       - name: Helfer bauen
         working-directory: usb_format

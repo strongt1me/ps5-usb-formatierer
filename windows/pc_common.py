@@ -1593,18 +1593,62 @@ def plain_notes(md):
     return "\n".join(s for s, _head in note_lines(md))
 
 
+# Changelogs (Keep a Changelog) im Stand des neuen Releases - "Was ist neu" zeigt daraus alle Versionen seit der
+# installierten; ohne sie die Release-Hinweise. USBFMT_CHANGELOG_URL mit {file} setzt eine andere Quelle (Tests).
+CHANGELOG_API = "https://api.github.com/repos/strongt1me/ps5-usb-formatierer/contents/{file}?ref=v{version}"
+CHANGELOG_FILES = {"de": "CHANGELOG.md", "en": "CHANGELOG.en.md"}
+
+
+def changes_since(md, current, new):
+    """Abschnitte "## [X.Y.Z] – Datum" eines Changelogs mit current < X.Y.Z <= new, neueste zuerst, als Markdown
+    (Überschrift ohne Klammern); "" wenn keiner passt"""
+    cur, top = version_tuple(current), version_tuple(new)
+    out = []
+    for part in re.split(r"(?m)^## ", str(md or "").replace("\r\n", "\n"))[1:]:
+        head, _, body = part.partition("\n")
+        m = re.fullmatch(r"\[(\d+\.\d+\.\d+)\](.*)", head.strip())
+        v = version_tuple(m.group(1)) if m else None
+        if not v or not cur or not top or not cur < v <= top:
+            continue
+        body = re.split(r"(?m)^\[[^\]]+\]: ", body)[0].strip()   # Linkverweise am Dateiende
+        out.append(f"## {m.group(1)}{m.group(2)}\n\n{body}")
+    return "\n\n".join(out)[:NOTES_MAX]
+
+
+def _get(url, accept):
+    req = urllib.request.Request(url, headers={"Accept": accept, "User-Agent": f"USB-Formatierer/{APP_VERSION or '0'}"})
+    with urllib.request.urlopen(req, timeout=8) as r:
+        if r.getcode() not in (None, 200):   # None: file:-Adresse (Tests)
+            raise OSError(f"HTTP {r.getcode()}")
+        return r.read(2 << 20).decode("utf-8")
+
+
 def _fetch_update():
     found = None
     try:
-        req = urllib.request.Request(os.environ.get("USBFMT_UPDATE_URL") or UPDATE_API, headers={
-            "Accept": "application/vnd.github+json", "User-Agent": f"USB-Formatierer/{APP_VERSION or '0'}"})
-        with urllib.request.urlopen(req, timeout=8) as r:
-            if r.getcode() in (None, 200):   # None: file:-Adresse (Tests)
-                found = newer_release(json.loads(r.read(2 << 20).decode("utf-8")))
+        found = newer_release(json.loads(_get(os.environ.get("USBFMT_UPDATE_URL") or UPDATE_API,
+                                              "application/vnd.github+json")))
     except (OSError, ValueError):   # offline, gesperrt, Ratenbegrenzung: still bleiben
         pass
+    if found:
+        found["changes"] = {}
+        for code, name in CHANGELOG_FILES.items():
+            url = (os.environ.get("USBFMT_CHANGELOG_URL") or CHANGELOG_API).format(file=name, version=found["version"])
+            try:
+                text = changes_since(_get(url, "application/vnd.github.raw"), APP_VERSION, found["version"])
+            except (OSError, ValueError):   # dann bleiben die Release-Hinweise
+                continue
+            if text:
+                found["changes"][code] = text
     with _update_lock:
         _update.update(state="done", found=found)
+
+
+def update_notes(found):
+    """Text für "Was ist neu": die Änderungen aller Versionen seit der installierten aus dem Changelog der Sprache
+    (Deutsch, sonst Englisch), ohne Changelog die Release-Hinweise der neuen Version"""
+    ch = found.get("changes") or {}
+    return ch.get("de" if lang() == "de" else "en") or ch.get("en") or found.get("notes")
 
 
 def start_update_check():
@@ -1643,7 +1687,7 @@ def update_dialog(root, found, app):
     text.grid(row=2, column=0, sticky="nsew")
     bar.grid(row=2, column=1, sticky="ns")
     text.tag_configure("head", font="UfBold")
-    lines = note_lines(found.get("notes")) or [(_("Keine Hinweise zu dieser Version."), False)]
+    lines = note_lines(update_notes(found)) or [(_("Keine Hinweise zu dieser Version."), False)]
     for i, (s, head) in enumerate(lines):
         text.insert("end", s + ("\n" if i < len(lines) - 1 else ""), ("head",) if head else ())
     text.configure(state="disabled")

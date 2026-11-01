@@ -138,7 +138,7 @@ Programas de PC: F1 guía, F5 volver a leer, Ctrl+1 … 5 páginas, Ctrl+F busca
 
 ## 📦 Descarga
 
-Todos los archivos están en la [última versión](../../releases/latest). Los cambios de cada versión: [CHANGELOG.md](CHANGELOG.md) (en alemán).
+Todos los archivos están en la [última versión](../../releases/latest). Los cambios de cada versión: [CHANGELOG.en.md](CHANGELOG.en.md) (en inglés).
 
 | Archivo | Para qué |
 |---|---|

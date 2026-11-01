@@ -2,8 +2,13 @@
 README-Bilder erneuern - und erst mit --publish einchecken, taggen, hochladen und das GitHub-Release anlegen.
 
     python tools/release.py 2.5.12                       vorbereiten (Version, Bauen, Prüfen, Bilder), nichts einchecken
-    python tools/release.py 2.5.12 --title "Kurztext" --notes hinweise.md --publish --skip-build --skip-images
-                                                         danach: CHANGELOG.md, Commit, Tag, Push, Release mit ELF und Kachel-ZIP
+    python tools/release.py 2.5.12 --title "Kurztext" --publish --skip-build --skip-images
+                                                         danach: Changelog schneiden, Commit, Tag, Push, Release mit
+                                                         ELF und Kachel-ZIP
+
+Die Änderungen stehen vorher im Abschnitt "Unveröffentlicht" von CHANGELOG.md und "Unreleased" von CHANGELOG.en.md
+(tools/changelog.py prüft beide). Beim Veröffentlichen werden sie zur neuen Version; der Text des GitHub-Releases entsteht
+daraus (deutsch, Englisch aufklappbar) samt Abschnitt "Aktualisieren" - --notes fügt nur freien Zusatztext ein.
 
 Die Windows-Programme und die Linux-Fassungen (Archive und AppImages, x86_64 und aarch64) baut und hängt die CI an
 das Release (release: published), danach die SHA256SUMS (checksums.yml). Die eigene PS5 danach mit
@@ -23,6 +28,8 @@ import tempfile
 import time
 import urllib.request
 import zipfile
+
+import changelog   # tools/changelog.py
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 USB = os.path.join(ROOT, "usb_format")
@@ -222,43 +229,20 @@ def package(version, out):
     return [zpath, elf]
 
 
-CHANGELOG = os.path.join(ROOT, "CHANGELOG.md")
-# Rubriken nach Keep a Changelog, in dieser Reihenfolge
-CHANGELOG_KINDS = ("Hinzugefügt", "Geändert", "Veraltet", "Entfernt", "Behoben", "Sicherheit")
-
-
-def changelog_sections(notes):
-    """Rubriken aus den Release-Hinweisen: '## Hinzugefügt' usw. mit ihren Punkten, in fester Reihenfolge.
-    Alles andere (Aktualisieren, Dateien, Getestet …) gehört nur ins GitHub-Release."""
-    found, kind = {}, None
-    for line in notes.replace("\r\n", "\n").split("\n"):
-        m = re.match(r"#{2,3} +(.+?)\s*$", line)
-        if m:
-            kind = m.group(1) if m.group(1) in CHANGELOG_KINDS else None
-            continue
-        if kind:
-            found.setdefault(kind, []).append(line)
-    return [(k, "\n".join(found[k]).strip()) for k in CHANGELOG_KINDS if "\n".join(found.get(k, [])).strip()]
-
-
-def add_changelog(version, notes):
-    """Rubriken der Release-Hinweise als neue Version oben in CHANGELOG.md eintragen, samt Link unten
-    (gehört mit in den Release-Commit)"""
-    text = read(CHANGELOG)
-    if re.search(rf"^## \[{re.escape(version)}\]", text, re.M):
-        return   # schon eingetragen (z. B. zweiter --publish-Versuch)
-    body = "\n\n".join(f"### {k}\n\n{v}" for k, v in changelog_sections(read(notes)))
-    entry = f"## [{version}] – {time.strftime('%Y-%m-%d')}\n\n{body}\n\n"
-    i = text.find("\n## [")
-    text = text[:i + 1] + entry + text[i + 1:] if i >= 0 else text.rstrip("\n") + "\n\n" + entry
-    link = f"[{version}]: https://github.com/{REPO}/releases/tag/v{version}\n"
-    j = re.search(r"^\[\d+\.\d+\.\d+\]: ", text, re.M)
-    text = text[:j.start()] + link + text[j.start():] if j else text.rstrip("\n") + "\n\n" + link
-    write(CHANGELOG, text)
+def changelog_ready(version):
+    """vor dem Veröffentlichen: beide Unveröffentlicht-Abschnitte (bzw. schon geschnittene Abschnitte der Version)
+    gefüllt, mit denselben Rubriken"""
+    de, en = changelog.unreleased("de", version), changelog.unreleased("en", version)
+    if not de or not en:
+        fail("Abschnitt „Unveröffentlicht“ in CHANGELOG.md bzw. „Unreleased“ in CHANGELOG.en.md ist leer - "
+             "dort zuerst die Änderungen eintragen")
+    kinds = lambda lang, s: [changelog.FILES[lang][2].index(k) for k, _ in s]  # noqa: E731
+    if kinds("de", de) != kinds("en", en):
+        fail("CHANGELOG.md und CHANGELOG.en.md: Unveröffentlicht hat nicht dieselben Rubriken")
 
 
 # was der Release-Commit enthalten darf - alles andere gehört in einen eigenen Commit davor
-RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md")
+RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md", "CHANGELOG.en.md")
 
 
 def publish(version, title, notes, message):
@@ -278,9 +262,16 @@ def publish(version, title, notes, message):
         if stray:
             fail("nicht zum Release gehörende Änderungen - erst einchecken oder wegräumen: " + ", ".join(stray))
         print(f"{len(files)} Dateien, ELF {len(elf) / 1e6:.2f} MB, gh angemeldet")
-        step("CHANGELOG.md")
-        add_changelog(version, notes)
-        print(f"{version} oben eingetragen")
+        step("Changelog")
+        body = os.path.join(out, "notes.md")
+        write(body, changelog.release_body(version, read(notes) if notes else ""))
+        date = time.strftime("%Y-%m-%d")
+        for lang in changelog.FILES:
+            write(changelog.path(lang), changelog.cut(lang, version, date))
+        errors = changelog.check()
+        if errors:
+            fail("Changelog nach dem Eintragen fehlerhaft: " + "; ".join(errors))
+        print(f"Unveröffentlicht -> {version} ({date}) in CHANGELOG.md und CHANGELOG.en.md")
         step("Einchecken, Tag, Push")
         run(["git", "add", "-A"])
         if message:
@@ -292,7 +283,7 @@ def publish(version, title, notes, message):
         run(["git", "push", "-q", "origin", tag])
         step("GitHub-Release")
         run(["gh", "release", "create", tag, "--repo", REPO, "--title", f"USB-Formatierer {version}",
-             "--notes-file", notes, *files])
+             "--notes-file", body, *files])
     finally:
         shutil.rmtree(out, ignore_errors=True)
     print("Die CI baut jetzt die Windows-Programme und die Linux-Fassungen und hängt sie an das Release.")
@@ -365,8 +356,8 @@ def main():
     ap.add_argument("version", help="neue Version X.Y.Z")
     ap.add_argument("--title", help="Kurztext für den Commit (\"X.Y.Z: <Kurztext>\")")
     ap.add_argument("--message", help="Datei mit der ganzen Commit-Nachricht (statt --title)")
-    ap.add_argument("--notes", help="Markdown-Datei mit den Release-Hinweisen (für --publish); die Rubriken "
-                    "## Hinzugefügt/Geändert/Entfernt/Behoben/… kommen auch in CHANGELOG.md")
+    ap.add_argument("--notes", help="Markdown-Datei mit freiem Zusatztext für das GitHub-Release (optional; die "
+                    "Änderungen kommen aus dem Changelog)")
     ap.add_argument("--skip-build", action="store_true", help="nicht bauen (schon gebaut)")
     ap.add_argument("--skip-images", action="store_true", help="README-Bilder nicht erneuern")
     ap.add_argument("--skip-ui-test", action="store_true", help="Linux-Oberflächentest (WSLg) auslassen")
@@ -378,12 +369,12 @@ def main():
     a.message = os.path.abspath(a.message) if a.message else a.message
     if a.check:
         sys.exit(0 if wait_release(a.version) else 1)
-    if a.publish and not (a.notes and os.path.isfile(a.notes)):
-        fail("--publish braucht --notes <datei>")
+    if a.notes and not os.path.isfile(a.notes):
+        fail(f"--notes: {a.notes} fehlt")
     if a.publish and not (a.title or a.message):
         fail("--publish braucht --title oder --message")
-    if a.publish and not changelog_sections(read(a.notes)):
-        fail("--notes braucht für CHANGELOG.md mindestens eine Rubrik: " + ", ".join("## " + k for k in CHANGELOG_KINDS))
+    if a.publish:
+        changelog_ready(a.version)
     preflight(a.version, a.publish)
     bump(a.version)
     if not a.skip_build:
@@ -399,7 +390,7 @@ def main():
         if not a.no_wait and not wait_release(a.version):
             fail("Release unvollständig - siehe oben")
     else:
-        print("Vorbereitet - nichts eingecheckt. Prüfen, dann mit --title/--notes --publish --skip-build --skip-images "
+        print("Vorbereitet - nichts eingecheckt. Prüfen, dann mit --title --publish --skip-build --skip-images "
               "veröffentlichen.")
 
 
