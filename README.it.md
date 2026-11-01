@@ -138,7 +138,7 @@ Programmi per PC: F1 guida, F5 rileggi, Ctrl+1 … 5 pagine, Ctrl+F cerca giochi
 
 ## 📦 Download
 
-Tutti i file sono nell'[ultima release](../../releases/latest).
+Tutti i file sono nell'[ultima release](../../releases/latest). Le novità di ogni versione: [CHANGELOG.md](CHANGELOG.md) (in tedesco).
 
 | File | A cosa serve |
 |---|---|

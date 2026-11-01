@@ -138,7 +138,7 @@ Programmes PC : F1 guide, F5 relire, Ctrl+1 … 5 pages, Ctrl+F rechercher des j
 
 ## 📦 Téléchargement
 
-Tous les fichiers se trouvent dans la [dernière version](../../releases/latest).
+Tous les fichiers se trouvent dans la [dernière version](../../releases/latest). Les changements de chaque version : [CHANGELOG.md](CHANGELOG.md) (en allemand).
 
 | Fichier | Rôle |
 |---|---|
