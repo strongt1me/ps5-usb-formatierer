@@ -21,5 +21,9 @@ updates:
     groups:
       bauwerkzeuge:
         patterns: ["*"]
+    ignore:
+      # 0.17.0 gibt es auf PyPI nicht für Windows (Windows-Build scheitert, PR #1/#2) - spätere Fassungen kommen wieder
+      - dependency-name: ziglang
+        versions: ["0.17.0"]
     commit-message:
       prefix: "Bauwerkzeuge"
