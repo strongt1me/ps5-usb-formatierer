@@ -37,6 +37,8 @@ int main(void) {
     /* zur Sicherheit: ein unbekannter Systemaufruf (Bereitschaftsabfrage von kstuff, platform_ps5.c) darf den Server
      * nie beenden - FreeBSD kürzt die Nummer zwar auf 32 Bit, ein anderer Kernel schickte sonst SIGSYS */
     signal(SIGSYS, SIG_IGN);
+    /* Meldungen in der Systemsprache der PS5, gibt es sie nicht: Englisch (die in der App gewählte gilt je Anfrage) */
+    i18n_default(plat_system_lang());
 
     if ((s = server_listen(SERVER_PORT)) < 0) {
         snprintf(msg, sizeof(msg), T("USB-Formatierer: Port %d belegt (läuft er schon?)"), SERVER_PORT);

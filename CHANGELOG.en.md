@@ -6,6 +6,10 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+### Changed
+
+- PS5 app: at start the PS5 system language is used; if the app does not have it, English (previously German). A language chosen in the app applies until the formatter starts again.
+
 ## [2.6.65] – 2026-11-01
 
 ### Added

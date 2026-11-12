@@ -20,7 +20,7 @@ H="$W/mnt/usb0/homebrew"
 mkdir -p "$H/Ordner/sce_sys"
 printf '{"titleId":"PPSA00009","localizedParameters":{"defaultLanguage":"en-US","en-US":{"titleName":"Ordnerspiel"}}}' >"$H/Ordner/sce_sys/param.json"
 head -c 3000000 /dev/urandom >"$H/gut.ffpfs";      sha256sum "$H/gut.ffpfs" | cut -d' ' -f1 >"$H/gut.ffpfs.sha256"
-head -c 3000000 /dev/urandom >"$H/falsch.ffpfs";   sha256sum "$H/falsch.ffpfs" | sed 's/^./0/' >"$H/falsch.sha256"
+head -c 3000000 /dev/urandom >"$H/falsch.ffpfs";   sha256sum "$H/falsch.ffpfs" | sed 's/^0/1/;t;s/^./0/' >"$H/falsch.sha256"
 head -c 3000000 /dev/urandom >"$H/ohne.ffpfs"
 env USBFMT_IMAGES="$W/a.img" USBFMT_MOUNTED="1" USBFMT_MOUNTROOT="$W/mnt" USBFMT_DATA="$W/cfg" "$W/srv" >"$W/log" 2>&1 &
 PID=$!

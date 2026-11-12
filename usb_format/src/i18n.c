@@ -12,12 +12,16 @@ static const char *const codes[LANG_COUNT] = {"de", "en", "it", "es", "fr"};
 #ifdef _WIN32
 static int current;
 void i18n_set(int lang) { current = lang >= 0 && lang < LANG_COUNT ? lang : LANG_DE; }
+void i18n_default(int lang) { i18n_set(lang); }
 int i18n_get(void) { return current; }
 #else
 #include <pthread.h>
 static pthread_key_t key;
 static pthread_once_t once = PTHREAD_ONCE_INIT;
 static void make_key(void) { pthread_key_create(&key, NULL); }
+static int fallback = LANG_DE;   /* Threads ohne eigene Sprache; einmal beim Start gesetzt (i18n_default) */
+
+void i18n_default(int lang) { fallback = lang >= 0 && lang < LANG_COUNT ? lang : LANG_EN; }
 
 void i18n_set(int lang) {
     pthread_once(&once, make_key);
@@ -27,7 +31,7 @@ void i18n_set(int lang) {
 int i18n_get(void) {
     pthread_once(&once, make_key);
     intptr_t v = (intptr_t)pthread_getspecific(key);
-    return v > 0 && v <= LANG_COUNT ? (int)v - 1 : LANG_DE;   /* nie gesetzt: Deutsch */
+    return v > 0 && v <= LANG_COUNT ? (int)v - 1 : fallback;   /* nie gesetzt: die Vorgabe */
 }
 #endif
 

@@ -16,6 +16,7 @@
 
 #include "extfs.h"
 #include "fsdetect.h"
+#include "i18n.h"
 #include "platform.h"
 #include "smpapi.h"
 
@@ -309,6 +310,13 @@ void plat_library_hints(lib_hint_t **h, int *n) {
 }
 
 const char *plat_saves_dir(void) { return getenv("USBFMT_SAVES"); }
+
+/* nachgebildete Systemsprache: USBFMT_SYSLANG (z. B. "it"; "" oder unbekannt = keine der fünf), ohne die Variable
+ * eine deutsche PS5 - die Tests prüfen Meldungen auf Deutsch */
+int plat_system_lang(void) {
+    const char *s = getenv("USBFMT_SYSLANG");
+    return i18n_parse(s ? s : "de");
+}
 
 int plat_open_browser(const char *url, char *err, size_t errlen) {
     (void)err; (void)errlen;

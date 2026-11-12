@@ -10,6 +10,8 @@ trap 'kill $PID 2>/dev/null; rm -rf "$W"' EXIT
 bash test/host_build.sh "$W/srv" -DSERVER_PORT=18094 || exit 1
 truncate -s 1G "$W/a.img"
 start() { USBFMT_IMAGES="$W/a.img" USBFMT_DATA="$W/data" "$W/srv" >>"$W/log" 2>&1 & PID=$!; sleep 0.5; }
+# Neustart mit nachgebildeter Systemsprache der PS5 ($1: "it", "ja" = keine der fünf, leer = Vorgabe Deutsch)
+restart() { kill $PID; wait $PID 2>/dev/null; if [ -n "${1:-}" ]; then USBFMT_SYSLANG=$1 start; else start; fi; }
 start
 U=http://127.0.0.1:18094
 fails=0
@@ -42,23 +44,24 @@ grep -q '"scale_tv":160' "$W/s" && grep -q '"scale_pc":100' "$W/s" && ok "Standa
 [ "$(post '{"scale_pc":"abc"}' settings)" = 400 ] && ok "Größe abc abgelehnt" || bad "Größe abc nicht abgelehnt"
 [ "$(post '{}' settings)" = 400 ] && ok "leere Einstellung abgelehnt" || bad "leere Einstellung nicht abgelehnt"
 
-# Sprache: Meldungen nach ?lang=, sonst gespeicherter Wahl, sonst Accept-Language, sonst Deutsch
+# Sprache: Meldungen nach ?lang=, sonst der seit dem Start gewählten, sonst der Systemsprache der PS5 (hier nachgebildet:
+# Deutsch), sonst Accept-Language, sonst Englisch
 curl -s "$U/api/settings" >"$W/s"
-grep -q '"lang":""' "$W/s" && ok "Sprache anfangs nicht gewählt" || bad "Sprache anfangs: $(cat "$W/s")"
+grep -q '"lang":""' "$W/s" && grep -q '"system":"de"' "$W/s" && ok "Sprache anfangs nicht gewählt, Systemsprache de" \
+    || bad "Sprache anfangs: $(cat "$W/s")"
 post '{"scale_pc":300}' settings >/dev/null
-grep -q 'Größe muss' "$W/body" && ok "ohne Angabe: Deutsch" || bad "ohne Angabe: $(cat "$W/body")"
+grep -q 'Größe muss' "$W/body" && ok "ohne Angabe: Systemsprache (Deutsch)" || bad "ohne Angabe: $(cat "$W/body")"
 post '{"scale_pc":300}' 'settings?lang=en' >/dev/null
 grep -q 'Size must be' "$W/body" && ok "?lang=en: Englisch" || bad "?lang=en: $(cat "$W/body")"
-curl -s -o "$W/body" -H 'Content-Type: application/json' -H 'Accept-Language: pt-BR,es;q=0.8,en;q=0.5' \
-    -d '{"scale_pc":300}' "$U/api/settings"
-grep -q 'El tamaño' "$W/body" && ok "Accept-Language: erste unterstützte (es)" || bad "Accept-Language: $(cat "$W/body")"
+curl -s -o "$W/body" -H 'Content-Type: application/json' -H 'Accept-Language: es' -d '{"scale_pc":300}' "$U/api/settings"
+grep -q 'Größe muss' "$W/body" && ok "Systemsprache vor Accept-Language" || bad "System vs. Browser: $(cat "$W/body")"
 [ "$(post '{"lang":"xx"}' settings)" = 400 ] && ok "Sprache xx abgelehnt" || bad "Sprache xx nicht abgelehnt: $(cat "$W/body")"
-[ "$(post '{"lang":"fr"}' settings)" = 200 ] && grep -q '"lang":"fr"' "$W/body" && ok "Sprache fr gespeichert" \
+[ "$(post '{"lang":"fr"}' settings)" = 200 ] && grep -q '"lang":"fr"' "$W/body" && ok "Sprache fr gewählt" \
     || bad "Sprache fr: $(cat "$W/body")"
 curl -s -o "$W/body" -H 'Content-Type: application/json' -H 'Accept-Language: es' -d '{"scale_pc":300}' "$U/api/settings"
-grep -q 'La taille' "$W/body" && ok "gespeicherte Sprache vor Accept-Language" || bad "gespeichert vs. Browser: $(cat "$W/body")"
+grep -q 'La taille' "$W/body" && ok "gewählte Sprache vor Accept-Language" || bad "gewählt vs. Browser: $(cat "$W/body")"
 post '{"scale_pc":300}' 'settings?lang=it' >/dev/null
-grep -q 'La dimensione' "$W/body" && ok "?lang= vor gespeicherter Sprache" || bad "?lang= vs. gespeichert: $(cat "$W/body")"
+grep -q 'La dimensione' "$W/body" && ok "?lang= vor gewählter Sprache" || bad "?lang= vs. gewählt: $(cat "$W/body")"
 code=$(curl -s -o "$W/help" -w '%{http_code}' "$U/help?lang=en")
 [ "$code" = 200 ] && [ "$(grep -c '<article' "$W/help")" = 5 ] && ok "Anleitung /help mit fünf Sprachen" \
     || bad "Anleitung: $code, $(grep -c '<article' "$W/help") Sprachen"
@@ -66,13 +69,27 @@ curl -s "$U/api/status" | grep -q '"cancelled":false' && ok "Status meldet cance
 V=$(cat ../VERSION)
 curl -s "$U/api/info" | grep -q "\"version\":\"$V\"" && ok "/api/info meldet Version $V" || bad "Version: $(curl -s "$U/api/info")"
 
-kill $PID; wait $PID 2>/dev/null
-start
+restart
 curl -s "$U/api/settings" >"$W/s"
-grep -q '"scale_tv":120' "$W/s" && grep -q '"theme":"dark"' "$W/s" && grep -q '"lang":"fr"' "$W/s" \
-    && ok "nach Neustart noch gespeichert: $(cat "$W/s")" || bad "nach Neustart: $(cat "$W/s")"
-[ "$(post '{"lang":""}' settings)" = 200 ] && grep -q '"lang":""' "$W/body" && ok "Sprache zurück auf Browser" \
-    || bad "Sprache zurücksetzen: $(cat "$W/body")"
+grep -q '"scale_tv":120' "$W/s" && grep -q '"theme":"dark"' "$W/s" && grep -q '"lang":""' "$W/s" \
+    && ok "nach Neustart: Größe und Design gespeichert, Sprache wieder die des Systems" || bad "nach Neustart: $(cat "$W/s")"
+[ "$(post '{"lang":"fr"}' settings)" = 200 ] && [ "$(post '{"lang":""}' settings)" = 200 ] && grep -q '"lang":""' "$W/body" \
+    && ok "Sprache zurück auf die des Systems" || bad "Sprache zurücksetzen: $(cat "$W/body")"
+restart it
+curl -s "$U/api/settings" >"$W/s"
+post '{"scale_pc":300}' settings >/dev/null
+grep -q '"system":"it"' "$W/s" && grep -q 'La dimensione' "$W/body" && tail -n 3 "$W/log" | grep -q 'USB Formatter pronto' \
+    && ok "italienische PS5: Meldungen und Startmeldung auf Italienisch" \
+    || bad "Systemsprache it: $(cat "$W/s") $(cat "$W/body")"
+restart ja
+curl -s "$U/api/settings" >"$W/s"
+grep -q '"system":""' "$W/s" && tail -n 3 "$W/log" | grep -q 'USB Formatter ready' \
+    && ok "japanische PS5: keine der fünf Sprachen, Startmeldung auf Englisch" || bad "Systemsprache ja: $(cat "$W/s") $(tail -n 3 "$W/log")"
+curl -s -o "$W/body" -H 'Content-Type: application/json' -H 'Accept-Language: pt-BR,es;q=0.8,en;q=0.5' \
+    -d '{"scale_pc":300}' "$U/api/settings"
+grep -q 'El tamaño' "$W/body" && ok "dann Accept-Language: erste unterstützte (es)" || bad "Accept-Language: $(cat "$W/body")"
+post '{"scale_pc":300}' settings >/dev/null
+grep -q 'Size must be' "$W/body" && ok "ohne passende Sprache: Englisch" || bad "Ersatz Englisch: $(cat "$W/body")"
 
 echo
 [ $fails -eq 0 ] && echo "Alle Format-/Einstellungs-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."

@@ -6,6 +6,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- PS5-App: Beim Start gilt die Systemsprache der PS5; gibt es sie in der App nicht, Englisch (vorher Deutsch). Eine in der App gewählte Sprache gilt bis zum nächsten Start des Formatierers.
+
 ## [2.6.65] – 2026-11-01
 
 ### Hinzugefügt

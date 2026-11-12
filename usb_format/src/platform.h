@@ -84,6 +84,10 @@ int  plat_open_browser(const char *url, char *err, size_t errlen);
 /* Ordner mit den Benutzern und ihren Spielständen (PS5: /user/home); NULL = keiner (Host ohne USBFMT_SAVES) */
 const char *plat_saves_dir(void);
 
+/* Systemsprache der PS5 als LANG_* (i18n.h); -1, wenn unbekannt oder keine der fünf Sprachen (Host: USBFMT_SYSLANG,
+ * ohne sie Deutsch) */
+int  plat_system_lang(void);
+
 /* Firmware der PS5 als "9.00"; leer, wenn unbekannt (Host: USBFMT_FW) */
 void plat_fw_version(char *out, size_t n);
 

@@ -110,6 +110,26 @@ static void *dynsym(const char *module, const char *symbol) {
 
 const char *plat_saves_dir(void) { return "/user/home"; }
 
+/* Systemsprache (Einstellungen > Sprache): SCE_SYSTEM_SERVICE_PARAM_ID_LANG = 1, Werte nach Sony-Tabelle -
+ * 1/18 Englisch (US/GB), 2/22 Französisch (FR/CA), 3/20 Spanisch (ES/Lateinamerika), 4 Deutsch, 5 Italienisch */
+int plat_system_lang(void) {
+    typedef int (*fn_param_t)(int, int *);
+    typedef int (*fn_usinit_t)(void *);
+    fn_usinit_t init = (fn_usinit_t)dynsym("libSceUserService.sprx", "sceUserServiceInitialize");
+    if (init) init(NULL);   /* wie vor dem Browser (plat_open_browser); ein zweiter Aufruf schadet nicht */
+    fn_param_t get = (fn_param_t)dynsym("libSceSystemService.sprx", "sceSystemServiceParamGetInt");
+    int v = -1;
+    if (!get || get(1, &v) != 0) return -1;
+    switch (v) {
+    case 4: return LANG_DE;
+    case 1: case 18: return LANG_EN;
+    case 5: return LANG_IT;
+    case 3: case 20: return LANG_ES;
+    case 2: case 22: return LANG_FR;
+    default: return -1;
+    }
+}
+
 int plat_open_browser(const char *url, char *err, size_t errlen) {
     typedef int (*fn_usinit_t)(void *);
     typedef int (*fn_browser_t)(const char *, void *);
