@@ -6,6 +6,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- PS5-App: Eine in der App selbst gewählte Sprache bleibt wieder dauerhaft eingestellt (in 2.6.66 galt sie nur bis zum nächsten Start); ohne eigene Wahl gilt die Systemsprache der PS5, sonst Englisch.
+
 ## [2.6.66] – 2026-11-12
 
 ### Geändert

@@ -6,6 +6,10 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+### Changed
+
+- PS5 app: a language chosen in the app stays set again (in 2.6.66 it only applied until the next start); without a choice the PS5 system language applies, otherwise English.
+
 ## [2.6.66] – 2026-11-12
 
 ### Changed

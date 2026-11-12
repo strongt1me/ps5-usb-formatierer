@@ -43,10 +43,9 @@
  *                         die letzten 100 Aufträge, neueste zuerst; POST /api/history/clear {} leert den Verlauf
  *   POST /api/open       {} Web-UI im PS5-Browser öffnen (für die App, app/title/starter.c)
  *   GET  /api/settings   {"theme":"auto|light|dark","scale_tv":160,"scale_pc":100,"lang":"de|en|it|es|fr|",
- *                         "system":"…"} - lang: seit dem Start gewählt, system: Systemsprache der PS5 ("" = keine der fünf);
- *                         POST ändert (einzeln oder zusammen) und speichert es - die Sprache nicht: sie gilt bis zum
- *                         nächsten Start
- *   Sprache der Antworten und Meldungen: ?lang=de|en|it|es|fr an jeder Adresse, sonst die seit dem Start gewählte,
+ *                         "system":"…"} - lang: in der App gewählt ("" = keine), system: Systemsprache der PS5 ("" = keine
+ *                         der fünf); POST ändert (einzeln oder zusammen) und speichert es
+ *   Sprache der Antworten und Meldungen: ?lang=de|en|it|es|fr an jeder Adresse, sonst die gespeicherte Wahl,
  *   sonst die Systemsprache der PS5, sonst Accept-Language, sonst Englisch. Ein Auftrag meldet sich in der Sprache
  *   der Anfrage, die ihn gestartet hat.
  *   POST /api/diag       Darstellungsbericht der Seite ablegen; GET liefert {"tv":"...","pc":"..."}
@@ -1793,8 +1792,7 @@ static char theme[8] = "auto";
 #define SCALE_MIN 50
 #define SCALE_MAX 250
 static int scale_tv = 160, scale_pc = 100;
-static int lang_setting = -1;   /* in der Weboberfläche gewählte Sprache (LANG_*), -1 = keine gewählt - gilt bis zum
-                                  * nächsten Start, dann wieder die Systemsprache (nicht gespeichert) */
+static int lang_setting = -1;   /* in der Weboberfläche gewählte Sprache (LANG_*, gespeichert), -1 = keine: Systemsprache */
 static int system_lang = -1;    /* Systemsprache der PS5 (beim Start gelesen), -1 = keine der fünf Sprachen */
 
 /* "123" -> 123, sonst -1 (auch außerhalb SCALE_MIN..SCALE_MAX) */
@@ -1837,6 +1835,7 @@ static void settings_load(void) {
     if (v > 0) scale_tv = v;
     v = scale_parse(kv_get(kv, nkv, "scale_pc"));
     if (v > 0) scale_pc = v;
+    lang_setting = i18n_parse(kv_get(kv, nkv, "lang"));
 }
 
 /* erst vollständig in eine neue Datei, dann umbenennen: ist /data voll, bleiben die alten Einstellungen erhalten */
@@ -1847,7 +1846,8 @@ static int settings_save(void) {
     snprintf(tmp, sizeof(tmp), "%s.neu", path);
     FILE *f = fopen(tmp, "w");
     if (!f) return -1;
-    int ok = fprintf(f, "{\"theme\":\"%s\",\"scale_tv\":%d,\"scale_pc\":%d}\n", theme, scale_tv, scale_pc) > 0;
+    int ok = fprintf(f, "{\"theme\":\"%s\",\"scale_tv\":%d,\"scale_pc\":%d,\"lang\":\"%s\"}\n", theme, scale_tv,
+                     scale_pc, lang_setting >= 0 ? i18n_code(lang_setting) : "") > 0;
     ok = fclose(f) == 0 && ok;
     if (!ok || rename(tmp, path) != 0) { remove(tmp); return -1; }
     return 0;
@@ -1881,7 +1881,7 @@ static void api_history(int c, int clear) {
 static void api_settings(int c, int is_post, const char *body) {
     if (is_post) {
         /* einzeln oder zusammen: theme (auto|light|dark), scale_tv / scale_pc (50..250 %), lang (de|en|it|es|fr,
-         * leer = keine gewählt; gilt bis zum nächsten Start) */
+         * leer = keine gewählt: Systemsprache) */
         kv_t kv[KV_MAX];
         int n = json_parse(body, kv, KV_MAX);
         const char *t = n > 0 ? kv_get(kv, n, "theme") : NULL;
@@ -1899,7 +1899,7 @@ static void api_settings(int c, int is_post, const char *body) {
         if (stv) scale_tv = scale_parse(stv);
         if (spc) scale_pc = scale_parse(spc);
         if (lg) lang_setting = *lg ? i18n_parse(lg) : -1;
-        int saved = t || stv || spc ? settings_save() : 0;   /* die Sprache allein wird nicht gespeichert */
+        int saved = settings_save();
         pthread_mutex_unlock(&lock);
         if (saved != 0) { respond_error(c, 500, "Einstellung ließ sich nicht speichern"); return; }
     }
@@ -1914,7 +1914,7 @@ static void api_settings(int c, int is_post, const char *body) {
     free(b.p);
 }
 
-/* Sprache einer Anfrage: ?lang=xx in der Adresse (Weboberfläche, Windows-Programm), sonst die seit dem Start gewählte,
+/* Sprache einer Anfrage: ?lang=xx in der Adresse (Weboberfläche, Windows-Programm), sonst die gespeicherte Wahl,
  * sonst die Systemsprache der PS5, sonst die Sprache des Browsers (Accept-Language), sonst Englisch */
 static int request_lang(const char *path, const char *hdrs) {
     const char *q = strchr(path, '?');
@@ -6745,7 +6745,8 @@ int server_listen(int port) {
         return -1;
     }
     settings_load();
-    system_lang = plat_system_lang();   /* Sprache der Threads ohne eigene: main.c (i18n_default) */
+    system_lang = plat_system_lang();
+    if (lang_setting >= 0) i18n_default(lang_setting);   /* sonst bleibt die Systemsprache aus main.c */
     lib_refresh();
     return s;
 }
