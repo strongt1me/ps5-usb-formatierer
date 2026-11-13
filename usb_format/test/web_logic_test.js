@@ -160,15 +160,14 @@ const flush = () => new Promise(r => setImmediate(r));
   for (let i = 0; i < 6; i++) await flush();
   ok("Hinweis öffnet Was ist neu beim Klick", prevented && dialogs.length === 1 && dialogs[0].title.includes("2.7.0"), dialogs);
 
-  // --------------------------------------------------------------- Sprache aus /api/settings (syncSettings)
-  const sync = new vm.Script("(async () => {" + grab("async function syncSettings(").replace(/^async function syncSettings\(\) \{/, "").replace(/\}$/, "") + "})()");
+  // --------------------------------------------------------------- Sprache aus /api/settings bzw. /api/status (applySettings)
+  run(grab("function applySettings("));
   const langCase = async (settings, tv, lang) => {
     let set = null;
     Object.assign(ctx, { quit: false, isTv: tv, LANG: lang, SCALE_KEY: "scale_pc", scaleChangedAt: 0, langChangedAt: 0,
-      applyTheme: () => {}, applyScale: () => {}, setLang: (l, save) => { set = [l, save]; },
-      api: () => Promise.resolve(settings), document: { activeElement: null } });
+      applyTheme: () => {}, applyScale: () => {}, setLang: (l, save) => { set = [l, save]; }, document: { activeElement: null } });
     els.theme = els.scale = els.lang = makeEl("select");
-    await sync.runInContext(ctx);
+    run("applySettings(" + JSON.stringify(settings) + ")");
     return set;
   };
   let r = await langCase({ lang: "", system: "it" }, true, "de");
@@ -179,7 +178,18 @@ const flush = () => new Promise(r => setImmediate(r));
   ok("Systemsprache keine der fünf: Englisch (nicht die alte Sprache)", r && r[0] === "en", r);
   r = await langCase({ lang: "", system: "it" }, false, "es");
   ok("PC-Browser ohne Wahl: eigene Sprache bleibt", r === null, r);
-  ctx.LANG = "de"; ctx.isTv = false;  reset();
+  ctx.LANG = "de"; ctx.isTv = false;
+
+  // --------------------------------------------------------------- Abfragen bei verborgener Seite, Controller
+  const idle = page.slice(page.indexOf("/* Aufträge und Einstellungen aus anderen Browsern erkennen"),
+                          page.indexOf("/* Ergebnis eines Auftrags zeigen */"));
+  ok("Leerlauf-Abfrage pausiert bei verborgener Seite und gleicht Einstellungen aus dem Status ab",
+     /if \([^)]*document\.hidden\) return;/.test(idle) && idle.includes("applySettings(st.settings)")
+     && !page.includes("setInterval(syncSettings"));
+  ok("Controller: pausiert bei verborgener Seite", grab("function poll()").includes("if (document.hidden)"));
+  ok("Controller: im PS5-Browser sofort, sonst erst nach gamepadconnected",
+     page.includes('if (isTv) startPad(); else window.addEventListener("gamepadconnected", startPad);'));
+  reset();
   fetchImpl = answer(403, { message: "rate limit" });
   run('checkUpdate("2.6.2")');
   await flush(); await flush();

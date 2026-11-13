@@ -9,6 +9,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 ### Geändert
 
 - PS5-App: Eine in der App selbst gewählte Sprache bleibt wieder dauerhaft eingestellt (in 2.6.66 galt sie nur bis zum nächsten Start); ohne eigene Wahl gilt die Systemsprache der PS5, sonst Englisch.
+- Weboberfläche lädt schneller: Seite und Hilfe kommen gepackt (etwa 103 statt 338 KB bzw. 46 statt 172 KB) und werden nur neu geladen, wenn sie sich geändert haben.
+- Weboberfläche fragt im Leerlauf nur noch eine Adresse ab (Status samt Einstellungen) und pausiert, solange die Seite nicht zu sehen ist; den Controller fragt sie am PC bzw. Handy erst ab, wenn einer angeschlossen ist.
 
 ## [2.6.66] – 2026-11-12
 

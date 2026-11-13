@@ -41,7 +41,8 @@ all: $(ELF)
 
 # server.c bettet web/index.html und web/help.html, platform_ps5.c die Werkzeuge per .incbin ein -> aus dem
 # Projektordner bauen. Vorher: Übersetzungen vollständig (Meldungen und Weboberfläche)?
-$(ELF): $(SRCS) $(HDRS) web/index.html web/help.html web/bg.jpg web/page-dark.jpg web/page-light.jpg web/avatar.png $(TOOLS) \
+$(ELF): $(SRCS) $(HDRS) web/index.html web/help.html build/web/index.html.gz build/web/help.html.gz \
+        web/bg.jpg web/page-dark.jpg web/page-light.jpg web/avatar.png $(TOOLS) \
         $(EXFAT_OBJS) $(ZSTD_OBJ) i18n/core.json i18n/web.json ../VERSION
 	@command -v python3 >/dev/null || { echo "python3 fehlt - ohne es wären die Übersetzungen ungeprüft"; exit 1; }
 	@echo "$(APP_VERSION)" | grep -Eqx "[0-9]+\.[0-9]+\.[0-9]+" || { echo "VERSION ungültig: $(APP_VERSION)"; exit 1; }
@@ -49,6 +50,11 @@ $(ELF): $(SRCS) $(HDRS) web/index.html web/help.html web/bg.jpg web/page-dark.jp
 	$(CC) $(CFLAGS) $(EXFAT_INC) $(ZSTD_INC) -o $@ $(SRCS) $(EXFAT_OBJS) $(ZSTD_OBJ) $(LIBS)
 	@# größer als 8 MB macht die ELF auf der PS5 Probleme
 	@test $$(wc -c <$@) -le 8388608 || { echo "$@ ist größer als 8 MB"; rm -f $@; exit 1; }
+
+# gepackte Weboberfläche und Anleitung (server.c bettet beide ein; -n: ohne Name und Zeit, also reproduzierbar)
+build/web/%.gz: web/%
+	@mkdir -p build/web
+	gzip -9nc $< >$@.tmp && mv $@.tmp $@
 
 # libexfat.c: die Linux-Geräteabfrage ersetzt exfat_fsck.c; fsck.c: main() heißt exfatprogs_fsck_main()
 build/exfatprogs/%.o: $(EXFAT)/%.c src/exfat_shim.h

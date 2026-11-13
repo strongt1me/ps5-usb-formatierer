@@ -9,6 +9,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 ### Changed
 
 - PS5 app: a language chosen in the app stays set again (in 2.6.66 it only applied until the next start); without a choice the PS5 system language applies, otherwise English.
+- The web interface loads faster: page and help are sent compressed (about 103 instead of 338 KB and 46 instead of 172 KB) and are only reloaded when they have changed.
+- While idle, the web interface polls a single address (status including settings) and pauses while the page is not visible; on a PC or phone it polls the controller only once one is connected.
 
 ## [2.6.66] – 2026-11-12
 

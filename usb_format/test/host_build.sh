@@ -8,6 +8,9 @@ OUT=$1
 shift
 OBJ=$(mktemp -d)
 trap 'rm -rf "$OBJ"' EXIT
+# gepackte Weboberfläche und Anleitung wie im Makefile (server.c bettet sie ein); mv: parallele Läufe stören sich nicht
+mkdir -p build/web
+for f in index.html help.html; do gzip -9nc "web/$f" >"build/web/$f.gz.$$" && mv "build/web/$f.gz.$$" "build/web/$f.gz"; done
 OBJS=$(bash test/build_exfatprogs.sh "$OBJ" | tail -1)
 # shellcheck disable=SC2086
 gcc -O2 -w -DNDEBUG ${HOST_CFLAGS:-} -isystem third_party/zstd/lib -c src/zstd_all.c -o "$OBJ/zstd_all.o"

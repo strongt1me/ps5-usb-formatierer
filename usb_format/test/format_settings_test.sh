@@ -66,6 +66,31 @@ code=$(curl -s -o "$W/help" -w '%{http_code}' "$U/help?lang=en")
 [ "$code" = 200 ] && [ "$(grep -c '<article' "$W/help")" = 5 ] && ok "Anleitung /help mit fünf Sprachen" \
     || bad "Anleitung: $code, $(grep -c '<article' "$W/help") Sprachen"
 curl -s "$U/api/status" | grep -q '"cancelled":false' && ok "Status meldet cancelled" || bad "Status ohne cancelled"
+curl -s "$U/api/status" | grep -q '"settings":{"theme":"dark","scale_tv":120' && ok "Status enthält die Einstellungen" \
+    || bad "Status ohne Einstellungen: $(curl -s "$U/api/status")"
+# Weboberfläche und Anleitung: gepackt nur auf Wunsch (Accept-Encoding), ETag, 304 bei unveränderter Seite
+for page in /:index.html /help:help.html; do
+    url=${page%%:*}; file=web/${page#*:}
+    curl -s -D "$W/h" -o "$W/plain" "$U$url"
+    cmp -s "$W/plain" "$file" && ! grep -qi '^Content-Encoding' "$W/h" && ok "$url ungepackt ohne Accept-Encoding" || bad "$url ungepackt"
+    curl -s -D "$W/h" -o "$W/gz" -H 'Accept-Encoding: gzip, deflate, br' "$U$url"
+    gzip -dc "$W/gz" | cmp -s - "$file" && grep -qi '^Content-Encoding: gzip' "$W/h" && grep -qi '^Vary: Accept-Encoding' "$W/h" \
+        && ok "$url gepackt: $(wc -c <"$W/gz") statt $(wc -c <"$file") Bytes" || bad "$url gepackt: $(cat "$W/h")"
+    tag=$(grep -i '^ETag:' "$W/h" | cut -d' ' -f2 | tr -d '\r')
+    code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept-Encoding: gzip' -H "If-None-Match: $tag" "$U$url")
+    [ -n "$tag" ] && [ "$code" = 304 ] && ok "$url unverändert: 304" || bad "$url If-None-Match $tag: $code"
+    code=$(curl -s -o /dev/null -w '%{http_code}' -H "If-None-Match: $tag" "$U$url")
+    [ "$code" = 200 ] && ok "$url ETag der gepackten Fassung gilt nicht für die ungepackte" || bad "$url ETag ungepackt: $code"
+done
+curl -s -D "$W/h" -o /dev/null -H 'Accept-Encoding: gzip' "$U/"
+tag=$(grep -i '^ETag:' "$W/h" | cut -d' ' -f2 | tr -d '\r')
+curl -s -D "$W/h" -o /dev/null -H 'Accept-Encoding: gzip' -H "If-None-Match: $tag" "$U/"
+! grep -qi '^Content-Length\|^Content-Type' "$W/h" && grep -qi "^ETag: $tag" "$W/h" && ok "304 ohne Content-Length/-Type, mit ETag" \
+    || bad "304-Kopf: $(cat "$W/h")"
+curl -s -D "$W/h" -o /dev/null -H 'Accept-Encoding: *' "$U/"
+grep -qi '^Content-Encoding: gzip' "$W/h" && ok "Accept-Encoding *: gepackt" || bad "Accept-Encoding *: $(cat "$W/h")"
+code=$(curl -s -o "$W/plain" -w '%{http_code}' -H 'Accept-Encoding: gzip;q=0, identity' "$U/")
+[ "$code" = 200 ] && cmp -s "$W/plain" web/index.html && ok "gzip;q=0: ungepackt" || bad "gzip;q=0"
 V=$(cat ../VERSION)
 curl -s "$U/api/info" | grep -q "\"version\":\"$V\"" && ok "/api/info meldet Version $V" || bad "Version: $(curl -s "$U/api/info")"
 
@@ -94,6 +119,13 @@ curl -s -o "$W/body" -H 'Content-Type: application/json' -H 'Accept-Language: pt
 grep -q 'El tamaño' "$W/body" && ok "dann Accept-Language: erste unterstützte (es)" || bad "Accept-Language: $(cat "$W/body")"
 post '{"scale_pc":300}' settings >/dev/null
 grep -q 'Size must be' "$W/body" && ok "ohne passende Sprache: Englisch" || bad "Ersatz Englisch: $(cat "$W/body")"
+restart
+post '{"lang":"en"}' settings >/dev/null
+post '{"from":"web"}' quit >/dev/null
+wait $PID 2>/dev/null
+tail -n 2 "$W/log" | grep -q 'USB-Formatierer stopped – via the web UI' \
+    && ok "Sprache zur Laufzeit gewechselt: Benachrichtigung beim Beenden in der neuen" || bad "Beenden-Meldung: $(tail -n 2 "$W/log")"
+start
 
 echo
 [ $fails -eq 0 ] && echo "Alle Format-/Einstellungs-Tests bestanden." || echo "$fails Test(s) fehlgeschlagen."

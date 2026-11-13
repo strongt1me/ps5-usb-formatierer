@@ -101,6 +101,17 @@ __asm__(".section .rodata\n"
         "web_help_html:\n"
         ".incbin \"web/help.html\"\n"
         ".byte 0\n"
+        /* dieselben Seiten mit gzip gepackt (Makefile bzw. test/host_build.sh legen sie an): gut 70 % weniger */
+        ".global web_index_gz\n"
+        "web_index_gz:\n"
+        ".incbin \"build/web/index.html.gz\"\n"
+        ".global web_index_gz_end\n"
+        "web_index_gz_end:\n"
+        ".global web_help_gz\n"
+        "web_help_gz:\n"
+        ".incbin \"build/web/help.html.gz\"\n"
+        ".global web_help_gz_end\n"
+        "web_help_gz_end:\n"
         ".global web_bg_jpg\n"
         "web_bg_jpg:\n"
         ".incbin \"web/bg.jpg\"\n"
@@ -123,6 +134,7 @@ __asm__(".section .rodata\n"
         "web_avatar_png_end:\n"
         ".previous\n");
 extern const char web_index_html[], web_help_html[];
+extern const char web_index_gz[], web_index_gz_end[], web_help_gz[], web_help_gz_end[];
 extern const char web_bg_jpg[], web_bg_jpg_end[];
 extern const char web_page_dark[], web_page_dark_end[], web_page_light[], web_page_light_end[];
 extern const char web_avatar_png[], web_avatar_png_end[];   /* Profilbild des Entwicklers (Fußzeile) */
@@ -1293,15 +1305,17 @@ static void send_all(int c, const char *p, size_t len) {
     }
 }
 
-static void respond_ex(int c, int code, const char *ctype, const char *body, size_t len, const char *cache) {
-    char hdr[1024];
+/* extra: weitere Kopfzeilen, jede mit \r\n abgeschlossen ("" = keine) */
+static void respond_hdr(int c, int code, const char *ctype, const char *body, size_t len, const char *cache,
+                        const char *extra) {
+    char hdr[1280];
     const char *reason = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 204 ? "No Content" : code == 400 ? "Bad Request" :
                          code == 403 ? "Forbidden" : code == 404 ? "Not Found" : code == 405 ? "Method Not Allowed" :
                          code == 409 ? "Conflict" : code == 411 ? "Length Required" :
                          code == 415 ? "Unsupported Media Type" :
                          code == 503 ? "Service Unavailable" : "Error";
     int n = snprintf(hdr, sizeof(hdr),
-                     "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
+                     "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n%s"
                      "Cache-Control: %s\r\nX-Content-Type-Options: nosniff\r\n"
                      "X-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\n"
                      /* nur eigene Inhalte (die Seite ist eine Datei mit eingebettetem Skript/Stil); nach außen nur
@@ -1311,10 +1325,14 @@ static void respond_ex(int c, int code, const char *ctype, const char *body, siz
                      "connect-src 'self' https://api.github.com; "
                      "frame-ancestors 'none'; base-uri 'none'; form-action 'none'\r\n"
                      "Connection: close\r\n\r\n",
-                     code, reason, ctype, len, cache);
+                     code, reason, ctype, len, extra, cache);
     if (n <= 0 || (size_t)n >= sizeof(hdr)) return;   /* nie über den Puffer hinaus senden */
     send_all(c, hdr, (size_t)n);
     send_all(c, body, len);
+}
+
+static void respond_ex(int c, int code, const char *ctype, const char *body, size_t len, const char *cache) {
+    respond_hdr(c, code, ctype, body, len, cache, "");
 }
 
 static void respond(int c, int code, const char *ctype, const char *body, size_t len) {
@@ -1359,6 +1377,61 @@ static int header(const char *hdrs, const char *name, char *out, size_t n) {
         }
     }
     return 0;
+}
+
+/* Weboberfläche bzw. Anleitung: gepackt, wenn der Browser gzip annimmt (Accept-Encoding, nicht mit q=0), und mit
+ * ETag - Cache-Control no-cache: der Browser fragt jedes Mal nach, bekommt aber "304 unverändert" statt der ganzen Seite,
+ * solange sie gleich ist. Das ETag ist die SHA-256 der Seite (einmal beim ersten Abruf berechnet). */
+static int accepts_gzip(const char *hdrs) {
+    char ae[256];
+    if (!header(hdrs, "Accept-Encoding", ae, sizeof(ae))) return 0;
+    for (char *p = ae; *p; p++) *p = (char)tolower((unsigned char)*p);
+    const char *p = strstr(ae, "gzip");
+    if (p) p += 4;
+    else if ((p = strchr(ae, '*'))) p++;   /* "*": jede Kodierung recht */
+    else return 0;
+    while (*p == ' ') p++;
+    if (*p != ';') return 1;
+    const char *q = strstr(p, "q=");
+    return !q || strtod(q + 2, NULL) > 0;
+}
+
+static char page_tags[2][20];   /* ETag (ohne Anführungszeichen) von index.html und help.html */
+
+static void make_page_tags(void) {
+    const char *pages[2] = {web_index_html, web_help_html};
+    for (int i = 0; i < 2; i++) {
+        sha256_t s;
+        uint8_t d[32];
+        char hex[65];
+        sha256_init(&s);
+        sha256_update(&s, pages[i], strlen(pages[i]));
+        sha256_final(&s, d);
+        sha256_hex(d, hex);
+        snprintf(page_tags[i], sizeof(page_tags[i]), "%.16s", hex);
+    }
+}
+
+static void serve_page(int c, const char *hdrs, int help) {
+    static pthread_once_t once = PTHREAD_ONCE_INIT;
+    pthread_once(&once, make_page_tags);
+    const char *html = help ? web_help_html : web_index_html;
+    const char *gz = help ? web_help_gz : web_index_gz, *gz_end = help ? web_help_gz_end : web_index_gz_end;
+    int packed = accepts_gzip(hdrs);
+    char tag[32], inm[256], extra[160];
+    snprintf(tag, sizeof(tag), "\"%s%s\"", page_tags[help], packed ? "-gz" : "");
+    if (header(hdrs, "If-None-Match", inm, sizeof(inm)) && strstr(inm, tag)) {
+        /* 304 ohne Content-Length/-Type: manche Browser übernähmen sie sonst in den gespeicherten Eintrag (0 Bytes) */
+        char hdr[192];
+        int n = snprintf(hdr, sizeof(hdr), "HTTP/1.1 304 Not Modified\r\nETag: %s\r\nVary: Accept-Encoding\r\n"
+                         "Cache-Control: no-cache\r\nConnection: close\r\n\r\n", tag);
+        if (n > 0 && (size_t)n < sizeof(hdr)) send_all(c, hdr, (size_t)n);
+        return;
+    }
+    snprintf(extra, sizeof(extra), "ETag: %s\r\nVary: Accept-Encoding\r\n%s", tag,
+             packed ? "Content-Encoding: gzip\r\n" : "");
+    if (packed) respond_hdr(c, 200, "text/html; charset=utf-8", gz, (size_t)(gz_end - gz), "no-cache", extra);
+    else respond_hdr(c, 200, "text/html; charset=utf-8", html, strlen(html), "no-cache", extra);
 }
 
 /* Host muss eine IPv4-Adresse oder localhost sein (Schutz gegen DNS-Rebinding) */
@@ -1878,6 +1951,14 @@ static void api_history(int c, int clear) {
     free(b.p);
 }
 
+/* Einstellungen als JSON-Objekt (GET /api/settings, auch in /api/status) - unter lock aufrufen */
+static void settings_json(sbuf_t *b) {
+    sb_add(b, "{\"theme\":");
+    sb_str(b, theme);
+    sb_add(b, ",\"scale_tv\":%d,\"scale_pc\":%d,\"lang\":\"%s\",\"system\":\"%s\"}", scale_tv, scale_pc,
+           lang_setting >= 0 ? i18n_code(lang_setting) : "", system_lang >= 0 ? i18n_code(system_lang) : "");
+}
+
 static void api_settings(int c, int is_post, const char *body) {
     if (is_post) {
         /* einzeln oder zusammen: theme (auto|light|dark), scale_tv / scale_pc (50..250 %), lang (de|en|it|es|fr,
@@ -1898,17 +1979,18 @@ static void api_settings(int c, int is_post, const char *body) {
         if (t) theme_set(t);
         if (stv) scale_tv = scale_parse(stv);
         if (spc) scale_pc = scale_parse(spc);
-        if (lg) lang_setting = *lg ? i18n_parse(lg) : -1;
+        if (lg) {
+            lang_setting = *lg ? i18n_parse(lg) : -1;
+            /* auch Meldungen ohne Anfrage (Benachrichtigung beim Beenden, Hintergrund-Threads) in der neuen Sprache */
+            i18n_default(lang_setting >= 0 ? lang_setting : system_lang);
+        }
         int saved = settings_save();
         pthread_mutex_unlock(&lock);
         if (saved != 0) { respond_error(c, 500, "Einstellung ließ sich nicht speichern"); return; }
     }
     sbuf_t b = {0};
     pthread_mutex_lock(&lock);
-    sb_add(&b, "{\"theme\":");
-    sb_str(&b, theme);
-    sb_add(&b, ",\"scale_tv\":%d,\"scale_pc\":%d,\"lang\":\"%s\",\"system\":\"%s\"}", scale_tv, scale_pc,
-           lang_setting >= 0 ? i18n_code(lang_setting) : "", system_lang >= 0 ? i18n_code(system_lang) : "");
+    settings_json(&b);
     pthread_mutex_unlock(&lock);
     respond_json(c, 200, &b);
     free(b.p);
@@ -2112,7 +2194,9 @@ static void api_status(int c) {
     sb_str(&b, st.message);
     sb_add(&b, ",\"cancellable\":%s,\"replug\":%s,\"cancelled\":%s", st.cancellable ? "true" : "false",
            st.replug ? "true" : "false", st.cancelled ? "true" : "false");
-    sb_add(&b, ",\"result\":%s}", st.result[0] ? st.result : "null");
+    sb_add(&b, ",\"result\":%s,\"settings\":", st.result[0] ? st.result : "null");
+    settings_json(&b);   /* eine Abfrage statt zwei: die Weboberfläche gleicht damit auch die Einstellungen ab */
+    sb_add(&b, "}");
     pthread_mutex_unlock(&lock);
     respond_json(c, 200, &b);
     free(b.p);
@@ -6595,9 +6679,9 @@ static void handle(int c) {
     }
 
     if (strcmp(path, "/") == 0 && is_get)
-        respond(c, 200, "text/html; charset=utf-8", web_index_html, strlen(web_index_html));
+        serve_page(c, req, 0);
     else if (strcmp(path, "/help") == 0 && is_get)   /* Anleitung in fünf Sprachen (Sprache: ?lang=xx) */
-        respond(c, 200, "text/html; charset=utf-8", web_help_html, strlen(web_help_html));
+        serve_page(c, req, 1);
     else if (strcmp(path, "/avatar.png") == 0 && is_get)
         respond_ex(c, 200, "image/png", web_avatar_png, (size_t)(web_avatar_png_end - web_avatar_png), "max-age=86400");
     else if (strcmp(path, "/bg.jpg") == 0 && is_get)
