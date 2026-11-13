@@ -48,8 +48,9 @@
  *   Sprache der Antworten und Meldungen: ?lang=de|en|it|es|fr an jeder Adresse, sonst die gespeicherte Wahl,
  *   sonst die Systemsprache der PS5, sonst Accept-Language, sonst Englisch. Ein Auftrag meldet sich in der Sprache
  *   der Anfrage, die ihn gestartet hat.
- *   POST /api/diag       Darstellungsbericht der Seite ablegen; GET liefert {"tv":"...","pc":"..."}
- *                         sowie "quits" (letzte Stopp-Befehle ohne Adresse) und "klog" (auffällige Kernel-Log-Zeilen)
+ *   POST /api/diag       Darstellungsbericht der Seite ablegen; GET liefert {"tv":"...","pc":"..."} sowie "quits"
+ *                         (letzte Stopp-Befehle ohne Adresse), "ends" (wie Läufe ohne Stopp-Befehl endeten) und "klog"
+ *                         (auffällige Kernel-Log-Zeilen, null ohne klogsrv)
  *   POST /api/quit       Server beenden
  */
 #include <ctype.h>
@@ -2114,6 +2115,22 @@ static void diag_logs(sbuf_t *b) {
     for (int i = nq > 5 ? nq - 5 : 0, first = 1; i < nq; i++, first = 0) {
         if (!first) sb_add(b, ",");
         sb_str(b, quits[i % 5]);
+    }
+    /* wie die letzten Läufe ohne Stopp-Befehl endeten (main.c, note_last_end) */
+    sb_add(b, "],\"ends\":[");
+    char ends[5][400];
+    int ne = 0;
+    snprintf(path, sizeof(path), "%s/ends.log", plat_data_dir());
+    if ((f = fopen(path, "r"))) {
+        while (fgets(line, sizeof(line), f)) {
+            line[strcspn(line, "\r\n")] = 0;
+            if (line[0]) snprintf(ends[ne++ % 5], sizeof(ends[0]), "%s", line);
+        }
+        fclose(f);
+    }
+    for (int i = ne > 5 ? ne - 5 : 0, first = 1; i < ne; i++, first = 0) {
+        if (!first) sb_add(b, ",");
+        sb_str(b, ends[i % 5]);
     }
     sb_add(b, "],\"klog\":");
     char *k = malloc(DIAG_KLOG);

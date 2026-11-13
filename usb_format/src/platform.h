@@ -88,6 +88,10 @@ const char *plat_saves_dir(void);
  * ohne sie Deutsch) */
 int  plat_system_lang(void);
 
+/* Startzeit des Systems (Unix-Sekunden, kern.boottime); 0 = unbekannt (Host: USBFMT_BOOTTIME). Unterscheidet beim
+ * nächsten Start "PS5 neu gestartet" von "Formatierer abgestürzt". */
+long long plat_boot_time(void);
+
 /* Firmware der PS5 als "9.00"; leer, wenn unbekannt (Host: USBFMT_FW) */
 void plat_fw_version(char *out, size_t n);
 

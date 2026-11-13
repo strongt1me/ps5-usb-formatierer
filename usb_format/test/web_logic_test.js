@@ -238,6 +238,24 @@ const flush = () => new Promise(r => setImmediate(r));
   const lt = run("lastJobText(jobHistory[2]) + '|' + lastJobText(jobHistory[1])");
   ok("Zuletzt: Text mit Dateisystem / abgebrochen", /^Zuletzt: Formatieren \(exFAT\), .+\|Zuletzt: Tempo messen – abgebrochen, /.test(lt), lt);
 
+  // --------------------------------------------------------------- Diagnose-Bericht: Stopps, unerwartete Enden, Kernel-Log
+  run(grab("async function showDiagReport("));
+  const diagText = async diag => {
+    const elOld = ctx.el;
+    Object.assign(ctx, { navigator: { userAgent: "Test" }, el: (...a) => Object.assign(elOld(...a), { style: {} }),
+      api: async p => p === "/api/diag" ? diag : null });
+    dialogs = []; dialogAnswer = "no";
+    await run("showDiagReport()");
+    ctx.el = elOld; dialogAnswer = "yes";
+    return dialogs.length ? dialogs[0].extra.value : "";
+  };
+  let dt = await diagText({ quits: [], ends: ["2026-11-13 01:53:36  2.6.67  ended: PS5 restarted or switched off  (noticed x)"],
+                            klog: null });
+  ok("Diagnose: unerwartete Enden im Bericht",
+     dt.includes("\nUnexpected ends:\n  2026-11-13 01:53:36  2.6.67  ended: PS5 restarted or switched off  (noticed x)"), dt);
+  dt = await diagText({ quits: [], ends: [], klog: [] });
+  ok("Diagnose: keine unerwarteten Enden", dt.includes("\nUnexpected ends:\n  none logged"), dt);
+
   console.log(fails ? `${fails} Test(s) fehlgeschlagen.` : "Alle Web-Logik-Tests bestanden.");
   process.exit(fails ? 1 : 0);
 })();

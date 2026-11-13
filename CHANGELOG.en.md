@@ -6,6 +6,10 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+### Added
+
+- Diagnostic report: if the formatter ended without a stop command, the next start detects why – the PS5 was restarted or switched off, went into rest mode or had its clock set, or the formatter crashed or was killed (section "Unexpected ends", also in `tools/ps5_deploy.py status`).
+
 ## [2.6.67] – 2026-11-13
 
 ### Changed

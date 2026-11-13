@@ -318,6 +318,12 @@ int plat_system_lang(void) {
     return i18n_parse(s ? s : "de");
 }
 
+/* nachgebildete Startzeit: USBFMT_BOOTTIME (Unix-Sekunden), ohne sie unbekannt */
+long long plat_boot_time(void) {
+    const char *s = getenv("USBFMT_BOOTTIME");
+    return s ? strtoll(s, NULL, 10) : 0;
+}
+
 int plat_open_browser(const char *url, char *err, size_t errlen) {
     (void)err; (void)errlen;
     printf("[Browser] %s\n", url);

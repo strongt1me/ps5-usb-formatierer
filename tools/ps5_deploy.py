@@ -233,16 +233,19 @@ def last_line(f, path):
 
 
 def stopped_state(f):
-    """Port 8090 ist zu - warum? Der Formatierer legt beim Start /data/usb_format/running an (Startzeit, Version) und
-    löscht sie beim sauberen Ende; jedes /api/quit steht in quit.log (Zeit, Adresse, Absender)."""
+    """Port 8090 ist zu - warum? Der Formatierer legt beim Start /data/usb_format/running an (Startzeit, Version,
+    Startzeit der PS5) und löscht sie beim sauberen Ende; jedes /api/quit steht in quit.log (Zeit, Adresse, Absender).
+    Wie ein Lauf ohne Stopp-Befehl endete, hält der nächste Start in ends.log fest."""
     running = last_line(f, f"{DATA_REMOTE}/running")
     quit_line = last_line(f, f"{DATA_REMOTE}/quit.log")
     if not running:
         return "läuft nicht (Port 8090 zu)"
     started = running[:19]
-    if quit_line[:19] >= started:   # gleiche Uhr (PS5), gleiches Format: als Text vergleichbar
+    if quit_line[:19] > started:   # gleiche Uhr (PS5), gleiches Format: als Text vergleichbar
         return f"beendet sich gerade (Port 8090 schon zu) - Stopp-Befehl: {quit_line}"
-    return f"Port 8090 zu, aber nicht sauber beendet (gestartet {running}, seitdem kein Stopp-Befehl) - abgestürzt?"
+    run = running.split("  boot ")[0].split("  pid ")[0]   # Startzeit/Prozessnummer der PS5 nur für note_last_end()
+    return (f"Port 8090 zu, aber nicht sauber beendet (gestartet {run}, seitdem kein Stopp-Befehl) - PS5 neu gestartet "
+            f"oder abgestürzt? Der nächste Start schreibt es nach ends.log")
 
 
 def cmd_status(host):
@@ -258,6 +261,8 @@ def cmd_status(host):
     say(f"Spiele/Apps:  {', '.join(titles) if titles else 'keine laufen'}")
     last = last_line(f, f"{DATA_REMOTE}/quit.log")   # wer den Formatierer zuletzt beendet hat (/api/quit)
     say(f"Zuletzt beendet: {last or 'nicht protokolliert'}")
+    end = last_line(f, f"{DATA_REMOTE}/ends.log")   # letzter Lauf ohne Stopp-Befehl: Neustart der PS5 oder Absturz
+    say(f"Unerwartet beendet: {end or 'nichts protokolliert'}")
     diff = [(rel, data, remote) for rel, data, remote in compare(f, local_app()) if remote != data]
     f.quit()
     say("App-Ordner:   " + ("gleich wie der Bau" if not diff else

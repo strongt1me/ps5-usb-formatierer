@@ -6,6 +6,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Diagnosebericht: Endete der Formatierer ohne Stopp-Befehl, erkennt der nächste Start, warum – PS5 neu gestartet oder ausgeschaltet, Ruhemodus bzw. Uhr gestellt, oder abgestürzt bzw. von außen beendet (Abschnitt „Unexpected ends“, auch in `tools/ps5_deploy.py status`).
+
 ## [2.6.67] – 2026-11-13
 
 ### Geändert

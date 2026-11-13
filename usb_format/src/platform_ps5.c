@@ -130,6 +130,14 @@ int plat_system_lang(void) {
     }
 }
 
+/* Startzeit der PS5. FreeBSD verschiebt sie, wenn die Uhr gestellt wird (auch nach dem Ruhemodus) */
+long long plat_boot_time(void) {
+    struct timeval tv;
+    size_t len = sizeof(tv);
+    if (sysctlbyname("kern.boottime", &tv, &len, NULL, 0) != 0 || len != sizeof(tv)) return 0;
+    return (long long)tv.tv_sec;
+}
+
 int plat_open_browser(const char *url, char *err, size_t errlen) {
     typedef int (*fn_usinit_t)(void *);
     typedef int (*fn_browser_t)(const char *, void *);

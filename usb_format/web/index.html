@@ -3548,6 +3548,12 @@ async function showDiagReport() {
     if (!diag.quits.length) L.push("  none logged");
     for (const q of diag.quits) L.push("  " + q);
   }
+  /* Läufe, die ohne Stopp-Befehl endeten: beim nächsten Start erkannt (Neustart der PS5 oder Absturz) */
+  if (diag && diag.ends) {
+    L.push("", "Unexpected ends:");
+    if (!diag.ends.length) L.push("  none logged");
+    for (const e of diag.ends) L.push("  " + e);
+  }
   if (diag && "klog" in diag) {
     L.push("", "Kernel log:");
     if (!diag.klog) L.push("  not reachable (klogsrv)");
