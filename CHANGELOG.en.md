@@ -6,6 +6,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+## [2.6.67] – 2026-11-13
+
 ### Changed
 
 - PS5 app: a language chosen in the app stays set again (in 2.6.66 it only applied until the next start); without a choice the PS5 system language applies, otherwise English.
@@ -866,7 +868,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 - The app launcher tears down the sandbox cleanly.
 
-[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.66...HEAD
+[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.67...HEAD
+[2.6.67]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.67
 [2.6.66]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.66
 [2.6.65]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.65
 [2.6.64]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.64
