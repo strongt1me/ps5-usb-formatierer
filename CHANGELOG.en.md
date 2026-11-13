@@ -6,6 +6,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+## [2.6.68] – 2026-11-13
+
 ### Added
 
 - Diagnostic report: if the formatter ended without a stop command, the next start detects why – the PS5 was restarted or switched off, went into rest mode or had its clock set, or the formatter crashed or was killed (section "Unexpected ends", also in `tools/ps5_deploy.py status`).
@@ -872,7 +874,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 - The app launcher tears down the sandbox cleanly.
 
-[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.67...HEAD
+[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.68...HEAD
+[2.6.68]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.68
 [2.6.67]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.67
 [2.6.66]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.66
 [2.6.65]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.65
