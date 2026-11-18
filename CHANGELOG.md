@@ -6,6 +6,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Quelle für den PS5 Payload Manager von itsPLK: `https://raw.githubusercontent.com/strongt1me/ps5-usb-formatierer/main/payloads.json` unter Settings → Manage Sources → Add Source eintragen, dann lässt sich die ELF dort laden und aktualisieren (mit SHA-256-Prüfung).
+
 ## [2.6.68] – 2026-11-13
 
 ### Hinzugefügt

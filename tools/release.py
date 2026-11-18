@@ -9,6 +9,7 @@ README-Bilder erneuern - und erst mit --publish einchecken, taggen, hochladen un
 Die Änderungen stehen vorher im Abschnitt "Unveröffentlicht" von CHANGELOG.md und "Unreleased" von CHANGELOG.en.md
 (tools/changelog.py prüft beide). Beim Veröffentlichen werden sie zur neuen Version; der Text des GitHub-Releases entsteht
 daraus (deutsch, Englisch aufklappbar) samt Abschnitt "Aktualisieren" - --notes fügt nur freien Zusatztext ein.
+payloads.json (Quelle für den Payload Manager) bekommt dabei Adresse, Version, Datum und Prüfsumme der neuen ELF.
 
 Die Windows-Programme und die Linux-Fassungen (Archive und AppImages, x86_64 und aarch64) baut und hängt die CI an
 das Release (release: published), danach die SHA256SUMS (checksums.yml). Die eigene PS5 danach mit
@@ -241,8 +242,25 @@ def changelog_ready(version):
         fail("CHANGELOG.md und CHANGELOG.en.md: Unveröffentlicht hat nicht dieselben Rubriken")
 
 
+PAYLOADS = os.path.join(ROOT, "payloads.json")   # Quelle für den Payload Manager von itsPLK
+PAYLOAD_ID = "usb-formatierer"
+
+
+def update_payloads(version, elf, date):
+    """payloads.json auf die neue ELF stellen: Adresse mit festem Tag, Version, Datum und SHA-256 der hochgeladenen Datei
+    (der Payload Manager prüft jeden Download damit - eine "latest"-Adresse passte nach dem nächsten Release nicht mehr)"""
+    data = json.loads(read(PAYLOADS))
+    item = next((p for p in data.get("payloads", []) if p.get("id") == PAYLOAD_ID), None)
+    if item is None:
+        fail(f"payloads.json: Eintrag {PAYLOAD_ID} fehlt")
+    item.update(url=f"https://github.com/{REPO}/releases/download/v{version}/usb_format.elf", version=f"v{version}",
+                last_update=date, checksum=hashlib.sha256(elf).hexdigest())
+    write(PAYLOADS, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
 # was der Release-Commit enthalten darf - alles andere gehört in einen eigenen Commit davor
-RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md", "CHANGELOG.en.md")
+RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md", "CHANGELOG.en.md",
+                 "payloads.json")
 
 
 def publish(version, title, notes, message):
@@ -272,6 +290,8 @@ def publish(version, title, notes, message):
         if errors:
             fail("Changelog nach dem Eintragen fehlerhaft: " + "; ".join(errors))
         print(f"Unveröffentlicht -> {version} ({date}) in CHANGELOG.md und CHANGELOG.en.md")
+        update_payloads(version, open(files[1], "rb").read(), date)
+        print(f"payloads.json -> v{version}")
         step("Einchecken, Tag, Push")
         run(["git", "add", "-A"])
         if message:
@@ -336,7 +356,8 @@ def wait_release(version, timeout=40 * 60, retries=2):
         if "SHA256SUMS" in have:
             r = subprocess.run(["gh", "release", "download", tag, "--repo", REPO, "-p", "SHA256SUMS", "-O", "-"],
                                capture_output=True, text=True, encoding="utf-8")
-            listed = {ln.split("  ", 1)[1].strip() for ln in r.stdout.splitlines() if "  " in ln}
+            sums = {ln.split("  ", 1)[1].strip(): ln.split("  ", 1)[0] for ln in r.stdout.splitlines() if "  " in ln}
+            listed = set(sums)
         unlisted = [n for n in EXPECTED_ASSETS if n != "SHA256SUMS" and n not in listed]
         if not missing and not unlisted:
             break
@@ -348,6 +369,11 @@ def wait_release(version, timeout=40 * 60, retries=2):
         print("SHA256SUMS nennt nicht: " + ", ".join(unlisted))
         return False
     print(f"Alle {len(EXPECTED_ASSETS)} erwarteten Dateien hängen am Release.")
+    item = next((p for p in json.loads(read(PAYLOADS))["payloads"] if p.get("id") == PAYLOAD_ID), {})
+    if item.get("version") != tag or item.get("checksum") != sums.get("usb_format.elf"):
+        print("payloads.json passt nicht zur usb_format.elf des Releases (Version oder Prüfsumme)")
+        return False
+    print("payloads.json passt zur usb_format.elf des Releases.")
     return True
 
 

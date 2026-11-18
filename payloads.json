@@ -1,0 +1,19 @@
+{
+  "name": "strongt1me",
+  "payloads": [
+    {
+      "id": "usb-formatierer",
+      "name": "USB Formatter",
+      "filename": "usb_format.elf",
+      "url": "https://github.com/strongt1me/ps5-usb-formatierer/releases/download/v2.6.68/usb_format.elf",
+      "description": "Format USB sticks and drives directly on the PS5 (exFAT with 64 KB, ideal for ShadowMountPlus, and all common file systems). Web interface with authenticity and speed tests, image backup and game management.",
+      "version": "v2.6.68",
+      "last_update": "2026-11-13",
+      "category": "Tools",
+      "checksum": "ab5d02f14114deb4b9c466236a7ec213bf527dae1490277dee7ae12e1343b6d7",
+      "author": "strongt1me",
+      "details_url": "https://raw.githubusercontent.com/strongt1me/ps5-usb-formatierer/main/README.md",
+      "source": "https://github.com/strongt1me/ps5-usb-formatierer/releases"
+    }
+  ]
+}
