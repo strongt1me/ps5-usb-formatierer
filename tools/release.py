@@ -4,12 +4,13 @@ README-Bilder erneuern - und erst mit --publish einchecken, taggen, hochladen un
     python tools/release.py 2.5.12                       vorbereiten (Version, Bauen, Prüfen, Bilder), nichts einchecken
     python tools/release.py 2.5.12 --title "Kurztext" --publish --skip-build --skip-images
                                                          danach: Changelog schneiden, Commit, Tag, Push, Release mit
-                                                         ELF und Kachel-ZIP
+                                                         ELF, Kachel-ZIP und payload-manager.json
 
 Die Änderungen stehen vorher im Abschnitt "Unveröffentlicht" von CHANGELOG.md und "Unreleased" von CHANGELOG.en.md
 (tools/changelog.py prüft beide). Beim Veröffentlichen werden sie zur neuen Version; der Text des GitHub-Releases entsteht
 daraus (deutsch, Englisch aufklappbar) samt Abschnitt "Aktualisieren" - --notes fügt nur freien Zusatztext ein.
-payloads.json (Quelle für den Payload Manager) bekommt dabei Adresse, Version, Datum und Prüfsumme der neuen ELF.
+payload-manager.json (Quelle für den Payload Manager) entsteht dabei mit Adresse, Version, Datum und Prüfsumme der
+neuen ELF und hängt am Release.
 
 Die Windows-Programme und die Linux-Fassungen (Archive und AppImages, x86_64 und aarch64) baut und hängt die CI an
 das Release (release: published), danach die SHA256SUMS (checksums.yml). Die eigene PS5 danach mit
@@ -242,25 +243,34 @@ def changelog_ready(version):
         fail("CHANGELOG.md und CHANGELOG.en.md: Unveröffentlicht hat nicht dieselben Rubriken")
 
 
-PAYLOADS = os.path.join(ROOT, "payloads.json")   # Quelle für den Payload Manager von itsPLK
-PAYLOAD_ID = "usb-formatierer"
+PAYLOAD_MANAGER = "payload-manager.json"   # Quelle für den Payload Manager von itsPLK, hängt an jedem Release:
+# https://github.com/strongt1me/ps5-usb-formatierer/releases/latest/download/payload-manager.json
 
 
-def update_payloads(version, elf, date):
-    """payloads.json auf die neue ELF stellen: Adresse mit festem Tag, Version, Datum und SHA-256 der hochgeladenen Datei
-    (der Payload Manager prüft jeden Download damit - eine "latest"-Adresse passte nach dem nächsten Release nicht mehr)"""
-    data = json.loads(read(PAYLOADS))
-    item = next((p for p in data.get("payloads", []) if p.get("id") == PAYLOAD_ID), None)
-    if item is None:
-        fail(f"payloads.json: Eintrag {PAYLOAD_ID} fehlt")
-    item.update(url=f"https://github.com/{REPO}/releases/download/v{version}/usb_format.elf", version=f"v{version}",
-                last_update=date, checksum=hashlib.sha256(elf).hexdigest())
-    write(PAYLOADS, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+def payload_manager_json(version, elf, date):
+    """Inhalt von payload-manager.json: ELF mit fester Tag-Adresse, Version, Datum und SHA-256 der hochgeladenen Datei
+    (der Payload Manager prüft jeden Download damit)"""
+    item = {
+        "id": "usb-formatierer",   # bleibt über Versionen gleich: Favoriten und Autoload hängen daran
+        "name": "USB Formatter",
+        "filename": "usb_format.elf",
+        "url": f"https://github.com/{REPO}/releases/download/v{version}/usb_format.elf",
+        "description": "Format USB sticks and drives directly on the PS5 (exFAT with 64 KB, ideal for ShadowMountPlus, "
+                       "and all common file systems). Web interface with authenticity and speed tests, image backup and "
+                       "game management.",
+        "version": f"v{version}",
+        "last_update": date,
+        "category": "Utilities & Tools",
+        "checksum": hashlib.sha256(elf).hexdigest(),
+        "author": "strongt1me",
+        "details_url": f"https://raw.githubusercontent.com/{REPO}/main/README.md",
+        "source": f"https://github.com/{REPO}/releases",
+    }
+    return json.dumps({"name": "USB Formatter", "payloads": [item]}, indent=2, ensure_ascii=False) + "\n"
 
 
 # was der Release-Commit enthalten darf - alles andere gehört in einen eigenen Commit davor
-RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md", "CHANGELOG.en.md",
-                 "payloads.json")
+RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md", "CHANGELOG.en.md")
 
 
 def publish(version, title, notes, message):
@@ -290,8 +300,9 @@ def publish(version, title, notes, message):
         if errors:
             fail("Changelog nach dem Eintragen fehlerhaft: " + "; ".join(errors))
         print(f"Unveröffentlicht -> {version} ({date}) in CHANGELOG.md und CHANGELOG.en.md")
-        update_payloads(version, open(files[1], "rb").read(), date)
-        print(f"payloads.json -> v{version}")
+        pm = os.path.join(out, PAYLOAD_MANAGER)
+        write(pm, payload_manager_json(version, open(files[1], "rb").read(), date))
+        files.append(pm)
         step("Einchecken, Tag, Push")
         run(["git", "add", "-A"])
         if message:
@@ -311,7 +322,7 @@ def publish(version, title, notes, message):
 
 
 # Dateien, die nach den CI-Läufen am Release hängen müssen
-EXPECTED_ASSETS = ["usb_format.elf", "PPSA86920.zip", "SHA256SUMS", "PS5-USB-Formatierer.exe", "USB-Formatierer.exe"] + [
+EXPECTED_ASSETS = ["usb_format.elf", "PPSA86920.zip", PAYLOAD_MANAGER, "SHA256SUMS", "PS5-USB-Formatierer.exe", "USB-Formatierer.exe"] + [
     f"{n}-{a}.AppImage{z}" for n in ("PS5-USB-Formatierer", "USB-Formatierer") for a in ("x86_64", "aarch64")
     for z in ("", ".zsync")] + [
     f"{n}-linux-{a}.tar.gz" for n in ("PS5-USB-Formatierer", "USB-Formatierer") for a in ("x86_64", "aarch64")]
@@ -369,11 +380,16 @@ def wait_release(version, timeout=40 * 60, retries=2):
         print("SHA256SUMS nennt nicht: " + ", ".join(unlisted))
         return False
     print(f"Alle {len(EXPECTED_ASSETS)} erwarteten Dateien hängen am Release.")
-    item = next((p for p in json.loads(read(PAYLOADS))["payloads"] if p.get("id") == PAYLOAD_ID), {})
-    if item.get("version") != tag or item.get("checksum") != sums.get("usb_format.elf"):
-        print("payloads.json passt nicht zur usb_format.elf des Releases (Version oder Prüfsumme)")
+    r = subprocess.run(["gh", "release", "download", tag, "--repo", REPO, "-p", PAYLOAD_MANAGER, "-O", "-"],
+                       capture_output=True, text=True, encoding="utf-8")
+    try:
+        item = json.loads(r.stdout)["payloads"][0]
+    except (ValueError, KeyError, IndexError):
+        item = {}
+    if item.get("version") != tag or item.get("checksum") != sums.get("usb_format.elf") or tag not in item.get("url", ""):
+        print(f"{PAYLOAD_MANAGER} passt nicht zur usb_format.elf des Releases (Version, Adresse oder Prüfsumme)")
         return False
-    print("payloads.json passt zur usb_format.elf des Releases.")
+    print(f"{PAYLOAD_MANAGER} passt zur usb_format.elf des Releases.")
     return True
 
 
