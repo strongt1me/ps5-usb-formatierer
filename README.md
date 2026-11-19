@@ -10,6 +10,7 @@ With authenticity and speed tests, image backup, game management, all common fil
 [![Version](https://img.shields.io/badge/Version-2.6.71-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
+[![Firmware](https://img.shields.io/badge/Firmware-1.00%20%E2%80%93%2014.22-8250df?style=for-the-badge)](#-download)
 [![Languages](https://img.shields.io/badge/Languages-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-features)
 
 [Features](#-features) · [Download](#-download) · [Quick start](#-quick-start) · [Screenshots](#-screenshots) · [Building](#-building) · [Licences](#-licences)
@@ -165,7 +166,7 @@ All files are in the [latest release](../../releases/latest). What changed in ea
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | The same Linux programs as an archive: unpack and start (also as `aarch64`). |
 | `SHA256SUMS` | **Checksums of all files** to check the downloads: `sha256sum -c --ignore-missing SHA256SUMS` (Windows: `certutil -hashfile <file> SHA256`). |
 
-**Requirements:** a PS5 with a running jailbreak and ELF loader (tested with firmware 12.00); ShadowMountPlus for the app tile and for deleting games. Windows 10 or 11 (64-bit); for formatting on the PC, Windows asks once for administrator rights. Linux (x86_64 or ARM64): for formatting, the system asks for the administrator password (pkexec/polkit); NTFS, FAT16 and ext are written by the system tools from `ntfs-3g`, `dosfstools` and `e2fsprogs`.
+**Requirements:** a PS5 with a running jailbreak and ELF loader (firmware 1.00 to 14.22 thanks to PS5 Payload SDK 0.50, tested with 12.00); ShadowMountPlus for the app tile and for deleting games. Windows 10 or 11 (64-bit); for formatting on the PC, Windows asks once for administrator rights. Linux (x86_64 or ARM64): for formatting, the system asks for the administrator password (pkexec/polkit); NTFS, FAT16 and ext are written by the system tools from `ntfs-3g`, `dosfstools` and `e2fsprogs`.
 
 ## 🚀 Quick start
 

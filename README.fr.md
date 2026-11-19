@@ -10,6 +10,7 @@ Avec test d'authenticité et de vitesse, sauvegarde image, gestion des jeux, tou
 [![Version](https://img.shields.io/badge/Version-2.6.71-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plateforme](https://img.shields.io/badge/Plateforme-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-téléchargement)
+[![Firmware](https://img.shields.io/badge/Firmware-1.00%20%E2%80%93%2014.22-8250df?style=for-the-badge)](#-téléchargement)
 [![Langues](https://img.shields.io/badge/Langues-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-fonctions)
 
 [Fonctions](#-fonctions) · [Téléchargement](#-téléchargement) · [Démarrage rapide](#-démarrage-rapide) · [Aperçus](#-aperçus) · [Compiler](#-compiler) · [Licences](#-licences)
@@ -165,7 +166,7 @@ Tous les fichiers se trouvent dans la [dernière version](../../releases/latest)
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | Les mêmes programmes Linux en archive : décompresser et lancer (aussi en `aarch64`). |
 | `SHA256SUMS` | **Sommes de contrôle de tous les fichiers** pour vérifier les téléchargements : `sha256sum -c --ignore-missing SHA256SUMS` (Windows : `certutil -hashfile <fichier> SHA256`). |
 
-**Prérequis :** une PS5 avec un jailbreak actif et un chargeur ELF (testé avec le firmware 12.00) ; ShadowMountPlus pour la vignette de l'app et la suppression des jeux. Windows 10 ou 11 (64 bits) ; pour formater sur le PC, Windows demande une fois les droits d'administrateur. Linux (x86_64 ou ARM64) : pour formater, le système demande le mot de passe administrateur (pkexec/polkit) ; NTFS, FAT16 et ext sont écrits par les outils système de `ntfs-3g`, `dosfstools` et `e2fsprogs`.
+**Prérequis :** une PS5 avec un jailbreak actif et un chargeur ELF (firmware 1.00 à 14.22 grâce au PS5 Payload SDK 0.50, testé avec 12.00) ; ShadowMountPlus pour la vignette de l'app et la suppression des jeux. Windows 10 ou 11 (64 bits) ; pour formater sur le PC, Windows demande une fois les droits d'administrateur. Linux (x86_64 ou ARM64) : pour formater, le système demande le mot de passe administrateur (pkexec/polkit) ; NTFS, FAT16 et ext sont écrits par les outils système de `ntfs-3g`, `dosfstools` et `e2fsprogs`.
 
 ## 🚀 Démarrage rapide
 

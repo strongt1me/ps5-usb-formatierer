@@ -10,6 +10,7 @@ Mit Echtheits- und Tempotest, Image-Sicherung, Spieleverwaltung, allen gängigen
 [![Version](https://img.shields.io/badge/Version-2.6.71-185fa5?style=for-the-badge)](../../releases/latest)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plattform](https://img.shields.io/badge/Plattform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
+[![Firmware](https://img.shields.io/badge/Firmware-1.00%20%E2%80%93%2014.22-8250df?style=for-the-badge)](#-download)
 [![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funktionen)
 
 [Funktionen](#-funktionen) · [Download](#-download) · [Schnellstart](#-schnellstart) · [Ansichten](#-ansichten) · [Selbst bauen](#-selbst-bauen) · [Lizenzen](#-lizenzen)
@@ -165,7 +166,7 @@ Alle Dateien gibt es beim [neuesten Release](../../releases/latest). Was sich in
 | `PS5-USB-Formatierer-linux-x86_64.tar.gz`<br>`USB-Formatierer-linux-x86_64.tar.gz` | Dieselben Linux-Programme als Archiv: entpacken und starten (auch als `aarch64`). |
 | `SHA256SUMS` | **Prüfsummen aller Dateien** zum Kontrollieren der Downloads: `sha256sum -c --ignore-missing SHA256SUMS` (Windows: `certutil -hashfile <Datei> SHA256`). |
 
-**Voraussetzungen:** PS5 mit laufendem Jailbreak und ELF-Loader (getestet mit Firmware 12.00), für die App-Kachel und das Löschen von Spielen ShadowMountPlus. Windows 10 oder 11 (64 Bit); zum Formatieren am PC fragt Windows einmal nach Administratorrechten. Linux (x86_64 oder ARM64): zum Formatieren fragt das System nach dem Administrator-Passwort (pkexec/polkit); NTFS, FAT16 und ext schreiben die Systemwerkzeuge aus `ntfs-3g`, `dosfstools` und `e2fsprogs`.
+**Voraussetzungen:** PS5 mit laufendem Jailbreak und ELF-Loader (Firmware 1.00 bis 14.22 dank PS5-Payload-SDK 0.50, getestet mit 12.00), für die App-Kachel und das Löschen von Spielen ShadowMountPlus. Windows 10 oder 11 (64 Bit); zum Formatieren am PC fragt Windows einmal nach Administratorrechten. Linux (x86_64 oder ARM64): zum Formatieren fragt das System nach dem Administrator-Passwort (pkexec/polkit); NTFS, FAT16 und ext schreiben die Systemwerkzeuge aus `ntfs-3g`, `dosfstools` und `e2fsprogs`.
 
 ## 🚀 Schnellstart
 
