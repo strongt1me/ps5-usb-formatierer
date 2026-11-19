@@ -2249,12 +2249,6 @@
   "es": "La subida se interrumpió",
   "fr": "L'envoi a été interrompu"
  },
- "Spielstand wird zurückgeschrieben …": {
-  "en": "Writing save game back …",
-  "it": "Scrittura del salvataggio …",
-  "es": "Escribiendo la partida …",
-  "fr": "Écriture de la sauvegarde …"
- },
  "Wiederherstellen fehlgeschlagen": {
   "en": "Restore failed",
   "it": "Ripristino non riuscito",
@@ -2285,53 +2279,11 @@
   "es": "Ya hay una operación de partidas en curso",
   "fr": "Une opération sur les sauvegardes est déjà en cours"
  },
- "Spielstand konnte nicht geöffnet werden: %s": {
-  "en": "Save game could not be opened: %s",
-  "it": "Impossibile aprire il salvataggio: %s",
-  "es": "No se pudo abrir la partida: %s",
-  "fr": "La sauvegarde n'a pas pu être ouverte : %s"
- },
- "Der Spielstand hat eine ungültige Größe": {
-  "en": "The save game has an invalid size",
-  "it": "Il salvataggio ha una dimensione non valida",
-  "es": "La partida tiene un tamaño no válido",
-  "fr": "La sauvegarde a une taille invalide"
- },
  "Spielstand konnte nicht gelesen werden": {
   "en": "Save game could not be read",
   "it": "Impossibile leggere il salvataggio",
   "es": "No se pudo leer la partida",
   "fr": "La sauvegarde n'a pas pu être lue"
- },
- "Keine gültige Spielstand-ZIP-Datei": {
-  "en": "Not a valid save game ZIP file",
-  "it": "Non è un file ZIP di salvataggio valido",
-  "es": "No es un archivo ZIP de partida válido",
-  "fr": "Ce n'est pas un fichier ZIP de sauvegarde valide"
- },
- "Datei konnte nicht geöffnet werden: %s": {
-  "en": "File could not be opened: %s",
-  "it": "Impossibile aprire il file: %s",
-  "es": "No se pudo abrir el archivo: %s",
-  "fr": "Le fichier n'a pas pu être ouvert : %s"
- },
- "metadata.json fehlt im ZIP oder ist ungültig": {
-  "en": "metadata.json is missing from the ZIP or invalid",
-  "it": "metadata.json manca nello ZIP o non è valido",
-  "es": "metadata.json falta en el ZIP o no es válido",
-  "fr": "metadata.json est absent du ZIP ou invalide"
- },
- "Die Angaben in metadata.json sind unvollständig oder ungültig": {
-  "en": "The data in metadata.json is incomplete or invalid",
-  "it": "I dati in metadata.json sono incompleti o non validi",
-  "es": "Los datos de metadata.json están incompletos o no son válidos",
-  "fr": "Les données de metadata.json sont incomplètes ou invalides"
- },
- "Container (%s) fehlt im ZIP": {
-  "en": "Container (%s) is missing from the ZIP",
-  "it": "Il contenitore (%s) manca nello ZIP",
-  "es": "Falta el contenedor (%s) en el ZIP",
-  "fr": "Le conteneur (%s) est absent du ZIP"
  },
  "Der Benutzer %s ist auf dieser PS5 nicht vorhanden": {
   "en": "User %s does not exist on this PS5",
@@ -2345,12 +2297,6 @@
   "es": "Ruta demasiado larga",
   "fr": "Chemin trop long"
  },
- "Ziel ist keine Datei": {
-  "en": "Target is not a file",
-  "it": "La destinazione non è un file",
-  "es": "El destino no es un archivo",
-  "fr": "La destination n'est pas un fichier"
- },
  "Zieldatei konnte nicht angelegt werden: %s": {
   "en": "Target file could not be created: %s",
   "it": "Impossibile creare il file di destinazione: %s",
@@ -2362,12 +2308,6 @@
   "it": "Errore di scrittura: %s",
   "es": "Error de escritura: %s",
   "fr": "Erreur d'écriture : %s"
- },
- "Prüfsumme des Spielstands stimmt nicht – die ZIP-Datei ist beschädigt": {
-  "en": "The save game checksum does not match – the ZIP file is damaged",
-  "it": "Il checksum del salvataggio non corrisponde – il file ZIP è danneggiato",
-  "es": "La suma de comprobación de la partida no coincide – el archivo ZIP está dañado",
-  "fr": "La somme de contrôle de la sauvegarde ne correspond pas – le fichier ZIP est endommagé"
  },
  "Sichern fehlgeschlagen": {
   "en": "Backup failed",
@@ -2405,23 +2345,11 @@
   "es": "Ninguna partida seleccionada",
   "fr": "Aucune sauvegarde sélectionnée"
  },
- "Zusammen zu groß für eine ZIP-Datei (höchstens 3,7 GB) – weniger Spielstände wählen": {
-  "en": "Too large together for one ZIP file (max 3.7 GB) – select fewer save games",
-  "it": "Troppo grandi insieme per un file ZIP (max 3,7 GB) – seleziona meno salvataggi",
-  "es": "Demasiado grandes juntas para un archivo ZIP (máx. 3,7 GB) – elige menos partidas",
-  "fr": "Trop volumineuses ensemble pour un fichier ZIP (max 3,7 Go) – choisissez moins de sauvegardes"
- },
  "Schreibfehler: Datenträger voll oder nicht beschreibbar": {
   "en": "Write error: drive full or not writable",
   "it": "Errore di scrittura: unità piena o non scrivibile",
   "es": "Error de escritura: unidad llena o de solo lectura",
   "fr": "Erreur d'écriture : support plein ou protégé en écriture"
- },
- "Zu viele Spielstände in einer ZIP-Datei (höchstens 64)": {
-  "en": "Too many save games in one ZIP file (max 64)",
-  "it": "Troppi salvataggi in un file ZIP (max 64)",
-  "es": "Demasiadas partidas en un archivo ZIP (máx. 64)",
-  "fr": "Trop de sauvegardes dans un fichier ZIP (max 64)"
  },
  "%d von %d Spielständen wiederhergestellt, dann Fehler: %s": {
   "en": "%d of %d save games restored, then an error: %s",
@@ -2470,48 +2398,6 @@
   "it": "Annullato – ripristinati: %d.",
   "es": "Cancelado – restauradas: %d.",
   "fr": "Annulé – restaurées : %d."
- },
- "Die Schlüsseldatei des PS4-Spielstands konnte nicht gelesen werden": {
-  "en": "The PS4 save game's key file could not be read",
-  "it": "Impossibile leggere il file chiave del salvataggio PS4",
-  "es": "No se pudo leer el archivo de clave de la partida de PS4",
-  "fr": "Le fichier de clé de la sauvegarde PS4 n'a pas pu être lu"
- },
- "Konsole in metadata.json und Container passen nicht zusammen": {
-  "en": "The console in metadata.json does not match the container",
-  "it": "La console in metadata.json non corrisponde al contenitore",
-  "es": "La consola de metadata.json no coincide con el contenedor",
-  "fr": "La console dans metadata.json ne correspond pas au conteneur"
- },
- "Die Schlüsseldatei des PS4-Spielstands fehlt im ZIP": {
-  "en": "The PS4 save game's key file is missing from the ZIP",
-  "it": "Il file chiave del salvataggio PS4 manca nello ZIP",
-  "es": "Falta el archivo de clave de la partida de PS4 en el ZIP",
-  "fr": "Le fichier de clé de la sauvegarde PS4 est absent du ZIP"
- },
- "Die Schlüsseldatei des PS4-Spielstands konnte nicht geschrieben werden": {
-  "en": "The PS4 save game's key file could not be written",
-  "it": "Impossibile scrivere il file chiave del salvataggio PS4",
-  "es": "No se pudo escribir el archivo de clave de la partida de PS4",
-  "fr": "Le fichier de clé de la sauvegarde PS4 n'a pas pu être écrit"
- },
- "Ungültige Zeitangabe": {
-  "en": "Invalid time",
-  "it": "Ora non valida",
-  "es": "Hora no válida",
-  "fr": "Heure invalide"
- },
- "Zeitstempel konnte nicht gesetzt werden: %s": {
-  "en": "Timestamp could not be set: %s",
-  "it": "Impossibile impostare l'orario: %s",
-  "es": "No se pudo establecer la marca de tiempo: %s",
-  "fr": "L'horodatage n'a pas pu être défini : %s"
- },
- "key und mtime erforderlich": {
-  "en": "key and mtime required",
-  "it": "key e mtime obbligatori",
-  "es": "Se requieren key y mtime",
-  "fr": "key et mtime requis"
  },
  "%ld Sek.": {
   "en": "%ld s",
@@ -2956,12 +2842,6 @@
   "it": "Eliminato solo in parte – il resto rimane, elimina di nuovo (%s)",
   "es": "Borrado solo en parte – el resto permanece, vuelve a borrar (%s)",
   "fr": "Supprimé en partie seulement – le reste demeure, supprimez à nouveau (%s)"
- },
- "key_mtime ungültig": {
-  "en": "key_mtime invalid",
-  "it": "key_mtime non valido",
-  "es": "key_mtime no válido",
-  "fr": "key_mtime invalide"
  },
  "Die Teilkopie bleibt erhalten: dieselbe Auswahl erneut kopieren setzt fort.": {
   "en": "The partial copy is kept: copying the same selection again resumes it.",
@@ -3430,5 +3310,947 @@
   "it": "ID titolo non valido",
   "es": "ID de título no válido",
   "fr": "ID de titre non valide"
+ },
+ "Spielstand-Datenbank": {
+  "en": "Save database",
+  "it": "Database dei salvataggi",
+  "es": "Base de datos de partidas guardadas",
+  "fr": "Base de données des sauvegardes"
+ },
+ "Die Spielstand-Datenbank hat einen anderen Aufbau als erwartet; sie wurde nicht verändert.": {
+  "en": "The save database has a different structure than expected; it was not changed.",
+  "it": "Il database dei salvataggi ha una struttura diversa da quella prevista; non è stato modificato.",
+  "es": "La base de datos de partidas guardadas tiene una estructura distinta de la esperada; no se ha modificado.",
+  "fr": "La base de données des sauvegardes a une structure différente de celle attendue ; elle n'a pas été modifiée."
+ },
+ "Der Ordner der Spielstand-Datenbank fehlt; es wurde nichts angelegt.": {
+  "en": "The save database folder is missing; nothing was created.",
+  "it": "Manca la cartella del database dei salvataggi; non è stato creato nulla.",
+  "es": "Falta la carpeta de la base de datos de partidas guardadas; no se ha creado nada.",
+  "fr": "Le dossier de la base de données des sauvegardes est absent ; rien n'a été créé."
+ },
+ "Die Spielstand-Datenbank ließ sich nicht öffnen": {
+  "en": "The save database could not be opened",
+  "it": "Impossibile aprire il database dei salvataggi",
+  "es": "No se pudo abrir la base de datos de partidas guardadas",
+  "fr": "Impossible d'ouvrir la base de données des sauvegardes"
+ },
+ "Die Spielstand-Datenbank ließ sich nicht anlegen: %s": {
+  "en": "The save database could not be created: %s",
+  "it": "Impossibile creare il database dei salvataggi: %s",
+  "es": "No se pudo crear la base de datos de partidas guardadas: %s",
+  "fr": "Impossible de créer la base de données des sauvegardes : %s"
+ },
+ "Die Spielstand-Datenbank ist gerade gesperrt: %s": {
+  "en": "The save database is currently locked: %s",
+  "it": "Il database dei salvataggi è attualmente bloccato: %s",
+  "es": "La base de datos de partidas guardadas está bloqueada en este momento: %s",
+  "fr": "La base de données des sauvegardes est actuellement verrouillée : %s"
+ },
+ "Der Eintrag in der Spielstand-Datenbank ließ sich nicht ändern": {
+  "en": "The entry in the save database could not be changed",
+  "it": "Impossibile modificare la voce nel database dei salvataggi",
+  "es": "No se pudo modificar la entrada en la base de datos de partidas guardadas",
+  "fr": "Impossible de modifier l'entrée dans la base de données des sauvegardes"
+ },
+ "Der Eintrag in der Spielstand-Datenbank ließ sich nicht anlegen": {
+  "en": "The entry in the save database could not be created",
+  "it": "Impossibile creare la voce nel database dei salvataggi",
+  "es": "No se pudo crear la entrada en la base de datos de partidas guardadas",
+  "fr": "Impossible de créer l'entrée dans la base de données des sauvegardes"
+ },
+ "Die Spielstand-Datenbank ließ sich nicht speichern: %s": {
+  "en": "The save database could not be saved: %s",
+  "it": "Impossibile salvare il database dei salvataggi: %s",
+  "es": "No se pudo guardar la base de datos de partidas guardadas: %s",
+  "fr": "Impossible d'enregistrer la base de données des sauvegardes : %s"
+ },
+ "Die Sicherung der Spielstand-Datenbank gibt es schon.": {
+  "en": "The backup of the save database already exists.",
+  "it": "Il backup del database dei salvataggi esiste già.",
+  "es": "La copia de seguridad de la base de datos de partidas guardadas ya existe.",
+  "fr": "La copie de secours de la base de données des sauvegardes existe déjà."
+ },
+ "Die Sicherung der Spielstand-Datenbank ließ sich nicht anlegen": {
+  "en": "The backup of the save database could not be created",
+  "it": "Impossibile creare il backup del database dei salvataggi",
+  "es": "No se pudo crear la copia de seguridad de la base de datos de partidas guardadas",
+  "fr": "Impossible de créer la copie de secours de la base de données des sauvegardes"
+ },
+ "Die Spielstand-Datenbank ließ sich nicht sichern": {
+  "en": "The save database could not be backed up",
+  "it": "Impossibile eseguire il backup del database dei salvataggi",
+  "es": "No se pudo hacer una copia de seguridad de la base de datos de partidas guardadas",
+  "fr": "Impossible de faire une copie de secours de la base de données des sauvegardes"
+ },
+ "Die Prüfung der Spielstand-Datenbank meldet: %.200s": {
+  "en": "The save database check reports: %.200s",
+  "it": "Il controllo del database dei salvataggi segnala: %.200s",
+  "es": "La comprobación de la base de datos de partidas guardadas indica: %.200s",
+  "fr": "La vérification de la base de données des sauvegardes signale : %.200s"
+ },
+ "Die Spielstand-Datenbank ließ sich nicht prüfen": {
+  "en": "The save database could not be checked",
+  "it": "Impossibile controllare il database dei salvataggi",
+  "es": "No se pudo comprobar la base de datos de partidas guardadas",
+  "fr": "Impossible de vérifier la base de données des sauvegardes"
+ },
+ "Die Spielstand-Datenbank ließ sich nicht lesen": {
+  "en": "The save database could not be read",
+  "it": "Impossibile leggere il database dei salvataggi",
+  "es": "No se pudo leer la base de datos de partidas guardadas",
+  "fr": "Impossible de lire la base de données des sauvegardes"
+ },
+ "Das ist kein PS4-Spielstand.": {
+  "en": "This is not a PS4 save.",
+  "it": "Questo non è un salvataggio PS4.",
+  "es": "Esto no es una partida guardada de PS4.",
+  "fr": "Ce n'est pas une sauvegarde PS4."
+ },
+ "Das ist kein PS5-Spielstand.": {
+  "en": "This is not a PS5 save.",
+  "it": "Questo non è un salvataggio PS5.",
+  "es": "Esto no es una partida guardada de PS5.",
+  "fr": "Ce n'est pas une sauvegarde PS5."
+ },
+ "Die Konsole hat den Spielstand nicht eingehängt (Antwort 0x%x).": {
+  "en": "The console did not mount the save (response 0x%x).",
+  "it": "La console non ha montato il salvataggio (risposta 0x%x).",
+  "es": "La consola no ha montado la partida guardada (respuesta 0x%x).",
+  "fr": "La console n'a pas monté la sauvegarde (réponse 0x%x)."
+ },
+ "Die Konsole hat den Spielstand nicht sauber ausgehängt (Antwort 0x%x).": {
+  "en": "The console did not unmount the save cleanly (response 0x%x).",
+  "it": "La console non ha smontato correttamente il salvataggio (risposta 0x%x).",
+  "es": "La consola no ha desmontado correctamente la partida guardada (respuesta 0x%x).",
+  "fr": "La console n'a pas démonté proprement la sauvegarde (réponse 0x%x)."
+ },
+ "Die Konsole konnte das neue Abbild nicht formatieren (Antwort 0x%x).": {
+  "en": "The console could not format the new image (response 0x%x).",
+  "it": "La console non è riuscita a formattare la nuova immagine (risposta 0x%x).",
+  "es": "La consola no pudo formatear la nueva imagen (respuesta 0x%x).",
+  "fr": "La console n'a pas pu formater la nouvelle image (réponse 0x%x)."
+ },
+ "Das neue Abbild ließ sich nicht anlegen (Fehler %d).": {
+  "en": "The new image could not be created (error %d).",
+  "it": "Impossibile creare la nuova immagine (errore %d).",
+  "es": "No se pudo crear la nueva imagen (error %d).",
+  "fr": "Impossible de créer la nouvelle image (erreur %d)."
+ },
+ "Die Größe des neuen Abbilds ist ungültig.": {
+  "en": "The size of the new image is invalid.",
+  "it": "La dimensione della nuova immagine non è valida.",
+  "es": "El tamaño de la nueva imagen no es válido.",
+  "fr": "La taille de la nouvelle image n'est pas valide."
+ },
+ "Die Konsole beantwortet die Frage nach den Metadaten des Spielstands nicht (Fehler %d;%s)": {
+  "en": "The console does not answer the request for the save's metadata (error %d;%s)",
+  "it": "La console non risponde alla richiesta dei metadati del salvataggio (errore %d;%s)",
+  "es": "La consola no responde a la solicitud de los metadatos de la partida guardada (error %d;%s)",
+  "fr": "La console ne répond pas à la demande des métadonnées de la sauvegarde (erreur %d;%s)"
+ },
+ "Die Konsole stellt das Einhängen von Spielständen nicht bereit (Funktionen in %s nicht gefunden).": {
+  "en": "The console does not provide mounting of saves (functions in %s not found).",
+  "it": "La console non mette a disposizione il montaggio dei salvataggi (funzioni in %s non trovate).",
+  "es": "La consola no ofrece el montaje de partidas guardadas (funciones en %s no encontradas).",
+  "fr": "La console ne propose pas le montage des sauvegardes (fonctions dans %s introuvables)."
+ },
+ "Die Rechte für den Spielstand-Dienst ließen sich nicht setzen (läuft der Formatierer über den Jailbreak?).": {
+  "en": "The permissions for the save service could not be set (is the formatter running via the jailbreak?).",
+  "it": "Impossibile impostare i permessi per il servizio dei salvataggi (il formattatore è avviato tramite il jailbreak?).",
+  "es": "No se pudieron establecer los permisos para el servicio de partidas guardadas (¿se ejecuta el formateador a través del jailbreak?).",
+  "fr": "Impossible de définir les droits pour le service des sauvegardes (le formateur est-il lancé via le jailbreak ?)."
+ },
+ "Der versiegelte Schlüssel des Spielstands ließ sich nicht lesen (Fehler %d).": {
+  "en": "The save's sealed key could not be read (error %d).",
+  "it": "Impossibile leggere la chiave sigillata del salvataggio (errore %d).",
+  "es": "No se pudo leer la clave sellada de la partida guardada (error %d).",
+  "fr": "Impossible de lire la clé scellée de la sauvegarde (erreur %d)."
+ },
+ "Die Konsole lässt /dev/pfsmgr nicht öffnen (Fehler %d).": {
+  "en": "The console does not allow opening /dev/pfsmgr (error %d).",
+  "it": "La console non consente di aprire /dev/pfsmgr (errore %d).",
+  "es": "La consola no permite abrir /dev/pfsmgr (error %d).",
+  "fr": "La console ne permet pas d'ouvrir /dev/pfsmgr (erreur %d)."
+ },
+ "Die Konsole konnte den Schlüssel des Spielstands nicht öffnen (Antwort %d, Fehler %d).": {
+  "en": "The console could not open the save's key (response %d, error %d).",
+  "it": "La console non è riuscita ad aprire la chiave del salvataggio (risposta %d, errore %d).",
+  "es": "La consola no pudo abrir la clave de la partida guardada (respuesta %d, error %d).",
+  "fr": "La console n'a pas pu ouvrir la clé de la sauvegarde (réponse %d, erreur %d)."
+ },
+ "Die Abbild-Datei des Spielstands fehlt.": {
+  "en": "The save's image file is missing.",
+  "it": "Manca il file immagine del salvataggio.",
+  "es": "Falta el archivo de imagen de la partida guardada.",
+  "fr": "Le fichier image de la sauvegarde est absent."
+ },
+ "Die Konsole hat einen Rest eines früheren Einhängens nicht gelöst (Antwort 0x%x).": {
+  "en": "The console did not release a leftover from an earlier mount (response 0x%x).",
+  "it": "La console non ha rilasciato un residuo di un montaggio precedente (risposta 0x%x).",
+  "es": "La consola no ha liberado un resto de un montaje anterior (respuesta 0x%x).",
+  "fr": "La console n'a pas libéré un reste d'un montage précédent (réponse 0x%x)."
+ },
+ "Die Konsole stellt das Anlegen von Spielstand-Abbildern nicht bereit (Funktionen in %s nicht gefunden).": {
+  "en": "The console does not provide creation of save images (functions in %s not found).",
+  "it": "La console non mette a disposizione la creazione di immagini di salvataggio (funzioni in %s non trovate).",
+  "es": "La consola no ofrece la creación de imágenes de partidas guardadas (funciones en %s no encontradas).",
+  "fr": "La console ne propose pas la création d'images de sauvegarde (fonctions dans %s introuvables)."
+ },
+ "Die Konsole konnte den Platz für das neue Abbild nicht anlegen (Antwort 0x%x, Fehler %d).": {
+  "en": "The console could not allocate the space for the new image (response 0x%x, error %d).",
+  "it": "La console non è riuscita ad allocare lo spazio per la nuova immagine (risposta 0x%x, errore %d).",
+  "es": "La consola no pudo reservar el espacio para la nueva imagen (respuesta 0x%x, error %d).",
+  "fr": "La console n'a pas pu réserver l'espace pour la nouvelle image (réponse 0x%x, erreur %d)."
+ },
+ "Die Konsole konnte keinen Schlüssel für das neue Abbild erzeugen.": {
+  "en": "The console could not generate a key for the new image.",
+  "it": "La console non è riuscita a generare una chiave per la nuova immagine.",
+  "es": "La consola no pudo generar una clave para la nueva imagen.",
+  "fr": "La console n'a pas pu générer de clé pour la nouvelle image."
+ },
+ "Die Konsole konnte den neuen Schlüssel nicht öffnen.": {
+  "en": "The console could not open the new key.",
+  "it": "La console non è riuscita ad aprire la nuova chiave.",
+  "es": "La consola no pudo abrir la nueva clave.",
+  "fr": "La console n'a pas pu ouvrir la nouvelle clé."
+ },
+ "Kein Gerät der Konsole für die Metadaten des Spielstands ließ sich öffnen (Fehler %d;%s)": {
+  "en": "None of the console's devices for the save's metadata could be opened (error %d;%s)",
+  "it": "Non è stato possibile aprire nessun dispositivo della console per i metadati del salvataggio (errore %d;%s)",
+  "es": "No se pudo abrir ningún dispositivo de la consola para los metadatos de la partida guardada (error %d;%s)",
+  "fr": "Aucun périphérique de la console pour les métadonnées de la sauvegarde n'a pu être ouvert (erreur %d;%s)"
+ },
+ "Die Metadaten des Spielstands haben ein unbekanntes Format (Version %u, Größe %u).": {
+  "en": "The save's metadata has an unknown format (version %u, size %u).",
+  "it": "I metadati del salvataggio hanno un formato sconosciuto (versione %u, dimensione %u).",
+  "es": "Los metadatos de la partida guardada tienen un formato desconocido (versión %u, tamaño %u).",
+  "fr": "Les métadonnées de la sauvegarde ont un format inconnu (version %u, taille %u)."
+ },
+ "Von einem früheren Versuch ist noch ein Spielstand eingehängt, und die Konsole lässt ihn nicht los. %s Die PS5 neu starten, dann geht es wieder.": {
+  "en": "A save from an earlier attempt is still mounted, and the console will not release it. %s Restart the PS5, then it will work again.",
+  "it": "Un salvataggio di un tentativo precedente è ancora montato e la console non lo rilascia. %s Riavvia la PS5, poi funzionerà di nuovo.",
+  "es": "Una partida guardada de un intento anterior sigue montada y la consola no la libera. %s Reinicia la PS5 y volverá a funcionar.",
+  "fr": "Une sauvegarde d'une tentative précédente est encore montée et la console ne la libère pas. %s Redémarrez la PS5, cela fonctionnera de nouveau."
+ },
+ "Im Arbeitsordner liegt noch ein Rest eines früheren Versuchs (%s). Die PS5 neu starten, dann geht es wieder.": {
+  "en": "The working folder still contains a leftover from an earlier attempt (%s). Restart the PS5, then it will work again.",
+  "it": "Nella cartella di lavoro è rimasto un residuo di un tentativo precedente (%s). Riavvia la PS5, poi funzionerà di nuovo.",
+  "es": "En la carpeta de trabajo queda un resto de un intento anterior (%s). Reinicia la PS5 y volverá a funcionar.",
+  "fr": "Le dossier de travail contient encore un reste d'une tentative précédente (%s). Redémarrez la PS5, cela fonctionnera de nouveau."
+ },
+ "Die Abbild-Datei des Spielstands gibt es nicht (mehr).": {
+  "en": "The save's image file does not exist (any more).",
+  "it": "Il file immagine del salvataggio non esiste (più).",
+  "es": "El archivo de imagen de la partida guardada no existe (ya).",
+  "fr": "Le fichier image de la sauvegarde n'existe pas (ou plus)."
+ },
+ "Die Abbild-Datei ließ sich nicht lesen (%s).": {
+  "en": "The image file could not be read (%s).",
+  "it": "Impossibile leggere il file immagine (%s).",
+  "es": "No se pudo leer el archivo de imagen (%s).",
+  "fr": "Impossible de lire le fichier image (%s)."
+ },
+ "Das ist kein Spielstand, den sich übertragen lässt (nur PS4- und PS5-Spielstände).": {
+  "en": "This is not a save that can be transferred (only PS4 and PS5 saves).",
+  "it": "Questo non è un salvataggio trasferibile (solo salvataggi PS4 e PS5).",
+  "es": "Esta no es una partida guardada que se pueda transferir (solo partidas de PS4 y PS5).",
+  "fr": "Ce n'est pas une sauvegarde transférable (uniquement les sauvegardes PS4 et PS5)."
+ },
+ "Zum Spielstand gehört die Schlüsseldatei (%s.bin) nicht oder sie ist nicht lesbar (%s).": {
+  "en": "The save's key file (%s.bin) is missing or not readable (%s).",
+  "it": "Il file chiave del salvataggio (%s.bin) manca o non è leggibile (%s).",
+  "es": "Falta el archivo de clave de la partida guardada (%s.bin) o no se puede leer (%s).",
+  "fr": "Le fichier de clé de la sauvegarde (%s.bin) est absent ou illisible (%s)."
+ },
+ "Auf der internen Platte ist zu wenig Platz: gebraucht werden etwa %llu MB, frei sind %llu MB.": {
+  "en": "Not enough space on the internal drive: about %llu MB are needed, %llu MB are free.",
+  "it": "Spazio insufficiente sul disco interno: servono circa %llu MB, liberi %llu MB.",
+  "es": "No hay suficiente espacio en el disco interno: se necesitan unos %llu MB, hay %llu MB libres.",
+  "fr": "Espace insuffisant sur le disque interne : il faut environ %llu Mo, %llu Mo sont libres."
+ },
+ "Der Spielstand hat sich beim Kopieren geändert. Läuft ein Spiel? Es noch einmal versuchen, wenn keines läuft.": {
+  "en": "The save changed while it was being copied. Is a game running? Try again when no game is running.",
+  "it": "Il salvataggio è cambiato durante la copia. È in esecuzione un gioco? Riprova quando non è in esecuzione nessun gioco.",
+  "es": "La partida guardada cambió durante la copia. ¿Hay un juego en marcha? Vuelve a intentarlo cuando no haya ninguno en marcha.",
+  "fr": "La sauvegarde a changé pendant la copie. Un jeu est-il en cours ? Réessayez quand aucun jeu n'est en cours."
+ },
+ "Das Abbild ließ sich nicht kopieren: %s": {
+  "en": "The image could not be copied: %s",
+  "it": "Impossibile copiare l'immagine: %s",
+  "es": "No se pudo copiar la imagen: %s",
+  "fr": "Impossible de copier l'image : %s"
+ },
+ "Die Metadaten (param.sfo) im Kopf des Abbilds sind nicht lesbar.": {
+  "en": "The metadata (param.sfo) in the image header is not readable.",
+  "it": "I metadati (param.sfo) nell'intestazione dell'immagine non sono leggibili.",
+  "es": "Los metadatos (param.sfo) de la cabecera de la imagen no se pueden leer.",
+  "fr": "Les métadonnées (param.sfo) dans l'en-tête de l'image sont illisibles."
+ },
+ "Der Einhängeordner ließ sich nicht anlegen: %s": {
+  "en": "The mount folder could not be created: %s",
+  "it": "Impossibile creare la cartella di montaggio: %s",
+  "es": "No se pudo crear la carpeta de montaje: %s",
+  "fr": "Impossible de créer le dossier de montage : %s"
+ },
+ "Der Spielstand hat mehr als %u Dateien und Ordner: so viele lassen sich nicht übertragen.": {
+  "en": "The save has more than %u files and folders: that many cannot be transferred.",
+  "it": "Il salvataggio contiene più di %u file e cartelle: non è possibile trasferirne così tanti.",
+  "es": "La partida guardada tiene más de %u archivos y carpetas: no se pueden transferir tantos.",
+  "fr": "La sauvegarde contient plus de %u fichiers et dossiers : il n'est pas possible d'en transférer autant."
+ },
+ "Ein Name im Spielstand lässt sich nicht in eine ZIP-Datei übernehmen: %s": {
+  "en": "A name in the save cannot be stored in a ZIP file: %s",
+  "it": "Un nome nel salvataggio non può essere inserito in un file ZIP: %s",
+  "es": "Un nombre de la partida guardada no se puede incluir en un archivo ZIP: %s",
+  "fr": "Un nom dans la sauvegarde ne peut pas être repris dans un fichier ZIP : %s"
+ },
+ "Eine Datei im Spielstand ist zu groß für eine ZIP-Datei (%s).": {
+  "en": "A file in the save is too large for a ZIP file (%s).",
+  "it": "Un file nel salvataggio è troppo grande per un file ZIP (%s).",
+  "es": "Un archivo de la partida guardada es demasiado grande para un archivo ZIP (%s).",
+  "fr": "Un fichier de la sauvegarde est trop volumineux pour un fichier ZIP (%s)."
+ },
+ "Der Spielstand ließ sich nicht durchsehen (%s): %s": {
+  "en": "The save could not be scanned (%s): %s",
+  "it": "Impossibile esaminare il salvataggio (%s): %s",
+  "es": "No se pudo recorrer la partida guardada (%s): %s",
+  "fr": "Impossible de parcourir la sauvegarde (%s) : %s"
+ },
+ "Der Spielstand ist mit %llu MB zu groß für eine ZIP-Datei.": {
+  "en": "At %llu MB, the save is too large for a ZIP file.",
+  "it": "Con %llu MB il salvataggio è troppo grande per un file ZIP.",
+  "es": "Con %llu MB, la partida guardada es demasiado grande para un archivo ZIP.",
+  "fr": "Avec %llu Mo, la sauvegarde est trop volumineuse pour un fichier ZIP."
+ },
+ "Auf der internen Platte ist zu wenig Platz für die Dateien des Spielstands (gebraucht werden etwa %llu MB, frei sind %llu MB).": {
+  "en": "Not enough space on the internal drive for the save's files (about %llu MB are needed, %llu MB are free).",
+  "it": "Spazio insufficiente sul disco interno per i file del salvataggio (servono circa %llu MB, liberi %llu MB).",
+  "es": "No hay suficiente espacio en el disco interno para los archivos de la partida guardada (se necesitan unos %llu MB, hay %llu MB libres).",
+  "fr": "Espace insuffisant sur le disque interne pour les fichiers de la sauvegarde (il faut environ %llu Mo, %llu Mo sont libres)."
+ },
+ "Der Zwischenordner ließ sich nicht anlegen.": {
+  "en": "The temporary folder could not be created.",
+  "it": "Impossibile creare la cartella temporanea.",
+  "es": "No se pudo crear la carpeta temporal.",
+  "fr": "Impossible de créer le dossier temporaire."
+ },
+ "Ein Ordner des Spielstands ließ sich nicht anlegen (%s): %s": {
+  "en": "A folder of the save could not be created (%s): %s",
+  "it": "Impossibile creare una cartella del salvataggio (%s): %s",
+  "es": "No se pudo crear una carpeta de la partida guardada (%s): %s",
+  "fr": "Impossible de créer un dossier de la sauvegarde (%s) : %s"
+ },
+ "Eine Datei des Spielstands hat sich beim Lesen geändert (%s).": {
+  "en": "A file of the save changed while it was being read (%s).",
+  "it": "Un file del salvataggio è cambiato durante la lettura (%s).",
+  "es": "Un archivo de la partida guardada cambió durante la lectura (%s).",
+  "fr": "Un fichier de la sauvegarde a changé pendant la lecture (%s)."
+ },
+ "Eine Datei des Spielstands ließ sich nicht lesen (%s): %s": {
+  "en": "A file of the save could not be read (%s): %s",
+  "it": "Impossibile leggere un file del salvataggio (%s): %s",
+  "es": "No se pudo leer un archivo de la partida guardada (%s): %s",
+  "fr": "Impossible de lire un fichier de la sauvegarde (%s) : %s"
+ },
+ "%s Der Spielstand wurde nicht verändert; bitte die PS5 neu starten, bevor es noch einmal versucht wird.": {
+  "en": "%s The save was not changed; please restart the PS5 before trying again.",
+  "it": "%s Il salvataggio non è stato modificato; riavvia la PS5 prima di riprovare.",
+  "es": "%s La partida guardada no se ha modificado; reinicia la PS5 antes de volver a intentarlo.",
+  "fr": "%s La sauvegarde n'a pas été modifiée ; veuillez redémarrer la PS5 avant de réessayer."
+ },
+ "Der Ordner sce_sys ließ sich nicht anlegen.": {
+  "en": "The sce_sys folder could not be created.",
+  "it": "Impossibile creare la cartella sce_sys.",
+  "es": "No se pudo crear la carpeta sce_sys.",
+  "fr": "Impossible de créer le dossier sce_sys."
+ },
+ "Die Metadaten ließen sich nicht schreiben: %s": {
+  "en": "The metadata could not be written: %s",
+  "it": "Impossibile scrivere i metadati: %s",
+  "es": "No se pudieron escribir los metadatos: %s",
+  "fr": "Impossible d'écrire les métadonnées : %s"
+ },
+ "Zu viele Dateien.": {
+  "en": "Too many files.",
+  "it": "Troppi file.",
+  "es": "Demasiados archivos.",
+  "fr": "Trop de fichiers."
+ },
+ "Dem Spielstand fehlen die Metadaten (param.sfo): ohne sie lässt er sich später nicht einspielen. Antwort der Konsole: %s": {
+  "en": "The save is missing its metadata (param.sfo): without it, the save cannot be imported later. Console response: %s",
+  "it": "Al salvataggio mancano i metadati (param.sfo): senza di essi non potrà essere importato in seguito. Risposta della console: %s",
+  "es": "A la partida guardada le faltan los metadatos (param.sfo): sin ellos no se podrá importar más adelante. Respuesta de la consola: %s",
+  "fr": "Il manque à la sauvegarde ses métadonnées (param.sfo) : sans elles, elle ne pourra pas être importée plus tard. Réponse de la console : %s"
+ },
+ "Dem Spielstand fehlen die Metadaten (param.sfo): ohne sie lässt er sich später nicht einspielen.": {
+  "en": "The save is missing its metadata (param.sfo): without it, the save cannot be imported later.",
+  "it": "Al salvataggio mancano i metadati (param.sfo): senza di essi non potrà essere importato in seguito.",
+  "es": "A la partida guardada le faltan los metadatos (param.sfo): sin ellos no se podrá importar más adelante.",
+  "fr": "Il manque à la sauvegarde ses métadonnées (param.sfo) : sans elles, elle ne pourra pas être importée plus tard."
+ },
+ "Die Metadaten stammen aus dem Spielstand selbst: Die Konsole gab die aus dem Kopf des Abbilds nicht heraus (%.300s).": {
+  "en": "The metadata comes from the save itself: the console did not provide the metadata from the image header (%.300s).",
+  "it": "I metadati provengono dal salvataggio stesso: la console non ha fornito quelli dell'intestazione dell'immagine (%.300s).",
+  "es": "Los metadatos proceden de la propia partida guardada: la consola no entregó los de la cabecera de la imagen (%.300s).",
+  "fr": "Les métadonnées proviennent de la sauvegarde elle-même : la console n'a pas fourni celles de l'en-tête de l'image (%.300s)."
+ },
+ "Die Beschreibung des Abbilds (chives.json) ließ sich nicht erzeugen.": {
+  "en": "The image description (chives.json) could not be generated.",
+  "it": "Impossibile generare la descrizione dell'immagine (chives.json).",
+  "es": "No se pudo generar la descripción de la imagen (chives.json).",
+  "fr": "Impossible de générer la description de l'image (chives.json)."
+ },
+ "%s Bitte die PS5 neu starten, bevor es noch einmal versucht wird.": {
+  "en": "%s Please restart the PS5 before trying again.",
+  "it": "%s Riavvia la PS5 prima di riprovare.",
+  "es": "%s Reinicia la PS5 antes de volver a intentarlo.",
+  "fr": "%s Veuillez redémarrer la PS5 avant de réessayer."
+ },
+ "Der Spielstand ließ sich nicht auslesen.": {
+  "en": "The save could not be read out.",
+  "it": "Impossibile leggere il salvataggio.",
+  "es": "No se pudo leer la partida guardada.",
+  "fr": "Impossible de lire la sauvegarde."
+ },
+ "Der Spielstand ist zu groß für eine ZIP-Datei.": {
+  "en": "The save is too large for a ZIP file.",
+  "it": "Il salvataggio è troppo grande per un file ZIP.",
+  "es": "La partida guardada es demasiado grande para un archivo ZIP.",
+  "fr": "La sauvegarde est trop volumineuse pour un fichier ZIP."
+ },
+ "Eine Datei hat sich beim Verpacken geändert.": {
+  "en": "A file changed while it was being packed.",
+  "it": "Un file è cambiato durante la compressione.",
+  "es": "Un archivo cambió durante el empaquetado.",
+  "fr": "Un fichier a changé pendant la compression."
+ },
+ "Die ZIP-Datei ließ sich nicht schreiben: %s": {
+  "en": "The ZIP file could not be written: %s",
+  "it": "Impossibile scrivere il file ZIP: %s",
+  "es": "No se pudo escribir el archivo ZIP: %s",
+  "fr": "Impossible d'écrire le fichier ZIP : %s"
+ },
+ "Zusammen zu groß für eine ZIP-Datei (höchstens 3,5 GB) – weniger Spielstände wählen": {
+  "en": "Too large together for one ZIP file (at most 3.5 GB) – select fewer saves",
+  "it": "Troppo grandi insieme per un file ZIP (al massimo 3,5 GB) – seleziona meno salvataggi",
+  "es": "Demasiado grandes juntas para un archivo ZIP (como máximo 3,5 GB) – selecciona menos partidas",
+  "fr": "Trop volumineuses ensemble pour un fichier ZIP (3,5 Go au maximum) – sélectionnez moins de sauvegardes"
+ },
+ "In der ZIP-Datei fehlt sce_sys/param.sfo.": {
+  "en": "The ZIP file is missing sce_sys/param.sfo.",
+  "it": "Nel file ZIP manca sce_sys/param.sfo.",
+  "es": "Al archivo ZIP le falta sce_sys/param.sfo.",
+  "fr": "Le fichier ZIP ne contient pas sce_sys/param.sfo."
+ },
+ "Das param.sfo der ZIP-Datei ist leer oder nicht lesbar. Bei Spielständen neuerer Firmware liegt es nur im Abbildkopf, den die App nicht erzeugen kann.": {
+  "en": "The param.sfo in the ZIP file is empty or not readable. For saves from newer firmware it is only stored in the image header, which the app cannot create.",
+  "it": "Il param.sfo del file ZIP è vuoto o non leggibile. Nei salvataggi dei firmware più recenti si trova solo nell'intestazione dell'immagine, che l'app non può generare.",
+  "es": "El param.sfo del archivo ZIP está vacío o no se puede leer. En las partidas guardadas de firmware más reciente solo está en la cabecera de la imagen, que la app no puede generar.",
+  "fr": "Le param.sfo du fichier ZIP est vide ou illisible. Pour les sauvegardes d'un firmware plus récent, il se trouve uniquement dans l'en-tête de l'image, que l'app ne peut pas générer."
+ },
+ "Die ZIP-Datei enthält keine Dateien des Spielstands.": {
+  "en": "The ZIP file contains no files of the save.",
+  "it": "Il file ZIP non contiene file del salvataggio.",
+  "es": "El archivo ZIP no contiene archivos de la partida guardada.",
+  "fr": "Le fichier ZIP ne contient aucun fichier de la sauvegarde."
+ },
+ "Die ZIP-Datei enthält mehr als %u Dateien.": {
+  "en": "The ZIP file contains more than %u files.",
+  "it": "Il file ZIP contiene più di %u file.",
+  "es": "El archivo ZIP contiene más de %u archivos.",
+  "fr": "Le fichier ZIP contient plus de %u fichiers."
+ },
+ "Der Name des Spielstands im param.sfo (SAVEDATA_DIRECTORY) ist ungültig.": {
+  "en": "The save's name in param.sfo (SAVEDATA_DIRECTORY) is invalid.",
+  "it": "Il nome del salvataggio nel param.sfo (SAVEDATA_DIRECTORY) non è valido.",
+  "es": "El nombre de la partida guardada en el param.sfo (SAVEDATA_DIRECTORY) no es válido.",
+  "fr": "Le nom de la sauvegarde dans le param.sfo (SAVEDATA_DIRECTORY) n'est pas valide."
+ },
+ "In dieser ZIP-Datei fehlt chives.json: Ohne die Beschreibung des Abbilds (Größe, Aufbau, Besitzer) lässt sich der PS5-Spielstand nicht einspielen. Die ZIP-Datei muss von dieser App, dem PS5 Cooling Center oder Garlic SaveMgr stammen.": {
+  "en": "This ZIP file is missing chives.json: without the image description (size, layout, owner) the PS5 save cannot be imported. The ZIP file must come from this app, PS5 Cooling Center or Garlic SaveMgr.",
+  "it": "In questo file ZIP manca chives.json: senza la descrizione dell'immagine (dimensione, struttura, proprietario) il salvataggio PS5 non può essere importato. Il file ZIP deve provenire da questa app, da PS5 Cooling Center o da Garlic SaveMgr.",
+  "es": "A este archivo ZIP le falta chives.json: sin la descripción de la imagen (tamaño, estructura, propietario) no se puede importar la partida guardada de PS5. El archivo ZIP debe proceder de esta app, de PS5 Cooling Center o de Garlic SaveMgr.",
+  "fr": "Ce fichier ZIP ne contient pas chives.json : sans la description de l'image (taille, structure, propriétaire), la sauvegarde PS5 ne peut pas être importée. Le fichier ZIP doit provenir de cette app, de PS5 Cooling Center ou de Garlic SaveMgr."
+ },
+ "Die chives.json der ZIP-Datei ist nicht lesbar.": {
+  "en": "The chives.json in the ZIP file is not readable.",
+  "it": "Il chives.json del file ZIP non è leggibile.",
+  "es": "El chives.json del archivo ZIP no se puede leer.",
+  "fr": "Le chives.json du fichier ZIP est illisible."
+ },
+ "Die chives.json der ZIP-Datei ist keine gültige Beschreibung eines PS5-Spielstands.": {
+  "en": "The chives.json in the ZIP file is not a valid description of a PS5 save.",
+  "it": "Il chives.json del file ZIP non è una descrizione valida di un salvataggio PS5.",
+  "es": "El chives.json del archivo ZIP no es una descripción válida de una partida guardada de PS5.",
+  "fr": "Le chives.json du fichier ZIP n'est pas une description valide d'une sauvegarde PS5."
+ },
+ "Dieser Spielstand hat ein Abbildformat, das die App nicht anlegen kann (Überschreibbereich fs_ext=%u, mode=%u, Sicherungsköpfe=%u). Es wurde nichts verändert.": {
+  "en": "This save uses an image format that the app cannot create (overwrite area fs_ext=%u, mode=%u, backup headers=%u). Nothing was changed.",
+  "it": "Questo salvataggio usa un formato di immagine che l'app non può creare (area di sovrascrittura fs_ext=%u, mode=%u, intestazioni di backup=%u). Non è stato modificato nulla.",
+  "es": "Esta partida guardada usa un formato de imagen que la app no puede crear (área de sobrescritura fs_ext=%u, mode=%u, cabeceras de respaldo=%u). No se ha modificado nada.",
+  "fr": "Cette sauvegarde utilise un format d'image que l'app ne peut pas créer (zone d'écrasement fs_ext=%u, mode=%u, en-têtes de secours=%u). Rien n'a été modifié."
+ },
+ "Die Dateien sind größer als das Abbild, das die chives.json beschreibt.": {
+  "en": "The files are larger than the image described by chives.json.",
+  "it": "I file sono più grandi dell'immagine descritta da chives.json.",
+  "es": "Los archivos son más grandes que la imagen que describe chives.json.",
+  "fr": "Les fichiers sont plus volumineux que l'image décrite par chives.json."
+ },
+ "Das ist kein PS5-Spielstand im Format ppr (FORMAT=%.12s).": {
+  "en": "This is not a PS5 save in ppr format (FORMAT=%.12s).",
+  "it": "Questo non è un salvataggio PS5 in formato ppr (FORMAT=%.12s).",
+  "es": "Esto no es una partida guardada de PS5 en formato ppr (FORMAT=%.12s).",
+  "fr": "Ce n'est pas une sauvegarde PS5 au format ppr (FORMAT=%.12s)."
+ },
+ "Die Titel-Kennung im param.sfo (%.20s) ist keine PS5-Kennung.": {
+  "en": "The title ID in param.sfo (%.20s) is not a PS5 ID.",
+  "it": "L'ID del titolo nel param.sfo (%.20s) non è un ID PS5.",
+  "es": "El ID de título en el param.sfo (%.20s) no es un ID de PS5.",
+  "fr": "L'identifiant de titre dans le param.sfo (%.20s) n'est pas un identifiant PS5."
+ },
+ "Die Blockzahlen im param.sfo passen nicht zur chives.json: Dieser Spielstand hat ein Abbildformat, das die App nicht anlegen kann.": {
+  "en": "The block counts in param.sfo do not match chives.json: this save uses an image format that the app cannot create.",
+  "it": "Il numero di blocchi nel param.sfo non corrisponde a chives.json: questo salvataggio usa un formato di immagine che l'app non può creare.",
+  "es": "El número de bloques del param.sfo no coincide con chives.json: esta partida guardada usa un formato de imagen que la app no puede crear.",
+  "fr": "Les nombres de blocs dans le param.sfo ne correspondent pas à chives.json : cette sauvegarde utilise un format d'image que l'app ne peut pas créer."
+ },
+ "Die Titel-Kennung der chives.json (%.12s) weicht vom param.sfo ab (%.12s).": {
+  "en": "The title ID in chives.json (%.12s) differs from param.sfo (%.12s).",
+  "it": "L'ID del titolo in chives.json (%.12s) è diverso da quello nel param.sfo (%.12s).",
+  "es": "El ID de título de chives.json (%.12s) difiere del param.sfo (%.12s).",
+  "fr": "L'identifiant de titre de chives.json (%.12s) diffère de celui du param.sfo (%.12s)."
+ },
+ "Der Ordnername in der ZIP-Datei ist zu lang.": {
+  "en": "The folder name in the ZIP file is too long.",
+  "it": "Il nome della cartella nel file ZIP è troppo lungo.",
+  "es": "El nombre de la carpeta en el archivo ZIP es demasiado largo.",
+  "fr": "Le nom du dossier dans le fichier ZIP est trop long."
+ },
+ "Zu viele Spielstände in einer ZIP-Datei (höchstens %d)": {
+  "en": "Too many saves in one ZIP file (at most %d)",
+  "it": "Troppi salvataggi in un file ZIP (al massimo %d)",
+  "es": "Demasiadas partidas guardadas en un archivo ZIP (como máximo %d)",
+  "fr": "Trop de sauvegardes dans un fichier ZIP (%d au maximum)"
+ },
+ "In der ZIP-Datei ist kein Spielstand (sce_sys/param.sfo fehlt).": {
+  "en": "The ZIP file contains no save (sce_sys/param.sfo is missing).",
+  "it": "Il file ZIP non contiene alcun salvataggio (manca sce_sys/param.sfo).",
+  "es": "El archivo ZIP no contiene ninguna partida guardada (falta sce_sys/param.sfo).",
+  "fr": "Le fichier ZIP ne contient aucune sauvegarde (sce_sys/param.sfo est absent)."
+ },
+ "Die ZIP-Datei enthält ineinander liegende Spielstände – so lässt sie sich nicht einspielen.": {
+  "en": "The ZIP file contains nested saves – it cannot be imported like this.",
+  "it": "Il file ZIP contiene salvataggi annidati – così non può essere importato.",
+  "es": "El archivo ZIP contiene partidas guardadas anidadas – así no se puede importar.",
+  "fr": "Le fichier ZIP contient des sauvegardes imbriquées – il ne peut pas être importé ainsi."
+ },
+ "Die ZIP-Datei enthält Dateien außerhalb des Spielstand-Ordners (%.100s).": {
+  "en": "The ZIP file contains files outside the save folder (%.100s).",
+  "it": "Il file ZIP contiene file al di fuori della cartella del salvataggio (%.100s).",
+  "es": "El archivo ZIP contiene archivos fuera de la carpeta de la partida guardada (%.100s).",
+  "fr": "Le fichier ZIP contient des fichiers en dehors du dossier de la sauvegarde (%.100s)."
+ },
+ "Eine Datei ließ sich im neuen Abbild nicht anlegen (%s): %s": {
+  "en": "A file could not be created in the new image (%s): %s",
+  "it": "Impossibile creare un file nella nuova immagine (%s): %s",
+  "es": "No se pudo crear un archivo en la nueva imagen (%s): %s",
+  "fr": "Impossible de créer un fichier dans la nouvelle image (%s) : %s"
+ },
+ "Eine Datei in der ZIP-Datei ist beschädigt (%s): Die Prüfsumme stimmt nicht.": {
+  "en": "A file in the ZIP file is damaged (%s): the checksum does not match.",
+  "it": "Un file nel file ZIP è danneggiato (%s): il checksum non corrisponde.",
+  "es": "Un archivo del archivo ZIP está dañado (%s): la suma de comprobación no coincide.",
+  "fr": "Un fichier du fichier ZIP est endommagé (%s) : la somme de contrôle ne correspond pas."
+ },
+ "Eine Datei in der ZIP-Datei ist zu groß (%s).": {
+  "en": "A file in the ZIP file is too large (%s).",
+  "it": "Un file nel file ZIP è troppo grande (%s).",
+  "es": "Un archivo del archivo ZIP es demasiado grande (%s).",
+  "fr": "Un fichier du fichier ZIP est trop volumineux (%s)."
+ },
+ "Eine Datei ließ sich nicht in das neue Abbild schreiben (%s): %s": {
+  "en": "A file could not be written to the new image (%s): %s",
+  "it": "Impossibile scrivere un file nella nuova immagine (%s): %s",
+  "es": "No se pudo escribir un archivo en la nueva imagen (%s): %s",
+  "fr": "Impossible d'écrire un fichier dans la nouvelle image (%s) : %s"
+ },
+ "Beim Prüfen fehlt eine Datei im neuen Abbild (%s).": {
+  "en": "Verification: a file is missing in the new image (%s).",
+  "it": "Verifica: manca un file nella nuova immagine (%s).",
+  "es": "Comprobación: falta un archivo en la nueva imagen (%s).",
+  "fr": "Vérification : un fichier est absent de la nouvelle image (%s)."
+ },
+ "Beim Prüfen ließ sich eine Datei nicht lesen (%s): %s": {
+  "en": "Verification: a file could not be read (%s): %s",
+  "it": "Verifica: impossibile leggere un file (%s): %s",
+  "es": "Comprobación: no se pudo leer un archivo (%s): %s",
+  "fr": "Vérification : impossible de lire un fichier (%s) : %s"
+ },
+ "Beim Prüfen weicht das param.sfo im neuen Abbild vom geschriebenen ab.": {
+  "en": "Verification: the param.sfo in the new image differs from the one written.",
+  "it": "Verifica: il param.sfo nella nuova immagine è diverso da quello scritto.",
+  "es": "Comprobación: el param.sfo de la nueva imagen difiere del que se escribió.",
+  "fr": "Vérification : le param.sfo de la nouvelle image diffère de celui qui a été écrit."
+ },
+ "Beim Prüfen weicht eine Datei im neuen Abbild von der ZIP-Datei ab (%s).": {
+  "en": "Verification: a file in the new image differs from the ZIP file (%s).",
+  "it": "Verifica: un file nella nuova immagine è diverso dal file ZIP (%s).",
+  "es": "Comprobación: un archivo de la nueva imagen difiere del archivo ZIP (%s).",
+  "fr": "Vérification : un fichier de la nouvelle image diffère du fichier ZIP (%s)."
+ },
+ "%s Es wurde nichts verändert; bitte die PS5 neu starten, bevor es noch einmal versucht wird.": {
+  "en": "%s Nothing was changed; please restart the PS5 before trying again.",
+  "it": "%s Non è stato modificato nulla; riavvia la PS5 prima di riprovare.",
+  "es": "%s No se ha modificado nada; reinicia la PS5 antes de volver a intentarlo.",
+  "fr": "%s Rien n'a été modifié ; veuillez redémarrer la PS5 avant de réessayer."
+ },
+ "Die Besitzerangaben stammen aus einem anderen Spielstand dieses Benutzers und sind nicht vollständig geprüft: Meldet das Spiel beschädigte Daten, liegt es vermutlich daran.": {
+  "en": "The owner information was taken from another save of this user and has not been fully verified: if the game reports corrupted data, this is probably the cause.",
+  "it": "I dati del proprietario provengono da un altro salvataggio di questo utente e non sono stati verificati completamente: se il gioco segnala dati danneggiati, probabilmente dipende da questo.",
+  "es": "Los datos del propietario proceden de otra partida guardada de este usuario y no se han comprobado por completo: si el juego indica datos dañados, probablemente se deba a esto.",
+  "fr": "Les informations de propriétaire proviennent d'une autre sauvegarde de cet utilisateur et n'ont pas été entièrement vérifiées : si le jeu signale des données endommagées, cela vient probablement de là."
+ },
+ "Von diesem Benutzer war kein Spielstand zu finden, dessen Besitzerangaben sich übernehmen ließen. Der Spielstand ist eingespielt; das Spiel meldet vielleicht beschädigte Daten.": {
+  "en": "No save of this user was found whose owner information could be reused. The save has been imported; the game may report corrupted data.",
+  "it": "Non è stato trovato alcun salvataggio di questo utente da cui riprendere i dati del proprietario. Il salvataggio è stato importato; il gioco potrebbe segnalare dati danneggiati.",
+  "es": "No se encontró ninguna partida guardada de este usuario cuyos datos de propietario se pudieran reutilizar. La partida se ha importado; puede que el juego indique datos dañados.",
+  "fr": "Aucune sauvegarde de cet utilisateur dont les informations de propriétaire pourraient être reprises n'a été trouvée. La sauvegarde a été importée ; le jeu signalera peut-être des données endommagées."
+ },
+ "Die Spielstände der PS5 sind nicht erreichbar.": {
+  "en": "The PS5's saves are not accessible.",
+  "it": "I salvataggi della PS5 non sono accessibili.",
+  "es": "Las partidas guardadas de la PS5 no están accesibles.",
+  "fr": "Les sauvegardes de la PS5 ne sont pas accessibles."
+ },
+ "Im param.sfo lassen sich das Konto und der Benutzer nicht eintragen (ACCOUNT_ID fehlt oder ist zu kurz).": {
+  "en": "The account and user cannot be entered in param.sfo (ACCOUNT_ID is missing or too short).",
+  "it": "Impossibile inserire l'account e l'utente nel param.sfo (ACCOUNT_ID manca o è troppo corto).",
+  "es": "No se pueden introducir la cuenta y el usuario en el param.sfo (ACCOUNT_ID falta o es demasiado corto).",
+  "fr": "Impossible d'inscrire le compte et l'utilisateur dans le param.sfo (ACCOUNT_ID est absent ou trop court)."
+ },
+ "Im param.sfo lassen sich die Blockzahlen für das klassische Abbild nicht eintragen.": {
+  "en": "The block counts for the classic image cannot be entered in param.sfo.",
+  "it": "Impossibile inserire nel param.sfo il numero di blocchi per l'immagine classica.",
+  "es": "No se puede introducir en el param.sfo el número de bloques para la imagen clásica.",
+  "fr": "Impossible d'inscrire dans le param.sfo les nombres de blocs pour l'image classique."
+ },
+ "Der freie Platz ließ sich nicht ermitteln.": {
+  "en": "The free space could not be determined.",
+  "it": "Impossibile determinare lo spazio libero.",
+  "es": "No se pudo determinar el espacio libre.",
+  "fr": "Impossible de déterminer l'espace libre."
+ },
+ "Das Konto des Benutzers war in der Registry der PS5 nicht zu finden; der Spielstand trägt das Konto 0.": {
+  "en": "The user's account was not found in the PS5 registry; the save carries account 0.",
+  "it": "L'account dell'utente non è stato trovato nel registro della PS5; il salvataggio riporta l'account 0.",
+  "es": "No se encontró la cuenta del usuario en el registro de la PS5; la partida guardada lleva la cuenta 0.",
+  "fr": "Le compte de l'utilisateur est introuvable dans le registre de la PS5 ; la sauvegarde porte le compte 0."
+ },
+ "Das neue Abbild hat nicht den Aufbau, den die ZIP-Datei beschreibt (die Konsole hat es anders angelegt). Es wurde nichts verändert.": {
+  "en": "The new image does not have the layout described by the ZIP file (the console created it differently). Nothing was changed.",
+  "it": "La nuova immagine non ha la struttura descritta dal file ZIP (la console l'ha creata in modo diverso). Non è stato modificato nulla.",
+  "es": "La nueva imagen no tiene la estructura que describe el archivo ZIP (la consola la creó de otra forma). No se ha modificado nada.",
+  "fr": "La nouvelle image n'a pas la structure décrite par le fichier ZIP (la console l'a créée autrement). Rien n'a été modifié."
+ },
+ "%s Auf der PS5 wurde nichts verändert; bitte die PS5 neu starten, bevor es noch einmal versucht wird.": {
+  "en": "%s Nothing was changed on the PS5; please restart the PS5 before trying again.",
+  "it": "%s Sulla PS5 non è stato modificato nulla; riavvia la PS5 prima di riprovare.",
+  "es": "%s No se ha modificado nada en la PS5; reinicia la PS5 antes de volver a intentarlo.",
+  "fr": "%s Rien n'a été modifié sur la PS5 ; veuillez redémarrer la PS5 avant de réessayer."
+ },
+ "Beim Prüfen ließ sich das neue Abbild nicht einhängen. %s": {
+  "en": "Verification: the new image could not be mounted. %s",
+  "it": "Verifica: impossibile montare la nuova immagine. %s",
+  "es": "Comprobación: no se pudo montar la nueva imagen. %s",
+  "fr": "Vérification : impossible de monter la nouvelle image. %s"
+ },
+ "Für diesen Benutzer gibt es auf der PS5 keinen Ordner für die Spielstand-Datenbank. Es wurde nichts verändert.": {
+  "en": "There is no save database folder for this user on the PS5. Nothing was changed.",
+  "it": "Sulla PS5 non esiste una cartella del database dei salvataggi per questo utente. Non è stato modificato nulla.",
+  "es": "En la PS5 no hay ninguna carpeta de la base de datos de partidas guardadas para este usuario. No se ha modificado nada.",
+  "fr": "Il n'existe sur la PS5 aucun dossier de base de données des sauvegardes pour cet utilisateur. Rien n'a été modifié."
+ },
+ "Die Spielstand-Datenbank dieses Benutzers lässt sich nicht lesen. %s Es wurde nichts verändert.": {
+  "en": "This user's save database cannot be read. %s Nothing was changed.",
+  "it": "Impossibile leggere il database dei salvataggi di questo utente. %s Non è stato modificato nulla.",
+  "es": "No se puede leer la base de datos de partidas guardadas de este usuario. %s No se ha modificado nada.",
+  "fr": "Impossible de lire la base de données des sauvegardes de cet utilisateur. %s Rien n'a été modifié."
+ },
+ "Der Ordner des Spielstands ließ sich nicht anlegen: %s": {
+  "en": "The save's folder could not be created: %s",
+  "it": "Impossibile creare la cartella del salvataggio: %s",
+  "es": "No se pudo crear la carpeta de la partida guardada: %s",
+  "fr": "Impossible de créer le dossier de la sauvegarde : %s"
+ },
+ "Die Schlüsseldatei ließ sich nicht an den Platz des Spielstands kopieren: %s": {
+  "en": "The key file could not be copied to the save's location: %s",
+  "it": "Impossibile copiare il file chiave nella posizione del salvataggio: %s",
+  "es": "No se pudo copiar el archivo de clave a la ubicación de la partida guardada: %s",
+  "fr": "Impossible de copier le fichier de clé à l'emplacement de la sauvegarde : %s"
+ },
+ "Der bisherige Spielstand ließ sich nicht beiseite legen: %s": {
+  "en": "The existing save could not be moved aside: %s",
+  "it": "Impossibile spostare da parte il salvataggio esistente: %s",
+  "es": "No se pudo apartar la partida guardada existente: %s",
+  "fr": "Impossible de mettre de côté la sauvegarde existante : %s"
+ },
+ "Die bisherige Schlüsseldatei ließ sich nicht beiseite legen: %s": {
+  "en": "The existing key file could not be moved aside: %s",
+  "it": "Impossibile spostare da parte il file chiave esistente: %s",
+  "es": "No se pudo apartar el archivo de clave existente: %s",
+  "fr": "Impossible de mettre de côté le fichier de clé existant : %s"
+ },
+ "Der neue Spielstand ließ sich nicht an seinen Platz legen: %s": {
+  "en": "The new save could not be put in place: %s",
+  "it": "Impossibile mettere al suo posto il nuovo salvataggio: %s",
+  "es": "No se pudo colocar la nueva partida guardada en su sitio: %s",
+  "fr": "Impossible de mettre la nouvelle sauvegarde à sa place : %s"
+ },
+ "Die Schlüsseldatei ließ sich nicht an ihren Platz legen: %s": {
+  "en": "The key file could not be put in place: %s",
+  "it": "Impossibile mettere al suo posto il file chiave: %s",
+  "es": "No se pudo colocar el archivo de clave en su sitio: %s",
+  "fr": "Impossible de mettre le fichier de clé à sa place : %s"
+ },
+ "Das Bild des Spielstands ließ sich nicht ablegen; der Spielstand selbst ist eingespielt.": {
+  "en": "The save's picture could not be stored; the save itself has been imported.",
+  "it": "Impossibile salvare l'immagine di anteprima del salvataggio; il salvataggio stesso è stato importato.",
+  "es": "No se pudo guardar la imagen de la partida guardada; la partida en sí se ha importado.",
+  "fr": "Impossible d'enregistrer l'illustration de la sauvegarde ; la sauvegarde elle-même a été importée."
+ },
+ "Es gibt keinen Platz für die Sicherung der Spielstand-Datenbank.": {
+  "en": "There is no space for the backup of the save database.",
+  "it": "Non c'è spazio per il backup del database dei salvataggi.",
+  "es": "No hay espacio para la copia de seguridad de la base de datos de partidas guardadas.",
+  "fr": "Il n'y a pas de place pour la copie de secours de la base de données des sauvegardes."
+ },
+ "%s Der Spielstand wurde nicht eingespielt; alles ist wieder so wie vorher.": {
+  "en": "%s The save was not imported; everything is back the way it was.",
+  "it": "%s Il salvataggio non è stato importato; tutto è tornato com'era prima.",
+  "es": "%s La partida guardada no se ha importado; todo ha vuelto a quedar como antes.",
+  "fr": "%s La sauvegarde n'a pas été importée ; tout est revenu à l'état précédent."
+ },
+ "%sDer Spielstand lag im neueren Abbildformat (mit %llu Systemblöcken) und wurde als klassisches Abbild mit %llu Blöcken angelegt. Ob das Spiel ihn annimmt, zeigt erst ein Start des Spiels.": {
+  "en": "%sThe save was in the newer image format (with %llu system blocks) and was created as a classic image with %llu blocks. Only starting the game will show whether it accepts the save.",
+  "it": "%sIl salvataggio era nel formato di immagine più recente (con %llu blocchi di sistema) ed è stato creato come immagine classica con %llu blocchi. Solo avviando il gioco si vedrà se lo accetta.",
+  "es": "%sLa partida guardada estaba en el formato de imagen más reciente (con %llu bloques de sistema) y se ha creado como imagen clásica con %llu bloques. Solo al iniciar el juego se verá si la acepta.",
+  "fr": "%sLa sauvegarde était au format d'image plus récent (avec %llu blocs système) et a été créée comme image classique avec %llu blocs. Seul le lancement du jeu montrera s'il l'accepte."
+ },
+ "Bei %d Dateien ließen sich die Zugriffsrechte der Quelle nicht übernehmen.": {
+  "en": "For %d files, the source's access permissions could not be applied.",
+  "it": "Per %d file non è stato possibile applicare i permessi di accesso dell'origine.",
+  "es": "En %d archivos no se pudieron aplicar los permisos de acceso del origen.",
+  "fr": "Pour %d fichiers, les droits d'accès de la source n'ont pas pu être repris."
+ },
+ "Der Spielstand ließ sich nicht einspielen.": {
+  "en": "The save could not be imported.",
+  "it": "Impossibile importare il salvataggio.",
+  "es": "No se pudo importar la partida guardada.",
+  "fr": "Impossible d'importer la sauvegarde."
+ },
+ "Bitte wählen, für welchen Benutzer der Spielstand eingespielt wird.": {
+  "en": "Please choose which user the save is imported for.",
+  "it": "Scegli per quale utente importare il salvataggio.",
+  "es": "Elige para qué usuario se importa la partida guardada.",
+  "fr": "Veuillez choisir pour quel utilisateur la sauvegarde est importée."
+ },
+ "Die ZIP-Datei ließ sich nicht öffnen.": {
+  "en": "The ZIP file could not be opened.",
+  "it": "Impossibile aprire il file ZIP.",
+  "es": "No se pudo abrir el archivo ZIP.",
+  "fr": "Impossible d'ouvrir le fichier ZIP."
+ },
+ "Die ZIP-Datei enthält einen unsicheren Dateinamen.": {
+  "en": "The ZIP file contains an unsafe file name.",
+  "it": "Il file ZIP contiene un nome di file non sicuro.",
+  "es": "El archivo ZIP contiene un nombre de archivo no seguro.",
+  "fr": "Le fichier ZIP contient un nom de fichier non sûr."
+ },
+ "Das ist keine lesbare ZIP-Datei (oder eine, die sich nicht lesen lässt: verschlüsselt oder ZIP64).": {
+  "en": "This is not a readable ZIP file (or one that cannot be read: encrypted or ZIP64).",
+  "it": "Questo non è un file ZIP leggibile (oppure è di un tipo non leggibile: crittografato o ZIP64).",
+  "es": "Esto no es un archivo ZIP legible (o es uno que no se puede leer: cifrado o ZIP64).",
+  "fr": "Ce n'est pas un fichier ZIP lisible (ou c'en est un qui ne peut pas être lu : chiffré ou ZIP64)."
+ },
+ "Spielstand wird eingespielt …": {
+  "en": "Importing save …",
+  "it": "Importazione del salvataggio …",
+  "es": "Importando la partida …",
+  "fr": "Importation de la sauvegarde …"
+ },
+ "uid ungültig": {
+  "en": "invalid uid",
+  "it": "uid non valido",
+  "es": "uid no válido",
+  "fr": "uid non valide"
+ },
+ "Der jetzige Stand ließ sich nicht sichern, deshalb wurde nichts eingespielt. %s": {
+  "en": "The current state could not be backed up, so nothing was imported. %s",
+  "it": "Non è stato possibile salvare lo stato attuale, quindi non è stato importato nulla. %s",
+  "es": "No se pudo guardar el estado actual, así que no se importó nada. %s",
+  "fr": "L'état actuel n'a pas pu être sauvegardé, rien n'a donc été importé. %s"
+ },
+ "%sDer Stand davor ist gesichert (%d Spielstände, in der Liste „Wiederherstellen“).": {
+  "en": "%sThe previous state is backed up (%d saves, in the “Restore” list).",
+  "it": "%sLo stato precedente è salvato (%d salvataggi, nell'elenco «Ripristina»).",
+  "es": "%sEl estado anterior está guardado (%d partidas guardadas, en la lista «Restaurar»).",
+  "fr": "%sL'état précédent est sauvegardé (%d sauvegardes, dans la liste « Restaurer »)."
+ },
+ "Das ist eine App, kein Spiel. Bei Apps (zum Beispiel YouTube) ändert der Formatierer nichts.": {
+  "en": "This is an app, not a game. The formatter changes nothing for apps (for example YouTube).",
+  "it": "Questa è un'app, non un gioco. Per le app (ad esempio YouTube) il formattatore non modifica nulla.",
+  "es": "Esto es una aplicación, no un juego. El formateador no cambia nada en las aplicaciones (por ejemplo YouTube).",
+  "fr": "Ceci est une application, pas un jeu. Le formateur ne modifie rien pour les applications (par exemple YouTube)."
+ },
+ "Währenddessen wurde ein Spiel gestartet (%s). Es wurde nichts eingespielt.": {
+  "en": "A game was started in the meantime (%s). Nothing was imported.",
+  "it": "Nel frattempo è stato avviato un gioco (%s). Non è stato importato nulla.",
+  "es": "Mientras tanto se inició un juego (%s). No se importó nada.",
+  "fr": "Un jeu a été lancé entre-temps (%s). Rien n'a été importé."
+ },
+ "Die schon gesicherten Spielstände dieses Spiels wurden wieder entfernt.": {
+  "en": "The saves of this game that were already backed up have been removed again.",
+  "it": "I salvataggi di questo gioco già salvati sono stati rimossi di nuovo.",
+  "es": "Las partidas de este juego ya guardadas se han vuelto a eliminar.",
+  "fr": "Les sauvegardes de ce jeu déjà enregistrées ont été supprimées à nouveau."
+ },
+ "Das Abbild ließ sich nicht an den Platz des Spielstands legen: %s": {
+  "en": "The image could not be put in place of the save: %s",
+  "it": "Non è stato possibile mettere l'immagine al posto del salvataggio: %s",
+  "es": "No se pudo colocar la imagen en el lugar de la partida guardada: %s",
+  "fr": "L'image n'a pas pu être mise à la place de la sauvegarde : %s"
+ },
+ "Eine Datei in der ZIP-Datei ist gepackt und größer als %u MB (%.100s): So große gepackte Dateien liest der Formatierer nicht.": {
+  "en": "A file in the ZIP file is compressed and larger than %u MB (%.100s): the formatter does not read compressed files that large.",
+  "it": "Un file nel file ZIP è compresso e più grande di %u MB (%.100s): il formattatore non legge file compressi così grandi.",
+  "es": "Un archivo del ZIP está comprimido y es mayor de %u MB (%.100s): el formateador no lee archivos comprimidos tan grandes.",
+  "fr": "Un fichier de l'archive ZIP est compressé et dépasse %u Mo (%.100s) : le formateur ne lit pas des fichiers compressés aussi grands."
+ },
+ "Die Spielstand-Datenbank dieses Benutzers ist nicht in Ordnung. %s Es wurde nichts verändert.": {
+  "en": "This user's save database is not in order. %s Nothing was changed.",
+  "it": "Il database dei salvataggi di questo utente non è in ordine. %s Non è stato modificato nulla.",
+  "es": "La base de datos de partidas de este usuario no está en orden. %s No se ha cambiado nada.",
+  "fr": "La base de données des sauvegardes de cet utilisateur n'est pas en ordre. %s Rien n'a été modifié."
+ },
+ "Zwei Spielstände in der Auswahl sind derselbe (%.60s): Es kann nur einer davon eingespielt werden.": {
+  "en": "Two saves in the selection are the same (%.60s): only one of them can be imported.",
+  "it": "Due salvataggi nella selezione sono lo stesso (%.60s): se ne può importare solo uno.",
+  "es": "Dos partidas guardadas de la selección son la misma (%.60s): solo se puede importar una.",
+  "fr": "Deux sauvegardes de la sélection sont identiques (%.60s) : une seule peut être importée."
+ },
+ "Zusammen mehr als 64 Spielstände – bitte weniger Spiele wählen.": {
+  "en": "More than 64 saves together – please choose fewer games.",
+  "it": "Più di 64 salvataggi in totale – scegli meno giochi.",
+  "es": "Más de 64 partidas guardadas en total – elige menos juegos.",
+  "fr": "Plus de 64 sauvegardes au total – choisissez moins de jeux."
+ },
+ "%d davon ließen sich nicht entfernen und liegen noch im Ordner.": {
+  "en": "%d of them could not be removed and are still in the folder.",
+  "it": "%d di essi non è stato possibile rimuoverli e sono ancora nella cartella.",
+  "es": "%d de ellas no se pudieron eliminar y siguen en la carpeta.",
+  "fr": "%d d'entre elles n'ont pas pu être supprimées et sont toujours dans le dossier."
+ },
+ "Zwei der Sicherungen enthalten denselben Spielstand (%s): Es kann nur eine davon eingespielt werden.": {
+  "en": "Two of the backups contain the same save (%s): only one of them can be imported.",
+  "it": "Due dei backup contengono lo stesso salvataggio (%s): se ne può importare solo uno.",
+  "es": "Dos de las copias contienen la misma partida guardada (%s): solo se puede importar una.",
+  "fr": "Deux des sauvegardes contiennent la même sauvegarde de jeu (%s) : une seule peut être importée."
+ },
+ "Höchstens 64 Sicherungen auf einmal": {
+  "en": "At most 64 backups at once",
+  "it": "Al massimo 64 backup alla volta",
+  "es": "Como máximo 64 copias a la vez",
+  "fr": "64 sauvegardes au maximum à la fois"
+ },
+ "%u Einträge, die keine Dateien sind (Verknüpfungen), wurden nicht übernommen.": {
+  "en": "%u entries that are not files (links) were not included.",
+  "it": "%u voci che non sono file (collegamenti) non sono state incluse.",
+  "es": "%u entradas que no son archivos (enlaces) no se incluyeron.",
+  "fr": "%u entrées qui ne sont pas des fichiers (liens) n'ont pas été reprises."
+ },
+ "Die bisherige Sicherung ließ sich nicht als Vorversion beiseitelegen: %s": {
+  "en": "The previous backup could not be kept as an earlier version: %s",
+  "it": "Non è stato possibile conservare il backup precedente come versione precedente: %s",
+  "es": "No se pudo apartar la copia anterior como versión previa: %s",
+  "fr": "La sauvegarde précédente n'a pas pu être mise de côté comme version antérieure : %s"
+ },
+ "%s Der Spielstand wurde nicht eingespielt. Die Spielstand-Datenbank ließ sich nicht zurücklegen; ihre Kopie liegt in %s.": {
+  "en": "%s The save was not imported. The save database could not be put back; its copy is in %s.",
+  "it": "%s Il salvataggio non è stato importato. Non è stato possibile ripristinare il database dei salvataggi; la sua copia si trova in %s.",
+  "es": "%s La partida guardada no se importó. No se pudo restaurar la base de datos de partidas; su copia está en %s.",
+  "fr": "%s La sauvegarde n'a pas été importée. La base de données des sauvegardes n'a pas pu être remise en place ; sa copie se trouve dans %s."
+ },
+ "%s%d Spielstände ließen sich nicht auslesen; von ihnen liegt eine Rohkopie im Ordner „roh“ der Sicherungen (nur auf dieser PS5 brauchbar).": {
+  "en": "%s%d saves could not be read out; a raw copy of them is in the “roh” folder of the backups (usable only on this PS5).",
+  "it": "%s%d salvataggi non si sono potuti leggere; una loro copia grezza si trova nella cartella «roh» dei backup (utilizzabile solo su questa PS5).",
+  "es": "%s%d partidas guardadas no se pudieron leer; hay una copia en bruto en la carpeta «roh» de las copias (solo sirve en esta PS5).",
+  "fr": "%s%d sauvegardes n'ont pas pu être lues ; une copie brute se trouve dans le dossier « roh » des sauvegardes (utilisable uniquement sur cette PS5)."
+ },
+ "Gerade wird ein Spielstand heruntergeladen – bitte warten, bis er fertig ist.": {
+  "en": "A save is being downloaded right now – please wait until it is finished.",
+  "it": "È in corso il download di un salvataggio – attendi che sia terminato.",
+  "es": "Se está descargando una partida guardada – espera a que termine.",
+  "fr": "Une sauvegarde est en cours de téléchargement – veuillez attendre la fin."
+ },
+ "Zu viele Spielstände in einem Auftrag – bitte weniger Sicherungen wählen.": {
+  "en": "Too many saves in one job – please choose fewer backups.",
+  "it": "Troppi salvataggi in un unico lavoro – scegli meno backup.",
+  "es": "Demasiadas partidas en una sola tarea – elige menos copias.",
+  "fr": "Trop de sauvegardes dans une seule tâche – choisissez moins de sauvegardes."
+ },
+ "Anfrage zu lang": {
+  "en": "Request too long",
+  "it": "Richiesta troppo lunga",
+  "es": "Solicitud demasiado larga",
+  "fr": "Requête trop longue"
+ },
+ "Die Rechte für den Spielstand-Dienst ließen sich zum Aushängen nicht setzen.": {
+  "en": "The rights of the save service could not be set for unmounting.",
+  "it": "Non è stato possibile impostare i diritti del servizio dei salvataggi per lo smontaggio.",
+  "es": "No se pudieron establecer los permisos del servicio de partidas para desmontar.",
+  "fr": "Les droits du service de sauvegardes n'ont pas pu être définis pour le démontage."
+ },
+ "Die Aufzeichnung eines unterbrochenen Einspielens war nicht lesbar und wurde entfernt.": {
+  "en": "The record of an interrupted import could not be read and was removed.",
+  "it": "La registrazione di un'importazione interrotta non era leggibile ed è stata rimossa.",
+  "es": "El registro de una importación interrumpida no se podía leer y se ha eliminado.",
+  "fr": "L'enregistrement d'une importation interrompue était illisible et a été supprimé."
+ },
+ "Ein unterbrochenes Einspielen von %.15s (%.60s) ist fast zu Ende: Nur der Eintrag in der Spielstand-Datenbank fehlt noch (%.200s). Das nächste Einspielen versucht es noch einmal.": {
+  "en": "An interrupted import of %.15s (%.60s) is almost finished: only the entry in the save database is still missing (%.200s). The next import will try again.",
+  "it": "Un'importazione interrotta di %.15s (%.60s) è quasi completa: manca solo la voce nel database dei salvataggi (%.200s). La prossima importazione riproverà.",
+  "es": "Una importación interrumpida de %.15s (%.60s) casi ha terminado: solo falta la entrada en la base de datos de partidas (%.200s). La próxima importación lo intentará de nuevo.",
+  "fr": "Une importation interrompue de %.15s (%.60s) est presque terminée : seule l'entrée dans la base de données des sauvegardes manque encore (%.200s). La prochaine importation réessaiera."
+ },
+ "Ein unterbrochenes Einspielen von %.15s (%.60s) wurde zu Ende geführt: Der Spielstand ist eingespielt.": {
+  "en": "An interrupted import of %.15s (%.60s) was completed: the save is imported.",
+  "it": "Un'importazione interrotta di %.15s (%.60s) è stata completata: il salvataggio è importato.",
+  "es": "Se completó una importación interrumpida de %.15s (%.60s): la partida guardada está importada.",
+  "fr": "Une importation interrompue de %.15s (%.60s) a été terminée : la sauvegarde est importée."
+ },
+ "Ein unterbrochenes Einspielen von %.15s (%.60s) wurde zurückgenommen: Der alte Spielstand liegt wieder an seinem Platz.": {
+  "en": "An interrupted import of %.15s (%.60s) was undone: the old save is back in its place.",
+  "it": "Un'importazione interrotta di %.15s (%.60s) è stata annullata: il vecchio salvataggio è di nuovo al suo posto.",
+  "es": "Se deshizo una importación interrumpida de %.15s (%.60s): la partida guardada anterior vuelve a estar en su sitio.",
+  "fr": "Une importation interrompue de %.15s (%.60s) a été annulée : l'ancienne sauvegarde est de nouveau à sa place."
+ },
+ "Von einem früheren Einspielen ist noch etwas offen. %s Es wurde nichts verändert.": {
+  "en": "Something is still pending from an earlier import. %s Nothing was changed.",
+  "it": "Qualcosa di un'importazione precedente è ancora in sospeso. %s Non è stato modificato nulla.",
+  "es": "Algo de una importación anterior sigue pendiente. %s No se ha cambiado nada.",
+  "fr": "Quelque chose d'une importation précédente est encore en suspens. %s Rien n'a été modifié."
+ },
+ "Die Aufzeichnung für den Fall eines Abbruchs ließ sich nicht schreiben: %s": {
+  "en": "The record for the case of an interruption could not be written: %s",
+  "it": "Non è stato possibile scrivere la registrazione per il caso di interruzione: %s",
+  "es": "No se pudo escribir el registro para el caso de una interrupción: %s",
+  "fr": "L'enregistrement en cas d'interruption n'a pas pu être écrit : %s"
+ },
+ "Die Aufzeichnung für den Fall eines Abbruchs ließ sich nicht schreiben. Der Spielstand wurde nicht eingespielt.": {
+  "en": "The record for the case of an interruption could not be written. The save was not imported.",
+  "it": "Non è stato possibile scrivere la registrazione per il caso di interruzione. Il salvataggio non è stato importato.",
+  "es": "No se pudo escribir el registro para el caso de una interrupción. La partida guardada no se importó.",
+  "fr": "L'enregistrement en cas d'interruption n'a pas pu être écrit. La sauvegarde n'a pas été importée."
  }
 }

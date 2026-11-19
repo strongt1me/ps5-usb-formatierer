@@ -108,7 +108,107 @@ static void *dynsym(const char *module, const char *symbol) {
     return found > 0 ? (void *)found : NULL;
 }
 
+void *plat_dynsym(const char *module, const char *symbol) { return dynsym(module, symbol); }
+
 const char *plat_saves_dir(void) { return "/user/home"; }
+
+const char *plat_sys_data_dir(void) { return "/system_data"; }
+
+/* Benutzerkonten in der Registry (wie im PS5 Cooling Center, account.c): Platz 1..16, Schlüssel = (Platz-1)*65536 + Basis */
+#define REG_ACCOUNT_NAME(s) ((s) - 1) * 65536 + 125829632
+#define REG_ACCOUNT_ID(s)   ((s) - 1) * 65536 + 125830400
+
+int plat_account_id(const char *username, uint64_t *id) {
+    typedef int (*fn_str_t)(int, char *, size_t);
+    typedef int (*fn_bin_t)(int, void *, size_t);
+    fn_str_t get_str = (fn_str_t)dynsym("libSceRegMgr.sprx", "sceRegMgrGetStr");
+    fn_bin_t get_bin = (fn_bin_t)dynsym("libSceRegMgr.sprx", "sceRegMgrGetBin");
+    if (!get_str || !get_bin || !username || !username[0]) return -1;
+    for (int slot = 1; slot <= 16; slot++) {
+        char name[32];
+        memset(name, 0, sizeof(name));
+        if (get_str(REG_ACCOUNT_NAME(slot), name, sizeof(name)) != 0 || !name[0]) continue;
+        name[sizeof(name) - 1] = 0;
+        if (strcmp(name, username)) continue;
+        uint64_t v = 0;
+        if (get_bin(REG_ACCOUNT_ID(slot), &v, sizeof(v)) != 0) return -1;
+        *id = v;
+        return 0;
+    }
+    return -1;
+}
+
+/* Kennung des Spielstand-Dienstes (wie im PS5 Cooling Center, platform.c: ps5tm_platform_escalate_as) - hier wird der
+ * vorige Stand gemerkt und danach genau wiederhergestellt, denn der Formatierer hat sonst keine eigene Kennung. */
+static pthread_mutex_t g_svc_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct {
+    uint64_t authid;
+    uint8_t  caps[16], attrs[32];
+    uid_t    uid, ruid, svuid;
+    gid_t    rgid, svgid;
+    intptr_t rootdir, jaildir;
+} g_svc_old;
+
+static void svc_restore(pid_t pid) {
+    kernel_set_ucred_authid(pid, g_svc_old.authid);
+    kernel_set_ucred_caps(pid, g_svc_old.caps);
+    kernel_set_ucred_attrs(pid, g_svc_old.attrs);
+    kernel_set_ucred_uid(pid, g_svc_old.uid);
+    kernel_set_ucred_ruid(pid, g_svc_old.ruid);
+    kernel_set_ucred_svuid(pid, g_svc_old.svuid);
+    kernel_set_ucred_rgid(pid, g_svc_old.rgid);
+    kernel_set_ucred_svgid(pid, g_svc_old.svgid);
+    if (g_svc_old.rootdir) kernel_set_proc_rootdir(pid, g_svc_old.rootdir);
+    if (g_svc_old.jaildir) kernel_set_proc_jaildir(pid, g_svc_old.jaildir);
+}
+
+int plat_save_service_enter(uint64_t authid) {
+    pthread_mutex_lock(&g_svc_lock);
+    const pid_t pid = getpid();
+    if (!kernel_get_proc_ucred(pid)) { pthread_mutex_unlock(&g_svc_lock); return -1; }
+    g_svc_old.authid = kernel_get_ucred_authid(pid);
+    if (kernel_get_ucred_caps(pid, g_svc_old.caps) != 0 || kernel_get_ucred_attrs(pid, g_svc_old.attrs) != 0) {
+        pthread_mutex_unlock(&g_svc_lock);
+        return -1;
+    }
+    g_svc_old.uid = kernel_get_ucred_uid(pid);
+    g_svc_old.ruid = kernel_get_ucred_ruid(pid);
+    g_svc_old.svuid = kernel_get_ucred_svuid(pid);
+    g_svc_old.rgid = kernel_get_ucred_rgid(pid);
+    g_svc_old.svgid = kernel_get_ucred_svgid(pid);
+    g_svc_old.rootdir = kernel_get_proc_rootdir(pid);
+    g_svc_old.jaildir = kernel_get_proc_jaildir(pid);
+    int rc = 0;
+    if (kernel_set_ucred_uid(pid, 0) != 0) rc = -1;
+    if (kernel_set_ucred_ruid(pid, 0) != 0) rc = -1;
+    if (kernel_set_ucred_svuid(pid, 0) != 0) rc = -1;
+    if (kernel_set_ucred_rgid(pid, 0) != 0) rc = -1;
+    if (kernel_set_ucred_svgid(pid, 0) != 0) rc = -1;
+    const intptr_t rootvnode = kernel_get_root_vnode();
+    if (rootvnode) {
+        if (kernel_set_proc_rootdir(pid, rootvnode) != 0) rc = -1;
+        if (kernel_set_proc_jaildir(pid, rootvnode) != 0) rc = -1;
+    }
+    if (kernel_set_ucred_authid(pid, authid) != 0) rc = -1;
+    uint8_t caps[16];
+    memset(caps, 0xff, sizeof(caps));
+    if (kernel_set_ucred_caps(pid, caps) != 0) rc = -1;
+    uint8_t attrs[32];   /* cr_sceAttr[0] = 0x80: das Merkmal für hohe Rechte; der Rest ausdrücklich 0 */
+    memset(attrs, 0, sizeof(attrs));
+    attrs[0] = 0x80;
+    if (kernel_set_ucred_attrs(pid, attrs) != 0) rc = -1;
+    if (rc != 0) {
+        svc_restore(pid);
+        pthread_mutex_unlock(&g_svc_lock);
+        return -1;
+    }
+    return 0;
+}
+
+void plat_save_service_leave(void) {
+    svc_restore(getpid());
+    pthread_mutex_unlock(&g_svc_lock);
+}
 
 /* Systemsprache (Einstellungen > Sprache): SCE_SYSTEM_SERVICE_PARAM_ID_LANG = 1, Werte nach Sony-Tabelle -
  * 1/18 Englisch (US/GB), 2/22 Französisch (FR/CA), 3/20 Spanisch (ES/Lateinamerika), 4 Deutsch, 5 Italienisch */

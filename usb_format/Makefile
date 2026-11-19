@@ -10,7 +10,8 @@ endif
 ELF := usb_format.elf
 
 SRCS := src/main.c src/server.c src/i18n.c src/i18n_table.c src/mkfs.c src/hfsplus.c src/upcase.c src/geom_xml.c src/extfs.c src/fsdetect.c src/fsread.c \
-        src/vollabel.c src/devtest.c src/library.c src/exfat_fsck.c src/smpapi.c src/sha256.c src/imgbak.c src/saves.c src/platform_ps5.c
+        src/vollabel.c src/devtest.c src/library.c src/exfat_fsck.c src/smpapi.c src/sha256.c src/imgbak.c src/saves.c src/platform_ps5.c \
+        src/savesfo.c src/chives.c src/savezip.c src/savedb.c src/savemnt.c
 
 # mkntfs (ntfs-3g) und mke2fs (e2fsprogs) für NTFS/ext4, gebaut mit tools/build_fstools.sh
 TOOLS := tools/bin/mkntfs.elf tools/bin/mke2fs.elf
@@ -30,7 +31,17 @@ EXFAT_FLAGS := -O2 -w -DNDEBUG -include src/exfat_shim.h $(EXFAT_INC)
 ZSTD_INC := -isystem third_party/zstd/lib
 ZSTD_OBJ := build/zstd_all.o
 
-LIBS := -lpthread -lkernel_sys -lSceSystemService -lSceUserService
+# Spielstände (wie im PS5 Cooling Center): SQLite 3.46.0 (gemeinfrei) für die Zeile in der Spielstand-Datenbank, cJSON (MIT) für
+# chives.json, libdeflate 1.26 (MIT, nur Entpacken und CRC-32) für ZIP-Dateien anderer Werkzeuge - ohne die strengen Warnungen übersetzt
+SAVE3P_INC  := -isystem third_party/sqlite3 -isystem third_party/cjson -isystem third_party/libdeflate
+SQLITE_OBJ  := build/sqlite3.o
+CJSON_OBJ   := build/cJSON.o
+DEFLATE_SRCS := $(addprefix third_party/libdeflate/lib/,crc32.c deflate_decompress.c utils.c x86/cpu_features.c)
+DEFLATE_OBJS := $(patsubst third_party/libdeflate/lib/%.c,build/libdeflate/%.o,$(DEFLATE_SRCS))
+SAVE3P_OBJS := $(SQLITE_OBJ) $(CJSON_OBJ) $(DEFLATE_OBJS)
+
+# libSceRegMgr: Konto-ID des Benutzers (Spielstände), gesucht wie die übrigen per dynsym
+LIBS := -lpthread -lkernel_sys -lSceSystemService -lSceUserService -lSceRegMgr
 HDRS := $(wildcard src/*.h)
 
 # Version der Programme: Datei VERSION im Projekt (auch PC-Programme und App-Kachel), z. B. 2.5.3
@@ -43,11 +54,11 @@ all: $(ELF)
 # Projektordner bauen. Vorher: Übersetzungen vollständig (Meldungen und Weboberfläche)?
 $(ELF): $(SRCS) $(HDRS) web/index.html web/help.html build/web/index.html.gz build/web/help.html.gz \
         web/bg.jpg web/page-dark.jpg web/page-light.jpg web/avatar.png $(TOOLS) \
-        $(EXFAT_OBJS) $(ZSTD_OBJ) i18n/core.json i18n/web.json ../VERSION
+        $(EXFAT_OBJS) $(ZSTD_OBJ) $(SAVE3P_OBJS) i18n/core.json i18n/web.json ../VERSION
 	@command -v python3 >/dev/null || { echo "python3 fehlt - ohne es wären die Übersetzungen ungeprüft"; exit 1; }
 	@echo "$(APP_VERSION)" | grep -Eqx "[0-9]+\.[0-9]+\.[0-9]+" || { echo "VERSION ungültig: $(APP_VERSION)"; exit 1; }
 	python3 tools/i18n_gen.py && python3 tools/web_i18n.py --check
-	$(CC) $(CFLAGS) $(EXFAT_INC) $(ZSTD_INC) -o $@ $(SRCS) $(EXFAT_OBJS) $(ZSTD_OBJ) $(LIBS)
+	$(CC) $(CFLAGS) $(EXFAT_INC) $(ZSTD_INC) $(SAVE3P_INC) -o $@ $(SRCS) $(EXFAT_OBJS) $(ZSTD_OBJ) $(SAVE3P_OBJS) $(LIBS)
 	@# größer als 8 MB macht die ELF auf der PS5 Probleme
 	@test $$(wc -c <$@) -le 8388608 || { echo "$@ ist größer als 8 MB"; rm -f $@; exit 1; }
 
@@ -65,6 +76,19 @@ build/exfatprogs/%.o: $(EXFAT)/%.c src/exfat_shim.h
 $(ZSTD_OBJ): src/zstd_all.c
 	@mkdir -p $(dir $@)
 	$(CC) -O2 -w -DNDEBUG $(ZSTD_INC) -c $< -o $@
+
+# ein Faden zugleich (die Spielstand-Sperre), ohne WAL (die Datenbank der Konsole hat ein Rollback-Journal)
+$(SQLITE_OBJ): third_party/sqlite3/sqlite3.c third_party/sqlite3/sqlite3.h
+	@mkdir -p $(dir $@)
+	$(CC) -Os -w -Ithird_party/sqlite3 -ffunction-sections -fdata-sections -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_WAL -c -o $@ $<
+
+$(CJSON_OBJ): third_party/cjson/cJSON.c third_party/cjson/cJSON_real.c third_party/cjson/cJSON.h
+	@mkdir -p $(dir $@)
+	$(CC) -Os -w -Ithird_party/cjson -c -o $@ $<
+
+build/libdeflate/%.o: third_party/libdeflate/lib/%.c
+	@mkdir -p $(dir $@)
+	$(CC) -O2 -w -Ithird_party/libdeflate -c -o $@ $<
 
 # Starter der App (Dump-Ordner, siehe dump/): nativer PS5-Titel mit eingebetteter ELF,
 # umgewandelt und signiert mit ps5-native-tool (siehe app/build_title.sh)

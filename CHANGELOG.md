@@ -6,6 +6,18 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Spielstände werden jetzt wie im PS5 Cooling Center verarbeitet, damit sie nach dem Einspielen in PS5- und PS4-Spielen funktionieren – auch für einen anderen Benutzer oder auf einer anderen PS5:
+  - Sichern: Die PS5 öffnet eine Kopie des Spielstands; die ZIP enthält seine Dateien (mit dem echten `param.sfo`) und bei PS5-Spielständen `chives.json` – dasselbe Format wie das Cooling Center und Garlic SaveMgr, deren ZIP-Dateien sich auch einspielen lassen.
+  - Einspielen: Die PS5 legt ein neues Abbild an (PS4: mit neuem Schlüssel), setzt Konto, Benutzer und Besitzerwert auf den gewählten Benutzer, prüft alles und trägt den Spielstand in ihre Spielstand-Datenbank ein (die vorher gesichert wird). Bei einem Fehler bleibt alles wie vorher.
+  - Weboberfläche und PC-Programm fragen beim Einspielen, für welchen Benutzer.
+  - Wie im Cooling Center: Wird ein Spielstand eines Spiels gewählt, werden alle Spielstände dieses Spiels gesichert (etwa `SaveData` und `sce_sdmemory`), je einer als eigene ZIP. Vor dem Einspielen wird der jetzige Stand des Spiels intern gesichert (`…vorher-<Datum>.zip`, die drei neuesten bleiben, in der Liste „Wiederherstellen“); lässt er sich nicht sichern, wird nichts eingespielt.
+  - Wie im Cooling Center außerdem: Spielstände von Apps (etwa YouTube) bleiben unberührt; direkt vor dem Ersetzen wird noch einmal geprüft, ob ein Spiel gestartet wurde, und ob die Spielstand-Datenbank in Ordnung ist; scheitert beim Sichern ein Spielstand eines Spiels, werden die schon geschriebenen Sicherungen dieses Spiels zurückgenommen; zweimal derselbe Spielstand in einem Auftrag wird abgelehnt; mehrere ZIP-Dateien lassen sich auf einmal hochladen (der Stand davor wird je Spiel nur einmal gesichert).
+  - Wie im Cooling Center 1.88.0: Ein durch Strom, Absturz oder Neustart abgebrochenes Ersetzen wird beim nächsten Start (und vor dem nächsten Einspielen) zu Ende geführt oder zurückgenommen (Aufzeichnung `save_import.journal`); die Datenbank wird nur zurückgelegt, wenn wirklich geschrieben wurde; in der ZIP steht keine Konto-ID mehr (das Einspielen trägt die des Zielbenutzers ein); die Kennung des Spielstand-Dienstes gilt nur noch für das Ein- und Aushängen; je Benutzer bleiben die zehn neuesten Kopien der Spielstand-Datenbank; lässt sich ein alter Spielstand vor dem Ersetzen nicht auslesen, wird er roh gesichert (Ordner `roh`).
+  - Über das Cooling Center hinaus: Den Besitzerwert liest das Einspielen bei neueren PS5-Spielständen aus dem Kopf des Abbilds (dort steht ihr echtes `param.sfo`), so dient der eigene Spielstand des Spiels als Vorlage statt eines fremden; ein Hinweis, der für mehrere Spielstände gilt, steht nur noch einmal in der Meldung.
+  - Sichern und Herunterladen lehnen bei laufendem Spiel ab. Sicherungen im alten Format (verschlüsselter Container mit `metadata.json`) werden nicht mehr angeboten; die Reparatur der Zeitstempel (`/api/saves/times`, `tools/ps5_fix_save_times.py`) entfällt.
+
 ## [2.6.69] – 2026-11-19
 
 ### Hinzugefügt

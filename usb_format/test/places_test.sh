@@ -132,8 +132,6 @@ chmod 755 "$H/D3/gesperrt"
 # ---------------------------------------------------------------- Pfad ohne Schrägstrich darf den Server nicht abstürzen lassen
 code=$(post '{"paths":"a.zip"}' saves/restore)
 [ "$code" = 400 ] && curl -s "$U/api/info" >/dev/null && ok "Sicherung ohne Schrägstrich im Pfad: abgelehnt, Server lebt" || bad "Pfad ohne Schrägstrich" "$code"
-code=$(post '{"key":"x","mtime":"1700000000","key_mtime":""}' saves/times)
-[ "$code" = 400 ] && ok "key_mtime leer: abgelehnt" || bad "key_mtime leer" "$code"
 
 # ---------------------------------------------------------------- der Formatierer selbst
 library

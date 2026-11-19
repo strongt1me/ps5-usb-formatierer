@@ -84,6 +84,22 @@ int  plat_open_browser(const char *url, char *err, size_t errlen);
 /* Ordner mit den Benutzern und ihren Spielständen (PS5: /user/home); NULL = keiner (Host ohne USBFMT_SAVES) */
 const char *plat_saves_dir(void);
 
+/* Systemordner der PS5 mit den Spielstand-Datenbanken (PS5: /system_data; Host: USBFMT_SYSDATA, NULL ohne) */
+const char *plat_sys_data_dir(void);
+
+/* Konto-ID (ACCOUNT_ID) des Benutzers mit diesem Anzeigenamen aus der Registry der PS5 (Host: USBFMT_ACCOUNTS
+ * "Name=hex;Name2=hex"). 0 = gefunden */
+int  plat_account_id(const char *username, uint64_t *id);
+
+/* Kennung eines Sony-Dienstes für den ganzen Prozess annehmen (Spielstände: authid 0x4800000000000010, uid 0, alle Rechte)
+ * und eine Sperre halten, bis plat_save_service_leave alles zurückgibt. 0 = ok, sonst -1 (dann nichts gehalten).
+ * Host: nur die Sperre. */
+int  plat_save_service_enter(uint64_t authid);
+void plat_save_service_leave(void);
+
+/* Symbol einer Sony-Bibliothek zur Laufzeit suchen (PS5); Host: NULL */
+void *plat_dynsym(const char *module, const char *symbol);
+
 /* Systemsprache der PS5 als LANG_* (i18n.h); -1, wenn unbekannt oder keine der fünf Sprachen (Host: USBFMT_SYSLANG,
  * ohne sie Deutsch) */
 int  plat_system_lang(void);

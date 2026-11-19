@@ -21,6 +21,7 @@ import tkinter as tk
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 import zipfile
 from tkinter import filedialog, ttk
 
@@ -131,7 +132,7 @@ class Api:
         headers = {}
         if body is not None:
             body = dict(body, lang=i18n.lang())   # Meldungen des Auftrags in dieser Sprache
-            data = json.dumps(body).encode("utf-8")
+            data = json.dumps(body, ensure_ascii=False).encode("utf-8")
             headers["Content-Type"] = "application/json"
         sep = "&" if "?" in path else "?"
         req = urllib.request.Request(f"{self.base}{path}{sep}lang={i18n.lang()}", data=data, headers=headers)
@@ -411,14 +412,19 @@ class Api:
         """Spielstände auf der PS5 sichern (Auftrag "save_backup")"""
         return self._call("/api/saves/backup", {"keys": "\n".join(keys), "dest": dest})
 
-    def restore_saves(self, paths):
-        """Sicherungen auf der PS5 zurückschreiben (Auftrag "save_restore")"""
-        return self._call("/api/saves/restore", {"paths": "\n".join(paths)})
+    def restore_saves(self, paths, uid=""):
+        """Sicherungen auf der PS5 einspielen (Auftrag "save_restore"); uid: für diesen Benutzer, leer = Benutzer der Sicherung"""
+        body = {"paths": "\n".join(paths)}
+        if uid:
+            body["uid"] = uid
+        return self._call("/api/saves/restore", body)
 
-    def restore_save(self, path):
-        """Spielstand-ZIP hochladen; die PS5 schreibt ihn zurück (Auftrag "save_restore", Antwort erst am Ende)"""
+    def restore_save(self, path, uid="", batch=""):
+        """Spielstand-ZIP hochladen; die PS5 spielt ihn für den Benutzer uid ein (Auftrag "save_restore", Antwort erst am Ende).
+        batch: Kennung einer Reihe von Dateien - der Stand vor dem Einspielen wird je Spiel nur einmal gesichert"""
+        q = urllib.parse.urlencode({"lang": i18n.lang(), **({"uid": uid} if uid else {}), **({"batch": batch} if batch else {})})
         with open(path, "rb") as f:
-            req = urllib.request.Request(f"{self.base}/api/saves/restore/upload?lang={i18n.lang()}", data=f,
+            req = urllib.request.Request(f"{self.base}/api/saves/restore/upload?{q}", data=f,
                                          method="POST", headers={"Content-Type": "application/zip",
                                                                  "Content-Length": str(os.path.getsize(path))})
             try:
@@ -777,6 +783,54 @@ def backup_vs_current(b, saves):
     if abs(cur["mtime"] - b["save_mtime"]) <= 1:
         return _("entspricht dem aktuellen Stand")
     return _("älter als der aktuelle Stand") if b["save_mtime"] < cur["mtime"] else _("neuer als der aktuelle Stand")
+
+
+def ask_save_user(root, users, from_backup, default_uid=""):
+    """Für welchen Benutzer einspielen? Konto und Besitzer im Spielstand werden auf ihn gesetzt. Liefert die uid, "" für
+    "Benutzer der Sicherung" (nur from_backup) oder None (abgebrochen)."""
+    win = tk.Toplevel(root)
+    win.withdraw()
+    win.title(_("Spielstand wiederherstellen"))
+    win.transient(root)
+    frm = ttk.Frame(win, padding=(18, 14, 18, 14))
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text=_("Einspielen für:")).grid(row=0, column=0, sticky="w", padx=(0, 8))
+    names = ([_("Benutzer der Sicherung")] if from_backup else []) + [u.get("username") or u["uid"] for u in users]
+    uids = ([""] if from_backup else []) + [u["uid"] for u in users]
+    if not names:   # keine Benutzer bekannt: der Server nimmt den einzigen oder sagt, was fehlt
+        names, uids = [_("Automatisch")], [""]
+        default_uid = ""
+    var = tk.StringVar(value=names[uids.index(default_uid)] if default_uid in uids else (names[0] if from_backup and names else ""))
+    cb = ttk.Combobox(frm, textvariable=var, values=names, state="readonly", width=28)
+    cb.grid(row=0, column=1, sticky="ew")
+    result = {"v": None}
+    ok_btn = ttk.Button(frm, text=_("Weiter"), style="Accent.TButton")
+
+    def sync(_e=None):
+        ok_btn.state(["!disabled"] if var.get() in names else ["disabled"])
+
+    def done(v):
+        result["v"] = v
+        win.destroy()
+
+    def accept():
+        if var.get() in names:
+            done(uids[names.index(var.get())])
+
+    ok_btn.configure(command=accept)
+    btns = ttk.Frame(frm)
+    btns.grid(row=1, column=0, columnspan=2, sticky="e", pady=(14, 0))
+    ttk.Button(btns, text=_("Abbrechen"), command=lambda: done(None)).pack(side="right")
+    ok_btn.pack(side="right", padx=(0, 8))
+    cb.bind("<<ComboboxSelected>>", sync)
+    sync()
+    win.protocol("WM_DELETE_WINDOW", lambda: done(None))
+    win.bind("<Escape>", lambda e: done(None))
+    win.deiconify()
+    win.grab_set()
+    cb.focus_set()
+    root.wait_window(win)
+    return result["v"]
 
 
 def ask_backups(root, backups, locations=(), saves=()):
@@ -2153,15 +2207,22 @@ class App(tk.Tk):
         except (ConnectionError, ApiError) as e:
             messagebox.showerror(_("Spielstände sichern"), str(e), parent=self)
             return
-        total = fmt_size(sum(x.get("size", 0) for x in picked))
+        game = lambda x: (x.get("uid"), x.get("title_id"), x.get("platform") or "PS5")
+        games = {game(x) for x in picked}
+        allsaves = [x for x in self._saves_data if game(x) in games] or picked   # immer alle Spielstände der gewählten Spiele
+        total = fmt_size(sum(x.get("size", 0) for x in allsaves))
         pick = ask_choice(self, _("Spielstände sichern"),
-                          _("Zu sichern: {n} ({size}). Die Spielstände bleiben unverändert und verschlüsselt.",
-                            n=len(picked), size=total),
+                          _("Zu sichern: {n} ({size}) – immer alle Spielstände der gewählten Spiele. Die Spielstände auf der PS5 "
+                            "bleiben unverändert.", n=len(allsaves), size=total),
                           [_("Auf diesen PC (ZIP-Datei speichern …)")] + [self._saves_loc_text(l) for l in locs],
                           _("Sichern"))
         if pick is None or self.busy or api is not self.api:   # während der Auswahl begonnen oder andere PS5
             return
-        keys = [x["key"] for x in picked]
+        keys, seen = [], set()
+        for x in picked:   # ein Schlüssel je Spiel
+            if game(x) not in seen:
+                seen.add(game(x))
+                keys.append(x["key"])
         if pick > 0:
             dest = locs[pick - 1]["dir"]
 
@@ -2180,7 +2241,7 @@ class App(tk.Tk):
             self.pbar["value"] = 0
             self._run(work)
             return
-        name = f"{picked[0]['title_id']}_{picked[0]['save_dir']}.zip" if len(picked) == 1 else "Spielstaende.zip"
+        name = f"{picked[0]['title_id']}_{picked[0]['save_dir']}.zip" if len(allsaves) == 1 else "Spielstaende.zip"
         path = filedialog.asksaveasfilename(
             parent=self, title=_("Spielstände sichern"), defaultextension=".zip",
             filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
@@ -2212,13 +2273,26 @@ class App(tk.Tk):
         if not res:
             return
         kind, paths = res
-        path = None
-        if kind == "file":
-            path = filedialog.askopenfilename(
+        files = []
+        if kind == "file":   # mehrere Dateien möglich (die Spielstände eines Spiels, wie im Cooling Center)
+            files = list(filedialog.askopenfilenames(
                 parent=self, title=_("Spielstand wiederherstellen"),
                 filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
-                initialdir=self.settings.get("image_dir") or os.path.expanduser("~"))
-            if not path:
+                initialdir=self.settings.get("image_dir") or os.path.expanduser("~")))
+            if not files:
+                return
+        users = self._saves_users
+        cur = self.saves_user_cb.current()
+        pre = users[cur - 1]["uid"] if 0 < cur <= len(users) else ""
+        if kind == "file" and len(users) == 1:
+            uid = users[0]["uid"]
+        elif kind == "file" and not users:
+            uid = ""   # keine Benutzer bekannt: der Server nimmt den einzigen oder sagt, was fehlt
+        elif kind == "paths" and len(users) < 2:
+            uid = ""
+        else:
+            uid = ask_save_user(self, users, kind == "paths", pre)
+            if uid is None:
                 return
         if not messagebox.askokcancel(
                 _("Spielstand wiederherstellen"),
@@ -2237,7 +2311,7 @@ class App(tk.Tk):
         if kind == "paths":
             def work_ps5():
                 try:
-                    api.restore_saves(paths)
+                    api.restore_saves(paths, uid)
                 except (ConnectionError, ApiError) as e:
                     self.q.put(("error", _("Wiederherstellen konnte nicht gestartet werden: {e}", e=e)))
                     return
@@ -2247,26 +2321,72 @@ class App(tk.Tk):
             self._run(work_ps5)
             return
 
-        def upload():
-            try:
-                api.restore_save(path)
-            except Exception as e:   # auch http.client.HTTPException: nie stumm enden
-                state["error"] = str(e) or type(e).__name__
+        batch = "pc" + uuid.uuid4().hex[:16]
+
+        def poll_job(seq):
+            """den eigenen Auftrag (Nummer > seq) bis zum Ende verfolgen: Fortschritt und Abbrechen wie bei _follow; (ok, Meldung)"""
+            last_ok = time.time()
+            while True:
+                time.sleep(0.5)
+                try:
+                    st = api.status()
+                    last_ok = time.time()
+                except (ConnectionError, ApiError):
+                    if time.time() - last_ok >= 180:
+                        return False, _("Keine Verbindung zur PS5 seit 3 Minuten. Der Auftrag läuft dort vermutlich weiter.")
+                    continue
+                flags = {k: st[k] for k in ("replug", "cancellable", "detail", "kind") if k in st}
+                self.q.put(("progress", int(st.get("percent") or 0), st.get("step") or "", flags))
+                if not st.get("busy") and (st.get("job") or 0) > seq:
+                    return bool(st.get("ok")), st.get("message") or ""
 
         def work():
-            try:
-                seq = api.status().get("job") or 0
-            except (ConnectionError, ApiError) as e:
-                self.q.put(("error", _("Wiederherstellen konnte nicht gestartet werden: {e}", e=e)))
-                return
-            t = threading.Thread(target=upload, daemon=True)
-            self.transfer = t
-            t.start()
-            if not self._wait_transfer(api, seq, state, t):
-                t.join(5)
-                self.q.put(("error", state.get("error") or _("Das Hochladen hat nicht begonnen.")))
-                return
-            self._follow(api, foreign=False, done_title=_("Spielstand wiederhergestellt."), after=done)
+            log = []
+            if len(files) > 1:
+                self.q.put(("formatting", False))
+            for i, path in enumerate(files):
+                state.clear()
+
+                def upload(path=path):
+                    try:
+                        api.restore_save(path, uid, batch)
+                    except TimeoutError:   # die Antwort kommt erst am Ende des Auftrags: dann zählt der Status, nicht die Antwort
+                        state["timeout"] = True
+                    except Exception as e:   # auch http.client.HTTPException: nie stumm enden
+                        state["error"] = str(e) or type(e).__name__
+
+                try:
+                    seq = api.status().get("job") or 0
+                except (ConnectionError, ApiError) as e:
+                    if not log:
+                        self.q.put(("error", _("Wiederherstellen konnte nicht gestartet werden: {e}", e=e)))
+                        return
+                    log.append((os.path.basename(path), False, str(e)))
+                    break
+                t = threading.Thread(target=upload, daemon=True)
+                self.transfer = t
+                t.start()
+                if not self._wait_transfer(api, seq, state, t):
+                    t.join(5)
+                    if not log:
+                        self.q.put(("error", state.get("error") or _("Das Hochladen hat nicht begonnen.")))
+                        return
+                    log.append((os.path.basename(path), False, state.get("error") or _("Das Hochladen hat nicht begonnen.")))
+                    break
+                if len(files) == 1:
+                    self._follow(api, foreign=False, done_title=_("Spielstand wiederhergestellt."), after=done)
+                    return
+                ok, msg = poll_job(seq)
+                t.join(10)
+                log.append((os.path.basename(path), ok, msg))
+                if not ok:
+                    break
+            left = [os.path.basename(x) for x in files[len(log):]]
+            lines = [("✓ " if ok else "✗ ") + name + (" – " + msg if msg else "") for name, ok, msg in log]
+            if left:
+                lines.append(_("Nicht hochgeladen: {names}", names=", ".join(left)))
+            all_ok = len(log) == len(files) and all(ok for _n, ok, _m in log)
+            self.q.put(("finished", all_ok, "\n".join(lines), False, _("Spielstand wiederhergestellt."), {}, done))
 
         self.pbar["value"] = 0
         self._run(work)

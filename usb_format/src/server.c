@@ -369,6 +369,7 @@ typedef struct {
     int      cmp;                /* Spiele prüfen: zwei Kopien desselben Spiels miteinander vergleichen */
     double   mbps;               /* Tempo messen/Formatieren mit Prüfung: Lesetempo für den Verlauf (0 = keins) */
     char     saves_dest[300];
+    char     saves_uid[16];  /* Spielstände einspielen: für diesen Benutzer (leer = aus dem Ordner der Sicherung) */
     int      lang;       /* Sprache der Anfrage, die den Auftrag gestartet hat */
     struct timespec t0;  /* Start (für die Dauer im Verlauf) */
 } job_t;
@@ -1312,7 +1313,7 @@ static void respond_hdr(int c, int code, const char *ctype, const char *body, si
     char hdr[1280];
     const char *reason = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 204 ? "No Content" : code == 400 ? "Bad Request" :
                          code == 403 ? "Forbidden" : code == 404 ? "Not Found" : code == 405 ? "Method Not Allowed" :
-                         code == 409 ? "Conflict" : code == 411 ? "Length Required" : code == 413 ? "Payload Too Large" :
+                         code == 409 ? "Conflict" : code == 411 ? "Length Required" : code == 413 ? "Payload Too Large" : code == 414 ? "URI Too Long" :
                          code == 415 ? "Unsupported Media Type" : code == 500 ? "Internal Server Error" :
                          code == 503 ? "Service Unavailable" : "Error";
     int n = snprintf(hdr, sizeof(hdr),
@@ -2300,8 +2301,18 @@ static int request_replug(int c, kv_t *kv, int n, const usbdev_t *d, int *replug
 }
 
 /* Auftrag anmelden (einer zur Zeit). 0 = angemeldet; sonst ist die Fehlerantwort gesendet und j freigegeben. */
+/* Ein Spielstand-Download hängt Abbilder mit der Kennung des Spielstand-Dienstes ein - die gilt für den ganzen Prozess. Solange
+ * er läuft, startet kein Auftrag (und umgekehrt): nichts anderes läuft unter der fremden Kennung (wie die Sony-Sperre des Cooling Center) */
+static int g_save_download;
+
 static int claim_job(int c, job_t *j) {
     pthread_mutex_lock(&lock);
+    if (g_save_download && !quitting && !st.busy) {
+        pthread_mutex_unlock(&lock);
+        job_free(j);
+        respond_error(c, 409, N_("Gerade wird ein Spielstand heruntergeladen – bitte warten, bis er fertig ist."));
+        return -1;
+    }
     if (st.busy || quitting) {
         int q = quitting;
         pthread_mutex_unlock(&lock);
@@ -3096,7 +3107,7 @@ static void api_upload(int c, const char *query, const char *pre, size_t have, u
     for (int i = 0; i < 4; i++)
         if (!query_get(query, keys[i], kv[n].val, sizeof(kv[n].val))) {
             snprintf(kv[n].key, sizeof(kv[n].key), "%s", keys[i]);
-            if (!strcmp(keys[i], "replug") && !strcmp(kv[n].val, "1")) strcpy(kv[n].val, "true");
+            if (!strcmp(keys[i], "replug") && !strcmp(kv[n].val, "1")) snprintf(kv[n].val, sizeof(kv[n].val), "true");
             n++;
         }
     usbdev_t d;
@@ -4023,6 +4034,7 @@ out:
 /* Läuft ein Spiel oder eine App, kann es den Spielstand gerade benutzen: dann nichts daran ändern */
 static int saves_game_check(int c) {
     char gid[16], err[320];
+    saves_set_game_check(game_running);   /* das Einspielen fragt direkt vor dem Ersetzen noch einmal */
     if (!game_running(gid, sizeof(gid))) return 0;
     snprintf(err, sizeof(err),
              T("Es läuft gerade ein Spiel oder eine App (%s) – bitte zuerst beenden, sonst kann der Spielstand beschädigt werden."),
@@ -4103,7 +4115,26 @@ static char *json_text(const char *body, const char *key) {
         char c = *p;
         if (c == '\\' && p[1]) {
             c = *++p;
-            c = c == 'n' ? '\n' : c == 't' ? '\t' : c;
+            if (c == 'u' && isxdigit((unsigned char)p[1]) && isxdigit((unsigned char)p[2]) && isxdigit((unsigned char)p[3]) &&
+                isxdigit((unsigned char)p[4])) {   /* \uXXXX als UTF-8 (Python schreibt Umlaute so) */
+                char h[5] = {p[1], p[2], p[3], p[4], 0};
+                unsigned cp = (unsigned)strtoul(h, NULL, 16);
+                p += 4;
+                if (cp >= 0xD800 && cp < 0xDC00 && p[1] == '\\' && p[2] == 'u' && isxdigit((unsigned char)p[3]) && isxdigit((unsigned char)p[4]) &&
+                    isxdigit((unsigned char)p[5]) && isxdigit((unsigned char)p[6])) {
+                    char l[5] = {p[3], p[4], p[5], p[6], 0};
+                    unsigned lo = (unsigned)strtoul(l, NULL, 16);
+                    if (lo >= 0xDC00 && lo < 0xE000) { cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00); p += 6; }
+                }
+                if (!cp) cp = '?';   /* kein NUL mitten im Text */
+                if (cp < 0x80) out[n++] = (char)cp;
+                else if (cp < 0x800) { out[n++] = (char)(0xC0 | cp >> 6); out[n++] = (char)(0x80 | (cp & 0x3F)); }
+                else if (cp < 0x10000) { out[n++] = (char)(0xE0 | cp >> 12); out[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); out[n++] = (char)(0x80 | (cp & 0x3F)); }
+                else { out[n++] = (char)(0xF0 | cp >> 18); out[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); out[n++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+                       out[n++] = (char)(0x80 | (cp & 0x3F)); }
+                continue;
+            }
+            c = c == 'n' ? '\n' : c == 't' ? '\t' : c == 'r' ? '\r' : c == 'b' ? '\b' : c == 'f' ? '\f' : c;
         }
         out[n++] = c;
     }
@@ -4142,16 +4173,40 @@ static void api_saves_download(int c, const char *q) {
     int np = split_lines(keys, part, SAVES_SELMAX), ns = 0;
     save_info_t *all = NULL;
     int na = 0;
-    if (np < 1 || saves_scan(&all, &na) < 0) { free(all); respond_error(c, 404, "Spielstand nicht gefunden"); goto out; }
-    for (int i = 0; i < np; i++) {
-        int hit = 0;
-        for (int k = 0; k < na && !hit; k++)
-            if (!strcmp(all[k].key, part[i])) { sel[ns++] = all[k]; hit = 1; }
-        if (!hit) { free(all); respond_error(c, 404, "Spielstand nicht gefunden"); goto out; }
+    const save_info_t *ex[SAVES_SELMAX];
+    if (np < 1 || saves_scan(&all, &na) < 0 || (ns = saves_expand(all, na, part, np, ex, SAVES_SELMAX)) < 1) {
+        free(all);
+        if (ns == -2 || np == -1) respond_error(c, 400, "Zusammen mehr als 64 Spielstände – bitte weniger Spiele wählen.");
+        else respond_error(c, 404, "Spielstand nicht gefunden");
+        goto out;
     }
+    for (int i = 0; i < ns; i++) sel[i] = *ex[i];   /* alle Spielstände der gewählten Spiele */
     free(all);
-    char err[256] = "";
+    if (saves_game_check(c)) goto out;
+    pthread_mutex_lock(&lock);
+    const int job_busy = st.busy || g_save_download;
+    pthread_mutex_unlock(&lock);
+    if (job_busy) { respond_error(c, 409, N_("Es läuft bereits ein Auftrag")); goto out; }
+    {   /* check=1: nur prüfen (der Browser lädt große Sammlungen über einen unsichtbaren Rahmen, der keine Fehlermeldung zeigen kann) */
+        char chk[4] = "";
+        if (query_get(q, "check", chk, sizeof(chk)) == 0 && chk[0] == '1') {
+            sbuf_t b = {0};
+            sb_add(&b, "{\"ok\":true,\"count\":%d}", ns);
+            respond_json(c, 200, &b);
+            free(b.p);
+            goto out;
+        }
+    }
+    char err[600] = "";
+    pthread_mutex_lock(&lock);
+    const int took = !st.busy && !g_save_download;
+    if (took) g_save_download = 1;
+    pthread_mutex_unlock(&lock);
+    if (!took) { respond_error(c, 409, N_("Es läuft bereits ein Auftrag")); goto out; }
     if (saves_download(c, sel, ns, err, sizeof(err)) == -1) respond_error(c, 500, err[0] ? err : "Sichern fehlgeschlagen");
+    pthread_mutex_lock(&lock);
+    g_save_download = 0;
+    pthread_mutex_unlock(&lock);
 out:
     free(keys);
     free(sel);
@@ -4278,47 +4333,65 @@ static void *save_backup_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0};
-    char *part[SAVES_SELMAX], err[256] = "", out[1300] = "";
+    char *part[SAVES_SELMAX], err[600] = "";
     int np = split_lines(j->saves_list, part, SAVES_SELMAX), done = 0, ok = 0;
+    struct { char path[1300], rot[1400]; } *made = NULL;
+    char notes[1200] = "";
     save_info_t *all = NULL;
     int na = 0;
     sprog_t sp;
     memset(&sp, 0, sizeof(sp));
-    if (np < 1 || saves_scan(&all, &na) < 0) {
-        sb_add(&msg, "%s", T("Spielstand nicht gefunden"));
+    const save_info_t *sel[SAVES_SELMAX];
+    saves_housekeeping();   /* zu Beginn jedes Spielstand-Auftrags (wie das Cooling Center) */
+    const int nkeys = np;   /* -1: mehr als 64 gewählt */
+    if (nkeys < 1 || saves_scan(&all, &na) < 0 || (np = saves_expand(all, na, part, nkeys, sel, SAVES_SELMAX)) < 1) {
+        sb_add(&msg, "%s", nkeys == -1 || np == -2 ? T("Zusammen mehr als 64 Spielstände – bitte weniger Spiele wählen.") : T("Spielstand nicht gefunden"));
         goto fin;
     }
     sp.n = np;
     set_flags(1, 0);   /* "Abbrechen" zeigen */
-    for (int i = 0; i < np; i++)   /* Gesamtgröße für den Fortschritt */
-        for (int k = 0; k < na; k++)
-            if (!strcmp(all[k].key, part[i])) sp.total += all[k].size;
+    for (int i = 0; i < np; i++) sp.total += sel[i]->size;   /* Gesamtgröße für den Fortschritt */
+    /* je Spiel ganz oder gar nicht (wie das Cooling Center): scheitert ein Spielstand oder wird abgebrochen, werden die schon
+     * geschriebenen Sicherungen dieses Spiels zurückgenommen (die bisherigen bekommen ihren Namen wieder) */
+    made = calloc((size_t)np, sizeof(*made));
+    if (!made) { sb_add(&msg, "%s", T("Kein Speicher")); goto fin; }
+    int gs = 0;   /* erster Spielstand des aktuellen Spiels */
     for (int i = 0; i < np; i++) {
-        int hit = -1;
-        for (int k = 0; k < na && hit < 0; k++)
-            if (!strcmp(all[k].key, part[i])) hit = k;
-        if (hit < 0) { sb_add(&msg, "%s", T("Spielstand nicht gefunden")); goto fin; }
+        const save_info_t *hit = sel[i];
+        if (i && (strcmp(hit->uid, sel[i - 1]->uid) || strcmp(hit->title_id, sel[i - 1]->title_id) || strcmp(hit->platform, sel[i - 1]->platform))) gs = i;
         char shown[330];
-        snprintf(shown, sizeof(shown), "%s (%s)", all[hit].title_name, all[hit].username[0] ? all[hit].username : all[hit].uid);
+        snprintf(shown, sizeof(shown), "%s (%s)", hit->title_name, hit->username[0] ? hit->username : hit->uid);
         sprog_step(&sp, i, N_("Sichern"), shown);
-        if (saves_backup_file(&all[hit], j->saves_dest, out, sizeof(out), sprog_cb, &sp, err, sizeof(err)) != 0) {
+        if (saves_backup_file(hit, j->saves_dest, made[i].path, sizeof(made[i].path), made[i].rot, sizeof(made[i].rot), sprog_cb, &sp, err,
+                              sizeof(err)) != 0) {
+            int left = 0;   /* was sich nicht zurücknehmen ließ (ein abgezogenes Laufwerk): gesagt, nicht verschwiegen */
+            for (int k = gs; k < i; k++) left += saves_backup_revert(made[k].path, made[k].rot) != 0;
+            done -= i - gs;
             if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
                 sb_tr(&msg, "Abgebrochen – gesichert: %d von %d.", done, np);
                 goto fin;
             }
             if (done) sb_tr(&msg, "%d von %d Spielständen gesichert, dann Fehler: ", done, np);
             sb_add(&msg, "%s", err[0] ? err : T("Sichern fehlgeschlagen"));
+            if (i > gs) sb_add(&msg, " %s", T("Die schon gesicherten Spielstände dieses Spiels wurden wieder entfernt."));
+            if (left) { sb_add(&msg, " "); sb_tr(&msg, "%d davon ließen sich nicht entfernen und liegen noch im Ordner.", left); }
             goto fin;
         }
-        sp.base += all[hit].size;
+        sp.base += hit->size;
         done++;
+        if (saves_last_note()[0] && strlen(notes) + strlen(saves_last_note()) + 4 < sizeof(notes)) {
+            const size_t nl = strlen(notes);
+            snprintf(notes + nl, sizeof(notes) - nl, "%s%s", nl ? " " : "", saves_last_note());
+        }
     }
     ok = 1;
     sb_tr(&msg, "Spielstände gesichert: %d (nach: %s)", done, j->saves_dest);
+    if (notes[0]) sb_add(&msg, " %s", notes);
     sb_add(&res, "{\"count\":%d,\"dir\":", done);
     sb_str(&res, j->saves_dest);
     sb_add(&res, "}");
 fin:
+    free(made);
     free(all);
     job_done(j, ok, &msg, &res, 0);
     return NULL;
@@ -4343,6 +4416,7 @@ static void api_saves_backup(int c, const char *body) {
         respond_error(c, 400, "keys und dest erforderlich");
         goto out;
     }
+    if (saves_game_check(c)) goto out;
     job_t *j = new_job(c, JOB_SAVE_BACKUP);
     if (!j) goto out;
     j->saves_list = keys;
@@ -4373,16 +4447,57 @@ static int rprog_cb(void *ctx, uint64_t done, uint64_t total) {
     return 0;
 }
 
+/* Ordner für den Stand vor dem Einspielen: game_saves auf der internen Platte (dort, wo auch "Sichern" intern hinschreibt) */
+static void saves_undo_root(char *out, size_t n) {
+    imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
+    const int nl = loc ? img_locations(loc, MAX_LOCS) : 0;
+    out[0] = 0;
+    for (int i = 0; i < nl && !out[0]; i++)
+        if (!loc[i].device[0]) snprintf(out, n, "%s/" SAVES_DIR, loc[i].root);
+    free(loc);
+}
+
 /* Worker: Sicherungen (Pfade in saves_list) zurückschreiben */
 static void *save_restore_worker(void *arg) {
     job_t *j = arg;
     i18n_set(j->lang);
     sbuf_t msg = {0}, res = {0};
-    char *part[SAVES_SELMAX], err[256] = "";
+    char *part[SAVES_SELMAX], err[600] = "", note[1500] = "", undo_root[300] = "", undo_done[2048] = "";
     int np = split_lines(j->saves_list, part, SAVES_SELMAX), total = 0, ok = 0;
+    saves_undo_root(undo_root, sizeof(undo_root));
+    saves_housekeeping();
     rprog_t rp;
     memset(&rp, 0, sizeof(rp));
     rp.n = np > 0 ? np : 1;
+    {   /* zwei Sicherungen desselben Spielstands würden sich gegenseitig ersetzen: der letzte gewönne, gleich wie alt */
+        char (*ids)[160] = calloc((size_t)SAVES_SELMAX * 8, sizeof(*ids));
+        int nid = 0, dup = 0;
+        for (int i = 0; ids && i < np && !dup; i++) {
+            const int k = saves_zip_slots(part[i], ids + nid, SAVES_SELMAX * 8 - nid);
+            char who[16] = "", fb[16] = "", e1[300];   /* der Benutzer, für den wirklich eingespielt wird (wie saves_restore_file) */
+            saves_backup_uid(part[i], fb, sizeof(fb));
+            if (saves_target_uid(j->saves_uid, fb, who, sizeof(who), e1, sizeof(e1)) != 0) snprintf(who, sizeof(who), "?");
+            if (k > 0 && nid + k >= SAVES_SELMAX * 8) {
+                dup = 1;
+                sb_add(&msg, "%s", T("Zu viele Spielstände in einem Auftrag – bitte weniger Sicherungen wählen."));
+                break;
+            }
+            for (int a = nid; k > 0 && a < nid + k; a++) {
+                char t[160];
+                snprintf(t, sizeof(t), "%s", ids[a]);
+                snprintf(ids[a], sizeof(ids[a]), "%.15s:%.140s", who, t);
+            }
+            for (int a = nid; k > 0 && a < nid + k && !dup; a++)
+                for (int b = 0; b < a && !dup; b++)
+                    if (!strcmp(ids[a], ids[b])) {
+                        dup = 1;
+                        sb_tr(&msg, "Zwei der Sicherungen enthalten denselben Spielstand (%s): Es kann nur eine davon eingespielt werden.", ids[a]);
+                    }
+            if (k > 0) nid += k;
+        }
+        free(ids);
+        if (dup) goto fin;
+    }
     set_flags(1, 0);
     for (int i = 0; i < np; i++) {
         int cnt = 0;
@@ -4391,7 +4506,12 @@ static void *save_restore_worker(void *arg) {
         rp.last = -1;
         snprintf(rp.step, sizeof(rp.step), T("%s: Sicherung %d von %d – %s"), T(N_("Wiederherstellen")), i + 1, np, fn);
         on_progress(rp.step, (i * 100) / rp.n > 0 ? (i * 100) / rp.n : 1);
-        if (saves_restore_file(part[i], &cnt, rprog_cb, &rp, err, sizeof(err)) != 0) {
+        char fb[16] = "", n1[1200] = "";
+        saves_backup_uid(part[i], fb, sizeof(fb));
+        const int rr = saves_restore_file(part[i], j->saves_uid, fb, undo_root[0] ? undo_root : NULL, undo_done, sizeof(undo_done), &cnt,
+                                          rprog_cb, &rp, n1, sizeof(n1), err, sizeof(err));
+        if (n1[0]) { const size_t on = strlen(note); snprintf(note + on, sizeof(note) - on, "%s%s", on ? " " : "", n1); }
+        if (rr != 0) {
             total += cnt;
             if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) {
                 sb_tr(&msg, "Abgebrochen – wiederhergestellt: %d.", total);
@@ -4406,6 +4526,7 @@ static void *save_restore_worker(void *arg) {
     ok = 1;
     sb_tr(&msg, "Spielstände wiederhergestellt: %d.", total);
 fin:
+    if (note[0]) sb_add(&msg, " %s", note);
     job_done(j, ok, &msg, &res, 0);
     return NULL;
 }
@@ -4433,30 +4554,10 @@ static int saves_path_ok(const char *path, const imgloc_t *loc, int n) {
     return hit;
 }
 
-/* POST /api/saves/times  {"key":"<Schlüssel>","mtime":<Sekunden seit 1970>,"key_mtime":<Sekunden>}: Zeitstempel eines Spielstands
- * setzen (Reparatur: die PS5 führt die Änderungszeit in ihrer Datenbank mit, sie muss zur Datei passen) */
-static void api_saves_times(int c, const char *body) {
-    kv_t kv[KV_MAX];
-    int n = json_parse(body, kv, KV_MAX);
-    const char *key = n > 0 ? kv_get(kv, n, "key") : NULL, *mt = n > 0 ? kv_get(kv, n, "mtime") : NULL;
-    const char *kmt = n > 0 ? kv_get(kv, n, "key_mtime") : NULL;
-    if (!key || !mt || strspn(mt, "0123456789") != strlen(mt) || (kmt && strspn(kmt, "0123456789") != strlen(kmt))) {
-        respond_error(c, 400, "key und mtime erforderlich");
-        return;
-    }
-    if (kmt && (!*kmt || strtoll(kmt, NULL, 10) < 946684800LL || strtoll(kmt, NULL, 10) > 4102444800LL)) {   /* 2000 bis 2100 */
-        respond_error(c, 400, N_("key_mtime ungültig"));
-        return;
-    }
-    if (saves_game_check(c)) return;
-    char err[256] = "";
-    if (saves_set_times(key, strtoll(mt, NULL, 10), kmt ? strtoll(kmt, NULL, 10) : -1, err, sizeof(err)) == 0) respond_ok(c, 200);
-    else respond_error(c, 500, err[0] ? err : "Zeitstempel konnte nicht gesetzt werden");
-}
-
-/* POST /api/saves/restore  {"paths":"<Sicherung>\n<Sicherung>…"}: Sicherungen auf der PS5 zurückschreiben */
+/* POST /api/saves/restore  {"paths":"<Sicherung>\n<Sicherung>…","uid":"<Benutzer>"}: Sicherungen auf der PS5 einspielen
+ * (uid fehlt: der Benutzer aus dem Ordner der Sicherung) */
 static void api_saves_restore_paths(int c, const char *body) {
-    char *paths = json_text(body, "paths");
+    char *paths = json_text(body, "paths"), *uid = json_text(body, "uid");
     imgloc_t *loc = calloc(MAX_LOCS, sizeof(*loc));
     int nl = loc ? img_locations(loc, MAX_LOCS) : 0;
     if (!paths || !paths[0] || !loc) { respond_error(c, 400, "paths erforderlich"); goto out; }
@@ -4465,16 +4566,20 @@ static void api_saves_restore_paths(int c, const char *body) {
         int np = copy ? split_lines(copy, part, SAVES_SELMAX) : 0, good = np > 0;
         for (int i = 0; i < np && good; i++) good = saves_path_ok(part[i], loc, nl);
         free(copy);
+        if (np == -1) { respond_error(c, 400, "Höchstens 64 Sicherungen auf einmal"); goto out; }
         if (!good) { respond_error(c, 400, "Ungültige Sicherung"); goto out; }
     }
+    if (uid && uid[0] && !saves_name_ok(uid, 16)) { respond_error(c, 400, "uid ungültig"); goto out; }
     if (saves_game_check(c)) goto out;
     job_t *j = new_job(c, JOB_SAVE_RESTORE);
     if (!j) goto out;
     j->saves_list = paths;
     paths = NULL;
+    if (uid && uid[0]) snprintf(j->saves_uid, sizeof(j->saves_uid), "%s", uid);
     start_job(c, j, save_restore_worker);
 out:
     free(paths);
+    free(uid);
     free(loc);
 }
 
@@ -4498,8 +4603,29 @@ static void drain_body(int c, unsigned long long left) {
     free(buf);
 }
 
-static void api_saves_restore(int c, const char *pre, size_t have, unsigned long long clen) {
+/* Fortschritt des Einspielens nach dem Hochladen: 50 bis 99 % */
+static int uprog_cb(void *ctx, uint64_t done, uint64_t total) {
+    (void)ctx;
+    if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) return 1;
+    on_progress("Spielstand wird eingespielt …", 50 + (int)(total ? done * 49 / total : 0));
+    return 0;
+}
+
+/* zuletzt hochgeladene Datei einer Reihe (batch): welche Spiele vor dem Einspielen schon gesichert sind */
+static char g_upload_batch[40], g_upload_undo[2048], g_upload_slots[4096];
+static time_t g_upload_batch_t;
+
+/* POST /api/saves/restore/upload?uid=<Benutzer>[&batch=<Kennung>]  Körper = ZIP. Dateien mit derselben Kennung gehören zu einer
+ * Reihe (mehrere Dateien auf einmal gewählt): der Stand vor dem Einspielen wird je Spiel nur einmal gesichert */
+static void api_saves_restore(int c, const char *q, const char *pre, size_t have, unsigned long long clen) {
     const unsigned long long rest = clen > have ? clen - have : 0;
+    char uid[16] = "", batch[40] = "";
+    if (q && (query_get(q, "batch", batch, sizeof(batch)) != 0 || !saves_name_ok(batch, sizeof(batch)))) batch[0] = 0;
+    if (q && query_get(q, "uid", uid, sizeof(uid)) == 0 && uid[0] && !saves_name_ok(uid, sizeof(uid))) {
+        respond_error(c, 400, "uid ungültig");
+        drain_body(c, rest);
+        return;
+    }
     if (clen < 22 || clen > SAVES_UPLOAD_MAX) {
         respond_error(c, 413, "Content-Length fehlt oder zu groß (max 4 GiB)");
         if (clen <= SAVES_UPLOAD_MAX) drain_body(c, rest);
@@ -4509,7 +4635,7 @@ static void api_saves_restore(int c, const char *pre, size_t have, unsigned long
     job_t *j = new_job(c, JOB_SAVE_RESTORE);
     if (!j) { drain_body(c, rest); return; }
     if (claim_job(c, j)) { drain_body(c, rest); return; }
-    char zip[400], err[256] = "";
+    char zip[400], err[600] = "", note[1500] = "";
     sbuf_t msg = {0}, res = {0};
     int ok = 0, fd = -1, bad = 0;
     unsigned long long got = 0;
@@ -4552,7 +4678,7 @@ static void api_saves_restore(int c, const char *pre, size_t have, unsigned long
             else if (w == 0 || errno != EINTR) bad = 1;
         }
         got += n;
-        if (!bad && (got & 0xFFFFF) < n) on_progress("Spielstand wird hochgeladen …", (int)(got * 90 / clen));
+        if (!bad && (got & 0xFFFFF) < n) on_progress("Spielstand wird hochgeladen …", (int)(got * 50 / clen));
     }
     const int cerr = close(fd);   /* immer schließen - auch nach einem Abbruch (sonst bleibt die gelöschte Datei belegt) */
     if (bad || cerr != 0) {
@@ -4561,20 +4687,56 @@ static void api_saves_restore(int c, const char *pre, size_t have, unsigned long
         goto fail;
     }
     fd = -1;
-    on_progress("Spielstand wird zurückgeschrieben …", 92);
+    on_progress("Spielstand wird eingespielt …", 50);
+    set_flags(1, 0);
     int cnt = 0;
-    if (saves_restore_file(zip, &cnt, NULL, NULL, err, sizeof(err)) == 0) {
+    char undo_root[300] = "", undo_done[2048] = "";
+    saves_undo_root(undo_root, sizeof(undo_root));
+    saves_housekeeping();
+    /* mehrere Dateien nacheinander (batch): der Stand vor dem Einspielen nur einmal je Spiel - wie ein Auftrag mit mehreren Dateien */
+    char (*ids)[160] = calloc(64, sizeof(*ids)), slots[4096] = "";
+    const int nids = ids ? saves_zip_slots(zip, ids, 64) : 0;
+    pthread_mutex_lock(&lock);
+    const int same_batch = batch[0] && !strcmp(batch, g_upload_batch) && time(NULL) - g_upload_batch_t < 1800;
+    if (same_batch) {
+        snprintf(undo_done, sizeof(undo_done), "%s", g_upload_undo);
+        snprintf(slots, sizeof(slots), "%s", g_upload_slots);
+    }
+    pthread_mutex_unlock(&lock);
+    int rr = -1, dup = 0;
+    for (int i = 0; i < nids && !dup; i++) {   /* zwei Dateien einer Reihe mit demselben Spielstand: die letzte gewönne, gleich wie alt */
+        char key[200];
+        snprintf(key, sizeof(key), "%.15s:%.150s\n", uid, ids[i]);
+        if (strstr(slots, key)) {
+            dup = 1;
+            sb_tr(&msg, "Zwei der Sicherungen enthalten denselben Spielstand (%s): Es kann nur eine davon eingespielt werden.", ids[i]);
+        } else if (strlen(slots) + strlen(key) < sizeof(slots)) snprintf(slots + strlen(slots), sizeof(slots) - strlen(slots), "%s", key);
+    }
+    free(ids);
+    if (!dup)
+        rr = saves_restore_file(zip, uid, NULL, undo_root[0] ? undo_root : NULL, undo_done, sizeof(undo_done), &cnt, uprog_cb, NULL, note,
+                                sizeof(note), err, sizeof(err));
+    pthread_mutex_lock(&lock);
+    if (!same_batch || rr == 0) {
+        snprintf(g_upload_batch, sizeof(g_upload_batch), "%s", batch);
+        snprintf(g_upload_undo, sizeof(g_upload_undo), "%s", undo_done);
+        snprintf(g_upload_slots, sizeof(g_upload_slots), "%s", rr == 0 ? slots : "");
+        g_upload_batch_t = time(NULL);
+    }
+    pthread_mutex_unlock(&lock);
+    if (rr == 0) {
         ok = 1;
         if (cnt > 1) sb_tr(&msg, "Spielstände wiederhergestellt: %d.", cnt);
         else sb_tr(&msg, "Spielstand wiederhergestellt.");
-    } else {
+        if (note[0]) sb_add(&msg, " %s", note);
+    } else if (!dup) {
         sb_add(&msg, "%s", err[0] ? err : T("Wiederherstellen fehlgeschlagen"));
     }
 fail:
     free(buf);
     if (fd >= 0) close(fd);
     unlink(zip);
-    char m[512];
+    char m[2100];
     snprintf(m, sizeof(m), "%s", msg.p ? msg.p : "");
     job_done(j, ok, &msg, &res, 0);
     if (ok) respond_ok(c, 200);
@@ -6667,8 +6829,14 @@ static void handle(int c) {
     *body = 0;
     body += 4;
 
-    char method[8], path[512], host[96] = "", tmp[48];
-    if (sscanf(req, "%7s %511s", method, path) != 2) { respond_error(c, 400, "Ungültige Anfrage"); goto out; }
+    char method[8], path[4096], host[96] = "", tmp[48];
+    {   /* länger als der Puffer: nie stillschweigend abschneiden (eine gekürzte Auswahl träfe andere Spielstände) */
+        const char *t = req + strspn(req, " \t\v\f");   /* wie sscanf("%s %s"): Leerraum vor der Methode und dazwischen übergehen */
+        t += strcspn(t, " \t\r\n\v\f");
+        t += strspn(t, " \t\r\n\v\f");
+        if (strcspn(t, " \t\r\n\v\f") >= sizeof(path)) { respond_error(c, 414, "Anfrage zu lang"); goto out; }
+    }
+    if (sscanf(req, "%7s %4095s", method, path) != 2) { respond_error(c, 400, "Ungültige Anfrage"); goto out; }
     i18n_set(request_lang(path, req));   /* Antworten und Aufträge dieser Verbindung in dieser Sprache */
     if (!header(req, "Host", host, sizeof(host)) || !host_ok(host)) {
         respond_error(c, 403, "Ungültiger Host. Bitte die PS5 über ihre IP-Adresse aufrufen.");
@@ -6682,7 +6850,7 @@ static void handle(int c) {
             respond_error(c, 403, "Fremder Ursprung abgelehnt");
             drain_body(c, up > have ? up - have : 0);
         } else {
-            api_saves_restore(c, body, have, up);
+            api_saves_restore(c, strchr(path, '?') ? strchr(path, '?') + 1 : NULL, body, have, up);
         }
         goto out;
     }
@@ -6832,8 +7000,6 @@ static void handle(int c) {
         api_saves_backups(c);
     else if (strcmp(path, "/api/saves/backup") == 0 && is_post)
         api_saves_backup(c, body);
-    else if (strcmp(path, "/api/saves/times") == 0 && is_post)
-        api_saves_times(c, body);
     else if (strcmp(path, "/api/saves/restore") == 0 && is_post)
         api_saves_restore_paths(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {

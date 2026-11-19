@@ -1,4 +1,4 @@
-/* Fuzz-Test des ZIP-Lesers von saves_restore_file(): eine gültige Sicherung wird zufällig verstümmelt (Bytes ändern,
+/* Fuzz-Test des Einspielens (saves_restore_file: ZIP-Leser, chives.json, param.sfo, Host-Ersatz fürs Einhängen): eine gültige Sicherung wird zufällig verstümmelt (Bytes ändern,
  * abschneiden, Felder des Zentralverzeichnisses überschreiben) und zurückgeschrieben. Erwartet: kein Absturz, kein
  * Sanitizer-Fund, nichts außerhalb des Spielstand-Ordners geschrieben.
  * Bau/Lauf: test/saves_fuzz.sh */
@@ -19,9 +19,14 @@ int lib_parse_param_sfo(const uint8_t *b, size_t l, char *id, size_t idn, char *
     return -1;
 }
 
-static const char *g_home, *g_data;
+static const char *g_home, *g_data, *g_sys;
 const char *plat_saves_dir(void) { return g_home; }
 const char *plat_data_dir(void) { return g_data; }
+const char *plat_sys_data_dir(void) { return g_sys; }
+int plat_account_id(const char *username, uint64_t *id) { (void)username; *id = 0x1122334455667788ull; return 0; }
+int plat_save_service_enter(uint64_t authid) { (void)authid; return 0; }
+void plat_save_service_leave(void) {}
+void *plat_dynsym(const char *module, const char *symbol) { (void)module; (void)symbol; return NULL; }
 
 static uint64_t rng = 88172645463325252ull;
 static uint32_t rnd(void) {
@@ -46,11 +51,12 @@ static void count(const char *dir, long *n, long long *bytes) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 5) { fprintf(stderr, "Aufruf: %s <gueltige.zip> <home> <data> <Durchläufe> [Seed]\n", argv[0]); return 2; }
+    if (argc < 6) { fprintf(stderr, "Aufruf: %s <gueltige.zip> <home> <data> <sys> <Durchläufe> [Seed]\n", argv[0]); return 2; }
     g_home = argv[2];
     g_data = argv[3];
-    long iters = atol(argv[4]);
-    if (argc > 5) rng ^= (uint64_t)atoll(argv[5]) * 0x9E3779B97F4A7C15ull;
+    g_sys = argv[4];
+    long iters = atol(argv[5]);
+    if (argc > 6) rng ^= (uint64_t)atoll(argv[6]) * 0x9E3779B97F4A7C15ull;
     FILE *f = fopen(argv[1], "rb");
     if (!f) { perror("zip"); return 2; }
     fseek(f, 0, SEEK_END);
@@ -92,8 +98,8 @@ int main(int argc, char **argv) {
         f = fopen(path, "wb");
         fwrite(m, 1, (size_t)len, f);
         fclose(f);
-        char err[300] = "";
-        if (saves_restore_file(path, NULL, NULL, NULL, err, sizeof(err)) == 0) ok++;
+        char err[600] = "", note[600] = "";
+        if (saves_restore_file(path, "1c3f8a0e", NULL, NULL, NULL, 0, NULL, NULL, NULL, note, sizeof(note), err, sizeof(err)) == 0) ok++;
         else rej++;
     }
     long n1 = 0;

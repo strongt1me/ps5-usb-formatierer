@@ -5,6 +5,7 @@
  * Spiele-Ordner (wie /data/homebrew auf der PS5).
  * USBFMT_SLOW=1 verlangsamt das Formatieren, damit der Fortschritt sichtbar wird. */
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -310,6 +311,29 @@ void plat_library_hints(lib_hint_t **h, int *n) {
 }
 
 const char *plat_saves_dir(void) { return getenv("USBFMT_SAVES"); }
+
+const char *plat_sys_data_dir(void) { return getenv("USBFMT_SYSDATA"); }
+
+/* nachgebildete Registry: USBFMT_ACCOUNTS="Name=hex;Name2=hex" */
+int plat_account_id(const char *username, uint64_t *id) {
+    const char *s = getenv("USBFMT_ACCOUNTS");
+    const size_t ul = username ? strlen(username) : 0;
+    while (s && *s && ul) {
+        const char *eq = strchr(s, '='), *end = strchr(s, ';');
+        if (!end) end = s + strlen(s);
+        if (eq && eq < end && (size_t)(eq - s) == ul && !strncmp(s, username, ul)) {
+            *id = strtoull(eq + 1, NULL, 16);
+            return 0;
+        }
+        s = *end ? end + 1 : end;
+    }
+    return -1;
+}
+
+static pthread_mutex_t g_svc_lock = PTHREAD_MUTEX_INITIALIZER;
+int plat_save_service_enter(uint64_t authid) { (void)authid; pthread_mutex_lock(&g_svc_lock); return 0; }
+void plat_save_service_leave(void) { pthread_mutex_unlock(&g_svc_lock); }
+void *plat_dynsym(const char *module, const char *symbol) { (void)module; (void)symbol; return NULL; }
 
 /* nachgebildete Systemsprache: USBFMT_SYSLANG (z. B. "it"; "" oder unbekannt = keine der fünf), ohne die Variable
  * eine deutsche PS5 - die Tests prüfen Meldungen auf Deutsch */

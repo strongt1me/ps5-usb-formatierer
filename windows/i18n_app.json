@@ -2687,12 +2687,6 @@
   "es": "Copiar partidas guardadas",
   "fr": "Sauvegarder les sauvegardes"
  },
- "Zu sichern: {n} ({size}). Die Spielstände bleiben unverändert und verschlüsselt.": {
-  "en": "To back up: {n} ({size}). The save games stay unchanged and encrypted.",
-  "it": "Da salvare: {n} ({size}). I salvataggi restano invariati e cifrati.",
-  "es": "A copiar: {n} ({size}). Las partidas siguen sin cambios y cifradas.",
-  "fr": "À sauvegarder : {n} ({size}). Les sauvegardes restent inchangées et chiffrées."
- },
  "Auf diesen PC (ZIP-Datei speichern …)": {
   "en": "To this PC (save ZIP file …)",
   "it": "Su questo PC (salva file ZIP …)",
@@ -4180,5 +4174,35 @@
   "it": "La PS5 non ha ancora accettato l'operazione – attendo la fine del trasferimento …",
   "es": "La PS5 aún no ha aceptado la tarea – esperando a que termine la transferencia …",
   "fr": "La PS5 n'a pas encore accepté la tâche – attente de la fin du transfert …"
+ },
+ "Einspielen für:": {
+  "en": "Import for:",
+  "it": "Importa per:",
+  "es": "Importar para:",
+  "fr": "Importer pour :"
+ },
+ "Benutzer der Sicherung": {
+  "en": "User of the backup",
+  "it": "Utente del backup",
+  "es": "Usuario de la copia",
+  "fr": "Utilisateur de la sauvegarde"
+ },
+ "Zu sichern: {n} ({size}) – immer alle Spielstände der gewählten Spiele. Die Spielstände auf der PS5 bleiben unverändert.": {
+  "en": "To back up: {n} ({size}) – always all saves of the chosen games. The saves on the PS5 stay unchanged.",
+  "it": "Da salvare: {n} ({size}) – sempre tutti i salvataggi dei giochi scelti. I salvataggi sulla PS5 restano invariati.",
+  "es": "Para copiar: {n} ({size}) – siempre todas las partidas de los juegos elegidos. Las partidas de la PS5 no se modifican.",
+  "fr": "À sauvegarder : {n} ({size}) – toujours toutes les sauvegardes des jeux choisis. Les sauvegardes de la PS5 restent inchangées."
+ },
+ "Nicht hochgeladen: {names}": {
+  "en": "Not uploaded: {names}",
+  "it": "Non caricati: {names}",
+  "es": "No subidos: {names}",
+  "fr": "Non envoyés : {names}"
+ },
+ "Keine Verbindung zur PS5 seit 3 Minuten. Der Auftrag läuft dort vermutlich weiter.": {
+  "en": "No connection to the PS5 for 3 minutes. The job is probably still running there.",
+  "it": "Nessuna connessione alla PS5 da 3 minuti. Il lavoro probabilmente è ancora in corso lì.",
+  "es": "Sin conexión con la PS5 desde hace 3 minutos. Probablemente la tarea sigue en marcha allí.",
+  "fr": "Aucune connexion à la PS5 depuis 3 minutes. La tâche continue probablement là-bas."
  }
 }

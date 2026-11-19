@@ -1709,12 +1709,6 @@
   "es": "Copiar …",
   "fr": "Sauvegarder …"
  },
- "Zu sichern: {n} ({size}). Die Spielstände bleiben unverändert und verschlüsselt.": {
-  "en": "To back up: {n} ({size}). The save games stay unchanged and encrypted.",
-  "it": "Da salvare: {n} ({size}). I salvataggi restano invariati e cifrati.",
-  "es": "A copiar: {n} ({size}). Las partidas siguen sin cambios y cifradas.",
-  "fr": "À sauvegarder : {n} ({size}). Les sauvegardes restent inchangées et chiffrées."
- },
  "Spielstände geladen: {n}.": {
   "en": "Save games downloaded: {n}.",
   "it": "Salvataggi scaricati: {n}.",
@@ -3196,5 +3190,35 @@
   "it": "L'unità controllata non è più presente. Ricollegarla e selezionarla di nuovo.",
   "es": "La unidad comprobada ya no está. Vuelve a conectarla y selecciónala de nuevo.",
   "fr": "Le support vérifié n'est plus là. Le rebrancher et le sélectionner à nouveau."
+ },
+ "Benutzer der Sicherung": {
+  "en": "User of the backup",
+  "it": "Utente del backup",
+  "es": "Usuario de la copia",
+  "fr": "Utilisateur de la sauvegarde"
+ },
+ "Benutzer wählen …": {
+  "en": "Choose user …",
+  "it": "Scegli utente …",
+  "es": "Elegir usuario …",
+  "fr": "Choisir l’utilisateur …"
+ },
+ "Einspielen für:": {
+  "en": "Import for:",
+  "it": "Importa per:",
+  "es": "Importar para:",
+  "fr": "Importer pour :"
+ },
+ "Zu sichern: {n} ({size}) – immer alle Spielstände der gewählten Spiele. Die Spielstände auf der PS5 bleiben unverändert.": {
+  "en": "To back up: {n} ({size}) – always all saves of the chosen games. The saves on the PS5 stay unchanged.",
+  "it": "Da salvare: {n} ({size}) – sempre tutti i salvataggi dei giochi scelti. I salvataggi sulla PS5 restano invariati.",
+  "es": "Para copiar: {n} ({size}) – siempre todas las partidas de los juegos elegidos. Las partidas de la PS5 no se modifican.",
+  "fr": "À sauvegarder : {n} ({size}) – toujours toutes les sauvegardes des jeux choisis. Les sauvegardes de la PS5 restent inchangées."
+ },
+ "Nicht hochgeladen: {names}": {
+  "en": "Not uploaded: {names}",
+  "it": "Non caricati: {names}",
+  "es": "No subidos: {names}",
+  "fr": "Non envoyés : {names}"
  }
 }

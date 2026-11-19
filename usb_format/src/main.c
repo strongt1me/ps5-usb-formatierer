@@ -12,6 +12,7 @@
 
 #include "i18n.h"
 #include "platform.h"
+#include "saves.h"
 #include "server.h"
 
 #define ENDS_LOG_MAX (16 * 1024)
@@ -131,6 +132,15 @@ int main(void) {
     fflush(stdout);
     plat_notify(msg);
     note_last_end();
+    {   /* ein Tausch von Spielständen, den ein abgebrochener Lauf nicht beendet hat, zu Ende bringen oder zurücknehmen; dann aufräumen */
+        char rep[600];
+        if (saves_import_recover(rep, sizeof(rep)) != 0 && rep[0]) {
+            printf("%s\n", rep);
+            fflush(stdout);
+            plat_notify(rep);
+        }
+        saves_housekeeping();
+    }
     mark_running(1);
 
     server_serve(s);

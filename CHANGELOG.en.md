@@ -6,6 +6,18 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+### Changed
+
+- Saves are now handled like in the PS5 Cooling Center, so they work in PS5 and PS4 games after importing – also for another user or on another PS5:
+  - Backup: the PS5 opens a copy of the save; the ZIP holds its files (with the real `param.sfo`) and, for PS5 saves, `chives.json` – the same format as the Cooling Center and Garlic SaveMgr, whose ZIP files can be imported too.
+  - Import: the PS5 creates a new image (PS4: with a new key), sets account, user and owner value to the chosen user, checks everything and adds the save to its save database (backed up first). On any error everything stays as it was.
+  - The web interface and the PC program ask which user to import for.
+  - As in the Cooling Center: choosing one save of a game backs up all saves of that game (such as `SaveData` and `sce_sdmemory`), each as its own ZIP. Before importing, the game's current state is backed up internally (`…vorher-<date>.zip`, the three newest are kept, in the “Restore” list); if that fails, nothing is imported.
+  - Also as in the Cooling Center: saves of apps (such as YouTube) are left alone; right before replacing, the formatter checks once more whether a game was started and whether the save database is in order; if one save of a game fails during backup, the backups of that game already written are taken back; the same save twice in one job is refused; several ZIP files can be uploaded at once (the previous state is backed up only once per game).
+  - As in Cooling Center 1.88.0: a replacement cut off by power loss, a crash or a restart is finished or undone at the next start (and before the next import) (record `save_import.journal`); the database is only put back when something was really written; the ZIP no longer contains the account ID (the import writes the target user's); the save service identity is used only for mounting and unmounting; the ten newest copies of each user's save database are kept; if an old save cannot be read out before it is replaced, a raw copy is kept (folder `roh`).
+  - Beyond the Cooling Center: for newer PS5 saves, the import reads the owner value from the image header (where their real `param.sfo` lives), so the game's own save serves as the template instead of another one; a note that applies to several saves appears only once in the message.
+  - Backup and download refuse while a game is running. Backups in the old format (encrypted container with `metadata.json`) are no longer offered; the timestamp repair (`/api/saves/times`, `tools/ps5_fix_save_times.py`) is gone.
+
 ## [2.6.69] – 2026-11-19
 
 ### Added

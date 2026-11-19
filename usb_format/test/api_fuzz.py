@@ -20,7 +20,7 @@ ROUTES = ["/api/backup", "/api/backup/download", "/api/backup/resume", "/api/can
           "/api/images/delete", "/api/images/discard", "/api/images/verify", "/api/info", "/api/label", "/api/library",
           "/api/library/sizes", "/api/move", "/api/orphans", "/api/orphans/delete", "/api/partials/discard",
           "/api/pkg/delete", "/api/restore", "/api/restore/upload", "/api/saves", "/api/saves/backup",
-          "/api/saves/backups", "/api/saves/download", "/api/saves/locations", "/api/saves/restore", "/api/saves/times",
+          "/api/saves/backups", "/api/saves/download", "/api/saves/locations", "/api/saves/restore",
           "/api/saves/users", "/api/settings", "/api/speed", "/api/status", "/api/system", "/api/tile", "/", "/help",
           "/bg.jpg", "/avatar.png", "/api/nichts", "/api/../etc/passwd", "//api//info"]
 FIELDS = ["device", "size", "keys", "key", "path", "dest", "label", "fs", "replug", "repair", "uninstall", "ident",
