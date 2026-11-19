@@ -8,6 +8,7 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ### Geändert
 
+- Gebaut mit dem PS5-Payload-SDK 0.50: Der Formatierer läuft jetzt auch auf Firmware 14.20 und 14.22 (vom SDK unterstützt: 1.00 bis 14.22).
 - GitHub auf Englisch: `CHANGELOG.md` ist jetzt englisch, das deutsche Changelog heißt `CHANGELOG.de.md`; die Release-Hinweise zeigen Englisch zuerst, Deutsch zum Aufklappen. „Was ist neu“ in der Weboberfläche und den PC-Programmen lädt die passende Datei.
 
 ## [2.6.70] – 2026-11-19

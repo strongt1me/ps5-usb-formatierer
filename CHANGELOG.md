@@ -8,6 +8,7 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ### Changed
 
+- Built with PS5 Payload SDK 0.50: the formatter now also runs on firmware 14.20 and 14.22 (SDK support: 1.00 to 14.22).
 - GitHub in English: `CHANGELOG.md` is now English, the German changelog is `CHANGELOG.de.md`; release notes show English first with German to expand. “What's new” in the web interface and the PC programs loads the matching file.
 
 ## [2.6.70] – 2026-11-19

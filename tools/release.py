@@ -15,7 +15,7 @@ neuen ELF und hängt am Release.
 Die Windows-Programme und die Linux-Fassungen (Archive und AppImages, x86_64 und aarch64) baut und hängt die CI an
 das Release (release: published), danach die SHA256SUMS (checksums.yml). Die eigene PS5 danach mit
 tools/ps5_deploy.py update (und tile) auf denselben Stand bringen.
-Voraussetzungen: WSL mit dem ps5-payload-sdk (PS5_PAYLOAD_SDK, sonst ~/ps5-build/sdk045/ps5-payload-sdk), .NET-SDK für
+Voraussetzungen: WSL mit dem ps5-payload-sdk (PS5_PAYLOAD_SDK, sonst ~/ps5-build/sdk050/ps5-payload-sdk), .NET-SDK für
 den Dump, Python mit Pillow, Microsoft Edge für die Bilder der Weboberfläche, gh (angemeldet) zum Veröffentlichen.
 Nie gleichzeitig mit den Host-Tests laufen lassen: beide brauchen Port 8090."""
 import argparse
@@ -38,7 +38,7 @@ USB = os.path.join(ROOT, "usb_format")
 READMES = ["README.md", "README.de.md", "README.it.md", "README.es.md", "README.fr.md"]
 REPO = "strongt1me/ps5-usb-formatierer"
 LANGS = ("de", "en", "it", "es", "fr")
-DEFAULT_SDK = "$HOME/ps5-build/sdk045/ps5-payload-sdk"   # v0.45: Kernel-Offsets für FW 14.00/14.10
+DEFAULT_SDK = "$HOME/ps5-build/sdk050/ps5-payload-sdk"   # v0.50: Kernel-Offsets für FW 1.00 bis 14.22
 ELF_MAX = 8 * 1024 * 1024
 
 
