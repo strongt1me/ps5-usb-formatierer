@@ -6,6 +6,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+## [2.6.70] – 2026-11-19
+
 ### Changed
 
 - Saves are now handled like in the PS5 Cooling Center, so they work in PS5 and PS4 games after importing – also for another user or on another PS5:
@@ -902,7 +904,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 - The app launcher tears down the sandbox cleanly.
 
-[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.69...HEAD
+[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.70...HEAD
+[2.6.70]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.70
 [2.6.69]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.69
 [2.6.68]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.68
 [2.6.67]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.67

@@ -6,6 +6,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+## [2.6.70] – 2026-11-19
+
 ### Geändert
 
 - Spielstände werden jetzt wie im PS5 Cooling Center verarbeitet, damit sie nach dem Einspielen in PS5- und PS4-Spielen funktionieren – auch für einen anderen Benutzer oder auf einer anderen PS5:
@@ -902,7 +904,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 - App-Starter baut die Sandbox sauber ab.
 
-[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.69...HEAD
+[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.70...HEAD
+[2.6.70]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.70
 [2.6.69]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.69
 [2.6.68]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.68
 [2.6.67]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.67
