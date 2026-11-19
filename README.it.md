@@ -39,7 +39,7 @@ Il formattatore scollega via software le unità montate e le acquisisce prima ch
 <td width="33%" valign="top">
 
 ### 🕹️ Giochi sotto controllo
-Giochi (cartelle e immagini con ID titolo), file PKG e occupazione. Riconosce i giochi doppi, rimuove i giochi insieme al riquadro con «Elimina giochi …». I giochi si possono anche copiare o spostare tra unità e la memoria interna della PS5, con i file collegati (cartella backport, checksum); anche i file PKG si possono spostare ed eliminare. Prima della copia la destinazione viene controllata (spazio libero; FAT32 e file oltre 4 GB); i file PKG mostrano la versione del gioco e il firmware richiesto rispetto a ciò che è installato sulla PS5. Le finestre mostrano lo spazio libero rimanente; una copia interrotta riprende da dove si era fermata (stessa selezione); «Controlla giochi» confronta le immagini con il loro file .sha256; nei doppioni si vede quale versione è più vecchia; l'elenco dei giochi è ricercabile. L'app Windows registra gli errori imprevisti e offre «Copia rapporto» (Ctrl+Maiusc+B). Le copie parziali rimaste vengono mostrate e si possono scartare; «Crea checksum» scrive un .sha256 accanto alle immagini che non ne hanno; un clic su un gioco mostra i dettagli; «Seleziona la versione più vecchia» preseleziona il doppione vecchio da eliminare. «Pulisci» trova i resti (checksum senza gioco, cartelle backport senza gioco, cartelle di gioco vuote) ed elimina solo ciò che è selezionato; i giochi in cartella ottengono un elenco di checksum (<nome>.manifest.sha256) che segnala file modificati, mancanti e nuovi; più copie si possono mettere in coda ed eseguire una dopo l'altra; la pagina web offre un rapporto diagnostico copiabile. I programmi compilati superano un autotest in CI (traduzioni, checksum dell'helper, ELF incorporata, tutte le schede).
+Giochi (cartelle e immagini con ID titolo), file PKG e occupazione: copiare, spostare, verificare ed eliminare – con riconoscimento dei doppioni e pulizia. Dettagli sotto la tabella.
 
 </td>
 </tr>
@@ -110,7 +110,7 @@ Controllo del numero di serie: se nel frattempo è inserita un'altra chiavetta d
 Salva un'intera unità come <code>.img.zst</code> – solo le aree occupate, compresse con zstd, con <code>.sha256</code>. Sulla PS5 nella memoria interna, su un'altra unità USB o come download; sul PC in qualsiasi cartella, anche da chiavette e schede SD con la protezione da scrittura attiva. Riscrittura con verifica finale – anche caricando il file da telefono o PC. Con <code>zstd -d</code> il file diventa una normale immagine.
 
 ### 🎮 Salvataggi: backup e ripristino
-Mostra i salvataggi PS5 con nome del gioco e utente, ne fa selezionare più di uno e li salva – come download ZIP o sulla PS5 stessa (interna <code>/data/game_saves</code> o <code>game_saves</code> di un'unità USB). Il contenitore cifrato resta invariato. Per il ripristino il formattatore elenca i backup trovati per utente (o si usa uno ZIP del dispositivo). I checksum vengono verificati, un gioco in esecuzione impedisce le modifiche. Salvataggi PS5 e PS4 (PS4 con il file chiave), la seconda copia di sistema (sce_bu) non viene elencata; backup e ripristino si possono annullare.
+Elenca i salvataggi PS5 e PS4 con nome del gioco e utente e li salva come ZIP – come download o sulla PS5 stessa (interna <code>/data/game_saves</code> o <code>game_saves</code> di un'unità USB). Il ripristino funziona per qualsiasi utente, anche su un'altra PS5: il formattatore crea una nuova immagine del salvataggio, imposta account e proprietario e la registra nel database dei salvataggi della PS5 – come il PS5 Cooling Center, i cui file ZIP (e quelli di Garlic SaveMgr) si possono anche ripristinare. Lo stato attuale viene salvato prima, un gioco in esecuzione blocca le modifiche, backup e ripristino si possono annullare.
 
 </td>
 </tr>
@@ -135,6 +135,21 @@ Programmi per PC: F1 guida, F5 rileggi, Ctrl+1 … 5 pagine, Ctrl+F cerca giochi
 </td>
 </tr>
 </table>
+
+<details>
+<summary><b>🕹️ Giochi sotto controllo – tutti i dettagli</b></summary>
+
+- **Copiare e spostare** i giochi tra unità e la memoria interna della PS5, con cartella backport e checksum; anche i file PKG si possono spostare ed eliminare.
+- **Prima di copiare** viene controllata la destinazione (spazio libero; FAT32 e file oltre 4 GB); i dialoghi mostrano lo spazio libero che resta.
+- **Le copie interrotte** riprendono da dove si erano fermate (stessa selezione); le copie parziali rimaste vengono mostrate e si possono scartare. Più copie si possono mettere in coda.
+- **I file PKG** mostrano la versione del gioco e il firmware richiesto rispetto a quello installato sulla PS5.
+- **I doppioni** vengono riconosciuti e mostrano quale versione è più vecchia; «Seleziona la versione più vecchia» la preseleziona. «Elimina giochi …» rimuove i giochi insieme al riquadro.
+- **Controlla giochi** confronta le immagini con il loro file .sha256; «Crea checksum» ne scrive uno per le immagini che non lo hanno. I giochi in cartella ricevono un elenco di checksum (`<nome>.manifest.sha256`) che segnala file modificati, mancanti e nuovi.
+- **Pulisci** trova i resti (checksum o cartelle backport senza gioco, cartelle di giochi vuote) ed elimina solo ciò che è spuntato.
+- **Ricerca e dettagli:** l'elenco dei giochi si può cercare; un clic su un gioco ne mostra i dettagli.
+- **Diagnostica:** l'app Windows scrive gli errori imprevisti in un registro e offre «Copia rapporto» (Ctrl+Maiusc+B); la pagina web offre un rapporto diagnostico da copiare.
+
+</details>
 
 ## 📦 Download
 

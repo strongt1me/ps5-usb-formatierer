@@ -39,7 +39,7 @@ Eingebundene Laufwerke meldet der Formatierer per Software ab und übernimmt sie
 <td width="33%" valign="top">
 
 ### 🕹️ Spiele im Blick
-Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien und Belegung. Doppelte Spiele erkennen, Spiele über „Spiele löschen …“ samt Kachel entfernen. Spiele lassen sich auch zwischen Laufwerken und dem internen PS5-Speicher kopieren oder verschieben, samt zugehöriger Dateien (Backport-Ordner, Prüfsummen); PKG-Dateien lassen sich ebenfalls verschieben und löschen. Vor dem Kopieren wird das Ziel geprüft (freier Platz; FAT32 und Dateien über 4 GB); PKG-Dateien zeigen ihre Spielversion und die nötige Firmware im Vergleich zu dem, was auf der PS5 installiert ist. Die Dialoge zeigen den danach freien Platz; ein unterbrochenes Kopieren setzt dort fort, wo es stand (dieselbe Auswahl erneut); „Spiele prüfen“ vergleicht Abbilder mit ihrer .sha256-Datei; bei Duplikaten steht, welche Version älter ist; die Spieleliste lässt sich durchsuchen. Die Windows-App schreibt unerwartete Fehler in ein Protokoll und bietet „Bericht kopieren“ an (Strg+Umschalt+B). Liegengebliebene Teilkopien werden angezeigt und lassen sich verwerfen; „Prüfsumme erstellen“ legt neben Abbildern ohne Prüfsumme eine .sha256 an; ein Klick auf ein Spiel zeigt seine Einzelheiten; „Ältere Version auswählen“ wählt das ältere Duplikat zum Löschen vor. „Aufräumen“ findet Reste (Prüfsummen ohne Spiel, Backport-Ordner ohne Spiel, leere Spielordner) und löscht nur, was angehakt ist; Ordner-Spiele bekommen eine Prüfsummenliste (<Name>.manifest.sha256), die geänderte, fehlende und neue Dateien meldet; mehrere Kopieraufträge lassen sich in eine Warteschlange stellen und laufen nacheinander; die Weboberfläche bietet einen kopierbaren Diagnose-Bericht. Die gebauten Programme laufen in der CI durch einen Selbsttest (Übersetzungen, Helfer-Prüfsumme, eingebaute ELF, alle Reiter).
+Spiele (Ordner und Abbilder mit Titel-ID), PKG-Dateien und Belegung: kopieren, verschieben, prüfen und löschen – mit Erkennung doppelter Spiele und Aufräumen. Einzelheiten unter der Tabelle.
 
 </td>
 </tr>
@@ -110,7 +110,7 @@ Seriennummer-Abgleich: Steckt inzwischen ein baugleicher anderer Stick, wird nic
 Ganzes Laufwerk als <code>.img.zst</code> sichern – nur belegte Bereiche, gepackt mit zstd, mit <code>.sha256</code>. An der PS5 nach intern, auf ein anderes USB-Laufwerk oder als Download; am PC in jeden Ordner, auch von Sticks und SD-Karten mit eingeschaltetem Schreibschutz. Zurückschreiben mit Prüfung danach – auch per Hochladen vom Handy oder PC. Die Datei lässt sich mit <code>zstd -d</code> zu einem gewöhnlichen Image entpacken.
 
 ### 🎮 Spielstände sichern & wiederherstellen
-PS5-Spielstände mit Spielname und Benutzer anzeigen, mehrere markieren und sichern – als ZIP-Download oder auf der PS5 selbst (intern <code>/data/game_saves</code> oder USB-Laufwerk <code>game_saves</code>). Der verschlüsselte Container bleibt unverändert. Beim Wiederherstellen zeigt der Formatierer die gefundenen Sicherungen nach Benutzer zum Markieren (oder eine ZIP vom Gerät). Prüfsummen werden kontrolliert, ein laufendes Spiel verhindert Änderungen. PS5- und PS4-Spielstände (PS4 samt Schlüsseldatei), die zweite Systemkopie (sce_bu) wird nicht aufgelistet; Sichern und Wiederherstellen lassen sich abbrechen.
+PS5- und PS4-Spielstände mit Spielname und Benutzer anzeigen und als ZIP sichern – als Download oder auf der PS5 selbst (intern <code>/data/game_saves</code> oder USB-Laufwerk <code>game_saves</code>). Einspielen geht für jeden Benutzer, auch auf einer anderen PS5: Der Formatierer legt ein neues Spielstand-Abbild an, setzt Konto und Besitzer und trägt es in die Spielstand-Datenbank der PS5 ein – wie das PS5 Cooling Center, dessen ZIP-Dateien (und die von Garlic SaveMgr) sich ebenfalls einspielen lassen. Der jetzige Stand wird vorher gesichert, ein laufendes Spiel verhindert Änderungen, Sichern und Einspielen lassen sich abbrechen.
 
 </td>
 </tr>
@@ -135,6 +135,21 @@ PC-Programme: F1 Anleitung, F5 neu einlesen, Strg+1 … 5 Seiten, Strg+F Spiele 
 </td>
 </tr>
 </table>
+
+<details>
+<summary><b>🕹️ Spiele im Blick – alle Einzelheiten</b></summary>
+
+- **Kopieren & Verschieben** von Spielen zwischen Laufwerken und dem internen PS5-Speicher, samt Backport-Ordner und Prüfsummen; PKG-Dateien lassen sich ebenfalls verschieben und löschen.
+- **Vor dem Kopieren** wird das Ziel geprüft (freier Platz; FAT32 und Dateien über 4 GB); die Dialoge zeigen den danach freien Platz.
+- **Abgebrochene Kopien** laufen an der Stelle weiter (dieselbe Auswahl noch einmal); übrig gebliebene Teilkopien werden angezeigt und lassen sich verwerfen. Mehrere Kopieraufträge lassen sich einreihen.
+- **PKG-Dateien** zeigen Spielversion und benötigte Firmware im Vergleich mit dem, was auf der PS5 installiert ist.
+- **Doppelte Spiele** werden erkannt und zeigen, welche Version älter ist; „Ältere Version auswählen“ markiert sie vor. „Spiele löschen …“ entfernt Spiele samt Kachel.
+- **Spiele prüfen** vergleicht Abbilder mit ihrer .sha256-Datei; „Prüfsumme erstellen“ schreibt eine für Abbilder ohne. Ordner-Spiele bekommen eine Prüfsummenliste (`<Name>.manifest.sha256`), die geänderte, fehlende und neue Dateien meldet.
+- **Aufräumen** findet Reste (Prüfsummen oder Backport-Ordner ohne Spiel, leere Spielordner) und löscht nur, was angehakt ist.
+- **Suche und Details:** Die Spieleliste lässt sich durchsuchen; ein Klick auf ein Spiel zeigt seine Details.
+- **Diagnose:** Die Windows-App schreibt unerwartete Fehler in ein Protokoll und bietet „Bericht kopieren“ (Strg+Umschalt+B); die Webseite bietet einen kopierbaren Diagnosebericht.
+
+</details>
 
 ## 📦 Download
 

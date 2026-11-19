@@ -39,7 +39,7 @@ Le formateur déconnecte par logiciel les lecteurs montés et les reprend avant 
 <td width="33%" valign="top">
 
 ### 🕹️ Les jeux en un coup d'œil
-Jeux (dossiers et images avec ID de titre), fichiers PKG et occupation. Détecte les jeux en double, supprime les jeux avec leur vignette via « Supprimer des jeux … ». Les jeux peuvent aussi être copiés ou déplacés entre lecteurs et le stockage interne de la PS5, avec leurs fichiers associés (dossier backport, sommes de contrôle) ; les fichiers PKG peuvent aussi être déplacés et supprimés. Avant la copie, la destination est vérifiée (place libre ; FAT32 et fichiers de plus de 4 Go) ; les fichiers PKG indiquent la version du jeu et le firmware requis par rapport à ce qui est installé sur la PS5. Les boîtes de dialogue indiquent la place libre restante ; une copie interrompue reprend là où elle s'est arrêtée (même sélection) ; « Vérifier les jeux » compare les images à leur fichier .sha256 ; pour les doublons, la version la plus ancienne est indiquée ; la liste des jeux est consultable par recherche. L'application Windows consigne les erreurs inattendues et propose « Copier le rapport » (Ctrl+Maj+B). Les copies partielles restantes sont affichées et peuvent être abandonnées ; « Créer la somme de contrôle » écrit un .sha256 à côté des images qui n'en ont pas ; un clic sur un jeu affiche ses détails ; « Sélectionner la version plus ancienne » présélectionne le doublon ancien pour la suppression. « Nettoyer » trouve les restes (sommes sans jeu, dossiers backport sans jeu, dossiers de jeu vides) et ne supprime que ce qui est coché ; les jeux en dossier reçoivent une liste de sommes (<nom>.manifest.sha256) qui signale fichiers modifiés, manquants et nouveaux ; plusieurs copies peuvent être mises en file d'attente et s'exécutent l'une après l'autre ; la page web propose un rapport de diagnostic copiable. Les programmes compilés passent un autotest en CI (traductions, somme de l'assistant, ELF intégrée, tous les onglets).
+Jeux (dossiers et images avec ID de titre), fichiers PKG et occupation : copier, déplacer, vérifier et supprimer – avec détection des doublons et nettoyage. Détails sous le tableau.
 
 </td>
 </tr>
@@ -110,7 +110,7 @@ Contrôle du numéro de série : si une autre clé du même modèle est branché
 Sauvegarde un lecteur entier en <code>.img.zst</code> – seulement les zones occupées, compressées avec zstd, avec un <code>.sha256</code>. Sur la PS5 vers le stockage interne, un autre lecteur USB ou en téléchargement ; sur le PC dans n'importe quel dossier, même depuis des clés et cartes SD verrouillées en écriture. Réécriture avec vérification ensuite – aussi par envoi depuis un téléphone ou un PC. <code>zstd -d</code> en fait une image ordinaire.
 
 ### 🎮 Sauvegardes : copier et restaurer
-Affiche les sauvegardes PS5 avec le nom du jeu et l'utilisateur, permet d'en cocher plusieurs et de les sauvegarder – en téléchargement ZIP ou sur la PS5 elle-même (interne <code>/data/game_saves</code> ou <code>game_saves</code> d'un lecteur USB). Le conteneur chiffré reste inchangé. Pour restaurer, le formateur liste les sauvegardes trouvées par utilisateur (ou on utilise un ZIP de l'appareil). Les sommes de contrôle sont vérifiées, un jeu en cours bloque les modifications. Sauvegardes PS5 et PS4 (PS4 avec son fichier de clé), la seconde copie système (sce_bu) n'est pas listée ; sauvegarde et restauration peuvent être annulées.
+Affiche les sauvegardes PS5 et PS4 avec le nom du jeu et l'utilisateur et les copie en ZIP – en téléchargement ou sur la PS5 elle-même (interne <code>/data/game_saves</code> ou <code>game_saves</code> d'un lecteur USB). La restauration fonctionne pour n'importe quel utilisateur, même sur une autre PS5 : le formateur crée une nouvelle image de sauvegarde, définit le compte et le propriétaire et l'inscrit dans la base de données des sauvegardes de la PS5 – comme le PS5 Cooling Center, dont les fichiers ZIP (et ceux de Garlic SaveMgr) peuvent aussi être restaurés. L'état actuel est sauvegardé avant, un jeu en cours bloque les modifications, copie et restauration peuvent être annulées.
 
 </td>
 </tr>
@@ -135,6 +135,21 @@ Programmes PC : F1 guide, F5 relire, Ctrl+1 … 5 pages, Ctrl+F rechercher des j
 </td>
 </tr>
 </table>
+
+<details>
+<summary><b>🕹️ Les jeux en un coup d'œil – tous les détails</b></summary>
+
+- **Copier et déplacer** des jeux entre lecteurs et le stockage interne de la PS5, avec leur dossier backport et leurs sommes de contrôle ; les fichiers PKG peuvent aussi être déplacés et supprimés.
+- **Avant la copie**, la destination est vérifiée (espace libre ; FAT32 et fichiers de plus de 4 Go) ; les dialogues indiquent l'espace libre restant.
+- **Les copies interrompues** reprennent là où elles s'étaient arrêtées (même sélection) ; les copies partielles restantes sont affichées et peuvent être abandonnées. Plusieurs copies peuvent être mises en file d'attente.
+- **Les fichiers PKG** indiquent la version du jeu et le firmware requis par rapport à ce qui est installé sur la PS5.
+- **Les doublons** sont détectés et indiquent quelle version est la plus ancienne ; « Sélectionner la version plus ancienne » la présélectionne. « Supprimer des jeux … » retire les jeux avec leur vignette.
+- **Vérifier les jeux** compare les images avec leur fichier .sha256 ; « Créer la somme de contrôle » en écrit une pour les images qui n'en ont pas. Les jeux en dossier reçoivent une liste de sommes (`<nom>.manifest.sha256`) qui signale les fichiers modifiés, manquants et nouveaux.
+- **Nettoyer** trouve les restes (sommes ou dossiers backport sans jeu, dossiers de jeux vides) et ne supprime que ce qui est coché.
+- **Recherche et détails :** la liste des jeux peut être filtrée ; un clic sur un jeu affiche ses détails.
+- **Diagnostic :** l'app Windows écrit les erreurs inattendues dans un journal et propose « Copier le rapport » (Ctrl+Maj+B) ; la page web propose un rapport de diagnostic à copier.
+
+</details>
 
 ## 📦 Téléchargement
 

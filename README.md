@@ -39,7 +39,7 @@ The formatter detaches mounted drives by software and takes them over before the
 <td width="33%" valign="top">
 
 ### 🕹️ Games at a glance
-Games (folders and images with title ID), PKG files and usage. Detects duplicate games, removes games including their tile via “Delete games …”. Games can also be copied or moved between drives and the internal PS5 storage, together with their related files (backport folder, checksums); PKG files can be moved and deleted too. Before copying, the target is checked (free space; FAT32 and files over 4 GB); PKG files show their game version and required firmware compared with what is installed on the PS5. The dialogs show the free space left afterwards; an interrupted copy resumes where it stopped (same selection again); “Check games” compares images with their .sha256 file; duplicates show which version is older; the game list can be searched. The Windows app writes unexpected errors to a log and offers “Copy report” (Ctrl+Shift+B). Leftover partial copies are shown and can be discarded; “Create checksum” writes a .sha256 next to images that have none; a click on a game shows its details; “Select older version” pre-selects the older duplicate for deleting. “Clean up” finds leftovers (checksums without a game, backport folders without a game, empty game folders) and deletes only what you tick; folder games get a checksum list (<name>.manifest.sha256) that reports changed, missing and new files; several copy jobs can be queued and run one after another; the web page offers a copyable diagnostic report. The built programs run a self-test in CI (translations, helper checksum, embedded ELF, all tabs).
+Games (folders and images with title ID), PKG files and usage: copy, move, check and delete – with duplicate detection and clean-up. Details below the table.
 
 </td>
 </tr>
@@ -110,7 +110,7 @@ Serial number check: if a different stick of the same model is plugged in meanwh
 Back up a whole drive as <code>.img.zst</code> – only used areas, compressed with zstd, with a <code>.sha256</code>. On the PS5 to internal storage, another USB drive or as a download; on the PC to any folder, even from sticks and SD cards with the write-protect switch on. Write it back with a check afterwards – also by uploading from a phone or PC. <code>zstd -d</code> turns the file into an ordinary image.
 
 ### 🎮 Back up & restore save games
-Lists PS5 save games with game name and user, lets you tick several and back them up – as a ZIP download or on the PS5 itself (internal <code>/data/game_saves</code> or a USB drive's <code>game_saves</code>). The encrypted container stays unchanged. To restore, the formatter lists the backups it finds by user (or take a ZIP from your device). Checksums are verified, a running game blocks changes. PS5 and PS4 saves (PS4 with its key file), the second system copy (sce_bu) is not listed; backup and restore can be cancelled.
+Lists PS5 and PS4 save games with game name and user and backs them up as ZIP – as a download or on the PS5 itself (internal <code>/data/game_saves</code> or a USB drive's <code>game_saves</code>). Restoring works for any user, also on another PS5: the formatter creates a new save image, sets account and owner and adds it to the PS5's save database – like the PS5 Cooling Center, whose ZIP files (and those of Garlic SaveMgr) can be restored too. The current state is backed up first, a running game blocks changes, and backup and restore can be cancelled.
 
 </td>
 </tr>
@@ -135,6 +135,21 @@ PC programs: F1 guide, F5 reload, Ctrl+1 … 5 pages, Ctrl+F search games, Ctrl+
 </td>
 </tr>
 </table>
+
+<details>
+<summary><b>🕹️ Games at a glance – all details</b></summary>
+
+- **Copy & move** games between drives and the internal PS5 storage, with their backport folder and checksums; PKG files can be moved and deleted too.
+- **Before copying** the target is checked (free space; FAT32 and files over 4 GB); the dialogs show the free space left afterwards.
+- **Interrupted copies** resume where they stopped (same selection again); leftover partial copies are shown and can be discarded. Several copy jobs can be queued.
+- **PKG files** show their game version and required firmware compared with what is installed on the PS5.
+- **Duplicates** are detected and show which version is older; “Select older version” pre-selects it. “Delete games …” removes games including their tile.
+- **Check games** compares images with their .sha256 file; “Create checksum” writes one for images that have none. Folder games get a checksum list (`<name>.manifest.sha256`) that reports changed, missing and new files.
+- **Clean up** finds leftovers (checksums or backport folders without a game, empty game folders) and deletes only what you tick.
+- **Search and details:** the game list can be searched; a click on a game shows its details.
+- **Diagnostics:** the Windows app writes unexpected errors to a log and offers “Copy report” (Ctrl+Shift+B); the web page offers a copyable diagnostic report.
+
+</details>
 
 ## 📦 Download
 
