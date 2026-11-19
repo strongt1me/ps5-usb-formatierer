@@ -4,6 +4,7 @@
  *  - pread/pwrite/fsync auf den Datenträger gehen an den exklusiv gehaltenen Stick, ab Partitionsbeginn und
  *    sektorgenau (FreeBSD-Rohgeräte verlangen das)
  *  - printf/fprintf/vprintf werden eingesammelt statt ausgegeben
+ *  - close() merkt sich, ob exfatprogs den Datenträger schon geschlossen hat
  *  - exit() springt in den Formatierer zurück, statt ihn zu beenden
  *  - kein mmap von /dev/zero (_POSIX_MAPPED_FILES aus): Puffer per calloc
  */
@@ -31,6 +32,7 @@ int     usbfmt_vprintf(const char *fmt, va_list ap);
 ssize_t usbfmt_pread(int fd, void *buf, size_t n, off_t off);
 ssize_t usbfmt_pwrite(int fd, const void *buf, size_t n, off_t off);
 int     usbfmt_fsync(int fd);
+int     usbfmt_close(int fd);
 __attribute__((noreturn)) void usbfmt_exit(int code);
 
 #define printf  usbfmt_printf
@@ -39,6 +41,7 @@ __attribute__((noreturn)) void usbfmt_exit(int code);
 #define pread   usbfmt_pread
 #define pwrite  usbfmt_pwrite
 #define fsync   usbfmt_fsync
+#define close   usbfmt_close
 #define exit    usbfmt_exit
 
 #endif

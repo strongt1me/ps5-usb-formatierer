@@ -3190,5 +3190,11 @@
   "it": "Apri la pagina della release",
   "es": "Abrir la página de la versión",
   "fr": "Ouvrir la page de la version"
+ },
+ "Der geprüfte Datenträger ist nicht mehr da. Bitte wieder einstecken und neu wählen.": {
+  "en": "The checked drive is no longer there. Please plug it back in and select it again.",
+  "it": "L'unità controllata non è più presente. Ricollegarla e selezionarla di nuovo.",
+  "es": "La unidad comprobada ya no está. Vuelve a conectarla y selecciónala de nuevo.",
+  "fr": "Le support vérifié n'est plus là. Le rebrancher et le sélectionner à nouveau."
  }
 }

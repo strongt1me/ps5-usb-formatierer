@@ -23,6 +23,8 @@ echo x >"$H/backports/PPSA00001/patch.bin"; echo y >"$H/backports/PPSA99999 Alt/
 head -c 100000 /dev/urandom >"$H/a.ffpfs"; echo h >"$H/a.ffpfs.sha256"; echo i >"$H/a.dump-info.json"   # gehören zu a.ffpfs: bleiben
 echo h >"$H/Spiel.sha256"                                                                               # gehört zum Ordner Spiel: bleibt
 echo h >"$H/weg.ffpfs.sha256"; echo i >"$H/ohne.dump-info.json"; echo m >"$H/fort.manifest.sha256"      # ohne Abbild/Spiel: verwaist
+# Verknüpfung auf einen fremden Ordner: dessen Inhalt darf nie als "verwaist" erscheinen (sonst löschte Aufräumen dort)
+mkdir -p "$W/fremd/PPSA77777 X"; ln -s "$W/fremd" "$W/mnt/usb0/etaHEN/games/backports"
 env USBFMT_IMAGES="$W/a.img" USBFMT_MOUNTED="1" USBFMT_MOUNTROOT="$W/mnt" USBFMT_DATA="$W/cfg" USBFMT_INTERNAL_BASE="$W/data" "$W/srv" >"$W/log" 2>&1 &
 PID=$!
 for _ in $(seq 1 50); do curl -s "$U/api/info" >/dev/null 2>&1 && break; sleep 0.1; done
@@ -45,5 +47,6 @@ PY
 [ "$(curl -s -o /dev/null -w '%{http_code}' -H "$J" -d '{"keys":"zz"}' "$U/api/orphans/delete")" = 404 ] && ok "ungültiger Schlüssel: abgelehnt" || bad "ungültig"
 curl -s "$U/api/orphans" >"$W/o"
 [ "$(q 'len(d["items"])' <"$W/o")" = 3 ] && ok "danach noch 3 verwaiste Einträge" || bad "Rest" "$(cat "$W/o")"
+[ -d "$W/fremd/PPSA77777 X" ] && ok "Verknüpfung auf fremden Ordner nicht verfolgt" || bad "fremder Ordner angefasst"
 kill -0 $PID 2>/dev/null && ok "Server läuft weiter" || bad "Server abgestürzt"
 [ "$fails" = 0 ] && echo "Alle Aufräum-Tests bestanden." || { echo "$fails Fehler"; exit 1; }

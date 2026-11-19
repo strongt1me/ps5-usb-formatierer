@@ -34,7 +34,7 @@ def check(name, cond, extra=""):
 
 
 uf.load_settings = lambda: {"lang": "de", "mode": "ps5", "host": "127.0.0.1"}
-uf.save_settings = lambda data: None
+uf.save_settings = lambda data, keep=(): None
 ps5_discovery.discover = lambda port, progress=None: [{"ip": "127.0.0.1", "name": "PS5", "standby": False, "formatter": True}]
 uf.messagebox.showinfo = lambda title, msg, **k: msgs.append(("info", msg))
 uf.messagebox.showerror = lambda title, msg, **k: msgs.append(("error", msg))

@@ -39,7 +39,7 @@ extern struct exfat_stat exfat_stat;
 
 #define DEV_NAME "/dev/usbfmt"
 
-static int      g_fd = -1, g_dup = -1;
+static int      g_fd = -1, g_dup = -1, g_dup_closed;
 static uint64_t g_base, g_size;
 static uint32_t g_ss;
 static jmp_buf  g_jmp;
@@ -141,9 +141,17 @@ int usbfmt_fsync(int fd) {
     return 0;
 }
 
+/* exfatprogs schließt den Datenträger selbst; merken, damit der Weg über exit() nicht noch einmal schließt - die
+ * Nummer gehört dann womöglich schon einem anderen Thread (Verbindung, Spielesuche) */
+int usbfmt_close(int fd) {
+    if (fd >= 0 && fd == g_dup) g_dup_closed = 1;
+    return close(fd);
+}
+
 /* Ersetzt die Linux-Fassung aus libexfat.c (sysfs, ioctl): Größe und Sektorgröße kennt der Formatierer */
 int exfat_get_blk_dev_info(struct exfat_user_input *ui, struct exfat_blk_dev *bd) {
     g_dup = dup(g_fd);
+    g_dup_closed = 0;
     if (g_dup < 0) return -1;
     if (!ui->cluster_size) ui->cluster_size = 4096;
     if (!ui->boundary_align) ui->boundary_align = DEFAULT_BOUNDARY_ALIGNMENT;
@@ -192,7 +200,7 @@ int exfat_fsck_run(int fd, uint64_t start, uint64_t size, uint32_t ss, int repai
         r->code = g_exit_code;
         /* über exit() beendet: dann nicht geschlossen. Nie zusätzlich nach normalem Ende schließen - die Nummer kann
          * inzwischen einem anderen Thread gehören (Verbindung, Spielesuche) */
-        if (g_dup >= 0 && fcntl(g_dup, F_GETFD) != -1) close(g_dup);
+        if (g_dup >= 0 && !g_dup_closed) close(g_dup);
     }
     g_dup = -1;
     g_fd = -1;

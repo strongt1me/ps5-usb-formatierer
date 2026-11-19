@@ -10,6 +10,16 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 - Source for itsPLK's PS5 Payload Manager: add `https://github.com/strongt1me/ps5-usb-formatierer/releases/latest/download/payload-manager.json` under Settings → Manage Sources → Add Source to download and update the ELF there (with SHA-256 check).
 
+### Fixed
+
+- Copying and cleanup no longer follow links: a `.usbfmt-move` staging folder or a backports folder pointing elsewhere could delete files there.
+- Cleanup: very long backport paths are no longer truncated (that could have hit a different folder); more than 256 entries at once are refused instead of silently skipped.
+- Image backup: an NTFS or FAT16 drive without a partition table is backed up completely; previously part of the end could be missing. The same for exFAT with two FATs or a damaged cluster count.
+- Renaming a FAT32 volume whose sector size differs from the drive no longer writes the label into the FAT; with a damaged file system nothing is ever written outside the partition.
+- PS5 app: verifying games and the game list no longer block the library for minutes; no more memory leak when polling game sizes; errors while uploading an image arrive instead of a connection reset.
+- Web interface: formatting also warns for a drive that just appeared and whose games have not been read yet; an open rename box can no longer rename a different stick after the drive changed; stalled replies no longer freeze the page; the PS5 controller keeps its place in the save games list.
+- PC program: rename, check/repair and eject always use the drive from the dialog; before formatting or restoring it checks that the same card or stick is still inserted; with two windows each shows the PS5 it is really connected to; an existing backup is no longer replaced without asking; on Linux the window no longer freezes while checking dark mode.
+
 ## [2.6.68] – 2026-11-13
 
 ### Added

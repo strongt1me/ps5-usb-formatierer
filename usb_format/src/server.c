@@ -1312,8 +1312,8 @@ static void respond_hdr(int c, int code, const char *ctype, const char *body, si
     char hdr[1280];
     const char *reason = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 204 ? "No Content" : code == 400 ? "Bad Request" :
                          code == 403 ? "Forbidden" : code == 404 ? "Not Found" : code == 405 ? "Method Not Allowed" :
-                         code == 409 ? "Conflict" : code == 411 ? "Length Required" :
-                         code == 415 ? "Unsupported Media Type" :
+                         code == 409 ? "Conflict" : code == 411 ? "Length Required" : code == 413 ? "Payload Too Large" :
+                         code == 415 ? "Unsupported Media Type" : code == 500 ? "Internal Server Error" :
                          code == 503 ? "Service Unavailable" : "Error";
     int n = snprintf(hdr, sizeof(hdr),
                      "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n%s"
@@ -1613,7 +1613,12 @@ static void api_library_sizes_start(int c, const char *body) {
     pthread_mutex_unlock(&gs_lock);
     if (start) {
         pthread_t th;
-        if (pthread_create(&th, NULL, gsize_worker, NULL) == 0) pthread_detach(th);
+        pthread_attr_t attr;   /* wie die anderen Threads: der PS5-Standard wären nur 64 KiB */
+        pthread_attr_init(&attr);
+        pthread_attr_setstacksize(&attr, 256 * 1024);
+        const int rc = pthread_create(&th, &attr, gsize_worker, NULL);
+        pthread_attr_destroy(&attr);
+        if (rc == 0) pthread_detach(th);
         else { pthread_mutex_lock(&gs_lock); gs_running = 0; pthread_mutex_unlock(&gs_lock); respond_error(c, 500, N_("Thread konnte nicht gestartet werden")); return; }
     }
     respond_ok(c, 202);
@@ -1628,6 +1633,7 @@ static void api_library_sizes(int c) {
     pthread_mutex_unlock(&gs_lock);
     sb_add(&b, "}}");
     respond_json(c, 200, &b);
+    free(b.p);
 }
 
 /* Versionen wie "01.02", "01.010.000" oder "9.00" vergleichen: Zahlen je Abschnitt, fehlende Abschnitte zählen als 0 */
@@ -1824,6 +1830,7 @@ static void api_library(int c, int refresh) {
     {
         proot_t pr[24];
         const int np = partial_roots(pr, 24);
+        pthread_mutex_unlock(&lib_lock);   /* Teilkopien durchzählen dauert - ohne die Sperre, sonst steht die Bibliothek */
         int pf = 1;
         for (int k = 0; k < np; k++) {
             char stage[400];
@@ -1841,7 +1848,6 @@ static void api_library(int c, int refresh) {
     sb_add(&b, "],\"fw\":");
     sb_str(&b, fw);
     sb_add(&b, "}");
-    pthread_mutex_unlock(&lib_lock);
     respond_json(c, 200, &b);
     free(b.p);
 }
@@ -2605,6 +2611,9 @@ static int part_state_read(const char *state_path, part_state_t *ps, ib_frame_t 
     }
     fclose(f);
     if (!ok) { free(*frames); *frames = NULL; return -1; }
+    /* Texte stammen aus einer Datei auf dem Stick: immer abschließen */
+    ps->ident[sizeof(ps->ident) - 1] = ps->model[sizeof(ps->model) - 1] = ps->label[sizeof(ps->label) - 1] = 0;
+    ps->fs[sizeof(ps->fs) - 1] = ps->created[sizeof(ps->created) - 1] = 0;
     ps->c.frames = *frames;
     ps->c.nframes = (int)ps->nframes;
     return 0;
@@ -3078,6 +3087,8 @@ static long upload_in(void *ctx, void *p, size_t n) {
 }
 
 /* Image hochladen und dabei zurückschreiben (aus dem Browser am PC/Handy) - läuft in dieser Verbindung */
+static void drain_body(int c, unsigned long long left);
+
 static void api_upload(int c, const char *query, const char *pre, size_t have, unsigned long long clen) {
     kv_t kv[4];
     int n = 0;
@@ -3090,21 +3101,22 @@ static void api_upload(int c, const char *query, const char *pre, size_t have, u
         }
     usbdev_t d;
     int replug;
-    if (request_device(c, kv, n, &d) || request_replug(c, kv, n, &d, &replug)) return;
+    /* bei jeder frühen Absage den Rest des Körpers lesen (drain_body), sonst sieht der Browser nur einen Abbruch */
+    if (request_device(c, kv, n, &d) || request_replug(c, kv, n, &d, &replug)) { drain_body(c, clen > have ? clen - have : 0); return; }
     struct timeval tv = {300, 0};   /* während des Abmeldens/Einsteckens kommen keine Daten */
     setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     upin_t u = {c, pre, have < clen ? have : (size_t)clen, 0, clen - (have < clen ? have : clen)};
     char err[256] = "";
     ib_info_t info;
     ib_reader_t *rd = ib_open(upload_in, &u, &info, err, sizeof(err));
-    if (!rd) { respond_error(c, 400, err); return; }
-    if (restore_fits(c, &info, &d)) { ib_close(rd); return; }
+    if (!rd) { respond_error(c, 400, err); drain_body(c, u.left); return; }
+    if (restore_fits(c, &info, &d)) { ib_close(rd); drain_body(c, u.left); return; }
     job_t *j = new_job(c, JOB_RESTORE);
-    if (!j) { ib_close(rd); return; }
+    if (!j) { ib_close(rd); drain_body(c, u.left); return; }
     j->dev = d;
     j->replug = replug;
     j->rd = rd;
-    if (claim_job(c, j)) return;
+    if (claim_job(c, j)) { drain_body(c, u.left); return; }
     char m[512];
     if (restore_run(j, m, sizeof(m))) respond_ok(c, 200);
     else respond_error(c, 500, m);
@@ -4997,6 +5009,8 @@ static int stage_name_key(const char *name, uint32_t *key) {
 
 /* Alles im Zwischenordner entfernen, was nicht zu den Spielen dieses Auftrags gehört */
 static void stage_cleanup(const char *stage, const job_t *j) {
+    struct stat ss;   /* nur ein echter Ordner: eine Verknüpfung führte das Löschen sonst woanders hin */
+    if (lstat(stage, &ss) != 0 || !S_ISDIR(ss.st_mode)) return;
     DIR *d = opendir(stage);
     if (!d) return;
     struct dirent *e;
@@ -5056,6 +5070,13 @@ static void *move_worker(void *arg) {
     if (root_dev(troot) != j->tdev) { sb_tr(&msg, "Das Ziel hat sich seit der Auswahl geändert – nichts kopiert. Liste neu laden."); goto fin; }
     stage_cleanup(stage, j);   /* Reste anderer Spiele weg; die der jetzigen Auswahl bleiben und werden fortgesetzt */
     if (mkdirs_to(stage) != 0) { sb_tr(&msg, "Der Ordner %s lässt sich nicht anlegen: %s", stage, strerror(errno)); goto fin; }
+    {
+        struct stat ss;   /* eine Verknüpfung an dieser Stelle lenkte Kopieren und Aufräumen auf einen anderen Datenträger */
+        if (lstat(stage, &ss) != 0 || !S_ISDIR(ss.st_mode)) {
+            sb_tr(&msg, "Der Ordner %s lässt sich nicht anlegen: %s", stage, strerror(ENOTDIR));
+            goto fin;
+        }
+    }
 
     for (int i = 0; i < j->nitems; i++) {
         const del_item_t *it = &j->items[i];
@@ -5925,8 +5946,7 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
                 it->dev = lib_snap[i].dev;
                 struct stat fs;
                 if (!tt->ext[0] && lstat(tt->path, &fs) == 0 && S_ISDIR(fs.st_mode)) {   /* Ordner-Spiel: Prüfsummenliste <Ordner>.manifest.sha256 daneben */
-                    it->isdir = 1;
-                    it->size = tree_bytes(tt->path, 0);
+                    it->isdir = 1;   /* Größe erst nach der Sperre (tree_bytes läuft durch alle Dateien) */
                     char mp[400];
                     snprintf(mp, sizeof(mp), "%.299s.manifest.sha256", tt->path);
                     struct stat ms;
@@ -5950,6 +5970,8 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
         }
     }
     pthread_mutex_unlock(&lib_lock);
+    for (int i = 0; !ambiguous && !badkey && i < j->nitems; i++)
+        if (j->items[i].isdir) j->items[i].size = tree_bytes(j->items[i].path, 0);
     if (ambiguous || badkey || !j->nitems) {
         job_free(j);
         respond_error(c, ambiguous ? 409 : 404, ambiguous ? N_("Auswahl nicht eindeutig – Liste neu laden.") : N_("Spiele nicht gefunden – Liste neu laden"));
@@ -6002,7 +6024,8 @@ static int tree_has_file(const char *path, int depth) {
 }
 
 static void orph_add(orph_t *out, int *n, const char *dev, const char *kind, const char *path) {
-    if (*n >= ORPH_MAX) return;
+    /* längere Pfade passen nicht in den Löschauftrag (del_item_t.path) - gekürzt träfen sie etwas anderes */
+    if (*n >= ORPH_MAX || strlen(path) >= sizeof(((del_item_t *)0)->path)) return;
     snprintf(out[*n].dev, sizeof(out[*n].dev), "%.15s", dev);
     snprintf(out[*n].kind, sizeof(out[*n].kind), "%s", kind);
     snprintf(out[*n].path, sizeof(out[*n].path), "%.299s", path);
@@ -6040,6 +6063,8 @@ static int find_orphans(orph_t *out, int max) {
         for (int sdx = 0; sdx < 2; sdx++) {
             char dir[400];
             snprintf(dir, sizeof(dir), "%.299s/%s", pr[r].path, sub[sdx]);
+            struct stat ds;   /* Verknüpfungen nicht folgen: was darin liegt, gehört nicht zu diesem Ort */
+            if (lstat(dir, &ds) != 0 || !S_ISDIR(ds.st_mode)) continue;
             DIR *d = opendir(dir);
             if (!d) continue;
             char (*names)[120] = calloc(600, sizeof(*names));
@@ -6074,7 +6099,8 @@ static int find_orphans(orph_t *out, int max) {
                 if (!strcmp(names[a], "backports") || !strcmp(names[a], "backport")) {   /* Ordner je Spiel darin */
                     char bdir[520];
                     snprintf(bdir, sizeof(bdir), "%s/%s", dir, names[a]);
-                    DIR *bd = opendir(bdir);
+                    struct stat bs;
+                    DIR *bd = lstat(bdir, &bs) == 0 && S_ISDIR(bs.st_mode) ? opendir(bdir) : NULL;
                     struct dirent *be;
                     while (bd && (be = readdir(bd))) {
                         if (!strcmp(be->d_name, ".") || !strcmp(be->d_name, "..")) continue;
@@ -6170,16 +6196,19 @@ static void api_orphans_delete(int c, const char *body) {
         char *kend;
         uint32_t want = (uint32_t)strtoul(tok, &kend, 16);
         if (kend == tok || *kend) { badkey = 1; break; }
-        for (int i = 0; i < no && j->nitems < MAX_DELETE; i++) {
+        for (int i = 0; i < no; i++) {
             if (path_key(o[i].path) != want) continue;
+            if (j->nitems == MAX_DELETE) { badkey = 2; break; }   /* nie still weglassen und Erfolg melden */
             del_item_t *it = &j->items[j->nitems++];
             snprintf(it->path, sizeof(it->path), "%s", o[i].path);
             const char *nm = strrchr(o[i].path, '/');
             snprintf(it->name, sizeof(it->name), "%.127s", nm ? nm + 1 : o[i].path);
             snprintf(it->device, sizeof(it->device), "%s", o[i].dev);
         }
+        if (badkey) break;
     }
     free(o);
+    if (badkey == 2) { job_free(j); respond_error(c, 400, "Höchstens 256 Spiele auf einmal"); return; }
     if (!j->items || badkey || !j->nitems) {
         job_free(j);
         respond_error(c, 404, N_("Nichts Verwaistes gefunden – Liste neu laden"));
@@ -6809,7 +6838,14 @@ static void handle(int c) {
         api_saves_restore_paths(c, body);
     else if (strcmp(path, "/api/cancel") == 0 && is_post) {
         /* Warten auf Abziehen/Einstecken, Prüfen und Beschreiben brechen ab; das Formatieren selbst nicht */
-        __atomic_store_n(&cancel_keep, body && strstr(body, "\"keep\"") && strstr(body, "true") ? 1 : 0, __ATOMIC_RELAXED);
+        int keep = 0;   /* genau "keep": true - nicht irgendein true im Körper */
+        const char *kp = body ? strstr(body, "\"keep\"") : NULL;
+        if (kp) {
+            kp += 6;
+            while (*kp == ' ' || *kp == '\t' || *kp == ':') kp++;
+            keep = !strncmp(kp, "true", 4);
+        }
+        __atomic_store_n(&cancel_keep, keep, __ATOMIC_RELAXED);
         __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
         respond_ok(c, 200);
     }
@@ -6894,7 +6930,9 @@ void server_serve(int s) {
         }
         pthread_t t;
         if (pthread_create(&t, &attr, conn_thread, (void *)(intptr_t)c) != 0) {
-            handle(c);   /* kein Thread verfügbar: wie früher direkt bearbeiten */
+            /* kein Thread verfügbar: absagen statt hier bearbeiten - dieser Thread hat zu wenig Stack für die API, und
+             * ein langer Download hielte die Annahme (Status, Abbrechen, Beenden) für die ganze Dauer auf */
+            respond_error(c, 503, "Zu viele gleichzeitige Anfragen – bitte gleich noch einmal versuchen");
             close(c);
             __sync_fetch_and_sub(&active_conns, 1);
         }

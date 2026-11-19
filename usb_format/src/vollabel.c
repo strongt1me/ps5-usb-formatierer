@@ -17,9 +17,17 @@
 #include "mkfs.h"
 #include "vollabel.h"
 
+/* Bereich des Dateisystems (vol_set_label): Offsets aus einem beschädigten Bootsektor/FAT dürfen nie in eine andere
+ * Partition oder hinter das Laufwerk schreiben. Umbenennen läuft nur als ein Auftrag zur Zeit. */
+static uint64_t g_lo, g_hi;
+
 static int patch(int fd, uint32_t ss, uint64_t off, const void *data, size_t len, char *err, size_t errlen) {
     uint64_t sec = off - off % ss;
     uint8_t *buf;
+    if (off < g_lo || off + len > g_hi) {
+        snprintf(err, errlen, "%s", T("Das Dateisystem ist beschädigt (Bezeichnung läge außerhalb der Partition) – nichts geändert. Erst prüfen und reparieren."));
+        return -1;
+    }
     if (off % ss + len > ss) { snprintf(err, errlen, "%s", T("Interner Fehler: Eintrag über Sektorgrenze")); return -1; }
     if (posix_memalign((void **)&buf, 4096, ss)) { snprintf(err, errlen, "%s", T("Kein Speicher")); return -1; }
     int ok = pread(fd, buf, ss, (off_t)sec) == (ssize_t)ss;
@@ -59,6 +67,9 @@ static int set_fat32(int fd, uint32_t ss, uint64_t start, const char *label, cha
     if (posix_memalign((void **)&bs, 4096, ss)) { snprintf(err, errlen, "%s", T("Kein Speicher")); return -1; }
     int ok = pread(fd, bs, ss, (off_t)start) == (ssize_t)ss && memcmp(bs + 0x52, "FAT32   ", 8) == 0;
     unsigned backup = ok ? (unsigned)(bs[50] | bs[51] << 8) : 0;
+    /* die Kopie liegt in Sektoren des Dateisystems (BPB_BytsPerSec), nicht des Laufwerks - und im reservierten Bereich */
+    const unsigned bps = ok ? (unsigned)(bs[11] | bs[12] << 8) : 0, rsvd = ok ? (unsigned)(bs[14] | bs[15] << 8) : 0;
+    if (bps < 512 || bps > 4096 || (bps & (bps - 1)) || backup >= rsvd) backup = 0;
     free(bs);
     if (!ok) { snprintf(err, errlen, "%s", T("FAT32-Bootsektor nicht lesbar")); return -1; }
 
@@ -70,7 +81,7 @@ static int set_fat32(int fd, uint32_t ss, uint64_t start, const char *label, cha
     if (!slot && label[0]) { snprintf(err, errlen, "%s", T("Im Wurzelordner ist kein Platz für die Bezeichnung")); return -1; }
     const uint8_t *boot_lab = label[0] ? lab : (const uint8_t *)"NO NAME    ";
     if (patch(fd, ss, start + 0x47, boot_lab, 11, err, errlen)) return -1;
-    if (backup && backup < 32 && patch(fd, ss, start + (uint64_t)backup * ss + 0x47, boot_lab, 11, err, errlen))
+    if (backup && backup < 32 && patch(fd, ss, start + (uint64_t)backup * bps + 0x47, boot_lab, 11, err, errlen))
         return -1;
 
     /* Eintrag im Wurzelordner: ändern, anlegen oder (leere Bezeichnung) als gelöscht markieren */
@@ -97,6 +108,8 @@ int vol_set_label(int fd, uint32_t ss, uint64_t devsize, const char *label, char
         snprintf(err, errlen, "%s", T("Ungültige Bezeichnung: max. 11 Zeichen, nur A-Z, 0-9, Leerzeichen, - und _"));
         return -1;
     }
+    g_lo = fi.start;
+    g_hi = fi.size && fi.start + fi.size <= devsize ? fi.start + fi.size : devsize;
     int rc = fs == FS_EXFAT ? set_exfat(fd, ss, fi.start, label, err, errlen)
                             : set_fat32(fd, ss, fi.start, label, err, errlen);
     if (rc == 0 && fsync(fd) != 0 && errno != EINVAL && errno != ENOTSUP) {

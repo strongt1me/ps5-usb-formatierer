@@ -18,10 +18,10 @@ import ui_msgbox as messagebox
 import ui_theme
 from i18n import _, quote
 from partition_editor import PartitionEditor
-from pc_common import (IMAGE_EXT, IS_WIN, PcJob, PlainJob, admin_wait_text, ask_string, confirm, data_kept_admin_text,
+from pc_common import (IMAGE_EXT, IS_WIN, PC_WRITE_OPS, PcJob, PlainJob, admin_wait_text, ask_string, confirm, data_kept_admin_text,
                        disk_name, fmt_size, hwnd_of, image_file_name, image_info, irreversible_admin_text, on_device,
-                       history_load, last_job, last_job_text, pc_dev_text, pc_list, pc_used, pc_volumes_text,
-                       record_job, serial_args, show_scan)
+                       history_load, last_job, last_job_text, pc_dev_text, pc_find_same, pc_list,
+                       pc_recheck, pc_used, pc_volumes_text, record_job, serial_args, show_scan)
 
 from ui_widgets import ChoiceChips, DriveList, Tooltip
 
@@ -595,7 +595,7 @@ class StandardPanel(ttk.Frame):
         elif opts["verify"]:
             args.append("verify")
         self._job(args, cancellable=not limit and (not opts["quick"] or opts["verify"]),
-                  after=self._after(lambda real: self._format(dev, opts, limit=real)))
+                  after=self._after(lambda real: self._retry(dev, lambda d: self._format(d, opts, limit=real))), dev=dev)
 
     def _start_expert(self, dev):
         ed = self.editor
@@ -646,7 +646,8 @@ class StandardPanel(ttk.Frame):
         elif verify:
             args.append("verify")
         self._job(args + parts_args, cancellable=not limit and (not quick or verify),
-                  after=self._after(lambda real: self._layout(dev, parts_args, parts, quick, verify, real)))
+                  after=self._after(lambda real: self._retry(
+                      dev, lambda d: self._layout(d, parts_args, parts, quick, verify, real))), dev=dev)
 
     def _speed(self):
         dev = self._selected()
@@ -691,7 +692,7 @@ class StandardPanel(ttk.Frame):
         def after(ok, msg, info):
             (messagebox.showinfo if ok else messagebox.showerror)(_("Umbenennen"), msg, parent=self)
 
-        self._job(["label", str(dev["disk"]), str(dev["size"]), label, *serial_args(dev)], after=after)
+        self._job(["label", str(dev["disk"]), str(dev["size"]), label, *serial_args(dev)], after=after, dev=dev)
 
     # ------------------------------------------------------------------ Image sichern / wiederherstellen
 
@@ -784,7 +785,7 @@ class StandardPanel(ttk.Frame):
             (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
 
         self._job(["restore", str(dev["disk"]), str(dev["size"]), path, *serial_args(dev)], cancellable=True,
-                  after=after)
+                  after=after, dev=dev)
 
     def _verify(self):
         """Image-Datei nur prüfen: ganz entpacken, Prüfsumme im Image und die .sha256 daneben - ohne Datenträger und
@@ -813,16 +814,34 @@ class StandardPanel(ttk.Frame):
 
         self._job(["verify", path], cancellable=True, after=after, plain=True)
 
-    def _job(self, args, cancellable=False, after=None, plain=False):
+    def _retry(self, dev, start):
+        """Nach dem Fehlversuch (gefälschte Größe) nur den echten Bereich: mit dem neu eingelesenen Eintrag desselben
+        Datenträgers - fehlt der, nichts tun"""
+        fresh = pc_find_same(self.devices, dev)
+        if not fresh:
+            messagebox.showerror(self.title_text, _("Der Datenträger ist nicht mehr da. Abgebrochen – es wurde nichts "
+                                                    "geändert."), parent=self)
+            return
+        start(fresh)
+
+    def _job(self, args, cancellable=False, after=None, plain=False, dev=None):
         """Auftrag mit Administratorrechten ausführen (plain: ohne - kein Datenträger beteiligt, danach auch nicht neu
-        einlesen); after(ok, meldung, info) läuft danach im UI-Thread"""
+        einlesen); after(ok, meldung, info) läuft danach im UI-Thread. dev: der Datenträger, wie ihn die Rückfrage
+        gezeigt hat - schreibende Aufträge prüfen vorher, ob er noch so da ist."""
         if self.busy:
             return
         hwnd = hwnd_of(self)
-        dev = next((d for d in self.devices if len(args) > 1 and str(d["disk"]) == str(args[1])), None)
+        dev = dev or next((d for d in self.devices if len(args) > 1 and str(d["disk"]) == str(args[1])), None)
         self.job_starting = True   # bis der Helfer läuft (UAC/pkexec-Abfrage): Schließen fragt nach
 
         def work():
+            if not plain and args[0] in PC_WRITE_OPS:
+                why = pc_recheck(dev, lambda pct, text: self.q.put(("scan", pct, text))) if dev else \
+                    _("Der Datenträger ist nicht mehr da. Abgebrochen – es wurde nichts geändert.")
+                if why:
+                    self.job_starting = False
+                    self.q.put(("error", why))
+                    return
             started = time.time()
             try:
                 job = (PlainJob if plain else PcJob)(args, hwnd)

@@ -160,7 +160,7 @@ sp.PcJob = uf.PcJob = NoJob
 usb_standard.load_settings = lambda name: {"lang": "de"}
 usb_standard.save_settings = lambda name, data: None
 uf.load_settings = lambda: {"lang": "de", "mode": "std"}
-uf.save_settings = lambda data: None
+uf.save_settings = lambda data, keep=(): None
 
 
 def pump(app, cond=lambda: False, timeout=3.0):
@@ -210,7 +210,7 @@ name = pc_common.image_file_name(DEVICES[0])
 check("Vorschlag für den Dateinamen", name.startswith("SanDisk_Ultra_SANDISK_") and name.endswith(".img.zst"), name)
 # Abläufe mit gestellten Dialogen: welcher Auftrag geht an den Helfer?
 jobs, errors = [], []
-p._job = lambda args, cancellable=False, after=None: jobs.append(args)
+p._job = lambda args, cancellable=False, after=None, plain=False, dev=None: jobs.append(args)
 sp.messagebox.showerror = lambda title, msg, parent=None: errors.append(msg)
 sp.confirm = lambda *a, **k: True
 p._ask = lambda dev, what, ok_text=None: True

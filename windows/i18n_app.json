@@ -3041,17 +3041,17 @@
   "es": "Renombrado.",
   "fr": "Renommé."
  },
- "Fehler gefunden. Jetzt reparieren?": {
-  "en": "Errors found. Repair now?",
-  "it": "Errori trovati. Riparare ora?",
-  "es": "Se encontraron errores. ¿Reparar ahora?",
-  "fr": "Erreurs trouvées. Réparer maintenant ?"
+ "Fehler auf {dev} gefunden. Jetzt reparieren?": {
+  "en": "Errors found on {dev}. Repair now?",
+  "it": "Errori trovati su {dev}. Riparare ora?",
+  "es": "Se encontraron errores en {dev}. ¿Reparar ahora?",
+  "fr": "Erreurs trouvées sur {dev}. Réparer maintenant ?"
  },
- "Das Dateisystem wird repariert.": {
-  "en": "The file system will be repaired.",
-  "it": "Il file system verrà riparato.",
-  "es": "Se reparará el sistema de archivos.",
-  "fr": "Le système de fichiers sera réparé."
+ "Das Dateisystem von {dev} wird repariert.": {
+  "en": "The file system of {dev} will be repaired.",
+  "it": "Il file system di {dev} verrà riparato.",
+  "es": "Se reparará el sistema de archivos de {dev}.",
+  "fr": "Le système de fichiers de {dev} sera réparé."
  },
  "Neue Bezeichnung (bis zu 11 Zeichen: A–Z, 0–9, Leerzeichen, - und _):": {
   "en": "New label (up to 11 characters: A–Z, 0–9, space, - and _):",
@@ -4156,5 +4156,29 @@
   "it": "Aggiornamento non riuscito: {error} – il file attuale è invariato. Scaricalo invece.",
   "es": "La actualización falló: {error} – el archivo actual no ha cambiado. Descárgalo en su lugar.",
   "fr": "Échec de la mise à jour : {error} – le fichier actuel est inchangé. Téléchargez-le plutôt."
+ },
+ "Der Datenträger hat sich seit der Rückfrage geändert (andere Karte oder anderer Stick eingesteckt?). Abgebrochen – es wurde nichts geändert. Bitte die Auswahl prüfen und neu starten.": {
+  "en": "The drive has changed since you confirmed (a different card or stick inserted?). Cancelled – nothing was changed. Please check the selection and start again.",
+  "it": "L'unità è cambiata dopo la conferma (inserita un'altra scheda o chiavetta?). Annullato – non è stato modificato nulla. Controlla la selezione e riavvia.",
+  "es": "La unidad ha cambiado desde la confirmación (¿se insertó otra tarjeta u otra memoria?). Cancelado – no se ha cambiado nada. Comprueba la selección y vuelve a empezar.",
+  "fr": "Le support a changé depuis la confirmation (autre carte ou autre clé insérée ?). Annulé – rien n'a été modifié. Vérifiez la sélection et recommencez."
+ },
+ "Der Datenträger ist nicht mehr da. Abgebrochen – es wurde nichts geändert.": {
+  "en": "The drive is no longer there. Cancelled – nothing was changed.",
+  "it": "L'unità non è più presente. Annullato – non è stato modificato nulla.",
+  "es": "La unidad ya no está. Cancelado – no se ha cambiado nada.",
+  "fr": "Le support n'est plus là. Annulé – rien n'a été modifié."
+ },
+ "Unter {dev} steckt inzwischen ein anderer Datenträger als bei der Auswahl. Abgebrochen – es wurde nichts kopiert.": {
+  "en": "{dev} is now a different drive than when it was selected. Cancelled – nothing was copied.",
+  "it": "{dev} è ora un'unità diversa da quella selezionata. Annullato – non è stato copiato nulla.",
+  "es": "{dev} es ahora una unidad distinta de la seleccionada. Cancelado – no se ha copiado nada.",
+  "fr": "{dev} correspond désormais à un autre support que celui sélectionné. Annulé – rien n'a été copié."
+ },
+ "Die PS5 hat den Auftrag noch nicht angenommen – warte auf das Ende der Übertragung …": {
+  "en": "The PS5 has not accepted the job yet – waiting for the transfer to end …",
+  "it": "La PS5 non ha ancora accettato l'operazione – attendo la fine del trasferimento …",
+  "es": "La PS5 aún no ha aceptado la tarea – esperando a que termine la transferencia …",
+  "fr": "La PS5 n'a pas encore accepté la tâche – attente de la fin du transfert …"
  }
 }

@@ -10,6 +10,16 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 - Quelle für den PS5 Payload Manager von itsPLK: `https://github.com/strongt1me/ps5-usb-formatierer/releases/latest/download/payload-manager.json` unter Settings → Manage Sources → Add Source eintragen, dann lässt sich die ELF dort laden und aktualisieren (mit SHA-256-Prüfung).
 
+### Behoben
+
+- Kopieren und Aufräumen folgen keinen Verknüpfungen mehr: Ein Zwischenordner `.usbfmt-move` oder ein Backport-Ordner, der auf einen anderen Ort zeigt, konnte dort Dateien löschen.
+- Aufräumen: sehr lange Backport-Pfade werden nicht mehr gekürzt (das hätte einen anderen Ordner treffen können); mehr als 256 Einträge auf einmal werden abgelehnt statt still ausgelassen.
+- Image-Sicherung: Ein NTFS- oder FAT16-Laufwerk ohne Partitionstabelle wird vollständig gesichert; bisher konnte ein Teil am Ende fehlen. Ebenso exFAT mit zwei FATs oder beschädigter Clusterzahl.
+- Umbenennen bei FAT32 mit anderer Sektorgröße als das Laufwerk schreibt die Bezeichnung nicht mehr in die FAT; bei beschädigtem Dateisystem wird nie außerhalb der Partition geschrieben.
+- PS5-App: Spiele prüfen und die Spieleliste blockieren die Bibliothek nicht mehr minutenlang; kein Speicherleck mehr beim Abfragen der Spielgrößen; Fehlermeldungen beim Hochladen eines Images kommen an, statt als Verbindungsabbruch.
+- Weboberfläche: Formatieren warnt auch bei einem gerade erschienenen Laufwerk, dessen Spiele noch nicht gelesen sind; ein offenes Umbenennen-Feld kann nach einem Laufwerkswechsel keinen anderen Stick mehr umbenennen; hängende Antworten legen die Seite nicht mehr lahm; der PS5-Controller behält bei den Spielständen seine Stelle.
+- PC-Programm: Umbenennen, Prüfen/Reparieren und Auswerfen treffen immer das Laufwerk aus dem Dialog; vor dem Formatieren oder Zurückspielen wird geprüft, ob noch dieselbe Karte bzw. derselbe Stick steckt; mit zwei Fenstern zeigt jedes die PS5, mit der es wirklich verbunden ist; eine vorhandene Sicherung wird nicht mehr ohne Rückfrage ersetzt; unter Linux friert das Fenster beim Abfragen des dunklen Modus nicht mehr ein.
+
 ## [2.6.68] – 2026-11-13
 
 ### Hinzugefügt

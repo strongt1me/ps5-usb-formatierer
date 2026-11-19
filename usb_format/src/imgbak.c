@@ -125,7 +125,10 @@ static void scan_exfat(int fd, uint32_t ss, uint64_t base, uint64_t plen, const 
     const uint64_t bps = 1ull << bsh, csize = bps << csh;
     const uint64_t fat = (uint64_t)le32(bs + 80) * bps, heap = (uint64_t)le32(bs + 88) * bps;
     const uint32_t cc = le32(bs + 92), root = le32(bs + 96);
-    if (!cc || heap + (uint64_t)cc * csize > plen || fat + 4ull * (cc + 2) > heap) return;
+    /* höchstens 0xFFFFFFF5 Cluster (sonst laufen cc + 2 und (cc + 7) / 8 über); zwei FATs (TexFAT) haben zwei Bitmaps
+     * und welche gilt, steht in VolumeFlags - dann lieber alles sichern */
+    if (!cc || cc > 0xFFFFFFF5u || bs[110] != 1 || heap + (uint64_t)cc * csize > plen || fat + 4ull * ((uint64_t)cc + 2) > heap)
+        return;
     const size_t chunk = csize < IB_BLOCK ? (size_t)csize : IB_BLOCK;
     uint8_t *buf = malloc(chunk);
     if (!buf) return;
@@ -221,6 +224,15 @@ static void scan_disk(int fd, uint32_t ss, uint64_t size, map_t *m) {
     int gpt = 0;
     for (int i = 0; i < 4; i++) gpt |= s0[446 + 16 * i + 4] == 0xEE;
     if (!gpt) {
+        /* nur eine glaubhafte MBR-Tabelle kürzen: NTFS/FAT16 ohne Tabelle enden auch auf 0x55AA, dort stünde in den
+         * "Einträgen" Startcode/Text - dann alles sichern. Startkennung 0x00/0x80, Partition innerhalb des Laufwerks. */
+        if (!memcmp(s0 + 3, "NTFS    ", 8)) return;
+        for (int i = 0; i < 4; i++) {
+            const uint8_t *e = s0 + 446 + 16 * i;
+            if ((e[0] != 0x00 && e[0] != 0x80) ||
+                (e[4] && (!le32(e + 8) || !le32(e + 12) || ((uint64_t)le32(e + 8) + le32(e + 12)) * ss > size)))
+                return;
+        }
         for (int i = 0; i < 4; i++) {
             const uint8_t *e = s0 + 446 + 16 * i;
             uint8_t t = e[4];

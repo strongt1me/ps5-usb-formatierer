@@ -126,13 +126,20 @@ def _sync_into(target, src):
             target[k] = v
 
 
-def save_settings(app_name, data):
+def save_settings(app_name, data, keep=()):
     """Atomar (erst neue Datei, dann ersetzen): Ein Absturz mitten im Schreiben hinterlässt keine halbe Datei.
     Laufen zwei Fenster desselben Programms, überschreibt keines die Änderungen des anderen: übernommen wird nur, was
-    sich hier seit dem Laden geändert hat; was das andere inzwischen gespeichert hat, kommt dafür auch in data an."""
+    sich hier seit dem Laden geändert hat; was das andere inzwischen gespeichert hat, kommt dafür auch in data an.
+    keep: Schlüssel, die hier im Speicher bleiben, wie sie sind (z. B. die Adresse der PS5, mit der dieses Fenster
+    verbunden ist) - die Datei bekommt trotzdem den zusammengeführten Stand."""
     base, disk = _settings_base.get(app_name), _read_settings(app_name, strict=True)
+    mine = {k: data[k] for k in keep if k in data}
     if base is not None and disk is not None:
         _sync_into(data, _merge3(base, data, disk))
+    write = data
+    if mine:
+        write = dict(data)
+        data.update(mine)
     path = settings_file(app_name)
     tmp = None
     try:
@@ -140,7 +147,7 @@ def save_settings(app_name, data):
         # eigener Name je Speichern: zwei Programmfenster schreiben nicht in dieselbe Zwischendatei
         fd, tmp = tempfile.mkstemp(prefix="settings-", suffix=".tmp", dir=os.path.dirname(path))
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+            json.dump(write, f)
             f.flush()
             os.fsync(f.fileno())   # erst auf der Platte, dann ersetzen - auch bei Stromausfall keine leere Datei
         for attempt in range(5):   # kurz gesperrt (Virenscanner, OneDrive): nochmal versuchen
@@ -484,6 +491,40 @@ def pc_volumes_text(dev):
             t += ", " + _("{size} belegt", size=fmt_size(used))
         lines.append(t)
     return "\n".join(lines)
+
+
+# Aufträge, die auf den Datenträger schreiben: vorher prüfen, ob noch derselbe drinsteckt (pc_recheck)
+PC_WRITE_OPS = ("format", "layout", "restore", "label")
+
+
+def pc_fingerprint(d):
+    """Was die Rückfrage vom Datenträger zeigt: Nummer, Größe, Seriennummer, Modell und die Laufwerke darauf (Buchstabe,
+    Bezeichnung, Dateisystem, Größe). Belegt/frei zählt nicht - das ändert sich auch ohne Wechsel."""
+    return (str(d.get("disk")), d.get("size"), d.get("serial") or "", d.get("model") or "",
+            sorted((v.get("letters") or "", v.get("label") or "", v.get("fs") or "", v.get("total") or 0)
+                   for v in d.get("volumes", [])))
+
+
+def pc_find_same(devices, dev):
+    """Eintrag in devices mit derselben Nummer, Größe und Seriennummer wie dev - sonst None"""
+    return next((d for d in devices or [] if str(d.get("disk")) == str(dev.get("disk"))
+                 and d.get("size") == dev.get("size") and (d.get("serial") or "") == (dev.get("serial") or "")), None)
+
+
+def pc_recheck(dev, progress=None):
+    """Kurz vor einem schreibenden Auftrag neu einlesen und mit dem bestätigten Stand vergleichen. Der Helfer erkennt den
+    Datenträger nur an Nummer, Größe und Seriennummer - Kartenleser melden ihre eigene Seriennummer, eine gleich große
+    andere Karte sähe für ihn gleich aus. Liefert None, wenn alles passt, sonst den Grund zum Abbrechen."""
+    try:
+        now = next((d for d in pc_list(progress) if str(d.get("disk")) == str(dev.get("disk"))), None)
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as e:
+        return _("USB-Datenträger konnten nicht gelesen werden: {e}", e=e)
+    if now is None:
+        return _("Der Datenträger ist nicht mehr da. Abgebrochen – es wurde nichts geändert.")
+    if pc_fingerprint(now) != pc_fingerprint(dev):
+        return _("Der Datenträger hat sich seit der Rückfrage geändert (andere Karte oder anderer Stick eingesteckt?). "
+                 "Abgebrochen – es wurde nichts geändert. Bitte die Auswahl prüfen und neu starten.")
+    return None
 
 
 # ---------------------------------------------------------------------- Image-Sicherung (.img.zst)

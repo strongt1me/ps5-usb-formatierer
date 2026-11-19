@@ -230,5 +230,31 @@ pc_common.save_settings(APP3, now)
 check(pc_common.load_settings(APP3).get("lang") == "fr", "save_settings: nach gescheitertem Schreiben bleibt die Änderung",
       pc_common.load_settings(APP3))
 
+# verbundenes Fenster: die Adresse der PS5 bleibt hier, auch wenn ein anderes Fenster eine andere gespeichert hat
+APP4 = "merge-test-4"
+pc_common.save_settings(APP4, {"host": "10.0.0.1", "lang": "de"})
+c = pc_common.load_settings(APP4)
+base_c = pc_common._settings_base[APP4]
+d = pc_common.load_settings(APP4)
+d["host"] = "10.0.0.2"
+pc_common.save_settings(APP4, d)           # anderes Fenster verbindet sich mit einer anderen PS5
+pc_common._settings_base[APP4] = base_c
+c["lang"] = "en"
+pc_common.save_settings(APP4, c, keep=("host",))
+now = pc_common._read_settings(APP4)      # nur lesen - load_settings setzte den Ladestand dieses Fensters neu
+check(c.get("host") == "10.0.0.1" and now.get("host") == "10.0.0.2" and now.get("lang") == "en",
+      "save_settings: keep behält die Adresse im Speicher, die Datei behält die des anderen Fensters", (c, now))
+pc_common.save_settings(APP4, c)           # getrennt: jetzt gilt wieder die Datei
+check(c.get("host") == "10.0.0.2", "save_settings: ohne keep kommt die Adresse aus der Datei", c)
+
+# Datenträger am PC: geänderte Karte im selben Leser (gleiche Nummer, Größe, Seriennummer) fällt auf
+card = {"disk": 3, "size": 64 << 30, "serial": "READER1", "model": "Leser",
+        "volumes": [{"letters": "E:", "label": "PS5", "fs": "exFAT", "total": 64 << 30, "free": 1 << 30}]}
+other = dict(card, volumes=[dict(card["volumes"][0], label="FOTOS", fs="FAT32")])
+check(pc_common.pc_fingerprint(card) == pc_common.pc_fingerprint(dict(card, volumes=[dict(card["volumes"][0], free=5)]))
+      and pc_common.pc_fingerprint(card) != pc_common.pc_fingerprint(other)
+      and pc_common.pc_find_same([other], card) is other,
+      "pc_fingerprint: andere Karte gleicher Größe im selben Leser fällt auf, belegter Platz zählt nicht")
+
 print("Alle App-Logik-Tests bestanden." if not fails else "%d Fehler" % fails)
 sys.exit(1 if fails else 0)

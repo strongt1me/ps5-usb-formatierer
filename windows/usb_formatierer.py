@@ -30,12 +30,12 @@ import ps5_discovery
 import ui_msgbox as messagebox
 import ui_theme
 from i18n import _, quote
-from pc_common import (APP_VERSION, IMAGE_EXT, PcJob, admin_wait_text, ask_choice, ask_string, check_images, confirm,
+from pc_common import (APP_VERSION, IMAGE_EXT, PC_WRITE_OPS, PcJob, admin_wait_text, ask_choice, ask_string, check_images, confirm,
                        date_text, disk_name, enable_dpi_awareness, enable_history, fmt_size, footer, history_clear, history_dialog,
                        history_load, hwnd_of, image_file_name, image_info, irreversible_admin_text, keep_on_screen,
-                       lang_selector, last_job, last_job_text, open_help, pc_dev_text, pc_list, pc_used, pc_volumes_text, record_job,
-                       resource_path, same_drive, serial_args, setup_window, show_centered, show_scan, system_report,
-                       version_tuple)
+                       lang_selector, last_job, last_job_text, open_help, pc_dev_text, pc_find_same, pc_list, pc_recheck, pc_used,
+                       pc_volumes_text, record_job, resource_path, same_drive, serial_args, setup_window,
+                       show_centered, show_scan, system_report, version_tuple)
 from standard_panel import StandardPanel
 from ui_widgets import THEME_NEXT, ChoiceChips, DriveList, Tooltip, header_tools
 
@@ -63,8 +63,8 @@ def load_settings():
     return pc_common.load_settings(APP_NAME)
 
 
-def save_settings(data):
-    pc_common.save_settings(APP_NAME, data)
+def save_settings(data, keep=()):
+    pc_common.save_settings(APP_NAME, data, keep)
 
 
 def dev_title(d):
@@ -1015,7 +1015,7 @@ class App(tk.Tk):
 
         # "Am PC – frei": eigener Bereich ohne PS5-Optionen (derselbe wie im eigenständigen USB-Formatierer)
         self.std_panel = StandardPanel(content, self.settings.setdefault("standard", {}),
-                                       lambda: save_settings(self.settings), on_busy=self._std_busy_changed)
+                                       self._save_settings, on_busy=self._std_busy_changed)
         self.std_panel.grid(row=0, column=0, sticky="nsew")
 
         # An der PS5 und "Am PC – für PS5": links Verbindung und Laufwerke, rechts die Seite
@@ -1497,7 +1497,7 @@ class App(tk.Tk):
             self._mode_changed()
         else:
             if persist:
-                save_settings(self.settings)
+                self._save_settings()
             self._show_page()
 
     def _place_selected(self):
@@ -1794,9 +1794,10 @@ class App(tk.Tk):
                                 _("{n} Sicherungen – intern und auf eingebundenen USB-Laufwerken.", n=len(imgs)))
         self._update()
 
-    def _ps5_tool(self, title, start, done_title):
-        """Gemeinsamer Ablauf der Werkzeuge an der PS5: Rückfrage (start liefert den Aufruf), Auftrag, Meldung am Ende"""
-        dev = self._selected_device()
+    def _ps5_tool(self, title, start, done_title, dev):
+        """Gemeinsamer Ablauf der Werkzeuge an der PS5: Rückfrage (start liefert den Aufruf), Auftrag, Meldung am Ende.
+        dev ist das Laufwerk, das der Aufrufer in seiner Rückfrage gezeigt hat - nicht neu aus der Auswahl lesen: die kann
+        sich während des Dialogs durch eine Auffrischung im Hintergrund geändert haben."""
         if self.busy or not dev or not self.api:
             return
         api = self.api
@@ -1804,8 +1805,9 @@ class App(tk.Tk):
         def shown(ok, msg, result):
             (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
             if ok and result.get("code") == 4 and not result.get("repair"):   # Fehler gefunden: Reparatur anbieten
-                if messagebox.askyesno(_("Reparieren"), _("Fehler gefunden. Jetzt reparieren?"), parent=self):
-                    self._ps5_check(repair=True)
+                if messagebox.askyesno(_("Reparieren"), _("Fehler auf {dev} gefunden. Jetzt reparieren?",
+                                                          dev=quote(dev_title(dev))), parent=self):
+                    self._ps5_check(repair=True, dev=dev)
 
         def work():
             try:
@@ -1821,7 +1823,7 @@ class App(tk.Tk):
     def _ps5_speed(self):
         dev = self._selected_device()
         if dev and not self.busy:
-            self._ps5_tool(_("Tempo messen"), lambda api, d: api.speed(d), _("Tempo gemessen."))
+            self._ps5_tool(_("Tempo messen"), lambda api, d: api.speed(d), _("Tempo gemessen."), dev)
 
     def _smp_can(self, cap):
         """Kann ShadowMountPlus auf der PS5 das (laut /api/system)?"""
@@ -1835,16 +1837,16 @@ class App(tk.Tk):
                 _("Auswerfen"), _("{dev} wird sicher ausgeworfen. Danach kann es abgezogen werden.", dev=quote(dev_title(dev)))
                 + "\n\n" + _("Spiele und Apps, die von diesem Laufwerk laufen, vorher beenden."), parent=self):
             return
-        self._ps5_tool(_("Auswerfen"), lambda api, d: api.eject(d), _("Ausgeworfen."))
+        self._ps5_tool(_("Auswerfen"), lambda api, d: api.eject(d), _("Ausgeworfen."), dev)
 
-    def _ps5_check(self, repair=False):
-        dev = self._selected_device()
+    def _ps5_check(self, repair=False, dev=None):
+        dev = dev or self._selected_device()   # nach der Prüfung: das geprüfte Laufwerk, nicht die aktuelle Auswahl
         if not dev or self.busy:
             return
-        if repair and not messagebox.askokcancel(_("Reparieren"), self._replug_note(dev) + _("Das Dateisystem wird repariert."),
-                                                 parent=self):
+        if repair and not messagebox.askokcancel(_("Reparieren"), self._replug_note(dev) + _(
+                "Das Dateisystem von {dev} wird repariert.", dev=quote(dev_title(dev))), parent=self):
             return
-        self._ps5_tool(_("Reparieren") if repair else _("Prüfen"), lambda api, d: api.check(d, repair), _("Geprüft."))
+        self._ps5_tool(_("Reparieren") if repair else _("Prüfen"), lambda api, d: api.check(d, repair), _("Geprüft."), dev)
 
     def _ps5_rename(self):
         dev = self._selected_device()
@@ -1857,7 +1859,7 @@ class App(tk.Tk):
             if label is not None:
                 messagebox.showerror(_("Umbenennen"), _("Nur A–Z, 0–9, Leerzeichen, - und _ erlaubt (max. {n} Zeichen).", n=11), parent=self)
             return
-        self._ps5_tool(_("Umbenennen"), lambda api, d: api.set_label(d, label), _("Umbenannt."))
+        self._ps5_tool(_("Umbenennen"), lambda api, d: api.set_label(d, label), _("Umbenannt."), dev)
 
     def _my_partials(self):
         dev = self._selected_device()
@@ -1936,6 +1938,8 @@ class App(tk.Tk):
         if not messagebox.askokcancel(_("Teilsicherung verwerfen"), _("Diese Teilsicherung wird gelöscht:") + "\n" + name + "\n\n" +
                                       _("Das lässt sich nicht rückgängig machen."), icon="warning", default="cancel", parent=self):
             return
+        if self.busy or not self.api:   # während der Rückfrage begonnen oder getrennt
+            return
         api = self.api
 
         def work():
@@ -1979,6 +1983,8 @@ class App(tk.Tk):
                 + "\n" + self.img_tree.item(img["path"], "values")[0] + "\n\n" + _("Das lässt sich nicht rückgängig "
                                                                                     "machen."),
                 icon="warning", parent=self):
+            return
+        if self.busy or not self.api:   # während der Rückfrage begonnen oder getrennt
             return
         api = self.api
 
@@ -2153,7 +2159,7 @@ class App(tk.Tk):
                             n=len(picked), size=total),
                           [_("Auf diesen PC (ZIP-Datei speichern …)")] + [self._saves_loc_text(l) for l in locs],
                           _("Sichern"))
-        if pick is None:
+        if pick is None or self.busy or api is not self.api:   # während der Auswahl begonnen oder andere PS5
             return
         keys = [x["key"] for x in picked]
         if pick > 0:
@@ -2179,7 +2185,7 @@ class App(tk.Tk):
             parent=self, title=_("Spielstände sichern"), defaultextension=".zip",
             filetypes=[(_("ZIP-Sicherung"), "*.zip"), (_("Alle Dateien"), "*.*")],
             initialdir=self.settings.get("image_dir") or os.path.expanduser("~"), initialfile=name)
-        if not path:
+        if not path or self.busy or api is not self.api:
             return
         self.status_var.set(_("Spielstand wird geladen …"))
 
@@ -2220,6 +2226,8 @@ class App(tk.Tk):
                 + "\n\n" + _("Laufende Spiele vorher beenden."),
                 icon="warning", default="cancel", parent=self):
             return
+        if self.busy or api is not self.api:   # während der Rückfragen begonnen oder andere PS5
+            return
         state = {}
 
         def done(ok, msg, result):
@@ -2242,7 +2250,7 @@ class App(tk.Tk):
         def upload():
             try:
                 api.restore_save(path)
-            except (ConnectionError, ApiError, OSError) as e:
+            except Exception as e:   # auch http.client.HTTPException: nie stumm enden
                 state["error"] = str(e) or type(e).__name__
 
         def work():
@@ -2254,7 +2262,7 @@ class App(tk.Tk):
             t = threading.Thread(target=upload, daemon=True)
             self.transfer = t
             t.start()
-            if not self._wait_claim(api, seq, lambda: "error" in state):
+            if not self._wait_transfer(api, seq, state, t):
                 t.join(5)
                 self.q.put(("error", state.get("error") or _("Das Hochladen hat nicht begonnen.")))
                 return
@@ -2274,7 +2282,7 @@ class App(tk.Tk):
                                 parent=self)
             return
         self.settings["theme"] = THEME_NEXT.get(self.settings.get("theme", "auto"), "auto")
-        save_settings(self.settings)
+        self._save_settings()
         ui_theme.apply_theme(self, self.settings["theme"])
         self._rebuild()
 
@@ -2325,7 +2333,7 @@ class App(tk.Tk):
                                 parent=self)
             return
         self.settings["lang"] = code
-        save_settings(self.settings)
+        self._save_settings()
         i18n.set_lang(code)
         self._rebuild(relang=True)
 
@@ -2443,7 +2451,7 @@ class App(tk.Tk):
         pc = mode == "pc"
         if not initial:
             self.settings["mode"] = mode
-            save_settings(self.settings)
+            self._save_settings()
         self.after_idle(self._keep_on_screen)   # die Bereiche sind verschieden hoch
         self._show_page()
         if mode == "std":   # eigener Bereich ohne PS5-Funktionen
@@ -2669,6 +2677,10 @@ class App(tk.Tk):
 
         def work():
             try:
+                why = self._move_target_changed(api, target)
+                if why:
+                    self.q.put(("error", why))
+                    return
                 api.move_pkgs(keys, target["name"], verify)
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", _("Verschieben konnte nicht gestartet werden: {e}", e=e)))
@@ -3049,11 +3061,19 @@ class App(tk.Tk):
             return None
         return host
 
+    def _save_settings(self):
+        """Einstellungen speichern. Verbunden: die Adresse bleibt hier die der verbundenen PS5, auch wenn ein anderes
+        Fenster inzwischen eine andere gespeichert hat - Anzeige und Aufträge gehören immer zur selben PS5."""
+        if self.api:
+            save_settings(self.settings, keep=("host",))
+        else:
+            save_settings(self.settings)
+
     def _use_host(self, host):
         """Neue PS5 merken; alte Verbindung vergessen: scheitert die neue, darf "Starten" nicht die vorige PS5
         formatieren"""
         self.settings["host"] = host
-        save_settings(self.settings)
+        self._save_settings()
         self.api = None
         self.ps5_system = None   # Firmware/ShadowMountPlus der vorigen PS5 nicht übernehmen (Auswerfen, Fehlerbericht)
         self.games = {}
@@ -3298,7 +3318,7 @@ class App(tk.Tk):
         if self.busy or not self.api:   # während der Rückfrage kann ein anderer Auftrag begonnen haben
             return
         self.settings.update(label=label, verify=verify, folders=self.folders_var.get())
-        save_settings(self.settings)
+        self._save_settings()
         folders = bool(self.folders_var.get())
 
         def after(ok, msg, result):
@@ -3385,6 +3405,7 @@ class App(tk.Tk):
     def _queue_add(self, pkg, keys, target, verify, extras, names):
         label = ", ".join(n for n in names[:2] if n) + (" …" if len(names) > 2 else "") + " → " + target["name"]
         self.copy_queue.append({"pkg": pkg, "keys": keys, "device": target["name"], "ident": target.get("ident") or "",
+                                "size": target.get("size") or 0, "place": bool(target.get("place")),
                                 "verify": verify, "extras": extras, "label": label})
         self.status_var.set(_("Zur Warteschlange hinzugefügt."))
         self._show_queue()
@@ -3392,7 +3413,7 @@ class App(tk.Tk):
     def _show_queue(self):
         if (self.settings.get("copy_queue") or []) != self.copy_queue:   # merken: die Warteschlange übersteht einen Neustart
             self.settings["copy_queue"] = list(self.copy_queue)
-            save_settings(self.settings)
+            self._save_settings()
         n = len(self.copy_queue)
         if not n and not self.queue_running:
             self.queue_row.grid_remove()
@@ -3436,7 +3457,12 @@ class App(tk.Tk):
                 self.after(500, self._queue_next)
                 return
             it = dict(it, device=td["name"])
+        target = {"name": it["device"], "ident": it.get("ident") or "", "size": it.get("size") or 0,
+                  "place": it.get("place")}
         try:
+            why = self._call_bg(lambda: self._move_target_changed(api, target))
+            if why:
+                raise ApiError(why)
             self._call_bg(lambda: (api.move_pkgs(it["keys"], it["device"], it["verify"]) if it["pkg"]
                                    else api.move_games(it["keys"], it["device"], it["verify"], it["extras"])))
         except (ConnectionError, ApiError) as e:   # nicht gestartet (Ziel weg, Fehler): vermerken, mit dem nächsten weitermachen
@@ -3456,6 +3482,23 @@ class App(tk.Tk):
 
         self.pbar["value"] = 0
         self._run(work)
+
+    @staticmethod
+    def _move_target_changed(api, target):
+        """Kurz vor dem Kopieren (im Thread): Die PS5 nimmt das Ziel nur beim Namen (da1 …) entgegen. Steckt darunter
+        inzwischen ein anderer Datenträger als bei der Auswahl (andere Seriennummer oder Größe), nicht dorthin kopieren.
+        Liefert dann den Grund, sonst None. Feste Orte (intern, ext1) wechseln nicht."""
+        if target.get("place") or re.fullmatch(r"intern|ext\d", target["name"]):
+            return None
+        now = next((d for d in api.devices().get("devices") or [] if d.get("name") == target["name"]), None)
+        # Seriennummer nur vergleichen, wenn beide eine haben (wie sameStick der Weboberfläche): ältere Einträge der
+        # Warteschlange kennen sie nicht, das wäre sonst immer "ein anderer Datenträger"
+        ident_then, ident_now = target.get("ident") or "", (now or {}).get("ident") or ""
+        if (not now or (target.get("size") and now.get("size") != target["size"])
+                or (ident_then and ident_now and ident_now != ident_then)):
+            return _("Unter {dev} steckt inzwischen ein anderer Datenträger als bei der Auswahl. Abgebrochen – es wurde "
+                     "nichts kopiert.", dev=target["name"])
+        return None
 
     def _queue_finish(self):
         log, ok = self.queue_log, self.queue_ok
@@ -3533,6 +3576,8 @@ class App(tk.Tk):
                 _("Teilkopie verwerfen"),
                 _("Die unvollständige Kopie auf {name} ({dev}) ({size}) wird gelöscht. Die Originale bleiben unberührt.",
                   name=dev_title(dev), dev=dev["name"], size=fmt_size(part)), icon="warning", default="cancel", parent=self):
+            return
+        if self.busy or not self.api:   # während der Rückfrage begonnen oder getrennt
             return
         api, name = self.api, dev["name"]
 
@@ -3872,6 +3917,10 @@ class App(tk.Tk):
 
         def work():
             try:
+                why = self._move_target_changed(api, target)
+                if why:
+                    self.q.put(("error", why))
+                    return
                 api.move_games(src_keys, target["name"], verify, with_extras)
             except (ConnectionError, ApiError) as e:
                 self.q.put(("error", _("Verschieben konnte nicht gestartet werden: {e}", e=e)))
@@ -3896,6 +3945,8 @@ class App(tk.Tk):
         """Löschauftrag für schon bestätigte Schlüssel (nach dem Verschieben); Kachel entfernt je nach Schalter"""
         uninstall = self.uninstall_var.get()
         extras = self._ask_extras_delete(list(games))
+        if self.busy or api is not self.api:   # während der Rückfrage begonnen oder andere PS5
+            return
 
         def work():
             try:
@@ -3938,6 +3989,25 @@ class App(tk.Tk):
             time.sleep(0.4)
         return False
 
+    def _wait_transfer(self, api, seq, state, t):
+        """Wie _wait_claim für Hoch- und Herunterladen (Thread t, Fehler in state["error"]): nie aufgeben, solange t noch
+        läuft - sonst wäre das Programm wieder frei, während im Hintergrund noch Daten fließen (beim Wiederherstellen auf
+        den Datenträger). Danach True, wenn die PS5 den Auftrag angenommen hat."""
+        if self._wait_claim(api, seq, lambda: "error" in state):
+            return True
+        while t.is_alive() and "error" not in state:
+            self.q.put(("status", _("Die PS5 hat den Auftrag noch nicht angenommen – warte auf das Ende der "
+                                    "Übertragung …")))
+            if self._wait_claim(api, seq, lambda: "error" in state or not t.is_alive()):
+                return True
+        t.join(5)
+        if "error" in state:
+            return False
+        try:   # Übertragung ohne Fehler zu Ende: hat die PS5 ihn inzwischen doch angenommen?
+            return (api.status().get("job") or 0) > seq
+        except (ConnectionError, ApiError):
+            return False
+
     def _with_images(self, then):
         """Sicherungen und Ziele der PS5 im Hintergrund holen (bis zu 15 s, z. B. wenn dort eine Platte anläuft) - das
         Fenster bleibt bedienbar; danach then(antwort) im UI-Thread"""
@@ -3969,7 +4039,6 @@ class App(tk.Tk):
         if choice is None:
             return
         to_pc = choice == len(locs)
-        self._img_to_pc = to_pc
         path = None
         if to_pc:
             name = image_file_name({"model": dev.get("model", ""), "volumes": [{"label": dev.get("label", "")}]})
@@ -3980,8 +4049,12 @@ class App(tk.Tk):
                 return
             if not path.lower().endswith(IMAGE_EXT):
                 path += IMAGE_EXT
+                if os.path.exists(path) and not messagebox.askyesno(   # nach diesem Namen hat der Dialog nicht gefragt
+                        title, _("{name} gibt es schon. Ersetzen?", name=os.path.basename(path)), icon="warning",
+                        parent=self):
+                    return
             self.settings["image_dir"] = os.path.dirname(path)
-            save_settings(self.settings)
+            self._save_settings()
         target = path if to_pc else self._loc_text(locs[choice])
         if not self._confirm(title, _("{name} ({dev}, {size}) wird gesichert nach:", name=dev_title(dev), dev=dev["name"],
                                       size=fmt_size(dev["size"])) + "\n   " + target + "\n\n" + self._replug_note(dev) +
@@ -3991,6 +4064,7 @@ class App(tk.Tk):
         if self.busy or not self.api:
             return
         api = self.api
+        self._img_to_pc = to_pc   # erst jetzt: "Abbrechen" fragt nur bei der Sicherung auf die PS5 nach der Teilsicherung
         if not to_pc:
             def shown(ok, msg, result):
                 (messagebox.showinfo if ok else messagebox.showerror)(title, msg, parent=self)
@@ -4013,7 +4087,7 @@ class App(tk.Tk):
         def download(token):
             try:
                 state["bytes"], state["sha"] = api.download(token, part)
-            except (ConnectionError, ApiError, OSError) as e:
+            except Exception as e:   # auch http.client.HTTPException: nie stumm enden
                 state["error"] = str(e) or type(e).__name__
             if state.get("abandon"):   # inzwischen aufgegeben: die halbe Datei nicht liegen lassen
                 try:
@@ -4060,7 +4134,7 @@ class App(tk.Tk):
             t = threading.Thread(target=download, args=(token,), daemon=True)
             state["thread"] = self.transfer = t
             t.start()
-            if not self._wait_claim(api, seq, lambda: "error" in state):
+            if not self._wait_transfer(api, seq, state, t):
                 state["abandon"] = True   # hängt der Download noch, räumt er beim Ende selbst auf
                 t.join(5)
                 try:
@@ -4169,7 +4243,7 @@ class App(tk.Tk):
         def upload():
             try:
                 api.upload(dev, path)
-            except (ConnectionError, ApiError, OSError) as e:
+            except Exception as e:   # auch http.client.HTTPException: nie stumm enden
                 state["error"] = str(e) or type(e).__name__
 
         def work():
@@ -4181,7 +4255,7 @@ class App(tk.Tk):
             t = threading.Thread(target=upload, daemon=True)
             self.transfer = t
             t.start()
-            if not self._wait_claim(api, seq, lambda: "error" in state):
+            if not self._wait_transfer(api, seq, state, t):
                 t.join(5)
                 self.q.put(("error", state.get("error") or _("Das Hochladen hat nicht begonnen.")))
                 return
@@ -4287,12 +4361,19 @@ class App(tk.Tk):
 
         self._run(work)
 
-    def _pc_run(self, op, args, cancellable=False, after=None):
-        """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread"""
+    def _pc_run(self, op, args, cancellable=False, after=None, dev=None):
+        """Auftrag mit Administratorrechten ausführen; after(ok, meldung, info) läuft danach im UI-Thread.
+        dev: der Datenträger, wie ihn die Rückfrage gezeigt hat - schreibende Aufträge prüfen vorher, ob er noch so da ist"""
         hwnd = hwnd_of(self)
-        dev = next((d for d in self.devices if len(args) > 1 and str(d.get("disk")) == str(args[1])), None)
+        dev = dev or next((d for d in self.devices if len(args) > 1 and str(d.get("disk")) == str(args[1])), None)
 
         def work():
+            if op in PC_WRITE_OPS:
+                why = pc_recheck(dev, lambda pct, text: self.q.put(("scan", pct, text))) if dev else \
+                    _("Der Datenträger ist nicht mehr da. Abgebrochen – es wurde nichts geändert.")
+                if why:
+                    self.q.put(("error", why))
+                    return
             started = time.time()
             try:
                 job = PcJob(args, hwnd)
@@ -4340,7 +4421,7 @@ class App(tk.Tk):
         if self.busy or self.mode_var.get() != "pc":
             return
         self.settings.update(label=label, verify=self.verify_var.get(), folders=self.folders_var.get())
-        save_settings(self.settings)
+        self._save_settings()
         args = ["format", str(dev["disk"]), str(dev["size"]), fs, label, *serial_args(dev)]
         if self.verify_var.get() and not limit:
             args.append("verify")
@@ -4360,11 +4441,16 @@ class App(tk.Tk):
                             "Nur den echten Bereich ({size}) formatieren? Dann gehen keine Daten verloren, die über "
                             "diese Grenze hinaus geschrieben würden.", size=fmt_size(real)),
                         icon="warning", parent=self):
-                    self._pc_format(dev, limit=real)
+                    fresh = pc_find_same(self.devices if self.mode_var.get() == "pc" else [], dev)
+                    if not fresh:   # nach dem Fehlversuch neu eingelesen: derselbe Datenträger muss noch da sein
+                        messagebox.showerror(_("USB-Datenträger am PC"), _(
+                            "Der Datenträger ist nicht mehr da. Abgebrochen – es wurde nichts geändert."), parent=self)
+                        return
+                    self._pc_format(fresh, limit=real)
             else:
                 messagebox.showerror(_("USB-Datenträger am PC"), msg, parent=self)
 
-        self._pc_run("format", args, cancellable=bool(self.verify_var.get()) and not limit, after=after)
+        self._pc_run("format", args, cancellable=bool(self.verify_var.get()) and not limit, after=after, dev=dev)
 
     def _pc_speed(self):
         dev = self._selected_device()
@@ -4403,7 +4489,8 @@ class App(tk.Tk):
         def after(ok, msg, info):
             (messagebox.showinfo if ok else messagebox.showerror)(_("Umbenennen"), msg, parent=self)
 
-        self._pc_run("label", ["label", str(dev["disk"]), str(dev["size"]), label, *serial_args(dev)], after=after)
+        self._pc_run("label", ["label", str(dev["disk"]), str(dev["size"]), label, *serial_args(dev)], after=after,
+                     dev=dev)
 
     def _cancel(self):
         """Abbrechen: am PC über die Abbruch-Datei des Helfers, an der PS5 über /api/cancel"""
@@ -4585,6 +4672,7 @@ class App(tk.Tk):
         elif kind == "finished":
             self.formatting = False
             self.busy = False
+            self._img_to_pc = False   # gilt nur für den Auftrag, der gerade zu Ende ging
             self.pbar.stop()
             self.pbar.configure(mode="determinate")
             self.status_var.set(msg[2])
@@ -4691,6 +4779,7 @@ class App(tk.Tk):
                 after(ok, text, info)
         elif kind == "error":
             self.busy = self.formatting = False
+            self._img_to_pc = False
             self.pc_job = None
             self.pbar.stop()
             self.pbar.configure(mode="determinate")

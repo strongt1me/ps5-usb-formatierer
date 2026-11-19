@@ -599,6 +599,12 @@
   "es": "Sector de arranque FAT32 ilegible",
   "fr": "Secteur d'amorçage FAT32 illisible"
  },
+ "Das Dateisystem ist beschädigt (Bezeichnung läge außerhalb der Partition) – nichts geändert. Erst prüfen und reparieren.": {
+  "en": "The file system is damaged (the label would lie outside the partition) – nothing changed. Check and repair it first.",
+  "it": "Il file system è danneggiato (l'etichetta si troverebbe fuori dalla partizione) – nessuna modifica. Prima verificalo e riparalo.",
+  "es": "El sistema de archivos está dañado (la etiqueta quedaría fuera de la partición) – no se ha cambiado nada. Compruébalo y repáralo primero.",
+  "fr": "Le système de fichiers est endommagé (le nom se trouverait hors de la partition) – rien n'a été modifié. Vérifiez-le et réparez-le d'abord."
+ },
  "Umbenennen geht nur bei exFAT und FAT32 (dieser Datenträger: %s)": {
   "en": "Renaming only works with exFAT and FAT32 (this drive: %s)",
   "it": "La rinomina funziona solo con exFAT e FAT32 (questa unità: %s)",

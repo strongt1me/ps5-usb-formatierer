@@ -14,6 +14,7 @@ import base64
 import math
 import struct
 import sys
+import threading
 import tkinter as tk
 import tkinter.font as tkfont
 import zlib
@@ -173,8 +174,13 @@ def _fonts(root):
 
 # ------------------------------------------------------------------ Hell/Dunkel des Systems
 
+_dark = {"value": None, "probing": False}   # Linux: zuletzt gelesene Einstellung, Abfrage im Hintergrund
+
+
 def system_dark():
-    """Nutzt das System gerade ein dunkles Design? (Windows: Apps-Modus; Linux: GNOME/GTK-Einstellung)"""
+    """Nutzt das System gerade ein dunkles Design? (Windows: Apps-Modus; Linux: GNOME/GTK-Einstellung)
+    Linux: gsettings kann Sekunden hängen - nur beim ersten Aufruf (Programmstart) wird direkt gefragt, danach liefert
+    das den zuletzt gelesenen Stand und fragt im Hintergrund neu (der Wechsel kommt dann beim nächsten Aufruf an)."""
     if IS_WIN:
         try:
             import winreg
@@ -183,6 +189,23 @@ def system_dark():
                 return winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 0
         except OSError:
             return False
+    if _dark["value"] is None:
+        _dark["value"] = _gsettings_dark()
+    elif not _dark["probing"]:
+        _dark["probing"] = True
+
+        def probe():
+            try:
+                _dark["value"] = _gsettings_dark()
+            finally:
+                _dark["probing"] = False
+
+        threading.Thread(target=probe, daemon=True).start()
+    return _dark["value"]
+
+
+def _gsettings_dark():
+    """GNOME/GTK-Einstellung lesen (blockiert bis zu 2 s je Befehl - nicht im UI-Thread außer beim Start)"""
     import subprocess
     for cmd in (["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
                 ["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"]):
