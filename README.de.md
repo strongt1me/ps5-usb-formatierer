@@ -138,7 +138,7 @@ PC-Programme: F1 Anleitung, F5 neu einlesen, Strg+1 … 5 Seiten, Strg+F Spiele 
 
 ## 📦 Download
 
-Alle Dateien gibt es beim [neuesten Release](../../releases/latest). Was sich in jeder Version geändert hat: [CHANGELOG.md](CHANGELOG.md).
+Alle Dateien gibt es beim [neuesten Release](../../releases/latest). Was sich in jeder Version geändert hat: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 | Datei | Wofür |
 |---|---|

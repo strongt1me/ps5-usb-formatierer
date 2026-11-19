@@ -134,7 +134,7 @@ const flush = () => new Promise(r => setImmediate(r));
   for (let i = 0; i < 6; i++) await flush();
   const d = dialogs[0] || {};
   ok("Was ist neu: deutsches Changelog im Stand des neuen Releases",
-     fetchCalls[0] && fetchCalls[0].url === "https://api.github.com/repos/strongt1me/ps5-usb-formatierer/contents/CHANGELOG.md?ref=v2.7.1"
+     fetchCalls[0] && fetchCalls[0].url === "https://api.github.com/repos/strongt1me/ps5-usb-formatierer/contents/CHANGELOG.de.md?ref=v2.7.1"
      && fetchCalls[0].opt.credentials === "omit" && fetchCalls[0].opt.headers.Accept === "application/vnd.github.raw", fetchCalls);
   ok("Was ist neu: Dialog mit beiden Versionen als Text",
      d.extra && d.extra.textContent.includes("2.7.1 – 2099-01-02") && d.extra.textContent.includes("neuester mit Link und code")
@@ -146,7 +146,7 @@ const flush = () => new Promise(r => setImmediate(r));
   fetchImpl = textAnswer(404, "");
   run('showChanges("2.6.2", "2.7.1")');
   for (let i = 0; i < 6; i++) await flush();
-  ok("andere Sprache: englisches Changelog", fetchCalls[0] && fetchCalls[0].url.includes("/CHANGELOG.en.md?ref=v2.7.1"), fetchCalls);
+  ok("andere Sprache: englisches Changelog", fetchCalls[0] && fetchCalls[0].url.includes("/contents/CHANGELOG.md?ref=v2.7.1"), fetchCalls);
   ok("nicht ladbar: Hinweis statt Liste, am PS5-Browser ohne Release-Knopf", dialogs[0] && !dialogs[0].extra
      && dialogs[0].text.includes("nicht laden") && !dialogs[0].alt, dialogs[0]);
   ctx.LANG = "de"; ctx.isTv = false;

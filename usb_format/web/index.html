@@ -3813,7 +3813,7 @@ function mdText(s) { return s.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(
 /* "Was ist neu": Änderungen aller Versionen seit der laufenden aus dem Changelog des neuen Releases (Deutsch, sonst
    Englisch) - als Text eingesetzt, nie als HTML */
 function showChanges(current, nv) {
-  const file = LANG === "de" ? "CHANGELOG.md" : "CHANGELOG.en.md";
+  const file = LANG === "de" ? "CHANGELOG.de.md" : "CHANGELOG.md";
   const ctl = window.AbortController ? new AbortController() : null;
   if (ctl) setTimeout(() => ctl.abort(), 8000);
   fetch("https://api.github.com/repos/strongt1me/ps5-usb-formatierer/contents/" + file + "?ref=v" + nv, {

@@ -2,7 +2,7 @@
 # Windows und Linux (die hängen ihre Programme an; nacheinander, der spätere sieht alle Dateien), von Hand für ein Tag.
 # Die Werte berechnet GitHub selbst beim Hochladen (Feld digest jeder Datei) - nichts wird erneut geladen.
 # Prüfen: sha256sum -c --ignore-missing SHA256SUMS  (Windows: certutil -hashfile <Datei> SHA256)
-name: Prüfsummen
+name: Checksums
 
 on:
   workflow_run:
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release, dessen Prüfsummen erneuert werden (z. B. v2.6.2)"
+        description: "Release whose checksums are renewed (e.g. v2.6.2)"
         required: true
 
 permissions:
@@ -29,7 +29,7 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
-      - name: SHA256SUMS erzeugen und anhängen
+      - name: Create and attach SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}

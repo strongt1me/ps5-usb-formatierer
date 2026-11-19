@@ -105,7 +105,7 @@ try:
     feed = os.path.join(work, "latest.json")
     with open(feed, "w", encoding="utf-8") as f:
         json.dump(dict(rel, draft=False, prerelease=False), f)
-    for name, text in (("CHANGELOG.md", log.replace("dazwischen", "dazwischen (de)")), ("CHANGELOG.en.md", log)):
+    for name, text in (("CHANGELOG.de.md", log.replace("dazwischen", "dazwischen (de)")), ("CHANGELOG.md", log)):
         with open(os.path.join(work, name), "w", encoding="utf-8") as f:
             f.write(text)
     os.environ["USBFMT_UPDATE_URL"] = pathlib.Path(feed).as_uri()

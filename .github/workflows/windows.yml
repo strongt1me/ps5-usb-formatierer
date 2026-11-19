@@ -24,43 +24,43 @@ jobs:
         with:
           python-version: "3.14"   # wie bei der Entwicklung - die Programme sind damit getestet
 
-      - name: Python-Pakete
+      - name: Python packages
         run: python -m pip install -r windows/requirements-build.txt
 
-      - name: Payload aus diesem (bzw. dem letzten) Release
+      - name: Payload from this (or the latest) release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: gh release download $TAG --repo "$GITHUB_REPOSITORY" --pattern usb_format.elf --dir usb_format
 
-      - name: Helfer und mke2fs.exe bauen
+      - name: Build helper and mke2fs.exe
         working-directory: windows
         run: ./build_helper.ps1 -Test
 
-      - name: Helfer an Abbild-Dateien
+      - name: Helper on image files
         run: ./windows/tests/win_helper_test.ps1
 
-      - name: Update-Hinweis und Image prüfen (ohne Administratorrechte)
+      - name: Check update notice and image (without admin rights)
         run: python windows/tests/pc_tools_test.py windows/usbfmt_win_test.exe
 
-      - name: Logik der App (Versionen, Duplikate, Vorabprüfung, Paket-Hinweise)
+      - name: App logic (versions, duplicates, pre-check, package notes)
         run: python windows/tests/app_logic_test.py
 
-      - name: Layout der App in allen Sprachen (nichts abgeschnitten, nichts über den Rand)
+      - name: App layout in all languages (nothing cut off, nothing past the edge)
         timeout-minutes: 8
         run: python windows/tests/gui_layout_test.py
 
-      - name: Oberfläche bei aufgeklappter Liste prüfen (Fokusfang, Meldungen, Kopierdialog)
+      - name: Check the interface with an open list (focus trap, messages, copy dialog)
         timeout-minutes: 3
         run: python windows/tests/gui_robust_test.py
 
-      - name: Programme bauen
+      - name: Build programs
         working-directory: windows
         shell: cmd
         run: build_exe.bat
 
-      - name: Selbsttest der gebauten Programme (Übersetzungen, Helfer-Prüfsumme, ELF, alle Reiter)
+      - name: Self-test of the built programs (translations, helper checksum, ELF, all tabs)
         working-directory: windows
         run: |
           foreach ($a in "PS5-USB-Formatierer", "USB-Formatierer") {
@@ -70,7 +70,7 @@ jobs:
               if ($p.ExitCode -ne 0) { Write-Host "${a}: Selbsttest fehlgeschlagen (Exit $($p.ExitCode))"; exit 1 }
           }
 
-      - name: Programme prüfen und starten
+      - name: Check and start the programs
         working-directory: windows
         run: |
           python tests/elf_in_program.py dist/PS5-USB-Formatierer.exe ../usb_format/usb_format.elf (Get-Content ../VERSION).Trim()
@@ -85,7 +85,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: windows-programme
+          name: windows-programs
           path: windows/dist/*.exe
 
   # nur beim Veröffentlichen: die geprüften Programme an das Release hängen
@@ -98,10 +98,10 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: windows-programme
+          name: windows-programs
           path: dist
 
-      - name: An das Release hängen
+      - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}

@@ -6,9 +6,9 @@ README-Bilder erneuern - und erst mit --publish einchecken, taggen, hochladen un
                                                          danach: Changelog schneiden, Commit, Tag, Push, Release mit
                                                          ELF, Kachel-ZIP und payload-manager.json
 
-Die Änderungen stehen vorher im Abschnitt "Unveröffentlicht" von CHANGELOG.md und "Unreleased" von CHANGELOG.en.md
+Die Änderungen stehen vorher im Abschnitt "Unreleased" von CHANGELOG.md und "Unveröffentlicht" von CHANGELOG.de.md
 (tools/changelog.py prüft beide). Beim Veröffentlichen werden sie zur neuen Version; der Text des GitHub-Releases entsteht
-daraus (deutsch, Englisch aufklappbar) samt Abschnitt "Aktualisieren" - --notes fügt nur freien Zusatztext ein.
+daraus (englisch, Deutsch aufklappbar) samt Abschnitt "Aktualisieren" - --notes fügt nur freien Zusatztext ein.
 payload-manager.json (Quelle für den Payload Manager) entsteht dabei mit Adresse, Version, Datum und Prüfsumme der
 neuen ELF und hängt am Release.
 
@@ -236,11 +236,11 @@ def changelog_ready(version):
     gefüllt, mit denselben Rubriken"""
     de, en = changelog.unreleased("de", version), changelog.unreleased("en", version)
     if not de or not en:
-        fail("Abschnitt „Unveröffentlicht“ in CHANGELOG.md bzw. „Unreleased“ in CHANGELOG.en.md ist leer - "
+        fail("Abschnitt „Unreleased“ in CHANGELOG.md bzw. „Unveröffentlicht“ in CHANGELOG.de.md ist leer - "
              "dort zuerst die Änderungen eintragen")
     kinds = lambda lang, s: [changelog.FILES[lang][2].index(k) for k, _ in s]  # noqa: E731
     if kinds("de", de) != kinds("en", en):
-        fail("CHANGELOG.md und CHANGELOG.en.md: Unveröffentlicht hat nicht dieselben Rubriken")
+        fail("CHANGELOG.md und CHANGELOG.de.md: Unveröffentlicht hat nicht dieselben Rubriken")
 
 
 PAYLOAD_MANAGER = "payload-manager.json"   # Quelle für den Payload Manager von itsPLK, hängt an jedem Release:
@@ -270,7 +270,7 @@ def payload_manager_json(version, elf, date):
 
 
 # was der Release-Commit enthalten darf - alles andere gehört in einen eigenen Commit davor
-RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md", "CHANGELOG.en.md")
+RELEASE_PATHS = ("VERSION", "README", "usb_format/app/sce_sys/param.json", "docs/images/", "CHANGELOG.md", "CHANGELOG.de.md")
 
 
 def publish(version, title, notes, message):
@@ -299,7 +299,7 @@ def publish(version, title, notes, message):
         errors = changelog.check()
         if errors:
             fail("Changelog nach dem Eintragen fehlerhaft: " + "; ".join(errors))
-        print(f"Unveröffentlicht -> {version} ({date}) in CHANGELOG.md und CHANGELOG.en.md")
+        print(f"Unveröffentlicht -> {version} ({date}) in CHANGELOG.md und CHANGELOG.de.md")
         pm = os.path.join(out, PAYLOAD_MANAGER)
         write(pm, payload_manager_json(version, open(files[1], "rb").read(), date))
         files.append(pm)
@@ -313,7 +313,7 @@ def publish(version, title, notes, message):
         run(["git", "push", "-q", "origin", "main"])
         run(["git", "push", "-q", "origin", tag])
         step("GitHub-Release")
-        run(["gh", "release", "create", tag, "--repo", REPO, "--title", f"USB-Formatierer {version}",
+        run(["gh", "release", "create", tag, "--repo", REPO, "--title", f"USB Formatter {version}",
              "--notes-file", body, *files])
     finally:
         shutil.rmtree(out, ignore_errors=True)

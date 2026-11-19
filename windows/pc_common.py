@@ -1637,7 +1637,7 @@ def plain_notes(md):
 # Changelogs (Keep a Changelog) im Stand des neuen Releases - "Was ist neu" zeigt daraus alle Versionen seit der
 # installierten; ohne sie die Release-Hinweise. USBFMT_CHANGELOG_URL mit {file} setzt eine andere Quelle (Tests).
 CHANGELOG_API = "https://api.github.com/repos/strongt1me/ps5-usb-formatierer/contents/{file}?ref=v{version}"
-CHANGELOG_FILES = {"de": "CHANGELOG.md", "en": "CHANGELOG.en.md"}
+CHANGELOG_FILES = {"de": "CHANGELOG.de.md", "en": "CHANGELOG.md"}
 
 
 def changes_since(md, current, new):

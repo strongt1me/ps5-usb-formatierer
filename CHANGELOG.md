@@ -1,910 +1,914 @@
 # Changelog
 
-Alle nennenswerten Änderungen am PS5 USB-Formatierer. Das Format folgt [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
-die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). Die Dateien zu jeder Version liegen unter
-[Releases](https://github.com/strongt1me/ps5-usb-formatierer/releases). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
+All notable changes to the PS5 USB Formatter. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+version numbers follow [Semantic Versioning](https://semver.org/). The files for every version are under
+[Releases](https://github.com/strongt1me/ps5-usb-formatierer/releases). Deutsche Fassung: [CHANGELOG.de.md](CHANGELOG.de.md).
 
-## [Unveröffentlicht]
+## [Unreleased]
+
+### Changed
+
+- GitHub in English: `CHANGELOG.md` is now English, the German changelog is `CHANGELOG.de.md`; release notes show English first with German to expand. “What's new” in the web interface and the PC programs loads the matching file.
 
 ## [2.6.70] – 2026-11-19
 
-### Geändert
+### Changed
 
-- Spielstände werden jetzt wie im PS5 Cooling Center verarbeitet, damit sie nach dem Einspielen in PS5- und PS4-Spielen funktionieren – auch für einen anderen Benutzer oder auf einer anderen PS5:
-  - Sichern: Die PS5 öffnet eine Kopie des Spielstands; die ZIP enthält seine Dateien (mit dem echten `param.sfo`) und bei PS5-Spielständen `chives.json` – dasselbe Format wie das Cooling Center und Garlic SaveMgr, deren ZIP-Dateien sich auch einspielen lassen.
-  - Einspielen: Die PS5 legt ein neues Abbild an (PS4: mit neuem Schlüssel), setzt Konto, Benutzer und Besitzerwert auf den gewählten Benutzer, prüft alles und trägt den Spielstand in ihre Spielstand-Datenbank ein (die vorher gesichert wird). Bei einem Fehler bleibt alles wie vorher.
-  - Weboberfläche und PC-Programm fragen beim Einspielen, für welchen Benutzer.
-  - Wie im Cooling Center: Wird ein Spielstand eines Spiels gewählt, werden alle Spielstände dieses Spiels gesichert (etwa `SaveData` und `sce_sdmemory`), je einer als eigene ZIP. Vor dem Einspielen wird der jetzige Stand des Spiels intern gesichert (`…vorher-<Datum>.zip`, die drei neuesten bleiben, in der Liste „Wiederherstellen“); lässt er sich nicht sichern, wird nichts eingespielt.
-  - Wie im Cooling Center außerdem: Spielstände von Apps (etwa YouTube) bleiben unberührt; direkt vor dem Ersetzen wird noch einmal geprüft, ob ein Spiel gestartet wurde, und ob die Spielstand-Datenbank in Ordnung ist; scheitert beim Sichern ein Spielstand eines Spiels, werden die schon geschriebenen Sicherungen dieses Spiels zurückgenommen; zweimal derselbe Spielstand in einem Auftrag wird abgelehnt; mehrere ZIP-Dateien lassen sich auf einmal hochladen (der Stand davor wird je Spiel nur einmal gesichert).
-  - Wie im Cooling Center 1.88.0: Ein durch Strom, Absturz oder Neustart abgebrochenes Ersetzen wird beim nächsten Start (und vor dem nächsten Einspielen) zu Ende geführt oder zurückgenommen (Aufzeichnung `save_import.journal`); die Datenbank wird nur zurückgelegt, wenn wirklich geschrieben wurde; in der ZIP steht keine Konto-ID mehr (das Einspielen trägt die des Zielbenutzers ein); die Kennung des Spielstand-Dienstes gilt nur noch für das Ein- und Aushängen; je Benutzer bleiben die zehn neuesten Kopien der Spielstand-Datenbank; lässt sich ein alter Spielstand vor dem Ersetzen nicht auslesen, wird er roh gesichert (Ordner `roh`).
-  - Über das Cooling Center hinaus: Den Besitzerwert liest das Einspielen bei neueren PS5-Spielständen aus dem Kopf des Abbilds (dort steht ihr echtes `param.sfo`), so dient der eigene Spielstand des Spiels als Vorlage statt eines fremden; ein Hinweis, der für mehrere Spielstände gilt, steht nur noch einmal in der Meldung.
-  - Sichern und Herunterladen lehnen bei laufendem Spiel ab. Sicherungen im alten Format (verschlüsselter Container mit `metadata.json`) werden nicht mehr angeboten; die Reparatur der Zeitstempel (`/api/saves/times`, `tools/ps5_fix_save_times.py`) entfällt.
+- Saves are now handled like in the PS5 Cooling Center, so they work in PS5 and PS4 games after importing – also for another user or on another PS5:
+  - Backup: the PS5 opens a copy of the save; the ZIP holds its files (with the real `param.sfo`) and, for PS5 saves, `chives.json` – the same format as the Cooling Center and Garlic SaveMgr, whose ZIP files can be imported too.
+  - Import: the PS5 creates a new image (PS4: with a new key), sets account, user and owner value to the chosen user, checks everything and adds the save to its save database (backed up first). On any error everything stays as it was.
+  - The web interface and the PC program ask which user to import for.
+  - As in the Cooling Center: choosing one save of a game backs up all saves of that game (such as `SaveData` and `sce_sdmemory`), each as its own ZIP. Before importing, the game's current state is backed up internally (`…vorher-<date>.zip`, the three newest are kept, in the “Restore” list); if that fails, nothing is imported.
+  - Also as in the Cooling Center: saves of apps (such as YouTube) are left alone; right before replacing, the formatter checks once more whether a game was started and whether the save database is in order; if one save of a game fails during backup, the backups of that game already written are taken back; the same save twice in one job is refused; several ZIP files can be uploaded at once (the previous state is backed up only once per game).
+  - As in Cooling Center 1.88.0: a replacement cut off by power loss, a crash or a restart is finished or undone at the next start (and before the next import) (record `save_import.journal`); the database is only put back when something was really written; the ZIP no longer contains the account ID (the import writes the target user's); the save service identity is used only for mounting and unmounting; the ten newest copies of each user's save database are kept; if an old save cannot be read out before it is replaced, a raw copy is kept (folder `roh`).
+  - Beyond the Cooling Center: for newer PS5 saves, the import reads the owner value from the image header (where their real `param.sfo` lives), so the game's own save serves as the template instead of another one; a note that applies to several saves appears only once in the message.
+  - Backup and download refuse while a game is running. Backups in the old format (encrypted container with `metadata.json`) are no longer offered; the timestamp repair (`/api/saves/times`, `tools/ps5_fix_save_times.py`) is gone.
 
 ## [2.6.69] – 2026-11-19
 
-### Hinzugefügt
+### Added
 
-- Quelle für den PS5 Payload Manager von itsPLK: `https://github.com/strongt1me/ps5-usb-formatierer/releases/latest/download/payload-manager.json` unter Settings → Manage Sources → Add Source eintragen, dann lässt sich die ELF dort laden und aktualisieren (mit SHA-256-Prüfung).
+- Source for itsPLK's PS5 Payload Manager: add `https://github.com/strongt1me/ps5-usb-formatierer/releases/latest/download/payload-manager.json` under Settings → Manage Sources → Add Source to download and update the ELF there (with SHA-256 check).
 
-### Behoben
+### Fixed
 
-- Kopieren und Aufräumen folgen keinen Verknüpfungen mehr: Ein Zwischenordner `.usbfmt-move` oder ein Backport-Ordner, der auf einen anderen Ort zeigt, konnte dort Dateien löschen.
-- Aufräumen: sehr lange Backport-Pfade werden nicht mehr gekürzt (das hätte einen anderen Ordner treffen können); mehr als 256 Einträge auf einmal werden abgelehnt statt still ausgelassen.
-- Image-Sicherung: Ein NTFS- oder FAT16-Laufwerk ohne Partitionstabelle wird vollständig gesichert; bisher konnte ein Teil am Ende fehlen. Ebenso exFAT mit zwei FATs oder beschädigter Clusterzahl.
-- Umbenennen bei FAT32 mit anderer Sektorgröße als das Laufwerk schreibt die Bezeichnung nicht mehr in die FAT; bei beschädigtem Dateisystem wird nie außerhalb der Partition geschrieben.
-- PS5-App: Spiele prüfen und die Spieleliste blockieren die Bibliothek nicht mehr minutenlang; kein Speicherleck mehr beim Abfragen der Spielgrößen; Fehlermeldungen beim Hochladen eines Images kommen an, statt als Verbindungsabbruch.
-- Weboberfläche: Formatieren warnt auch bei einem gerade erschienenen Laufwerk, dessen Spiele noch nicht gelesen sind; ein offenes Umbenennen-Feld kann nach einem Laufwerkswechsel keinen anderen Stick mehr umbenennen; hängende Antworten legen die Seite nicht mehr lahm; der PS5-Controller behält bei den Spielständen seine Stelle.
-- PC-Programm: Umbenennen, Prüfen/Reparieren und Auswerfen treffen immer das Laufwerk aus dem Dialog; vor dem Formatieren oder Zurückspielen wird geprüft, ob noch dieselbe Karte bzw. derselbe Stick steckt; mit zwei Fenstern zeigt jedes die PS5, mit der es wirklich verbunden ist; eine vorhandene Sicherung wird nicht mehr ohne Rückfrage ersetzt; unter Linux friert das Fenster beim Abfragen des dunklen Modus nicht mehr ein.
+- Copying and cleanup no longer follow links: a `.usbfmt-move` staging folder or a backports folder pointing elsewhere could delete files there.
+- Cleanup: very long backport paths are no longer truncated (that could have hit a different folder); more than 256 entries at once are refused instead of silently skipped.
+- Image backup: an NTFS or FAT16 drive without a partition table is backed up completely; previously part of the end could be missing. The same for exFAT with two FATs or a damaged cluster count.
+- Renaming a FAT32 volume whose sector size differs from the drive no longer writes the label into the FAT; with a damaged file system nothing is ever written outside the partition.
+- PS5 app: verifying games and the game list no longer block the library for minutes; no more memory leak when polling game sizes; errors while uploading an image arrive instead of a connection reset.
+- Web interface: formatting also warns for a drive that just appeared and whose games have not been read yet; an open rename box can no longer rename a different stick after the drive changed; stalled replies no longer freeze the page; the PS5 controller keeps its place in the save games list.
+- PC program: rename, check/repair and eject always use the drive from the dialog; before formatting or restoring it checks that the same card or stick is still inserted; with two windows each shows the PS5 it is really connected to; an existing backup is no longer replaced without asking; on Linux the window no longer freezes while checking dark mode.
 
 ## [2.6.68] – 2026-11-13
 
-### Hinzugefügt
+### Added
 
-- Diagnosebericht: Endete der Formatierer ohne Stopp-Befehl, erkennt der nächste Start, warum – PS5 neu gestartet oder ausgeschaltet, Ruhemodus bzw. Uhr gestellt, oder abgestürzt bzw. von außen beendet (Abschnitt „Unexpected ends“, auch in `tools/ps5_deploy.py status`).
+- Diagnostic report: if the formatter ended without a stop command, the next start detects why – the PS5 was restarted or switched off, went into rest mode or had its clock set, or the formatter crashed or was killed (section "Unexpected ends", also in `tools/ps5_deploy.py status`).
 
 ## [2.6.67] – 2026-11-13
 
-### Geändert
+### Changed
 
-- PS5-App: Eine in der App selbst gewählte Sprache bleibt wieder dauerhaft eingestellt (in 2.6.66 galt sie nur bis zum nächsten Start); ohne eigene Wahl gilt die Systemsprache der PS5, sonst Englisch.
-- Weboberfläche lädt schneller: Seite und Hilfe kommen gepackt (etwa 103 statt 338 KB bzw. 46 statt 172 KB) und werden nur neu geladen, wenn sie sich geändert haben.
-- Weboberfläche fragt im Leerlauf nur noch eine Adresse ab (Status samt Einstellungen) und pausiert, solange die Seite nicht zu sehen ist; den Controller fragt sie am PC bzw. Handy erst ab, wenn einer angeschlossen ist.
+- PS5 app: a language chosen in the app stays set again (in 2.6.66 it only applied until the next start); without a choice the PS5 system language applies, otherwise English.
+- The web interface loads faster: page and help are sent compressed (about 103 instead of 338 KB and 46 instead of 172 KB) and are only reloaded when they have changed.
+- While idle, the web interface polls a single address (status including settings) and pauses while the page is not visible; on a PC or phone it polls the controller only once one is connected.
 
 ## [2.6.66] – 2026-11-12
 
-### Geändert
+### Changed
 
-- PS5-App: Beim Start gilt die Systemsprache der PS5; gibt es sie in der App nicht, Englisch (vorher Deutsch). Eine in der App gewählte Sprache gilt bis zum nächsten Start des Formatierers.
+- PS5 app: at start the PS5 system language is used; if the app does not have it, English (previously German). A language chosen in the app applies until the formatter starts again.
 
 ## [2.6.65] – 2026-11-01
 
-### Hinzugefügt
+### Added
 
-- Changelog auf Englisch (CHANGELOG.en.md).
-- „Was ist neu“ in den PC-Programmen zeigt die Änderungen aller Versionen seit der installierten; in der Weboberfläche zeigt sie ein Klick auf „Neue Version … verfügbar“ ebenfalls an.
+- Changelog in English (CHANGELOG.en.md).
+- "What's new" in the PC programs shows the changes of every version since the installed one; in the web interface a click on "New version … available" shows them as well.
 
 ## [2.6.64] – 2026-10-31
 
-### Entfernt
+### Removed
 
-- Weboberfläche: Reiterwechsel mit L1/R1 – er funktionierte auf der PS5 nicht. L2/R2 scrollen weiterhin.
+- Web interface: tab switching with L1/R1 – it did not work on the PS5. L2/R2 still scroll.
 
 ## [2.6.63] – 2026-10-31
 
-### Geändert
+### Changed
 
-- Weboberfläche: „Formatierer stoppen“ heißt jetzt „Formatierer ausschalten“ (Knopf, Dialog und Meldung, alle Sprachen).
+- Web interface: "Stop formatter" is now called "Turn off formatter" (button, dialog and message, all languages).
 
-### Entfernt
+### Removed
 
-- Hilfe: Hinweis auf den Reiterwechsel mit L1/R1.
+- Help: note about tab switching with L1/R1.
 
 ## [2.6.62] – 2026-10-31
 
-### Hinzugefügt
+### Added
 
-- Kennzeichen „eingehängt“ in der Spieleliste, Filter „Nur eingehängte“ (Weboberfläche) und Sortierung „Eingehängt“ (Programm).
-- „Aushängen und fortfahren“, wenn „Kachel neu anmelden“ an einem eingehängten Spiel scheitert.
-- Weboberfläche an der PS5: L1/R1 wechseln den Reiter.
-- PS5-Benachrichtigung „beendet“ nennt die Quelle des Befehls; jeder Stopp wird in `/data/usb_format/quit.log` festgehalten.
-- Diagnose-Bericht mit den letzten Stopp-Befehlen und auffälligen Zeilen aus dem Kernel-Log.
-- Linux-AppImage: „Jetzt aktualisieren“ lädt nur die geänderten Teile (zsync, auch mit AppImageUpdate nutzbar).
+- "Mounted" badge in the game list, filter "Only mounted" (web interface) and sort order "Mounted" (program).
+- "Unmount and continue" when "Re-register tile" fails because of a mounted game.
+- Web interface on the PS5: L1/R1 switch tabs.
+- The PS5 notification "stopped" names the source of the command; every stop is logged to `/data/usb_format/quit.log`.
+- Diagnostic report with the last stop commands and notable kernel log lines.
+- Linux AppImage: "Update now" downloads only the changed parts (zsync, also usable with AppImageUpdate).
 
-### Geändert
+### Changed
 
-- Weboberfläche: „Beenden“ heißt „Formatierer stoppen“; der Dialog erklärt, dass zum Schließen der App die PS-Taste reicht.
-- ShadowMountPlus-Meldung „ein Spiel ist noch eingehängt“ wird verständlich statt als englischer Fehler angezeigt.
+- Web interface: "Quit" is called "Stop formatter"; the dialog explains that the PS button is enough to close the app.
+- The ShadowMountPlus message "a game is still mounted" is shown in plain words instead of an English error.
 
 ## [2.6.61] – 2026-10-30
 
-### Hinzugefügt
+### Added
 
-- Weboberfläche an der PS5: L2/R2 scrollen die Seite, je fester gedrückt, desto schneller.
+- Web interface on the PS5: L2/R2 scroll the page, the harder you press, the faster.
 
-### Geändert
+### Changed
 
-- Spiele und PKG: das erste Laufwerk mit Spielen ist vorgewählt; leere Listen sagen, was zu tun ist; Kopieren, Verschieben und Löschen erscheinen erst beim Anhaken.
-- Formatieren wird erst rot, wenn ein Laufwerk gewählt ist; eine für Spiele vorgewählte SSD wird nie übernommen.
-- Spielstände: kürzere Angaben und Datum in der Schreibweise der Sprache.
-- Werkzeuge: alle Knöpfe in einer Reihe, darunter der Grund, wenn sie gesperrt sind.
-- Das Fenster bleibt in allen Betriebsarten und Reitern gleich groß.
+- Games and PKG: the first drive with games is preselected; empty lists say what to do; copy, move and delete appear only once something is ticked.
+- Formatting turns red only once a drive is selected; an SSD preselected for games is never taken over.
+- Save data: shorter texts and dates in the format of the language.
+- Tools: all buttons in one row, below them the reason when they are disabled.
+- The window keeps its size in all modes and tabs.
 
-### Behoben
+### Fixed
 
-- Die Erklärung zu fPKG/PKG verschwand, sobald Pakete geladen waren.
+- The fPKG/PKG explanation disappeared as soon as packages were loaded.
 
 ## [2.6.60] – 2026-10-30
 
-### Hinzugefügt
+### Added
 
-- Spiel-Einzelheiten zeigen, ob ShadowMountPlus das Spiel eingehängt hat, dazu Patch und DLCs – mit Aus-/Einhängen und Entfernen von Patch bzw. DLCs.
-- Doppelte Spiele: „Ältere Version deaktivieren …“ bzw. „Überzählige Kopie deaktivieren …“ (Endung `.off` statt Löschen).
-- Nach dem Auswerfen steht „kann abgezogen werden“; ein wieder eingesteckter Stick erscheint von selbst.
+- Game details show whether ShadowMountPlus has mounted the game, plus patch and DLCs – with unmount/mount and removal of patch or DLCs.
+- Duplicate games: "Deactivate older version …" or "Deactivate surplus copy …" (`.off` extension instead of deleting).
+- After ejecting, the drive shows "can be unplugged"; a stick plugged back in appears by itself.
 
-### Geändert
+### Changed
 
-- Weboberfläche: mehr Abstand der Auswahlkästchen zum Rand, ruhigere Liste beim Aktivieren/Deaktivieren.
+- Web interface: more space between the checkboxes and the edge, calmer list when activating/deactivating.
 
 ## [2.6.59] – 2026-10-29
 
-### Hinzugefügt
+### Added
 
-- „Aktivieren / Deaktivieren …“: Abbilder (`.ffpfs`, `.ffpfsc`, `.ffpkg`, `.exfat`) bekommen bzw. verlieren die Endung `.off`, ShadowMountPlus bindet sie dann nicht mehr ein. Deaktivierte Spiele werden als solche angezeigt.
+- "Activate / Deactivate …": images (`.ffpfs`, `.ffpfsc`, `.ffpkg`, `.exfat`) get or lose the `.off` extension, so ShadowMountPlus no longer mounts them. Deactivated games are shown as such.
 
-### Geändert
+### Changed
 
-- Deaktivierte Kopien zählen nicht als doppelte Spiele; Prüfen, Prüfsummen, Kopieren, Löschen und Aufräumen berücksichtigen sie.
+- Deactivated copies do not count as duplicate games; verify, checksums, copy, delete and clean-up take them into account.
 
 ## [2.6.58] – 2026-10-29
 
-### Behoben
+### Fixed
 
-- PS5-USB-Formatierer: Absturz beim Laden der Spielbilder ohne Verbindung zur PS5 (deshalb fehlten in 2.6.57 die Linux-Fassungen).
+- PS5 USB Formatter: crash while loading game pictures without a connection to the PS5 (this is why 2.6.57 lacked the Linux builds).
 
 ## [2.6.57] – 2026-10-29
 
-### Geändert
+### Changed
 
-- Spielbilder: auch große Bilder in UFS2-Abbildern werden angezeigt; Spiele ohne Bild werden nicht bei jedem Neuaufbau erneut angefragt.
-- Auswerfen: Hinweis „braucht ShadowMountPlus 1.7“ nur noch, wenn das feststeht; ein später gestartetes ShadowMountPlus wird erkannt.
+- Game pictures: large pictures in UFS2 images are shown too; games without a picture are not requested again on every refresh.
+- Eject: the note "needs ShadowMountPlus 1.7" appears only when that is certain; a ShadowMountPlus started later is detected.
 
-### Behoben
+### Fixed
 
-- PS5-USB-Formatierer: Einstellungen gingen bei kaputter oder gesperrter Einstellungsdatei verloren; nach dem Wechsel der PS5 galten deren Angaben nicht.
+- PS5 USB Formatter: settings were lost with a broken or locked settings file; after switching to another PS5 its details did not apply.
 
-### Sicherheit
+### Security
 
-- „Inhalt vergleichen“ ist robust gegen manipulierte Abbilder: erkennt Ordner- und FAT-Schleifen, lässt sich abbrechen und begrenzt Speicher und Umfang.
+- "Compare contents" is robust against manipulated images: detects directory and FAT loops, can be cancelled and limits memory and scope.
 
 ## [2.6.56] – 2026-10-29
 
-### Hinzugefügt
+### Added
 
-- „Auswerfen“ meldet ein Laufwerk über ShadowMountPlus 1.7 sicher ab.
-- Spielbilder in der Spieleliste (Vorschau von ShadowMountPlus oder `icon0.png`, auch aus Abbildern).
-- ShadowMountPlus-Version in der Fußzeile; Funktionen, die 1.7 brauchen, sind ohne es gesperrt.
-- Tempo-Verlauf je Datenträger als kleine Kurve, deutliche Einbrüche rot markiert.
-- Diagnose- und Fehlerbericht mit Firmware, ShadowMountPlus-Version und Kernel-Erweiterungen.
+- "Eject" safely unregisters a drive via ShadowMountPlus 1.7.
+- Game pictures in the game list (ShadowMountPlus preview or `icon0.png`, also from images).
+- ShadowMountPlus version in the footer; functions that need 1.7 are disabled without it.
+- Speed history per drive as a small chart, clear drops marked red.
+- Diagnostic and error reports with firmware, ShadowMountPlus version and kernel extensions.
 
-### Geändert
+### Changed
 
-- Das ShadowMountPlus-Protokoll (`debug.log`) wird nur noch gelesen, wenn dessen API nicht antwortet.
+- The ShadowMountPlus log (`debug.log`) is read only when its API does not answer.
 
 ## [2.6.55] – 2026-10-29
 
-### Hinzugefügt
+### Added
 
-- Hinweis auf möglichen Verschleiß, wenn ein Stick deutlich langsamer liest als früher.
-- „Inhalt vergleichen“ vergleicht auch ein Abbild (exFAT, UFS2) mit einem Spielordner.
+- Note about possible wear when a stick reads clearly slower than before.
+- "Compare contents" also compares an image (exFAT, UFS2) with a game folder.
 
-### Geändert
+### Changed
 
-- Gebaut mit dem PS5-Payload-SDK 0.45 (Firmware 14.00/14.10).
-- Linux-Fassungen laufen weiterhin ab glibc 2.35.
+- Built with PS5 Payload SDK 0.45 (firmware 14.00/14.10).
+- The Linux builds still run from glibc 2.35 on.
 
-### Behoben
+### Fixed
 
-- Spielordner mit `eboot2.bin` (ShadowMountPlus 1.7) galten als „unvollständig“.
+- Game folders with `eboot2.bin` (ShadowMountPlus 1.7) counted as "incomplete".
 
 ## [2.6.54] – 2026-10-29
 
-### Geändert
+### Changed
 
-- Die Projektlizenz liegt den Windows-Programmen und AppImages bei.
+- The project licence is included with the Windows programs and AppImages.
 
-### Behoben
+### Fixed
 
-- Einstellungen von „Am PC – frei formatieren“ gingen seit 2.6.52 verloren.
-- Hilfe: Tastenkürzel und Namen der Betriebsarten richtiggestellt.
-- „Inhalt vergleichen“ lehnt zweimal dasselbe Spiel ab; die Windows-Warteschlange findet ihr Ziel nach einem Betriebsartwechsel; CSV-Verlauf in Ortszeit.
+- Settings of "On the PC – free formatting" were lost since 2.6.52.
+- Help: keyboard shortcuts and mode names corrected.
+- "Compare contents" rejects the same game twice; the Windows queue finds its target after a mode switch; CSV history in local time.
 
 ## [2.6.53] – 2026-10-29
 
-### Behoben
+### Fixed
 
-- Weboberfläche: Suchfeld, Häkchen, Größenangaben und Dialogknöpfe sehen im PS5-Browser richtig aus.
-- PC-Programme: Bildlaufleisten nur bei Bedarf; „Suche …“ statt „kein USB-Datenträger gefunden“ während der Suche.
+- Web interface: search field, checkmarks, sizes and dialog buttons look right in the PS5 browser.
+- PC programs: scroll bars only when needed; "Searching …" instead of "no USB drive found" while searching.
 
 ## [2.6.52] – 2026-10-29
 
-### Behoben
+### Fixed
 
-- Zwei Fenster desselben Programms überschreiben sich nicht mehr gegenseitig die Einstellungen.
-- Baugleiche Sticks ohne Seriennummer werden nach dem Neuladen nicht still ausgewählt.
-- Linux: btrfs-Partitionen werden erkannt und ausgehängt.
-- Windows: Ein Image, das über `subst` oder eine lokale Freigabe auf dem Ziel-Stick liegt, wird erkannt.
+- Two windows of the same program no longer overwrite each other's settings.
+- Identical sticks without a serial number are not silently selected after reloading.
+- Linux: btrfs partitions are detected and unmounted.
+- Windows: an image that lies on the target stick via `subst` or a local share is detected.
 
 ## [2.6.51] – 2026-10-29
 
-### Behoben
+### Fixed
 
-- Aufräumen meldete während des Einlesens bzw. in sehr vollen Ordnern Dateien fälschlich als verwaist.
-- Kopieren, Prüfen und Aufräumen scheiterten mit mehr als etwa 56 Einträgen.
-- Ein abgebrochener Spielstand-Upload ließ eine Datei geöffnet.
-- Eine präparierte Image-Datei mit unsinniger Größe brachte den Formatierer zum Absturz.
-- Warteschlange: Ziel wird über die Seriennummer gefunden; die Web-Warteschlange blieb auf „läuft“ hängen.
-- Windows-App: Kopierdialog fror bei langsamer PS5 ein; Fehler beim Schließen während einer Abfrage.
-- Linux: Der Helfer prüft direkt vor dem Schreiben erneut, ob derselbe Datenträger steckt.
-- PS5-Suche unter Linux durchsucht alle Netzwerkkarten.
+- Clean-up wrongly reported files as orphaned while loading or in very full folders.
+- Copy, verify and clean-up failed with more than about 56 entries.
+- A cancelled save data upload left a file open.
+- A crafted image file with a nonsensical size crashed the formatter.
+- Queue: the target is found by serial number; the web queue got stuck on "running".
+- Windows app: the copy dialog froze with a slow PS5; error when closing during a request.
+- Linux: the helper checks again right before writing that the same drive is still plugged in.
+- PS5 search on Linux scans all network adapters.
 
 ## [2.6.50] – 2026-10-29
 
-### Hinzugefügt
+### Added
 
-- „Inhalt vergleichen“ prüft zwei Kopien desselben Spiels Byte für Byte.
-- Ordner-Spiele ohne `eboot.bin` oder Titelbild werden als „unvollständig“ gekennzeichnet.
-- Ziel-Auswahl zeigt das zuletzt gemessene Lesetempo.
-- Verlauf als CSV speichern.
+- "Compare contents" checks two copies of the same game byte by byte.
+- Folder games without `eboot.bin` or title picture are marked "incomplete".
+- Target selection shows the last measured read speed.
+- Save the history as CSV.
 
-### Geändert
+### Changed
 
-- Windows-App: Die Kopier-Warteschlange übersteht einen Neustart.
+- Windows app: the copy queue survives a restart.
 
 ## [2.6.49] – 2026-10-28
 
-### Hinzugefügt
+### Added
 
-- Weboberfläche: Wahrscheinliche Kopien (gleiche Version und Größe) werden erkannt.
+- Web interface: probable copies (same version and size) are detected.
 
-### Geändert
+### Changed
 
-- Weboberfläche: Die Kopier-Warteschlange übersteht ein Neuladen der Seite.
-- Ziel-Auswahl zeigt „zu wenig Platz“ und die FAT32-Grenze direkt beim Laufwerk.
+- Web interface: the copy queue survives reloading the page.
+- Target selection shows "not enough space" and the FAT32 limit right next to the drive.
 
 ## [2.6.48] – 2026-10-28
 
-### Hinzugefügt
+### Added
 
-- „Aufräumen“ findet verwaiste Prüfsummen, Dump-Infos, Backport-Ordner und leere Spielordner.
-- Prüfsummenlisten für Ordner-Spiele (`<Name>.manifest.sha256`).
-- Warteschlange für Kopieraufträge.
-- Weboberfläche: Diagnose-Bericht in der Fußzeile.
+- "Clean up" finds orphaned checksums, dump infos, backport folders and empty game folders.
+- Checksum lists for folder games (`<Name>.manifest.sha256`).
+- Queue for copy jobs.
+- Web interface: diagnostic report in the footer.
 
-### Geändert
+### Changed
 
-- Tempo und Restzeit beginnen bei jedem Schritt neu.
+- Speed and remaining time restart with every step.
 
 ## [2.6.47] – 2026-10-28
 
-### Hinzugefügt
+### Added
 
-- Teilkopien abgebrochener Kopiervorgänge werden angezeigt und lassen sich verwerfen.
-- „Prüfsumme erstellen“ legt neben Abbildern eine `.sha256` an.
-- Spiel-Einzelheiten per Klick bzw. Doppelklick.
-- „Ältere Version auswählen“ bei doppelten Spielen.
+- Partial copies of cancelled copy jobs are shown and can be discarded.
+- "Create checksum" puts a `.sha256` next to images.
+- Game details by click or double-click.
+- "Select older version" for duplicate games.
 
-### Behoben
+### Fixed
 
-- Weboberfläche: Knopfleisten ragten bei schmaler Anzeige über den Rand.
+- Web interface: button bars stuck out over the edge on narrow screens.
 
 ## [2.6.46] – 2026-10-27
 
-### Hinzugefügt
+### Added
 
-- Abgebrochenes Kopieren lässt sich fortsetzen.
-- „Spiele prüfen“ prüft Abbilder gegen ihre `.sha256`.
-- Durchsuchbare Spieleliste in der Weboberfläche; Dialoge zeigen den freien Platz danach.
-- Windows-App: `fehler.log` und „Bericht kopieren“ (Strg+Umschalt+B).
+- A cancelled copy can be resumed.
+- "Verify games" checks images against their `.sha256`.
+- Searchable game list in the web interface; dialogs show the free space afterwards.
+- Windows app: `fehler.log` and "Copy report" (Ctrl+Shift+B).
 
 ## [2.6.45] – 2026-10-27
 
-### Behoben
+### Fixed
 
-- Die Windows-Programme fehlten am Release 2.6.44 (CI-Test); Inhalt sonst wie 2.6.44.
+- The Windows programs were missing from release 2.6.44 (CI test); otherwise the same as 2.6.44.
 
 ## [2.6.44] – 2026-10-27
 
-### Behoben
+### Fixed
 
-- Windows: weitere Absicherung gegen Abstürze bei aufgeklappter Auswahlliste in Dialogen.
+- Windows: further protection against crashes with an open drop-down list in dialogs.
 
 ## [2.6.43] – 2026-10-27
 
-### Geändert
+### Changed
 
-- Weboberfläche: Reiter „Spiele“ in den Fremdsprachen großgeschrieben.
+- Web interface: tab "Games" capitalised in the other languages.
 
 ## [2.6.42] – 2026-10-27
 
-### Behoben
+### Fixed
 
-- Windows: Absturz (`KeyError: 'popdown'`) bei aufgeklappter Laufwerksliste im Kopierdialog.
+- Windows: crash (`KeyError: 'popdown'`) with an open drive list in the copy dialog.
 
 ## [2.6.41] – 2026-10-26
 
-### Hinzugefügt
+### Added
 
-- Vorabprüfung vor dem Kopieren: zu kleines Ziel oder FAT32-Grenze werden sofort gemeldet.
-- PKG-Dateien im Vergleich mit der PS5: neuer, schon installiert oder älter; nötige Firmware.
-- Kopiertempo unter dem Fortschrittsbalken; Löschen von PKG-Dateien lässt sich abbrechen.
+- Pre-check before copying: a target that is too small or the FAT32 limit are reported right away.
+- PKG files compared with the PS5: newer, already installed or older; required firmware.
+- Copy speed below the progress bar; deleting PKG files can be cancelled.
 
 ## [2.6.40] – 2026-10-26
 
-### Behoben
+### Fixed
 
-- Spielstände wiederherstellen: eine Anfrage mit Pfad ohne Schrägstrich konnte den Formatierer zum Absturz bringen.
-- Das Kopf-Kästchen wählt nur die neueste Version je Spielstand; der alte PS4-Schlüssel wird bei Fehlern wiederhergestellt.
-- Ausgeblendete Spielstände anderer Benutzer werden nicht mitgesichert.
-- Formatieren schreibt den Bootsektor zuletzt.
-- Speicherleck, Thread-Sicherheit und weitere kleinere Fehler.
+- Restoring save data: a request with a path without slash could crash the formatter.
+- The header checkbox selects only the newest version of each save; the old PS4 key is restored on errors.
+- Hidden save data of other users is not backed up.
+- Formatting writes the boot sector last.
+- Memory leak, thread safety and other minor bugs.
 
 ## [2.6.39] – 2026-10-26
 
-### Geändert
+### Changed
 
-- Windows-Programm: breitere Spielstände-Liste.
+- Windows program: wider save data list.
 
 ## [2.6.38] – 2026-10-26
 
-### Hinzugefügt
+### Added
 
-- PKG-Reiter: Spielname, Version, Art und nötige Firmware aus den Paketen.
-- „Kopieren nach …“ für PKG-Dateien.
+- PKG tab: game name, version, type and required firmware from the packages.
+- "Copy to …" for PKG files.
 
-### Behoben
+### Fixed
 
-- Teilweise gescheitertes Löschen wird als solches gemeldet.
-- Zugehörige Dateien bleiben stehen, solange eine andere Kopie sie nutzt.
-- Windows-Programm: Listen nach Theme-/Sprachwechsel, Größen der Ordner-Spiele, Einfrieren bei Netzabfragen.
+- A partially failed deletion is reported as such.
+- Related files stay as long as another copy uses them.
+- Windows program: lists after a theme/language change, sizes of folder games, freezing on network requests.
 
 ## [2.6.37] – 2026-10-25
 
-### Geändert
+### Changed
 
-- Reiter je nach Auswahl: interner Speicher zeigt Spiele, PKG und Spielstände; Laufwerke zusätzlich Werkzeuge und Formatieren.
+- Tabs depend on the selection: internal storage shows games, PKG and save data; drives also show tools and formatting.
 
 ## [2.6.36] – 2026-10-25
 
-### Geändert
+### Changed
 
-- Bei gewähltem internem Speicher gibt es keinen Reiter „Formatieren“.
-- Zugehörige Dateien werden einmal je Suche ermittelt (schneller).
+- With internal storage selected there is no "Format" tab.
+- Related files are determined once per search (faster).
 
-### Behoben
+### Fixed
 
-- Absturz beim Fortsetzen einer Image-Sicherung (Zugriff auf freigegebenen Speicher).
+- Crash when resuming an image backup (access to freed memory).
 
 ## [2.6.35] – 2026-10-25
 
-### Hinzugefügt
+### Added
 
-- „Spiele kopieren …“ – wie Verschieben, die Originale bleiben.
+- "Copy games …" – like moving, but the originals stay.
 
 ## [2.6.34] – 2026-10-25
 
-### Geändert
+### Changed
 
-- Reiter „Spielstände“ heißt „Spielstände auf der PS5“.
+- Tab "Save data" is called "Save data on the PS5".
 
 ## [2.6.33] – 2026-10-25
 
-### Behoben
+### Fixed
 
-- PS4-Pakete wurden in 2.6.32 fälschlich als fPKG angezeigt.
+- PS4 packages were wrongly shown as fPKG in 2.6.32.
 
 ## [2.6.32] – 2026-10-25
 
-### Hinzugefügt
+### Added
 
-- Unterscheidung von fPKG und PKG bei PS4-Paketen (in 2.6.33 zurückgenommen).
+- Distinction between fPKG and PKG for PS4 packages (withdrawn in 2.6.33).
 
 ## [2.6.31] – 2026-10-25
 
-### Behoben
+### Fixed
 
-- Fortschrittsbalken der PC-Suche blieb bei schlafenden Platten stehen.
+- The progress bar of the PC search stopped with sleeping disks.
 
 ## [2.6.30] – 2026-10-25
 
-### Geändert
+### Changed
 
-- Backport-Ordner werden wie bei ShadowMountPlus gefunden und beim Kopieren und Verschieben mitgenommen.
+- Backport folders are found like ShadowMountPlus does and are taken along when copying and moving.
 
 ## [2.6.29] – 2026-10-25
 
-### Hinzugefügt
+### Added
 
-- Spiele im internen Speicher und auf `/mnt/extN` kopieren, verschieben und löschen – samt zugehöriger Dateien.
+- Copy, move and delete games on internal storage and on `/mnt/extN` – including related files.
 
 ## [2.6.28] – 2026-10-25
 
-### Hinzugefügt
+### Added
 
-- PKG-Dateien verschieben und löschen.
+- Move and delete PKG files.
 
-### Behoben
+### Fixed
 
-- Fortschrittsbalken blieb bei 0 %, während eine schlafende Platte anlief.
+- The progress bar stayed at 0 % while a sleeping disk spun up.
 
 ## [2.6.27] – 2026-10-24
 
-### Hinzugefügt
+### Added
 
-- Windows-Programm mit Reitern wie die Weboberfläche (Spiele, PKG, Spielstände, Werkzeuge, Formatieren).
-- Werkzeuge an der PS5 auch im PC-Programm: Tempo messen, Prüfen & reparieren, Umbenennen, Image-Sicherung.
+- Windows program with tabs like the web interface (games, PKG, save data, tools, format).
+- Tools on the PS5 also in the PC program: measure speed, check & repair, rename, image backup.
 
 ## [2.6.26] – 2026-10-24
 
-### Hinzugefügt
+### Added
 
-- PKG-Reiter liest den Paketkopf: PKG/fPKG bei PS5-Paketen, Titel-ID und Update bei PS4-Paketen.
+- PKG tab reads the package header: PKG/fPKG for PS5 packages, title ID and update for PS4 packages.
 
 ## [2.6.25] – 2026-10-24
 
-### Hinzugefügt
+### Added
 
-- Neue Oberfläche in Reitern mit Formatieren im roten Warnrahmen.
-- Typ-Kennzeichen der Spiele (Dump-Ordner, exFAT, ffpfs, ffpfsc, ffpkg).
-- PKG-Reiter mit allen `.pkg`-Dateien des Laufwerks.
-- Image-Sicherung fortsetzen und unvollständige Sicherungen verwerfen.
+- New interface with tabs, formatting inside a red warning frame.
+- Type badges for games (dump folder, exFAT, ffpfs, ffpfsc, ffpkg).
+- PKG tab with all `.pkg` files of the drive.
+- Resume image backups and discard incomplete ones.
 
-### Geändert
+### Changed
 
-- Überarbeitete Spieleliste; Größen der Ordner-Spiele werden im Hintergrund ermittelt.
+- Reworked game list; sizes of folder games are determined in the background.
 
 ## [2.6.24] – 2026-10-24
 
-### Geändert
+### Changed
 
-- Verschieben-Dialog: Hinweis, wenn ShadowMountPlus das Löschen eines Originals ablehnt; neutrale Farbe.
+- Move dialog: note when ShadowMountPlus refuses to delete an original; neutral colour.
 
 ## [2.6.23] – 2026-10-24
 
-### Hinzugefügt
+### Added
 
-- „Spiele verschieben …“ zwischen Laufwerken, mit SHA-256-Prüfung jeder Datei.
+- "Move games …" between drives, with a SHA-256 check of every file.
 
 ## [2.6.22] – 2026-10-24
 
-### Hinzugefügt
+### Added
 
-- Weboberfläche: Spieleliste nach Name, Größe oder Titel-ID sortieren; Größe von Ordner-Spielen.
+- Web interface: sort the game list by name, size or title ID; size of folder games.
 
 ## [2.6.21] – 2026-10-24
 
-### Geändert
+### Changed
 
-- Prüfbericht nach dem Formatieren ohne Warnfarbe.
+- Check report after formatting without warning colour.
 
 ## [2.6.20] – 2026-10-24
 
-### Hinzugefügt
+### Added
 
-- Prüfbericht nach dem Formatieren mit einzelnen Ergebnissen.
-- Nachkontrolle des frisch geschriebenen exFAT-Dateisystems.
+- Check report after formatting with individual results.
+- Follow-up check of the freshly written exFAT file system.
 
 ## [2.6.19] – 2026-10-24
 
-### Hinzugefügt
+### Added
 
-- Spielstände: Vorversionen der Sicherung (die neueste und zwei davor bleiben).
-- Liste zeigt den Stand der Sicherung; Wiederherstellen vergleicht mit dem aktuellen Stand.
+- Save data: previous versions of the backup (the newest and two before it are kept).
+- The list shows the backup state; restoring compares with the current state.
 
 ## [2.6.18] – 2026-10-24
 
-### Behoben
+### Fixed
 
-- Die Restzeit-Zeile blieb nach dem Auftrag stehen.
+- The remaining-time line stayed after the job.
 
 ## [2.6.17] – 2026-10-23
 
-### Geändert
+### Changed
 
-- Durchgehender Fortschrittsbalken bei Echtheitsprüfung, Tempomessung und vollständigem Formatieren.
-- Spiele löschen nennt das Spiel.
+- Continuous progress bar for authenticity check, speed test and full formatting.
+- Deleting games names the game.
 
 ## [2.6.16] – 2026-10-23
 
-### Geändert
+### Changed
 
-- Fortschritt der Image-Sicherung nach belegten Bytes; Menge und Restzeit unter dem Balken.
+- Progress of the image backup by used bytes; amount and remaining time below the bar.
 
 ## [2.6.15] – 2026-10-23
 
-### Geändert
+### Changed
 
-- Spielstände: Container eines Spiels werden erst beim Aufklappen gezeigt.
+- Save data: the containers of a game are shown only when expanded.
 
 ## [2.6.14] – 2026-10-23
 
-### Behoben
+### Fixed
 
-- Setzen der Änderungszeit von Spielständen probiert mehrere Systemaufrufe.
+- Setting the modification time of save data tries several system calls.
 
 ## [2.6.13] – 2026-10-23
 
-### Behoben
+### Fixed
 
-- Zeitstempel-Reparatur für Spielstände funktioniert auf der PS5.
+- The timestamp repair for save data works on the PS5.
 
 ## [2.6.12] – 2026-10-23
 
-### Hinzugefügt
+### Added
 
-- `POST /api/saves/times` und `tools/ps5_fix_save_times.py` zum Angleichen bereits wiederhergestellter Spielstände.
+- `POST /api/saves/times` and `tools/ps5_fix_save_times.py` to align save data that was already restored.
 
-### Behoben
+### Fixed
 
-- Wiederherstellen von Spielständen setzte die Änderungszeit neu, sodass Spiele den Spielstand nicht mehr laden konnten.
+- Restoring save data reset the modification time, so games could no longer load the save.
 
 ## [2.6.11] – 2026-10-23
 
-### Hinzugefügt
+### Added
 
-- Wiederherstellen zeigt, wo eine Sicherung liegt.
+- Restore shows where a backup is stored.
 
 ## [2.6.10] – 2026-10-23
 
-### Geändert
+### Changed
 
-- Spielstände nach Spiel gruppiert.
+- Save data grouped by game.
 
 ## [2.6.9] – 2026-10-23
 
-### Hinzugefügt
+### Added
 
-- PS4-Spielstände sichern und wiederherstellen.
+- Back up and restore PS4 save data.
 
-### Geändert
+### Changed
 
-- Die Systemkopie `sce_bu` wird nicht mehr aufgelistet.
+- The system copy `sce_bu` is no longer listed.
 
 ## [2.6.8] – 2026-10-22
 
-### Hinzugefügt
+### Added
 
-- Sichern und Wiederherstellen von Spielständen lassen sich abbrechen.
-- Kennzeichen PS5/PS4 je Spielstand.
+- Backing up and restoring save data can be cancelled.
+- PS5/PS4 badge for each save.
 
 ## [2.6.7] – 2026-10-22
 
-### Geändert
+### Changed
 
-- Echter Fortschritt beim Sichern und Wiederherstellen von Spielständen.
+- Real progress when backing up and restoring save data.
 
 ## [2.6.6] – 2026-10-22
 
-### Hinzugefügt
+### Added
 
-- Spielnamen in der Spielstände-Liste, Mehrfachauswahl und Sichern auf die PS5 oder ein USB-Laufwerk.
-- Wiederherstellen aus gefundenen Sicherungen oder einer hochgeladenen ZIP.
+- Game names in the save data list, multiple selection and backup to the PS5 or a USB drive.
+- Restore from found backups or an uploaded ZIP.
 
-### Behoben
+### Fixed
 
-- Sichern im PS5-Browser tat nichts; zusätzliche Fehlerseite beim Download.
+- Backing up did nothing in the PS5 browser; extra error page when downloading.
 
 ## [2.6.5] – 2026-10-22
 
-### Hinzugefügt
+### Added
 
-- PS5-Spielstände sichern und wiederherstellen (Seite „Spielstände“).
+- Back up and restore PS5 save data ("Save data" page).
 
-### Geändert
+### Changed
 
-- Windows-Programm baut sich in unter einer Sekunde auf.
+- The Windows program builds its window in under a second.
 
 ## [2.6.4] – 2026-10-21
 
-### Hinzugefügt
+### Added
 
-- „Zuletzt: …“ am Laufwerk zeigt den letzten Auftrag.
+- "Last: …" at the drive shows the last job.
 
-### Behoben
+### Fixed
 
-- Bei unumkehrbaren Fragen ist „Abbrechen“ vorgewählt.
-- Tastenkürzel wirken nicht mehr während eines Auftrags oder bei offenem Dialog.
-- „Image prüfen“ hielt fremde `.sha256` für beschädigt.
+- For irreversible questions "Cancel" is preselected.
+- Keyboard shortcuts no longer work during a job or with an open dialog.
+- "Verify image" considered foreign `.sha256` files damaged.
 
 ## [2.6.3] – 2026-10-21
 
-### Hinzugefügt
+### Added
 
-- Auftragsverlauf auf der PS5 und in den PC-Programmen.
-- `SHA256SUMS` an jedem Release.
+- Job history on the PS5 and in the PC programs.
+- `SHA256SUMS` on every release.
 
 ## [2.6.2] – 2026-10-21
 
-### Hinzugefügt
+### Added
 
-- „Was ist neu“ mit Download der passenden Datei.
-- Update-Hinweis in der Weboberfläche.
-- Linux als AppImage und für ARM64.
+- "What's new" with download of the matching file.
+- Update note in the web interface.
+- Linux as AppImage and for ARM64.
 
 ## [2.6.1] – 2026-10-20
 
-### Hinzugefügt
+### Added
 
-- Sicherungen auf der PS5 verwalten (prüfen, löschen).
-- Suche und Sortierung in der Spieleliste; Tastenkürzel; Kurzinfos an Knöpfen.
+- Manage backups on the PS5 (verify, delete).
+- Search and sorting in the game list; keyboard shortcuts; tooltips on buttons.
 
-### Geändert
+### Changed
 
-- Design „Automatisch“ folgt dem System auch im laufenden Betrieb.
+- Theme "Automatic" follows the system even while running.
 
 ## [2.6.0] – 2026-10-20
 
-### Hinzugefügt
+### Added
 
-- Neue Oberfläche der PC-Programme in Hell und Dunkel, mit Seitenleiste und Laufwerkskarten.
-- „Image prüfen“ ohne Zurückschreiben; Sicherungen auf der PS5 löschen.
-- Hinweis auf neue Versionen.
+- New interface of the PC programs in light and dark, with sidebar and drive cards.
+- "Verify image" without writing back; delete backups on the PS5.
+- Note about new versions.
 
-### Behoben
+### Fixed
 
-- Fehler beim Wechsel von „Am PC – für PS5“ nach „Am PC – frei“.
+- Error when switching from "On the PC – for PS5" to "On the PC – free".
 
 ## [2.5.11] – 2026-10-19
 
-### Hinzugefügt
+### Added
 
-- Image-Sicherung von schreibgeschützten Sticks und SD-Karten.
+- Image backup of write-protected sticks and SD cards.
 
 ## [2.5.10] – 2026-10-19
 
-### Geändert
+### Changed
 
-- PS5-USB-Formatierer: Spieleliste mit Kästchen; größeres Fenster.
+- PS5 USB Formatter: game list with checkboxes; larger window.
 
 ## [2.5.9] – 2026-10-19
 
-### Behoben
+### Fixed
 
-- Schreibfehler beim Zurückschreiben wurden als Erfolg gemeldet.
-- Einfrieren beim Öffnen von „Sichern …“/„Wiederherstellen …“.
-- „Kachel neu anmelden“ konnte hängen bleiben.
+- Write errors when writing back were reported as success.
+- Freezing when opening "Back up …"/"Restore …".
+- "Re-register tile" could hang.
 
-### Sicherheit
+### Security
 
-- Windows prüft direkt vor dem Schreiben erneut, dass der gewählte Datenträger steckt.
-- Images mit anderer Sektorgröße und Images auf dem Datenträger selbst werden abgelehnt.
+- Windows checks again right before writing that the selected drive is plugged in.
+- Images with a different sector size and images on the drive itself are rejected.
 
 ## [2.5.8] – 2026-10-19
 
-### Hinzugefügt
+### Added
 
-- „Kachel neu anmelden“, damit die PS5 nach einem Update die richtige Version zeigt.
+- "Re-register tile", so that the PS5 shows the right version after an update.
 
 ## [2.5.7] – 2026-10-18
 
-### Hinzugefügt
+### Added
 
-- Versionsabgleich mit der PS5 und Angebot, die neue Fassung zu senden.
+- Version check against the PS5 and offer to send the new build.
 
-### Geändert
+### Changed
 
-- Image-Sicherung etwa sechsmal schneller (SHA-NI, zstd auf bis zu vier Kernen).
-- Weboberfläche: Design und Beenden oben.
+- Image backup about six times faster (SHA-NI, zstd on up to four cores).
+- Web interface: theme and quit at the top.
 
 ## [2.5.6] – 2026-10-18
 
-### Hinzugefügt
+### Added
 
-- Fortschrittsbalken beim Einlesen der Datenträger, bei der PS5-Suche und nach „ELF senden“.
+- Progress bars while reading the drives, during the PS5 search and after "Send ELF".
 
-### Geändert
+### Changed
 
-- Modi heißen „An der PS5“, „Am PC – für PS5“ und „Am PC – frei“.
+- The modes are called "At the PS5", "On the PC – for PS5" and "On the PC – free".
 
 ## [2.5.5] – 2026-10-18
 
-### Behoben
+### Fixed
 
-- Weboberfläche: Kopfzeile bricht bei wenig Platz sauber um.
+- Web interface: the header wraps cleanly when space is short.
 
 ## [2.5.4] – 2026-10-18
 
-### Geändert
+### Changed
 
-- Weboberfläche: Sprachauswahl oben im Kopf.
+- Web interface: language selection at the top of the header.
 
 ## [2.5.3] – 2026-10-18
 
-### Hinzugefügt
+### Added
 
-- Versionsanzeige in allen Programmen und an der App-Kachel.
+- Version display in all programs and on the app tile.
 
-### Geändert
+### Changed
 
-- mkntfs 2026.9.28 und mke2fs 1.47.4.
+- mkntfs 2026.9.28 and mke2fs 1.47.4.
 
 ## [2.5.2] – 2026-10-17
 
-### Hinzugefügt
+### Added
 
-- Image-Sicherung im PC-Programm für Sticks an der PS5, auch auf den PC und vom PC.
-- Dialog „Auftrag nicht gestartet“ mit Grund.
+- Image backup in the PC program for sticks at the PS5, also to and from the PC.
+- Dialog "Job not started" with the reason.
 
 ## [2.5.1] – 2026-10-17
 
-### Geändert
+### Changed
 
-- Image-Sicherung überspringt leere Bereiche (z. B. 8 statt 53 Sekunden für einen fast leeren Stick).
+- Image backup skips empty areas (e.g. 8 instead of 53 seconds for an almost empty stick).
 
-### Sicherheit
+### Security
 
-- Bei laufendem Spiel werden eingebundene Laufwerke nicht mehr abgemeldet.
+- While a game is running, mounted drives are no longer unregistered.
 
 ## [2.5.0] – 2026-10-17
 
-### Hinzugefügt
+### Added
 
-- Image-Sicherung: ganze Laufwerke als `.img.zst` sichern und wiederherstellen, an der PS5 und am PC.
+- Image backup: back up whole drives as `.img.zst` and restore them, on the PS5 and on the PC.
 
 ## [2.4.9] – 2026-10-17
 
-### Geändert
+### Changed
 
-- Nur Dokumentation: README um „ELF senden“, PS5-Suche und Verwechslungsschutz ergänzt.
+- Documentation only: README extended with "Send ELF", PS5 search and mix-up protection.
 
 ## [2.4.8] – 2026-10-17
 
-### Behoben
+### Fixed
 
-- Partitions-Editor: nur noch eine startfähige Partition; unmögliche Dateisysteme werden vor dem Löschen abgelehnt.
-- Umbenennen nur bei genau einem Laufwerk auf dem Datenträger.
-- Echtheitsprüfung: tote Sticks als „defekt“, gefälschte Sticks mit Fehlern hinter der Grenze erkannt.
+- Partition editor: only one bootable partition; impossible file systems are rejected before anything is deleted.
+- Rename only with exactly one volume on the drive.
+- Authenticity check: dead sticks as "defective", fake sticks with errors beyond the limit detected.
 
 ## [2.4.7] – 2026-10-17
 
-### Behoben
+### Fixed
 
-- „ELF senden“ meldete Erfolg, obwohl die neue Fassung nicht startete.
-- PS5-Suche unter Linux wieder schnell.
-- Folgeaktionen nach einer Prüfung gelten immer dem geprüften Stick.
+- "Send ELF" reported success although the new build did not start.
+- PS5 search on Linux fast again.
+- Follow-up actions after a check always apply to the checked stick.
 
 ## [2.4.6] – 2026-10-17
 
-### Hinzugefügt
+### Added
 
-- „ELF senden“ schickt den eingebauten Formatierer an die PS5 und ersetzt eine ältere Fassung.
+- "Send ELF" sends the built-in formatter to the PS5 and replaces an older build.
 
 ## [2.4.5] – 2026-10-17
 
-### Geändert
+### Changed
 
-- PS5-Suche findet die PS5 auch hinter NAT (WSL, virtuelle Maschinen).
+- The PS5 search also finds the PS5 behind NAT (WSL, virtual machines).
 
 ## [2.4.4] – 2026-10-17
 
-### Hinzugefügt
+### Added
 
-- „Spiele löschen …“ als Knopf in der PS5-App.
-- Seriennummer-Abgleich gegen vertauschte baugleiche Sticks.
-- Entwickler-Fußzeile.
+- "Delete games …" as a button in the PS5 app.
+- Serial number check against swapped identical sticks.
+- Developer footer.
 
-### Behoben
+### Fixed
 
-- Linux: Programme starteten nicht, wenn `xrandr` installiert ist.
-- FAT32-Bezeichnung mit Umlauten verhinderte die Verbindung zur PS5.
+- Linux: the programs did not start when `xrandr` is installed.
+- A FAT32 label with umlauts prevented the connection to the PS5.
 
 ## [2.4.3] – 2026-10-16
 
-### Behoben
+### Fixed
 
-- Umstecken an der PS5 zuverlässiger; NTFS/ext4 auf langsamen Sticks melden keinen vorschnellen Fehler.
-- PC-Programme erreichen die PS5 auch mit eingetragenem Proxy.
-- Dateisystem-Auswahl entspricht genau dem, was der Helfer kann.
+- Re-plugging at the PS5 more reliable; NTFS/ext4 on slow sticks no longer report a premature error.
+- The PC programs reach the PS5 with a configured proxy too.
+- The file system choice matches exactly what the helper can do.
 
 ## [2.4.2] – 2026-10-16
 
-### Behoben
+### Fixed
 
-- Eingelöteter eMMC-Speicher wird nicht mehr als SD-Karte angeboten.
-- Abbrechen vor dem ersten Schreiben ließ trotzdem formatieren.
-- MBR-Partitionen über 2 TB und HFS+ auf großen Partitionen.
+- Soldered eMMC storage is no longer offered as an SD card.
+- Cancelling before the first write still formatted.
+- MBR partitions above 2 TB and HFS+ on large partitions.
 
 ## [2.4.1] – 2026-10-16
 
-### Entfernt
+### Removed
 
-- README: Hinweis auf eine geplante Mac-Fassung.
+- README: note about a planned Mac version.
 
 ## [2.4.0] – 2026-10-16
 
-### Hinzugefügt
+### Added
 
-- Linux-Fassung beider PC-Programme.
+- Linux version of both PC programs.
 
-### Behoben
+### Fixed
 
-- Windows: ext2/3/4 nach neu angelegter FAT16-/NTFS-Partition scheiterte manchmal.
+- Windows: ext2/3/4 after a newly created FAT16/NTFS partition sometimes failed.
 
 ## [2.3.1] – 2026-10-15
 
-### Geändert
+### Changed
 
-- Kürzerer Warnhinweis oben; Lizenz GPL-3.0; neue README in fünf Sprachen.
+- Shorter warning at the top; licence GPL-3.0; new README in five languages.
 
 ## [2.3.0] – 2026-10-15
 
-### Hinzugefügt
+### Added
 
-- Fünf Sprachen (Deutsch, Englisch, Italienisch, Spanisch, Französisch).
-- Anleitung mit Knopf „Hilfe“.
-- „Am PC Standard“ und eigenes Programm `USB-Formatierer.exe` mit allen Dateisystemen.
-- Expertenmodus für mehrere Partitionen.
+- Five languages (German, English, Italian, Spanish, French).
+- Manual with a "Help" button.
+- "On the PC standard" and a separate program `USB-Formatierer.exe` with all file systems.
+- Expert mode for multiple partitions.
 
 ## [2.2.1] – 2026-10-15
 
-### Behoben
+### Fixed
 
-- Windows-Programm: der PC-Modus aus 2.2.0 funktionierte nicht.
+- Windows program: the PC mode of 2.2.0 did not work.
 
 ## [2.2.0] – 2026-10-15
 
-### Hinzugefügt
+### Added
 
-- „USB an diesem PC“ im Windows-Programm.
-- Spiele löschen über ShadowMountPlus.
-- Gefälschte Sticks werden gemerkt und nur im echten Bereich formatiert.
+- "USB on this PC" in the Windows program.
+- Delete games via ShadowMountPlus.
+- Fake sticks are remembered and formatted only in their real area.
 
-### Sicherheit
+### Security
 
-- Server parallel und robust gegen langsame Verbindungen; Content-Security-Policy; Prüfsumme des Windows-Helfers.
+- Server parallel and robust against slow connections; Content Security Policy; checksum of the Windows helper.
 
 ## [2.1.7] – 2026-10-13
 
-### Geändert
+### Changed
 
-- Windows-Programm: Fortschrittsbalken wächst sichtbar mit; anderswo gestartete Aufträge werden angezeigt.
+- Windows program: the progress bar grows visibly; jobs started elsewhere are shown.
 
 ## [2.1.6] – 2026-10-13
 
-### Geändert
+### Changed
 
-- Fortschritt wird in jedem offenen Browser angezeigt.
+- Progress is shown in every open browser.
 
 ## [2.1.5] – 2026-10-13
 
-### Geändert
+### Changed
 
-- Auswahlfelder mit eigenem, dezentem Pfeil.
+- Drop-down fields with their own subtle arrow.
 
 ## [2.1.4] – 2026-10-13
 
-### Geändert
+### Changed
 
-- Hauptkarte leicht durchsichtig und weichgezeichnet.
+- Main card slightly transparent and blurred.
 
 ## [2.1.3] – 2026-10-13
 
-### Geändert
+### Changed
 
-- Hauptkarte ohne Bild und leicht durchsichtig.
+- Main card without picture and slightly transparent.
 
 ## [2.1.2] – 2026-10-13
 
-### Geändert
+### Changed
 
-- Hauptkarte ohne Hintergrundbild.
+- Main card without background picture.
 
 ## [2.1.1] – 2026-10-13
 
-### Geändert
+### Changed
 
-- Echtheitstest schneller (höchstens 128 Stichproben), mit Restzeit.
+- Authenticity test faster (at most 128 samples), with remaining time.
 
 ## [2.1.0] – 2026-10-13
 
-### Hinzugefügt
+### Added
 
-- Weboberfläche in zwei Spalten; Größenregler.
-- `.ffpfs`/`.ffpfsc`-Spiele mit Titel-ID und Namen.
+- Web interface in two columns; size slider.
+- `.ffpfs`/`.ffpfsc` games with title ID and name.
 
 ## [2.0.0] – 2026-10-13
 
-### Hinzugefügt
+### Added
 
-- Weboberfläche mit Reitern und Laufwerkskarten.
-- Spiele und PKG-Dateien anzeigen, doppelte Spiele erkennen.
-- Echtheitstest, Tempo messen, vollständig formatieren, Ordner-Vorlage, Umbenennen.
-- exFAT prüfen und reparieren; GPT ab 2 TB.
+- Web interface with tabs and drive cards.
+- Show games and PKG files, detect duplicate games.
+- Authenticity test, speed test, full formatting, folder template, rename.
+- Check and repair exFAT; GPT from 2 TB.
 
-### Behoben
+### Fixed
 
-- App-Starter baut die Sandbox sauber ab.
+- The app launcher tears down the sandbox cleanly.
 
-[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.70...HEAD
+[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.70...HEAD
 [2.6.70]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.70
 [2.6.69]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.69
 [2.6.68]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.68

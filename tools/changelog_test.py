@@ -75,9 +75,10 @@ try:
     edit("en", "## [Unreleased]\n", "## [Unreleased]\n\n### Fixed\n\n- Test item B\n\n### Added\n\n- Test item A\n")
     old_de = C.unreleased("de")
     body = C.release_body(new, "Zusatztext")
-    check("Release-Text: Rubriken in fester Reihenfolge, Zusatz, Aktualisieren, Englisch",
-          body.index("## Hinzugefügt") < body.index("## Behoben") < body.index("Zusatztext") < body.index("## Aktualisieren")
-          < body.index("<summary>English</summary>") < body.index("#### Added") < body.index("#### Fixed"), body)
+    check("Release-Text: englische Rubriken in fester Reihenfolge, Zusatz, Updating, Deutsch aufklappbar",
+          body.index("## Added") < body.index("## Fixed") < body.index("Zusatztext") < body.index("## Updating")
+          < body.index("<summary>Deutsch</summary>") < body.index("#### Hinzugefügt") < body.index("#### Behoben")
+          < body.index("#### Aktualisieren"), body)
     for lang in C.FILES:
         write(lang, C.cut(lang, new, "2099-01-02"))
     errs = C.check()

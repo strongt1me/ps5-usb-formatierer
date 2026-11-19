@@ -1,4 +1,4 @@
-"""CHANGELOG.md (deutsch) und CHANGELOG.en.md im Format Keep a Changelog: lesen, prüfen und beim Release den Abschnitt
+"""CHANGELOG.md (englisch) und CHANGELOG.de.md im Format Keep a Changelog: lesen, prüfen und beim Release den Abschnitt
 "Unveröffentlicht"/"Unreleased" zur neuen Version machen. Genutzt von release.py, als Prüfung direkt aufrufbar:
 
     python tools/changelog.py            prüft beide Dateien (auch in der CI), Exit 1 bei Fehlern
@@ -13,8 +13,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = "strongt1me/ps5-usb-formatierer"
 # Sprache: Datei, Name des Abschnitts für noch nicht veröffentlichte Änderungen, Rubriken in fester Reihenfolge
 FILES = {
-    "de": ("CHANGELOG.md", "Unveröffentlicht", ("Hinzugefügt", "Geändert", "Veraltet", "Entfernt", "Behoben", "Sicherheit")),
-    "en": ("CHANGELOG.en.md", "Unreleased", ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")),
+    "de": ("CHANGELOG.de.md", "Unveröffentlicht", ("Hinzugefügt", "Geändert", "Veraltet", "Entfernt", "Behoben", "Sicherheit")),
+    "en": ("CHANGELOG.md", "Unreleased", ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")),
 }
 VERSION_RE = r"\d+\.\d+\.\d+"
 
@@ -81,36 +81,36 @@ def cut(lang, version, date):
 
 
 def release_body(version, extra=""):
-    """Text des GitHub-Releases: Rubriken aus beiden Changelogs (Englisch aufklappbar), freier Zusatztext, Aktualisieren
+    """Text des GitHub-Releases: Rubriken aus beiden Changelogs (Englisch, Deutsch aufklappbar), freier Zusatztext, Aktualisieren
     und Dateien (aus Unveröffentlicht oder, schon geschnitten, aus dem Abschnitt der Version)"""
     def md(lang, level):
         return "\n\n".join(f"{level} {k}\n\n{v}" for k, v in unreleased(lang, version))
-    parts = [md("de", "##")]
+    parts = [md("en", "##")]
     if extra.strip():
         parts.append(extra.strip())
-    parts.append(UPDATE_DE)
-    parts.append("<details><summary>English</summary>\n\n" + md("en", "####") + "\n\n" + UPDATE_EN + "\n\n</details>")
+    parts.append(UPDATE_EN)
+    parts.append("<details><summary>Deutsch</summary>\n\n" + md("de", "####") + "\n\n" + UPDATE_DE + "\n\n</details>")
     return "\n\n".join(parts) + "\n"
 
 
-UPDATE_DE = """## Aktualisieren
+UPDATE_EN = """## Updating
 
-Am einfachsten im PS5-USB-Formatierer auf „ELF senden“ klicken. Für die App-Kachel den Ordner `PPSA86920` aus dem ZIP nach `/data/homebrew/` kopieren und in der Weboberfläche „Kachel neu anmelden“ wählen.
+The easiest way is "Send ELF" in the PS5 USB Formatter. For the app tile, copy the folder `PPSA86920` from the ZIP to `/data/homebrew/` and choose "Re-register tile" in the web interface.
 
-| Datei | Zweck |
+| File | Purpose |
 |---|---|
-| `PS5-USB-Formatierer.exe` | Windows: an der PS5 (übers Netz) und am PC, mit eingebauter ELF |
-| `USB-Formatierer.exe` | Windows ohne PS5-Funktionen: alle Dateisysteme, Partitionen, Image-Sicherung |
-| `…-x86_64.AppImage`, `…-aarch64.AppImage` | dieselben Programme für Linux (Intel/AMD bzw. ARM64), `.zsync` für „Jetzt aktualisieren“ |
-| `…-linux-x86_64.tar.gz`, `…-linux-aarch64.tar.gz` | Linux als Archiv: entpacken und starten |
-| `usb_format.elf` | Formatierer als Payload für den ELF-Loader (Port 9021) |
-| `PPSA86920.zip` | App-Kachel |
-| `SHA256SUMS` | Prüfsummen aller Dateien |
+| `PS5-USB-Formatierer.exe` | Windows: on the PS5 (over the network) and on the PC, with built-in ELF |
+| `USB-Formatierer.exe` | Windows without PS5 features: all file systems, partitions, image backup |
+| `…-x86_64.AppImage`, `…-aarch64.AppImage` | the same programs for Linux (Intel/AMD or ARM64), `.zsync` for "Update now" |
+| `…-linux-x86_64.tar.gz`, `…-linux-aarch64.tar.gz` | Linux as an archive: extract and start |
+| `usb_format.elf` | formatter as a payload for the ELF loader (port 9021) |
+| `PPSA86920.zip` | app tile |
+| `SHA256SUMS` | checksums of all files |
 """
 
-UPDATE_EN = """#### Updating
+UPDATE_DE = """#### Aktualisieren
 
-The easiest way is "Send ELF" in the PS5 USB Formatter. For the app tile, copy the folder `PPSA86920` from the ZIP to `/data/homebrew/` and choose "Re-register tile" in the web interface. `.exe` for Windows, `.AppImage`/`.tar.gz` for Linux, `usb_format.elf` for the ELF loader (port 9021), `SHA256SUMS` with the checksums."""
+Am einfachsten im PS5-USB-Formatierer auf „ELF senden“ klicken. Für die App-Kachel den Ordner `PPSA86920` aus dem ZIP nach `/data/homebrew/` kopieren und in der Weboberfläche „Kachel neu anmelden“ wählen. `.exe` für Windows, `.AppImage`/`.tar.gz` für Linux, `usb_format.elf` für den ELF-Loader (Port 9021), `SHA256SUMS` mit den Prüfsummen."""
 
 
 def check(tags=False):
@@ -158,7 +158,7 @@ def check(tags=False):
         versions[lang] = seen
     if versions["de"] != versions["en"]:
         only = sorted(set(versions["de"]) ^ set(versions["en"]))
-        errs.append("CHANGELOG.md und CHANGELOG.en.md nennen nicht dieselben Versionen" + (f": {', '.join(only)}" if only else
+        errs.append("CHANGELOG.md und CHANGELOG.de.md nennen nicht dieselben Versionen" + (f": {', '.join(only)}" if only else
                                                                                           " (Reihenfolge)"))
     else:   # dieselben Rubriken je Version in beiden Sprachen
         de, en = FILES["de"][2], FILES["en"][2]
@@ -166,7 +166,7 @@ def check(tags=False):
         emap = {v: [en.index(k) for k, _ in sections(b, en)] for v, _d, b in blocks(read(path("en")))}
         for v in versions["de"]:
             if dmap.get(v) != emap.get(v):
-                errs.append(f"{v}: Rubriken in CHANGELOG.md und CHANGELOG.en.md verschieden")
+                errs.append(f"{v}: Rubriken in CHANGELOG.md und CHANGELOG.de.md verschieden")
         if [de.index(k) for k, _ in unreleased("de")] != [en.index(k) for k, _ in unreleased("en")]:
             errs.append("Unveröffentlicht/Unreleased: Rubriken in beiden Sprachen verschieden")
     current = read(os.path.join(ROOT, "VERSION")).strip()
