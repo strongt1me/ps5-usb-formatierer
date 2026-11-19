@@ -6,6 +6,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+## [2.6.69] – 2026-11-19
+
 ### Hinzugefügt
 
 - Quelle für den PS5 Payload Manager von itsPLK: `https://github.com/strongt1me/ps5-usb-formatierer/releases/latest/download/payload-manager.json` unter Settings → Manage Sources → Add Source eintragen, dann lässt sich die ELF dort laden und aktualisieren (mit SHA-256-Prüfung).
@@ -888,7 +890,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 - App-Starter baut die Sandbox sauber ab.
 
-[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.68...HEAD
+[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.69...HEAD
+[2.6.69]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.69
 [2.6.68]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.68
 [2.6.67]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.67
 [2.6.66]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.66
