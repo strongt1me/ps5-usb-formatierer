@@ -6,6 +6,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+## [2.6.71] – 2026-11-20
+
 ### Changed
 
 - Built with PS5 Payload SDK 0.50: the formatter now also runs on firmware 14.20 and 14.22 (SDK support: 1.00 to 14.22).
@@ -909,7 +911,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 - The app launcher tears down the sandbox cleanly.
 
-[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.70...HEAD
+[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.71...HEAD
+[2.6.71]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.71
 [2.6.70]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.70
 [2.6.69]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.69
 [2.6.68]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.68
