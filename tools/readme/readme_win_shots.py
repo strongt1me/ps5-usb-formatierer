@@ -42,7 +42,7 @@ class ProxyApi(uf.Api):
 
 
 uf.load_settings = lambda: {"lang": LANG, "mode": "ps5", "host": "192.168.1.50", "theme": "light", "page": "games"}
-uf.save_settings = lambda data: None
+uf.save_settings = lambda data, keep=(): None
 uf.Api = ProxyApi
 uf.send_payload = no_payload
 uf.PcJob = sp.PcJob = NoJob
