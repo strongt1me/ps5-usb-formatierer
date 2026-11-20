@@ -3114,6 +3114,10 @@ static void api_upload(int c, const char *query, const char *pre, size_t have, u
     int replug;
     /* bei jeder frühen Absage den Rest des Körpers lesen (drain_body), sonst sieht der Browser nur einen Abbruch */
     if (request_device(c, kv, n, &d) || request_replug(c, kv, n, &d, &replug)) { drain_body(c, clen > have ? clen - have : 0); return; }
+    pthread_mutex_lock(&lock);
+    const int job_busy = st.busy || g_save_download;   /* früh absagen: claim_job unten prüft es noch einmal verbindlich */
+    pthread_mutex_unlock(&lock);
+    if (job_busy) { respond_error(c, 409, N_("Es läuft bereits ein Auftrag")); drain_body(c, clen > have ? clen - have : 0); return; }
     struct timeval tv = {300, 0};   /* während des Abmeldens/Einsteckens kommen keine Daten */
     setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     upin_t u = {c, pre, have < clen ? have : (size_t)clen, 0, clen - (have < clen ? have : clen)};
@@ -4616,7 +4620,7 @@ static int uprog_cb(void *ctx, uint64_t done, uint64_t total) {
 }
 
 /* zuletzt hochgeladene Datei einer Reihe (batch): welche Spiele vor dem Einspielen schon gesichert sind */
-static char g_upload_batch[40], g_upload_undo[2048], g_upload_slots[4096];
+static char g_upload_batch[40], g_upload_undo[2048], g_upload_slots[16384];   /* Schlüssel "<uid>:<Titel>/<Name>#PS5" je Zeile, ~50 Byte: über 300 Spielstände je Reihe */
 static time_t g_upload_batch_t;
 
 /* POST /api/saves/restore/upload?uid=<Benutzer>[&batch=<Kennung>]  Körper = ZIP. Dateien mit derselben Kennung gehören zu einer
@@ -4701,7 +4705,7 @@ static void api_saves_restore(int c, const char *q, const char *pre, size_t have
     saves_undo_root(undo_root, sizeof(undo_root));
     saves_housekeeping();
     /* mehrere Dateien nacheinander (batch): der Stand vor dem Einspielen nur einmal je Spiel - wie ein Auftrag mit mehreren Dateien */
-    char (*ids)[160] = calloc(64, sizeof(*ids)), slots[4096] = "";
+    char (*ids)[160] = calloc(64, sizeof(*ids)), slots[16384] = "";   /* 64 = höchstens so viele Spielstände nimmt eine ZIP an */
     const int nids = ids ? saves_zip_slots(zip, ids, 64) : 0;
     pthread_mutex_lock(&lock);
     const int same_batch = batch[0] && !strcmp(batch, g_upload_batch) && time(NULL) - g_upload_batch_t < 1800;
@@ -4718,6 +4722,10 @@ static void api_saves_restore(int c, const char *q, const char *pre, size_t have
             dup = 1;
             sb_tr(&msg, "Zwei der Sicherungen enthalten denselben Spielstand (%s): Es kann nur eine davon eingespielt werden.", ids[i]);
         } else if (strlen(slots) + strlen(key) < sizeof(slots)) snprintf(slots + strlen(slots), sizeof(slots) - strlen(slots), "%s", key);
+        else {   /* die Liste ist voll: dann lieber ablehnen als die Prüfung still auslassen */
+            dup = 1;
+            sb_tr(&msg, "Zu viele Spielstände in einer Reihe, um doppelte sicher zu erkennen. Bitte die übrigen Dateien in einem neuen Durchgang einspielen.");
+        }
     }
     free(ids);
     if (!dup)
@@ -7072,16 +7080,48 @@ int server_listen(int port) {
 }
 
 /* Jede Verbindung in einem eigenen Thread: ein langsames Gerät im Netz (oder ein hängender Browser) hält dann nicht
- * alle anderen auf - Fortschritt und "Abbrechen" bleiben erreichbar. Höchstens MAX_CONN gleichzeitig. */
-#define MAX_CONN   8
+ * alle anderen auf - Fortschritt und "Abbrechen" bleiben erreichbar. Höchstens MAX_CONN gleichzeitig, davon höchstens
+ * MAX_PER_IP von einem Gerät: eines, das viele Verbindungen tröpfchenweise offen hält, sperrt die anderen nicht aus. */
+#define MAX_CONN   24
+#define MAX_PER_IP 8
 #define CONN_STACK (512 * 1024)   /* PS5-Standard wären nur 64 KiB; api_devices legt ~16 KiB Geräteliste an */
 
 static volatile int active_conns;
+static pthread_mutex_t conn_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct { uint32_t ip; int n; } conn_ip[MAX_CONN];
+
+/* eine Verbindung dieses Geräts mehr: 0, oder -1 wenn es schon MAX_PER_IP hat (bzw. die Tabelle voll ist) */
+static int ip_take(uint32_t ip) {
+    int rc = -1, free_i = -1;
+    pthread_mutex_lock(&conn_lock);
+    for (int i = 0; i < MAX_CONN; i++) {
+        if (conn_ip[i].n && conn_ip[i].ip == ip) {
+            if (conn_ip[i].n < MAX_PER_IP) { conn_ip[i].n++; rc = 0; }
+            free_i = -2;
+            break;
+        }
+        if (!conn_ip[i].n && free_i == -1) free_i = i;
+    }
+    if (free_i >= 0) { conn_ip[free_i].ip = ip; conn_ip[free_i].n = 1; rc = 0; }
+    pthread_mutex_unlock(&conn_lock);
+    return rc;
+}
+
+static void ip_give(uint32_t ip) {
+    pthread_mutex_lock(&conn_lock);
+    for (int i = 0; i < MAX_CONN; i++)
+        if (conn_ip[i].n && conn_ip[i].ip == ip) { conn_ip[i].n--; break; }
+    pthread_mutex_unlock(&conn_lock);
+}
+
+typedef struct { int c; uint32_t ip; } conn_arg_t;
 
 static void *conn_thread(void *arg) {
-    int c = (int)(intptr_t)arg;
-    handle(c);
-    close(c);
+    conn_arg_t a = *(conn_arg_t *)arg;
+    free(arg);
+    handle(a.c);
+    close(a.c);
+    ip_give(a.ip);
     __sync_fetch_and_sub(&active_conns, 1);
     return NULL;
 }
@@ -7095,7 +7135,10 @@ void server_serve(int s) {
         /* mit Zeitlimit warten, damit "Beenden" (aus einem Verbindungs-Thread) sofort wirkt */
         struct pollfd pfd = {s, POLLIN, 0};
         if (poll(&pfd, 1, 500) <= 0) continue;
-        int c = accept(s, NULL, NULL);
+        struct sockaddr_in peer;
+        socklen_t plen = sizeof(peer);
+        memset(&peer, 0, sizeof(peer));
+        int c = accept(s, (struct sockaddr *)&peer, &plen);
         if (c < 0) {
             /* Nie wegen eines einzelnen Fehlers aufhören (z. B. ECONNABORTED, wenn ein Client abbricht): das beendete
              * sonst den Formatierer - auch mitten in einem laufenden Auftrag. Bei Mangel an Ressourcen kurz warten. */
@@ -7105,18 +7148,29 @@ void server_serve(int s) {
         struct timeval tv = {5, 0};
         setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
         setsockopt(c, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+        const uint32_t ip = peer.sin_addr.s_addr;
         if (__sync_fetch_and_add(&active_conns, 1) >= MAX_CONN) {
             __sync_fetch_and_sub(&active_conns, 1);
             respond_error(c, 503, "Zu viele gleichzeitige Anfragen – bitte gleich noch einmal versuchen");
             close(c);
             continue;
         }
-        pthread_t t;
-        if (pthread_create(&t, &attr, conn_thread, (void *)(intptr_t)c) != 0) {
-            /* kein Thread verfügbar: absagen statt hier bearbeiten - dieser Thread hat zu wenig Stack für die API, und
-             * ein langer Download hielte die Annahme (Status, Abbrechen, Beenden) für die ganze Dauer auf */
+        if (ip_take(ip) != 0) {
+            __sync_fetch_and_sub(&active_conns, 1);
             respond_error(c, 503, "Zu viele gleichzeitige Anfragen – bitte gleich noch einmal versuchen");
             close(c);
+            continue;
+        }
+        pthread_t t;
+        conn_arg_t *ca = malloc(sizeof(*ca));
+        if (ca) { ca->c = c; ca->ip = ip; }
+        if (!ca || pthread_create(&t, &attr, conn_thread, ca) != 0) {
+            /* kein Thread verfügbar: absagen statt hier bearbeiten - dieser Thread hat zu wenig Stack für die API, und
+             * ein langer Download hielte die Annahme (Status, Abbrechen, Beenden) für die ganze Dauer auf */
+            free(ca);
+            respond_error(c, 503, "Zu viele gleichzeitige Anfragen – bitte gleich noch einmal versuchen");
+            close(c);
+            ip_give(ip);
             __sync_fetch_and_sub(&active_conns, 1);
         }
     }

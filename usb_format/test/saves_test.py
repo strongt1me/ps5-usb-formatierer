@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import signal
+import socket
 import sqlite3
 import struct
 import subprocess
@@ -572,6 +573,28 @@ try:
     open(os.path.join(jdir, "save_import.journal"), "w").write('{"v":1,"phase":"swap","fin":"/etc/passwd"}')
     upload(appzip, ALEX)
     check("eine Aufzeichnung, die Fremdes nennt, wird entfernt und rührt nichts an", not os.path.exists(os.path.join(jdir, "save_import.journal")))
+    # Reste eines Einspielens, das vor seiner Aufzeichnung abbrach: "*.usbfmt-neu" weg, "*.usbfmt-alt" (der alte Spielstand) bleibt
+    stale = [pf + ".usbfmt-neu", ifin + ".usbfmt-neu", dbp7 + ".usbfmt-neu"]
+    for f in stale:
+        open(f, "wb").write(b"halb")
+    keep_alt = pf + ".usbfmt-alt"
+    open(keep_alt, "wb").write(b"alt")
+    upload(appzip, ALEX)
+    check("halb angelegte '*.usbfmt-neu' ohne Aufzeichnung werden entfernt, '*.usbfmt-alt' bleibt",
+          not any(os.path.exists(f) for f in stale) and os.path.exists(keep_alt), str([f for f in stale if os.path.exists(f)]))
+    os.unlink(keep_alt)
+    # ein Gerät mit vielen offenen Verbindungen sperrt die anderen nicht aus: höchstens 8 je Gerät
+    idle = []
+    for _ in range(8):
+        s = socket.create_connection(("127.0.0.1", PORT))
+        idle.append(s)
+    time.sleep(0.3)
+    st9, _h, _b = req("GET", "/api/status")
+    for s in idle:
+        s.close()
+    time.sleep(0.3)
+    st10, _h, _b = req("GET", "/api/status")
+    check("9. gleichzeitige Verbindung eines Geräts: 503, danach wieder frei", st9 == 503 and st10 == 200, "%s %s" % (st9, st10))
     # Aufräumen: je Benutzer bleiben die zehn neuesten Kopien der Spielstand-Datenbank
     bkd = os.path.join(DATA, "save_db_backup")
     for k in range(14):

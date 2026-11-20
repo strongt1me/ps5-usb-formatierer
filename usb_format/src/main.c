@@ -139,6 +139,7 @@ int main(void) {
             fflush(stdout);
             plat_notify(rep);
         }
+        (void)saves_cleanup_stale();
         saves_housekeeping();
     }
     mark_running(1);

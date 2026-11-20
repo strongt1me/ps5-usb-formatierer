@@ -12,6 +12,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 - Saves: a PS4 import now also finds its owner template among the game's own PS4 saves when the user has many PS5 saves.
 - Saves: quitting the formatter is refused while a save download is running; a selection too large for one ZIP is reported before the download starts; the upload of a save ZIP can be cancelled already while it is being received; two backups of the same save in one batch are reported as a conflict (HTTP 409).
 - Web interface: after uploading several save ZIPs, the summary per file stays visible instead of being replaced by the last file's result.
+- Saves: half-created new files of an import that was interrupted before its recovery record (`*.usbfmt-neu`) are removed at the next start; the duplicate check of a batch now covers over 300 saves and refuses instead of silently skipping when full.
+- One device with many slow or idle connections can no longer lock out the others: up to 24 connections, at most 8 per device; an image upload is refused right away while another job runs.
 - PC programs: restoring several save ZIPs no longer hangs if the formatter on the PS5 is restarted meanwhile; the update check no longer stops silently when a download is cut off.
 
 ## [2.6.71] – 2026-11-20

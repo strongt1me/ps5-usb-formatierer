@@ -4270,5 +4270,11 @@
   "it": "Content-Type deve essere application/zip",
   "es": "Content-Type debe ser application/zip",
   "fr": "Content-Type doit être application/zip"
+ },
+ "Zu viele Spielstände in einer Reihe, um doppelte sicher zu erkennen. Bitte die übrigen Dateien in einem neuen Durchgang einspielen.": {
+  "en": "Too many saves in one batch to reliably detect duplicates. Please restore the remaining files in a new run.",
+  "it": "Troppi salvataggi in una serie per riconoscere i doppioni con sicurezza. Ripristina i file rimanenti in un nuovo passaggio.",
+  "es": "Demasiadas partidas en una serie para detectar duplicados con seguridad. Restaura los archivos restantes en una nueva pasada.",
+  "fr": "Trop de sauvegardes dans une série pour détecter les doublons de façon sûre. Restaurez les fichiers restants lors d'un nouveau passage."
  }
 }

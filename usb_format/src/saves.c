@@ -2230,6 +2230,59 @@ void saves_housekeeping(void) {
     free(v);
 }
 
+/* "*.usbfmt-neu" in einem Ordner entfernen (nur Dateien, keinen Verknüpfungen folgen): Anzahl */
+static int unlink_neu_in(const char *dir) {
+    DIR *d = opendir(dir);
+    if (!d) return 0;
+    int n = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        const size_t l = strlen(e->d_name);
+        char full[SP];
+        struct stat st;
+        if (l <= 11 || strcmp(e->d_name + l - 11, ".usbfmt-neu") || path_fmt(full, sizeof(full), "%s/%s", dir, e->d_name)) continue;
+        if (lstat(full, &st) == 0 && S_ISREG(st.st_mode) && unlink(full) == 0) n++;
+    }
+    closedir(d);
+    return n;
+}
+
+int saves_cleanup_stale(void) {
+    /* liegt eine Aufzeichnung, gehören die Reste zu ihr (saves_import_recover entscheidet) */
+    char jp[SP];
+    struct stat st;
+    journal_path(jp, sizeof(jp));
+    if (!jp[0] || lstat(jp, &st) == 0) return 0;
+    const char *home = plat_saves_dir(), *sys = plat_sys_data_dir();
+    int n = 0;
+    DIR *ud = home ? opendir(home) : NULL;
+    struct dirent *ue;
+    while (ud && (ue = readdir(ud)) != NULL) {
+        if (!uid_ok(ue->d_name)) continue;
+        for (int ps4 = 0; ps4 < 2; ps4++) {
+            /* Abbilder und Schlüssel: <home>/<uid>/<Bereich>/<Titel>/; Bilder: <home>/<uid>/<Bereich>_meta/user/<Titel>/ */
+            for (int meta = 0; meta < 2; meta++) {
+                char area[SP];
+                if (path_fmt(area, sizeof(area), meta ? "%s/%s/%s/user" : "%s/%s/%s", home, ue->d_name,
+                             meta ? (ps4 ? "savedata_meta" : "savedata_prospero_meta") : (ps4 ? SAVE_SUBDIR_PS4 : SAVE_SUBDIR)))
+                    continue;
+                DIR *td = opendir(area);
+                struct dirent *te;
+                while (td && (te = readdir(td)) != NULL) {
+                    char tdir[SP];
+                    if (!(ps4 ? cusa_ok(te->d_name) : ppsa_ok(te->d_name)) || path_fmt(tdir, sizeof(tdir), "%s/%s", area, te->d_name)) continue;
+                    n += unlink_neu_in(tdir);
+                }
+                if (td) closedir(td);
+            }
+            char dbdir[SP];   /* die Spielstand-Datenbank: <sys>/<Bereich>/<uid>/db/user/ */
+            if (sys && !path_fmt(dbdir, sizeof(dbdir), "%s/%s/%s/db/user", sys, ps4 ? SAVE_SUBDIR_PS4 : SAVE_SUBDIR, ue->d_name)) n += unlink_neu_in(dbdir);
+        }
+    }
+    if (ud) closedir(ud);
+    return n;
+}
+
 /* einen Spielstand (Ordner prefix der ZIP) für den Benutzer uid einspielen. Abschnitte: Promille a..b von p.
  * 0, ECANCELED oder -1 (err); note = Hinweise trotz Erfolg */
 static int import_root(szr_t *z, const char *prefix, const char *uid, prog_t *p, unsigned a, unsigned b, char *note, size_t notesz,
@@ -2925,6 +2978,7 @@ int saves_restore_file(const char *zip_path, const char *uid, const char *fallba
         }
         if (jr > 0 && note && notesz) snprintf(note, notesz, "%s", rn);
     }
+    (void)saves_cleanup_stale();   /* unter der Sperre: kein anderes Einspielen legt gerade "*.usbfmt-neu" an */
     int rc = -1, zerr = 0, nr = 0;
     char (*roots)[200] = calloc(ZIP_MAXSAVES, sizeof(*roots));
     char (*seen)[160] = calloc(ZIP_MAXSAVES, sizeof(*seen));
