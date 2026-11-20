@@ -1,5 +1,7 @@
 <div align="center">
 
+🌐 [Deutsch](README.de.md) · [English](README.md) · [Italiano](README.it.md) · **Español** · [Français](README.fr.md)
+
 <img src="docs/images/logo.png" width="140" alt="Formateador USB">
 
 # Formateador USB
@@ -7,15 +9,13 @@
 **Formatea pendrives y discos USB – directamente en la PS5 o en el PC.**<br>
 Con prueba de autenticidad y velocidad, copia de imagen, gestión de juegos, todos los sistemas de archivos habituales y particiones propias.
 
-[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.6.71-185fa5?style=for-the-badge)](../../releases/latest)
+[![Versión](https://img.shields.io/badge/Versi%C3%B3n-2.6.72-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licencia](https://img.shields.io/badge/Licencia-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plataforma](https://img.shields.io/badge/Plataforma-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-descarga)
 [![Firmware](https://img.shields.io/badge/Firmware-1.00%20%E2%80%93%2014.22-8250df?style=for-the-badge)](#-descarga)
 [![Idiomas](https://img.shields.io/badge/Idiomas-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funciones)
 
 [Funciones](#-funciones) · [Descarga](#-descarga) · [Primeros pasos](#-primeros-pasos) · [Capturas](#-capturas) · [Compilar](#-compilar) · [Licencias](#-licencias)
-
-[Deutsch](README.de.md) · [English](README.md) · [Italiano](README.it.md) · **Español** · [Français](README.fr.md)
 
 <img src="docs/images/es/web.webp" width="900" alt="Interfaz web del Formateador USB">
 

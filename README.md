@@ -1,5 +1,7 @@
 <div align="center">
 
+🌐 [Deutsch](README.de.md) · **English** · [Italiano](README.it.md) · [Español](README.es.md) · [Français](README.fr.md)
+
 <img src="docs/images/logo.png" width="140" alt="USB Formatter">
 
 # USB Formatter
@@ -7,15 +9,13 @@
 **Format USB sticks and drives – directly on the PS5 or on your PC.**<br>
 With authenticity and speed tests, image backup, game management, all common file systems and custom partitions.
 
-[![Version](https://img.shields.io/badge/Version-2.6.71-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.6.72-185fa5?style=for-the-badge)](../../releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Firmware](https://img.shields.io/badge/Firmware-1.00%20%E2%80%93%2014.22-8250df?style=for-the-badge)](#-download)
 [![Languages](https://img.shields.io/badge/Languages-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-features)
 
 [Features](#-features) · [Download](#-download) · [Quick start](#-quick-start) · [Screenshots](#-screenshots) · [Building](#-building) · [Licences](#-licences)
-
-[Deutsch](README.de.md) · **English** · [Italiano](README.it.md) · [Español](README.es.md) · [Français](README.fr.md)
 
 <img src="docs/images/en/web.webp" width="900" alt="Web interface of the USB Formatter">
 

@@ -1,5 +1,7 @@
 <div align="center">
 
+🌐 **Deutsch** · [English](README.md) · [Italiano](README.it.md) · [Español](README.es.md) · [Français](README.fr.md)
+
 <img src="docs/images/logo.png" width="140" alt="USB-Formatierer">
 
 # USB-Formatierer
@@ -7,15 +9,13 @@
 **USB-Sticks und -Festplatten formatieren – direkt an der PS5 oder am PC.**<br>
 Mit Echtheits- und Tempotest, Image-Sicherung, Spieleverwaltung, allen gängigen Dateisystemen und eigenen Partitionen.
 
-[![Version](https://img.shields.io/badge/Version-2.6.71-185fa5?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/Version-2.6.72-185fa5?style=for-the-badge)](../../releases/latest)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-6e7781?style=for-the-badge)](LICENSE)
 [![Plattform](https://img.shields.io/badge/Plattform-PS5%20%7C%20Windows%20%7C%20Linux-0070d1?style=for-the-badge)](#-download)
 [![Firmware](https://img.shields.io/badge/Firmware-1.00%20%E2%80%93%2014.22-8250df?style=for-the-badge)](#-download)
 [![Sprachen](https://img.shields.io/badge/Sprachen-DE%20%7C%20EN%20%7C%20IT%20%7C%20ES%20%7C%20FR-3b6d11?style=for-the-badge)](#-funktionen)
 
 [Funktionen](#-funktionen) · [Download](#-download) · [Schnellstart](#-schnellstart) · [Ansichten](#-ansichten) · [Selbst bauen](#-selbst-bauen) · [Lizenzen](#-lizenzen)
-
-**Deutsch** · [English](README.md) · [Italiano](README.it.md) · [Español](README.es.md) · [Français](README.fr.md)
 
 <img src="docs/images/de/web.webp" width="900" alt="Weboberfläche des USB-Formatierers">
 
