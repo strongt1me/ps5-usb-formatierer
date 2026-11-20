@@ -1,12 +1,12 @@
-# Windows-Fassung: Helfer (zig cc), mke2fs.exe und beide Programme (PyInstaller) bauen und prüfen - Helfer an
-# Abbild-Dateien, eingebaute ELF und Version, Programme starten. Beim Veröffentlichen eines Releases wird mit dessen
-# usb_format.elf gebaut und beide .exe werden an das Release gehängt (sonst mit der ELF des letzten Releases).
+# Windows edition: build and check the helper (zig cc), mke2fs.exe and both programs (PyInstaller) - helper on
+# image files, built-in ELF and version, start the programs. When a release is published, the build uses its
+# usb_format.elf and both .exe files are attached to the release (otherwise the ELF of the latest release).
 name: Windows
 
 on:
   push:
     branches: [main]
-  pull_request:   # z. B. Dependabot-Vorschläge: bauen und prüfen, nichts veröffentlichen
+  pull_request:   # e.g. Dependabot proposals: build and check, publish nothing
   release:
     types: [published]
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.14"   # wie bei der Entwicklung - die Programme sind damit getestet
+          python-version: "3.14"   # as in development - the programs are tested with it
 
       - name: Python packages
         run: python -m pip install -r windows/requirements-build.txt
@@ -78,9 +78,9 @@ jobs:
           foreach ($a in "PS5-USB-Formatierer", "USB-Formatierer") {
               $p = Start-Process -PassThru "dist\$a.exe"
               Start-Sleep 12
-              if ($p.HasExited) { Write-Host "$a ist abgestürzt"; exit 1 }
+              if ($p.HasExited) { Write-Host "$a crashed"; exit 1 }
               Get-Process -Name $a -ErrorAction SilentlyContinue | Stop-Process -Force
-              Write-Host "$a läuft"
+              Write-Host "$a is running"
           }
 
       - uses: actions/upload-artifact@v7
@@ -88,7 +88,7 @@ jobs:
           name: windows-programs
           path: windows/dist/*.exe
 
-  # nur beim Veröffentlichen: die geprüften Programme an das Release hängen
+  # only when publishing: attach the checked programs to the release
   release:
     if: github.event_name == 'release'
     needs: windows

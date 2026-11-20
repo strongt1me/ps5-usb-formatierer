@@ -1,11 +1,11 @@
-# Linux-Fassung: Helfer bauen und testen (auch als root an echten Loop-Geräten), Oberfläche unter Xvfb prüfen,
-# beide Programme mit PyInstaller bauen - als .tar.gz und als AppImage, für x86_64 und aarch64 (ARM64, z. B. Raspberry
-# Pi). Gebaut wird in einem Ubuntu-22.04-Container (glibc 2.35), damit die Programme auch auf älteren Verteilungen
-# laufen - die 22.04-Läufer selbst schaltet GitHub ab (Aussetzer seit Sept. 2026, ganz weg ab April 2027). Der Helfer ist
-# statisch; seinen Test an echten Loop-Geräten (root) gibt es als eigenen Job direkt auf dem Läufer, weil im Container
-# keine Partitionsgeräte (/dev/loopNpM) entstehen. Python wie bei der Entwicklung (3.14). Daneben die Host-Tests des PS5-Codes (eigener Job).
-# Beim Veröffentlichen eines Releases: mit dessen usb_format.elf bauen und die Dateien an das Release hängen. Von Hand
-# (workflow_dispatch mit tag) dasselbe für ein schon veröffentlichtes Release, etwa nach einem behobenen Testfehler.
+# Linux edition: build and test the helper (also as root on real loop devices), check the interface under Xvfb,
+# build both programs with PyInstaller - as .tar.gz and as AppImage, for x86_64 and aarch64 (ARM64, e.g. Raspberry
+# Pi). Builds run in an Ubuntu 22.04 container (glibc 2.35) so the programs also run on older distributions -
+# GitHub is retiring the 22.04 runners themselves (brownouts since Sept. 2026, gone from April 2027). The helper is
+# static; its test on real loop devices (root) is a separate job directly on the runner, because no partition
+# devices (/dev/loopNpM) appear inside the container. Python as in development (3.14). Plus the host tests of the PS5 code (own job).
+# When a release is published: build with its usb_format.elf and attach the files to the release. Manually
+# (workflow_dispatch with tag) the same for an already published release, e.g. after a fixed test failure.
 name: Linux
 
 on:
@@ -43,13 +43,13 @@ jobs:
     container: ubuntu:22.04
     env:
       DEBIAN_FRONTEND: noninteractive
-      # eigener, leerer Werkzeug-Cache: der des Läufers enthält Python für 24.04 (glibc 2.38) - so lädt setup-python
-      # die Fassung für 22.04
+      # own, empty tool cache: the runner's contains Python for 24.04 (glibc 2.38) - this way setup-python loads
+      # the build for 22.04
       RUNNER_TOOL_CACHE: /opt/toolcache
       AGENT_TOOLSDIRECTORY: /opt/toolcache
     steps:
-      # das nackte Abbild bringt fast nichts mit, was die Läufer sonst vorinstalliert haben (git vor dem Auschecken:
-      # sonst ist der Arbeitsordner kein Repository und die Prüfung der Übersetzungstabelle per git diff scheitert)
+      # the bare image has almost nothing the runners otherwise preinstall (git before checkout: otherwise the
+      # working folder is not a repository and the translation table check via git diff fails)
       - name: Tools
         run: |
           apt-get update
@@ -91,7 +91,7 @@ jobs:
           bash src/linux/build.sh /tmp/usbfmt_linux_test -DUSBFMT_TEST
           bash src/linux/build.sh /tmp/usbfmt_linux
           file /tmp/usbfmt_linux
-          file /tmp/usbfmt_linux | grep -q "statically linked" || { echo "Helfer ist nicht statisch gelinkt (läuft nicht auf älteren Systemen)"; exit 1; }
+          file /tmp/usbfmt_linux | grep -q "statically linked" || { echo "helper is not statically linked (will not run on older systems)"; exit 1; }
 
       - name: Helper on image files
         working-directory: usb_format
@@ -141,8 +141,8 @@ jobs:
             echo "$app.AppImage: Programm identisch"
             upd="gh-releases-zsync|${GITHUB_REPOSITORY%%/*}|${GITHUB_REPOSITORY#*/}|latest|$app-${{ matrix.arch }}.AppImage.zsync"
             grep -qaF "$upd" "$GITHUB_WORKSPACE/windows/dist/$app-${{ matrix.arch }}.AppImage" || { echo "$app.AppImage ohne Update-Information"; exit 1; }
-            grep -q "^Filename: $app-${{ matrix.arch }}.AppImage$" "$GITHUB_WORKSPACE/windows/dist/$app-${{ matrix.arch }}.AppImage.zsync" || { echo "$app.AppImage.zsync passt nicht"; exit 1; }
-            echo "$app.AppImage: Update-Information und .zsync da"
+            grep -q "^Filename: $app-${{ matrix.arch }}.AppImage$" "$GITHUB_WORKSPACE/windows/dist/$app-${{ matrix.arch }}.AppImage.zsync" || { echo "$app.AppImage.zsync does not match"; exit 1; }
+            echo "$app.AppImage: update information and .zsync present"
             cd "$GITHUB_WORKSPACE"
           done
 
@@ -158,14 +158,14 @@ jobs:
 
       - name: Start the built programs (Xvfb, no drive)
         env:
-          APPIMAGE_EXTRACT_AND_RUN: 1   # Läufer ohne FUSE
+          APPIMAGE_EXTRACT_AND_RUN: 1   # runner without FUSE
           USBFMT_NO_UPDATE_CHECK: 1
         run: |
           for prog in PS5-USB-Formatierer USB-Formatierer PS5-USB-Formatierer-${{ matrix.arch }}.AppImage \
                       USB-Formatierer-${{ matrix.arch }}.AppImage; do
             timeout 20 xvfb-run -a "windows/dist/$prog" & pid=$!
             sleep 12
-            kill -0 $pid && echo "$prog läuft" || { echo "$prog ist abgestürzt"; exit 1; }
+            kill -0 $pid && echo "$prog is running" || { echo "$prog crashed"; exit 1; }
             kill $pid 2>/dev/null || true
           done
 
@@ -183,7 +183,7 @@ jobs:
           name: linux-images-${{ matrix.arch }}
           path: shots/
 
-  # Helfer an echten Loop-Geräten (root) - direkt auf dem Läufer, nicht im Container (siehe oben)
+  # helper on real loop devices (root) - directly on the runner, not in the container (see above)
   loop:
     name: loop (${{ matrix.runner }})
     strategy:
@@ -203,8 +203,8 @@ jobs:
         working-directory: usb_format
         run: sudo -E env "PATH=$PATH" bash test/linux_loop_test.sh
 
-  # nur beim Veröffentlichen: die geprüften Archive und AppImages (samt .zsync für AppImageUpdate) beider Architekturen an
-  # das Release hängen
+  # only when publishing: attach the checked archives and AppImages (with .zsync for AppImageUpdate) of both
+  # architectures to the release
   release:
     if: github.event_name == 'release' || inputs.tag != ''
     needs: [linux, loop]
@@ -226,8 +226,8 @@ jobs:
           ls -l dist
           gh release upload "$TAG" dist/*.tar.gz dist/*.AppImage dist/*.AppImage.zsync --clobber --repo "$GITHUB_REPOSITORY"
 
-      # von Hand neu angehängt (workflow_dispatch): die Dateien sind neu gebaut, also SHA256SUMS erneuern - beim
-      # Veröffentlichen erledigt das checksums.yml
+      # re-attached manually (workflow_dispatch): the files are rebuilt, so renew SHA256SUMS - when
+      # publishing, checksums.yml does this
       - name: Renew checksums
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -239,15 +239,15 @@ jobs:
             -q '.assets[] | select(.name != "SHA256SUMS") | "\(.digest // "" | ltrimstr("sha256:"))  \(.name)"' \
             | sort -k2 >SHA256SUMS
           cat SHA256SUMS
-          [ -s SHA256SUMS ] || { echo "keine Dateien gefunden - SHA256SUMS bleibt unverändert"; exit 1; }
-          if grep -qv '^[0-9a-f]\{64\}  [^ /]' SHA256SUMS; then echo "Datei ohne Prüfsumme von GitHub"; exit 1; fi
+          [ -s SHA256SUMS ] || { echo "no files found - SHA256SUMS stays unchanged"; exit 1; }
+          if grep -qv '^[0-9a-f]\{64\}  [^ /]' SHA256SUMS; then echo "file without checksum from GitHub"; exit 1; fi
           gh release upload "$TAG" SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
 
   # Der PS5-Code (Payload) als Host-Programm - FreeBSD hat arc4random, glibc erst ab 2.36: daher Ubuntu 24.04.
-  # Zweiter Durchlauf mit AddressSanitizer und UBSan: dieselben Testreihen, jeder Speicherfehler lässt ihn scheitern.
+  # Second pass with AddressSanitizer and UBSan: the same test series, any memory error makes it fail.
   payload:
     name: payload${{ matrix.san && ' (Sanitizer)' || '' }}
-    if: github.event_name != 'release'   # beim Release schon beim Push des Tags geprüft
+    if: github.event_name != 'release'   # for a release already checked when the tag was pushed
     strategy:
       fail-fast: false
       matrix:
@@ -294,7 +294,7 @@ jobs:
         working-directory: usb_format
         env:
           HOST_CFLAGS: ${{ matrix.san }}
-          # Berichte landen in Dateien: auch ein Fehler im Hintergrund-Server, den der Test selbst nicht bemerkt, zählt
+          # reports go to files: an error in the background server that the test itself does not notice also counts
           ASAN_OPTIONS: log_path=/tmp/san/asan:detect_leaks=0
           UBSAN_OPTIONS: log_path=/tmp/san/ubsan:print_stacktrace=1
         run: |

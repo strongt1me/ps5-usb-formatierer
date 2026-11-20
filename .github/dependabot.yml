@@ -1,7 +1,7 @@
-# Dependabot: schlägt einmal im Monat neue Fassungen der GitHub-Actions und der Python-Bauwerkzeuge
-# (windows/requirements-build.txt) als Pull Request vor - je ein gesammelter PR. Die CI (Windows, Linux x86_64/aarch64)
-# baut und testet ihn; übernommen wird nur von Hand. Nicht erfasst: appimagetool/type2-runtime (feste Fassung mit
-# Prüfsumme in linux.yml) und das ps5-payload-sdk (lokal in WSL).
+# Dependabot: once a month proposes new versions of the GitHub Actions and the Python build tools
+# (windows/requirements-build.txt) as pull requests - one grouped PR each. The CI (Windows, Linux x86_64/aarch64)
+# builds and tests it; merging is manual. Not covered: appimagetool/type2-runtime (pinned version with
+# checksum in linux.yml) and the ps5-payload-sdk (local in WSL).
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -22,7 +22,7 @@ updates:
       build-tools:
         patterns: ["*"]
     ignore:
-      # 0.17.0 gibt es auf PyPI nicht für Windows (Windows-Build scheitert, PR #1/#2) - spätere Fassungen kommen wieder
+      # 0.17.0 is not on PyPI for Windows (Windows build fails, PR #1/#2) - later versions are fine again
       - dependency-name: ziglang
         versions: ["0.17.0"]
     commit-message:

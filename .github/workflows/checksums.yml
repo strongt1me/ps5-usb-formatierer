@@ -1,7 +1,7 @@
-# Prüfsummen aller Release-Dateien als SHA256SUMS an das Release hängen - nach jedem erfolgreichen Release-Lauf von
-# Windows und Linux (die hängen ihre Programme an; nacheinander, der spätere sieht alle Dateien), von Hand für ein Tag.
+# Attach the checksums of all release files as SHA256SUMS to the release - after every successful release run of
+# Windows and Linux (they attach their programs; one after the other, the later one sees all files), manually for a tag.
 # Die Werte berechnet GitHub selbst beim Hochladen (Feld digest jeder Datei) - nichts wird erneut geladen.
-# Prüfen: sha256sum -c --ignore-missing SHA256SUMS  (Windows: certutil -hashfile <Datei> SHA256)
+# Verify: sha256sum -c --ignore-missing SHA256SUMS  (Windows: certutil -hashfile <file> SHA256)
 name: Checksums
 
 on:
@@ -22,10 +22,10 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success')
-    # je Release nacheinander - am Job, nicht am Workflow: sonst verdrängten die vielen übersprungenen Läufe (Push,
-    # Pull Requests) einen wartenden echten Lauf, und SHA256SUMS fehlten Dateien
+    # one after the other per release - on the job, not the workflow: otherwise the many skipped runs (push,
+    # pull requests) would displace a waiting real run, and SHA256SUMS would miss files
     concurrency:
-      group: pruefsummen-${{ inputs.tag || github.event.workflow_run.head_branch }}
+      group: checksums-${{ inputs.tag || github.event.workflow_run.head_branch }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
@@ -39,5 +39,5 @@ jobs:
             | sort -k2 >SHA256SUMS
           cat SHA256SUMS
           [ -s SHA256SUMS ] || { echo "keine Dateien am Release $TAG"; exit 1; }
-          if grep -qv '^[0-9a-f]\{64\}  [^ /]' SHA256SUMS; then echo "Datei ohne Prüfsumme von GitHub"; exit 1; fi
+          if grep -qv '^[0-9a-f]\{64\}  [^ /]' SHA256SUMS; then echo "file without checksum from GitHub"; exit 1; fi
           gh release upload "$TAG" SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
