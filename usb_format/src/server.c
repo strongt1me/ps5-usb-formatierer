@@ -4190,6 +4190,10 @@ static void api_saves_download(int c, const char *q) {
     {   /* check=1: nur prüfen (der Browser lädt große Sammlungen über einen unsichtbaren Rahmen, der keine Fehlermeldung zeigen kann) */
         char chk[4] = "";
         if (query_get(q, "check", chk, sizeof(chk)) == 0 && chk[0] == '1') {
+            if (!saves_download_fits(sel, ns)) {   /* dieselbe Grenze wie beim Download selbst - der Rahmen zeigte sie nicht */
+                respond_error(c, 413, T("Zusammen zu groß für eine ZIP-Datei (höchstens 3,5 GB) – weniger Spielstände wählen"));
+                goto out;
+            }
             sbuf_t b = {0};
             sb_add(&b, "{\"ok\":true,\"count\":%d}", ns);
             respond_json(c, 200, &b);
@@ -4619,9 +4623,9 @@ static time_t g_upload_batch_t;
  * Reihe (mehrere Dateien auf einmal gewählt): der Stand vor dem Einspielen wird je Spiel nur einmal gesichert */
 static void api_saves_restore(int c, const char *q, const char *pre, size_t have, unsigned long long clen) {
     const unsigned long long rest = clen > have ? clen - have : 0;
-    char uid[16] = "", batch[40] = "";
-    if (q && (query_get(q, "batch", batch, sizeof(batch)) != 0 || !saves_name_ok(batch, sizeof(batch)))) batch[0] = 0;
-    if (q && query_get(q, "uid", uid, sizeof(uid)) == 0 && uid[0] && !saves_name_ok(uid, sizeof(uid))) {
+    char uid[64] = "", batch[64] = "";   /* größer als erlaubt: ein zu langer Wert wird abgelehnt, nie still gekürzt */
+    if (q && (query_get(q, "batch", batch, sizeof(batch)) != 0 || !saves_name_ok(batch, 40))) batch[0] = 0;
+    if (q && query_get(q, "uid", uid, sizeof(uid)) == 0 && uid[0] && !saves_name_ok(uid, 16)) {
         respond_error(c, 400, "uid ungültig");
         drain_body(c, rest);
         return;
@@ -4637,7 +4641,7 @@ static void api_saves_restore(int c, const char *q, const char *pre, size_t have
     if (claim_job(c, j)) { drain_body(c, rest); return; }
     char zip[400], err[600] = "", note[1500] = "";
     sbuf_t msg = {0}, res = {0};
-    int ok = 0, fd = -1, bad = 0;
+    int ok = 0, fd = -1, bad = 0, dup = 0;   /* dup vor dem ersten goto fail: dort wird es gelesen */
     unsigned long long got = 0;
     char *buf = NULL;
     snprintf(zip, sizeof(zip), "%s/upload.zip", saves_workdir());
@@ -4655,9 +4659,12 @@ static void api_saves_restore(int c, const char *q, const char *pre, size_t have
     struct timeval tv = {60, 0};
     setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     on_progress("Spielstand wird hochgeladen …", 0);
+    set_flags(1, 0);   /* schon beim Hochladen abbrechbar */
     buf = malloc(65536);
     if (!buf) { sb_add(&msg, "%s", T("Kein Speicher")); goto fail; }
+    int stopped = 0;
     while (got < clen && !bad) {
+        if (__atomic_load_n(&cancel_requested, __ATOMIC_RELAXED)) { stopped = bad = 1; break; }
         size_t n;
         if (have) {
             n = have < clen ? have : (size_t)clen;
@@ -4683,7 +4690,7 @@ static void api_saves_restore(int c, const char *q, const char *pre, size_t have
     const int cerr = close(fd);   /* immer schließen - auch nach einem Abbruch (sonst bleibt die gelöschte Datei belegt) */
     if (bad || cerr != 0) {
         fd = -1;
-        sb_add(&msg, "%s", T("Das Hochladen wurde unterbrochen"));
+        sb_add(&msg, "%s", stopped ? T("Abgebrochen.") : T("Das Hochladen wurde unterbrochen"));
         goto fail;
     }
     fd = -1;
@@ -4703,7 +4710,7 @@ static void api_saves_restore(int c, const char *q, const char *pre, size_t have
         snprintf(slots, sizeof(slots), "%s", g_upload_slots);
     }
     pthread_mutex_unlock(&lock);
-    int rr = -1, dup = 0;
+    int rr = -1;
     for (int i = 0; i < nids && !dup; i++) {   /* zwei Dateien einer Reihe mit demselben Spielstand: die letzte gewönne, gleich wie alt */
         char key[200];
         snprintf(key, sizeof(key), "%.15s:%.150s\n", uid, ids[i]);
@@ -4717,12 +4724,11 @@ static void api_saves_restore(int c, const char *q, const char *pre, size_t have
         rr = saves_restore_file(zip, uid, NULL, undo_root[0] ? undo_root : NULL, undo_done, sizeof(undo_done), &cnt, uprog_cb, NULL, note,
                                 sizeof(note), err, sizeof(err));
     pthread_mutex_lock(&lock);
-    if (!same_batch || rr == 0) {
-        snprintf(g_upload_batch, sizeof(g_upload_batch), "%s", batch);
-        snprintf(g_upload_undo, sizeof(g_upload_undo), "%s", undo_done);
-        snprintf(g_upload_slots, sizeof(g_upload_slots), "%s", rr == 0 ? slots : "");
-        g_upload_batch_t = time(NULL);
-    }
+    snprintf(g_upload_batch, sizeof(g_upload_batch), "%s", batch);
+    snprintf(g_upload_undo, sizeof(g_upload_undo), "%s", undo_done);   /* auch nach einem Fehler: was gesichert ist, ist gesichert */
+    if (rr == 0) snprintf(g_upload_slots, sizeof(g_upload_slots), "%s", slots);
+    else if (!same_batch) g_upload_slots[0] = 0;
+    g_upload_batch_t = time(NULL);
     pthread_mutex_unlock(&lock);
     if (rr == 0) {
         ok = 1;
@@ -4740,7 +4746,7 @@ fail:
     snprintf(m, sizeof(m), "%s", msg.p ? msg.p : "");
     job_done(j, ok, &msg, &res, 0);
     if (ok) respond_ok(c, 200);
-    else respond_error(c, 500, m);
+    else respond_error(c, dup ? 409 : 500, m);
     if (!bad && got < clen) drain_body(c, clen - got);
 }
 
@@ -6846,8 +6852,12 @@ static void handle(int c) {
     if (!strncmp(method, "POST", 5) && !strncmp(path, "/api/saves/restore/upload", 25) && (!path[25] || path[25] == '?')) {
         unsigned long long up = header(req, "Content-Length", tmp, sizeof(tmp)) ? strtoull(tmp, NULL, 10) : 0;
         const size_t have = len - (size_t)(body - req);
+        char ct[64] = "";
         if (!origin_ok(req, host)) {
             respond_error(c, 403, "Fremder Ursprung abgelehnt");
+            drain_body(c, up > have ? up - have : 0);
+        } else if (!header(req, "Content-Type", ct, sizeof(ct)) || (strcasecmp(ct, "application/zip") && strcasecmp(ct, "application/octet-stream"))) {
+            respond_error(c, 415, "Content-Type muss application/zip sein");
             drain_body(c, up > have ? up - have : 0);
         } else {
             api_saves_restore(c, strchr(path, '?') ? strchr(path, '?') + 1 : NULL, body, have, up);
@@ -6857,11 +6867,16 @@ static void handle(int c) {
     /* Image hochladen: Körper beliebig groß, wird beim Lesen gleich geschrieben */
     if (!strncmp(method, "POST", 5) && !strncmp(path, "/api/restore/upload?", 20)) {
         unsigned long long up = header(req, "Content-Length", tmp, sizeof(tmp)) ? strtoull(tmp, NULL, 10) : 0;
-        if (!origin_ok(req, host)) respond_error(c, 403, "Fremder Ursprung abgelehnt");
-        else if (!header(req, "Content-Type", tmp, sizeof(tmp)) || strcasecmp(tmp, "application/octet-stream") != 0)
+        const size_t have = len - (size_t)(body - req);
+        const unsigned long long rest = up > have ? up - have : 0;
+        /* abgelehnt: den Rest lesen (sonst setzt das TCP die Verbindung zurück und der Browser sieht nur "abgebrochen") */
+        if (!origin_ok(req, host)) { respond_error(c, 403, "Fremder Ursprung abgelehnt"); drain_body(c, rest); }
+        else if (!header(req, "Content-Type", tmp, sizeof(tmp)) || strcasecmp(tmp, "application/octet-stream") != 0) {
             respond_error(c, 415, "Content-Type muss application/octet-stream sein");
+            drain_body(c, rest);
+        }
         else if (!up) respond_error(c, 411, "Content-Length fehlt");
-        else api_upload(c, path + 20, body, len - (size_t)(body - req), up);
+        else api_upload(c, path + 20, body, have, up);
         goto out;
     }
     if (header(req, "Content-Length", tmp, sizeof(tmp))) clen = strtol(tmp, NULL, 10);
@@ -7017,7 +7032,7 @@ static void handle(int c) {
     }
     else if (strcmp(path, "/api/quit") == 0 && is_post) {
         pthread_mutex_lock(&lock);
-        int busy = st.busy;
+        int busy = st.busy || g_save_download;   /* auch ein laufender Spielstand-Download (hält eine Kopie eingehängt) */
         if (!busy) quitting = 1;   /* unter der Sperre: kein neuer Auftrag kann mehr dazwischenkommen (start_job) */
         pthread_mutex_unlock(&lock);
         if (busy) respond_error(c, 409, "Es läuft noch ein Auftrag");
@@ -7037,6 +7052,8 @@ out:
 int server_listen(int port) {
     int s = socket(AF_INET, SOCK_STREAM, 0), one = 1;
     struct sockaddr_in addr = {0};
+
+    saves_set_game_check(game_running);   /* schon für saves_import_recover beim Start (main): nie unter einem laufenden Spiel umbenennen */
 
     if (s < 0) return -1;
     setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));

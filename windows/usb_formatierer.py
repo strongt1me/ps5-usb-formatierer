@@ -2323,8 +2323,10 @@ class App(tk.Tk):
 
         batch = "pc" + uuid.uuid4().hex[:16]
 
-        def poll_job(seq):
-            """den eigenen Auftrag (Nummer > seq) bis zum Ende verfolgen: Fortschritt und Abbrechen wie bei _follow; (ok, Meldung)"""
+        def poll_job(seq, t):
+            """den eigenen Auftrag (Nummer > seq) bis zum Ende verfolgen: Fortschritt und Abbrechen wie bei _follow; (ok, Meldung).
+            Endet auch, wenn der Formatierer neu gestartet wurde (Auftragszähler wieder bei 0) oder das Hochladen mit Fehler
+            abbrach, ohne dass ein Auftrag kam - sonst wartete die Schleife ewig"""
             last_ok = time.time()
             while True:
                 time.sleep(0.5)
@@ -2337,8 +2339,16 @@ class App(tk.Tk):
                     continue
                 flags = {k: st[k] for k in ("replug", "cancellable", "detail", "kind") if k in st}
                 self.q.put(("progress", int(st.get("percent") or 0), st.get("step") or "", flags))
-                if not st.get("busy") and (st.get("job") or 0) > seq:
+                if st.get("busy"):
+                    continue
+                job = st.get("job") or 0
+                if job > seq:
                     return bool(st.get("ok")), st.get("message") or ""
+                if job < seq or not st.get("done"):
+                    return False, _("Der Formatierer auf der PS5 wurde zwischendurch neu gestartet – ob der Spielstand "
+                                    "eingespielt wurde, ist nicht bekannt.")
+                if not t.is_alive() and state.get("error"):
+                    return False, state["error"]
 
         def work():
             log = []
@@ -2376,7 +2386,7 @@ class App(tk.Tk):
                 if len(files) == 1:
                     self._follow(api, foreign=False, done_title=_("Spielstand wiederhergestellt."), after=done)
                     return
-                ok, msg = poll_job(seq)
+                ok, msg = poll_job(seq, t)
                 t.join(10)
                 log.append((os.path.basename(path), ok, msg))
                 if not ok:

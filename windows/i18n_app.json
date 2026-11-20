@@ -4204,5 +4204,11 @@
   "it": "Nessuna connessione alla PS5 da 3 minuti. Il lavoro probabilmente è ancora in corso lì.",
   "es": "Sin conexión con la PS5 desde hace 3 minutos. Probablemente la tarea sigue en marcha allí.",
   "fr": "Aucune connexion à la PS5 depuis 3 minutes. La tâche continue probablement là-bas."
+ },
+ "Der Formatierer auf der PS5 wurde zwischendurch neu gestartet – ob der Spielstand eingespielt wurde, ist nicht bekannt.": {
+  "en": "The formatter on the PS5 was restarted in the meantime – it is not known whether the save was imported.",
+  "it": "Il formattatore sulla PS5 è stato riavviato nel frattempo – non si sa se il salvataggio sia stato ripristinato.",
+  "es": "El formateador de la PS5 se reinició mientras tanto – no se sabe si la partida se restauró.",
+  "fr": "Le formateur sur la PS5 a été redémarré entre-temps – on ne sait pas si la sauvegarde a été restaurée."
  }
 }

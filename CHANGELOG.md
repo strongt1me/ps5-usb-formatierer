@@ -6,6 +6,14 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+### Fixed
+
+- Saves: an import interrupted by a crash or power loss is no longer rolled back while a game is running, and no longer over a save the game has used since then (it is completed instead). If putting a file back fails, the formatter says so and tries again at the next start instead of reporting success; after an aborted database step the previous save database is restored too.
+- Saves: a PS4 import now also finds its owner template among the game's own PS4 saves when the user has many PS5 saves.
+- Saves: quitting the formatter is refused while a save download is running; a selection too large for one ZIP is reported before the download starts; the upload of a save ZIP can be cancelled already while it is being received; two backups of the same save in one batch are reported as a conflict (HTTP 409).
+- Web interface: after uploading several save ZIPs, the summary per file stays visible instead of being replaced by the last file's result.
+- PC programs: restoring several save ZIPs no longer hangs if the formatter on the PS5 is restarted meanwhile; the update check no longer stops silently when a download is cut off.
+
 ## [2.6.71] – 2026-11-20
 
 ### Changed

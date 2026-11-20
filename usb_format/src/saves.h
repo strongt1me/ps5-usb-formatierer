@@ -47,6 +47,8 @@ typedef int (*saves_prog_fn)(void *ctx, uint64_t done, uint64_t total);
  * Spielstand der Ordner "<uid>_<Titel>_<Name>/". 0 = gesendet; -1 = Fehler vor dem ersten Byte (err, Aufrufer antwortet);
  * -2 = Fehler mitten im Strom (Verbindung schließen). */
 int  saves_download(int sock, const save_info_t *list, int n, char *err, size_t errsz);
+/* passt die Auswahl in eine ZIP (dieselbe Grenze wie saves_download)? 1 = ja */
+int  saves_download_fits(const save_info_t *list, int n);
 
 /* Spielstand als ZIP nach <root>/<Benutzer>_<uid>/<Titel>_<Name>.zip (erst daneben, dann umbenannt; die zwei vorigen bleiben
  * als <Titel>_<Name>.<JJJJMMTT-HHMMSS>.zip). Fortschritt: done von s->size. 0 = ok, sonst Fehlertext in err */

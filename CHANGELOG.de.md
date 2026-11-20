@@ -6,6 +6,14 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Spielstände: Ein durch Absturz oder Stromausfall unterbrochenes Einspielen wird nicht mehr zurückgenommen, solange ein Spiel läuft, und nicht mehr über einen Spielstand, den das Spiel seitdem benutzt hat (es wird dann zu Ende geführt). Misslingt das Zurücklegen einer Datei, meldet der Formatierer das und versucht es beim nächsten Start erneut, statt Erfolg zu melden; nach einem abgebrochenen Datenbank-Schritt kommt auch die vorherige Spielstand-Datenbank zurück.
+- Spielstände: Ein PS4-Spielstand findet seine Besitzer-Vorlage jetzt auch unter den eigenen PS4-Spielständen des Spiels, wenn der Benutzer viele PS5-Spielstände hat.
+- Spielstände: Beenden des Formatierers wird abgelehnt, solange ein Spielstand-Download läuft; eine Auswahl, die zu groß für eine ZIP ist, wird vor dem Download gemeldet; das Hochladen einer Spielstand-ZIP lässt sich schon während der Übertragung abbrechen; zwei Sicherungen desselben Spielstands in einer Reihe werden als Konflikt gemeldet (HTTP 409).
+- Weboberfläche: Nach dem Hochladen mehrerer Spielstand-ZIPs bleibt die Zusammenfassung je Datei stehen, statt vom Ergebnis der letzten Datei ersetzt zu werden.
+- PC-Programme: Das Wiederherstellen mehrerer Spielstand-ZIPs hängt nicht mehr, wenn der Formatierer auf der PS5 zwischendurch neu gestartet wird; die Update-Prüfung bleibt nicht mehr still stehen, wenn ein Download abreißt.
+
 ## [2.6.71] – 2026-11-20
 
 ### Geändert

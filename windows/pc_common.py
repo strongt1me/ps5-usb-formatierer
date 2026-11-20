@@ -3,6 +3,7 @@ prüfen und mit Administratorrechten starten (Windows: UAC, Linux: pkexec - sieh
 Einstellungen, Rückfrage-Dialog, Hilfe. Genutzt vom PS5-USB-Formatierer und vom eigenständigen USB-Formatierer."""
 import ctypes
 import hashlib
+import http.client
 import json
 import os
 import platform
@@ -1669,7 +1670,7 @@ def _fetch_update():
     try:
         found = newer_release(json.loads(_get(os.environ.get("USBFMT_UPDATE_URL") or UPDATE_API,
                                               "application/vnd.github+json")))
-    except (OSError, ValueError):   # offline, gesperrt, Ratenbegrenzung: still bleiben
+    except (OSError, ValueError, http.client.HTTPException):   # offline, gesperrt, Ratenbegrenzung, abgerissen: still bleiben
         pass
     if found:
         found["changes"] = {}
@@ -1677,7 +1678,7 @@ def _fetch_update():
             url = (os.environ.get("USBFMT_CHANGELOG_URL") or CHANGELOG_API).format(file=name, version=found["version"])
             try:
                 text = changes_since(_get(url, "application/vnd.github.raw"), APP_VERSION, found["version"])
-            except (OSError, ValueError):   # dann bleiben die Release-Hinweise
+            except (OSError, ValueError, http.client.HTTPException):   # dann bleiben die Release-Hinweise
                 continue
             if text:
                 found["changes"][code] = text

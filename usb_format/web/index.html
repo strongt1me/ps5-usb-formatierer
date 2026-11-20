@@ -703,6 +703,7 @@ function el(tag, cls, text) {
 
 let devices = [], selected = null, busy = false, pollTimer = null, showAll = false, quit = false;
 let savesList = [], saveUsers = [], savesFilter = "", savesChecked = new Set(), savesError = "", saveUploadMute = 0;   /* Spielstände-Seite */
+let pollSettling = false;   /* die Statusabfrage hat einen Auftrag fertig gesehen, zeigt sein Ergebnis aber noch nicht (wartet auf loadDevices) */
 let pickMode = false;          /* Spiele zum Löschen bzw. Verschieben auswählen */
 let pickAction = "delete";     /* "delete", "move", "copy", "verify" oder "checksum" */
 const MAX_DELETE = 256;        /* so viele nimmt /api/delete auf einmal an */
@@ -1972,6 +1973,8 @@ function startPolling(foreign) {
       clearInterval(pollTimer);
       pollTimer = null;
       busy = false;
+      pollSettling = true;
+      try {
       renderQueue();
       $("progress").hidden = true;
       const before = currentDevice();
@@ -1993,6 +1996,7 @@ function startPolling(foreign) {
       if (foreign) { showMsg(st.message, st.ok); renderTabs(); if (st.kind === "tile") loadTile(); if (["backup", "restore", "verify"].includes(st.kind) && !$("imagebox").hidden) loadImages(); if (st.kind === "save_restore" || st.kind === "save_backup") loadSaves(); }
       else finished(st, d);
       loadLibrary(true);
+      } finally { pollSettling = false; }
     }
   }, 500);
 }
@@ -4204,9 +4208,10 @@ async function uploadSavesZip(files) {
     jobRefused(e.message);
   } finally {
     starting = false;
-    /* erst, wenn die Statusabfrage den letzten Auftrag fertig gesehen hat (sonst käme sein Einzelergebnis noch über die Zusammenfassung);
-       nie über das Hochladen hinaus - sonst verschluckte es spätere Ergebnisse */
-    for (let i = 0; i < 60 && busy; i++) await new Promise(r => setTimeout(r, 250));
+    /* erst, wenn die Statusabfrage den letzten Auftrag fertig gesehen und sein Ergebnis verarbeitet hat (sonst käme sein
+       Einzelergebnis noch über die Zusammenfassung: busy wird schon vor loadDevices frei); nie über das Hochladen hinaus -
+       sonst verschluckte es spätere Ergebnisse */
+    for (let i = 0; i < 120 && (busy || pollSettling); i++) await new Promise(r => setTimeout(r, 250));
     saveUploadMute = 0;
   }
   if (files.length > 1) {

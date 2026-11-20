@@ -1130,6 +1130,12 @@ static int http_sink(void *ctx, const void *buf, size_t len) {
     return 0;
 }
 
+int saves_download_fits(const save_info_t *list, int n) {
+    uint64_t total = 0;
+    for (int i = 0; i < n; i++) total += list[i].size;
+    return total <= SX_ZIP_MAX;
+}
+
 int saves_download(int sock, const save_info_t *list, int n, char *err, size_t errsz) {
     if (n < 1) { snprintf(err, errsz, "%s", T("Kein Spielstand ausgewählt")); return -1; }
     if (op_enter(err, errsz)) return -1;
@@ -1813,7 +1819,12 @@ static int donor_params(const uint8_t *buf, size_t n, uint64_t account_id, uint3
 static int owner_donor(const char *home, const char *uid, const char *work, uint64_t account_id, uint32_t user_id, const iinfo_t *info,
                        uint8_t *sfo, size_t sfo_len, prog_t *p, char *note, size_t note_len, char *err, size_t errsz) {
     note[0] = 0;
-    static const struct { const char *dir; int ps4; } k_areas[2] = { { SAVE_SUBDIR, 0 }, { SAVE_SUBDIR_PS4, 1 } };
+    /* der Bereich der eigenen Art zuerst (PS4 bei einem PS4-Spielstand): sonst füllten viele Spielstände der anderen Art die Liste,
+     * bevor die besten Spender (derselbe Titel) drankämen */
+    typedef struct { const char *dir; int ps4; } area_t;
+    static const area_t k_ps5_first[2] = { { SAVE_SUBDIR, 0 }, { SAVE_SUBDIR_PS4, 1 } },
+                        k_ps4_first[2] = { { SAVE_SUBDIR_PS4, 1 }, { SAVE_SUBDIR, 0 } };
+    const area_t *k_areas = info->ps4 ? k_ps4_first : k_ps5_first;
     donor_t *cand = calloc(DONOR_CAND, sizeof(*cand));   /* auf dem Heap: das läuft in einem Auftrags-Faden mit kleinem Stack */
     if (!cand) return efail(err, errsz, "%s", T("Kein Speicher"));
     unsigned nc = 0;
@@ -1904,10 +1915,12 @@ static int owner_donor(const char *home, const char *uid, const char *work, uint
     rmdir(ddir);
     free(cand);
     if (rc == ECANCELED) return ECANCELED;
+    /* passt das PARAMS-Feld des Spielstands nicht (kürzer als der Spenderwert), zählt das wie kein Spender: lieber der Hinweis als still nichts */
+    if (got == 0 && savesfo_set_raw(sfo, sfo_len, "PARAMS", 0, params, 1024) != 0) got = -1;
+    if (got > 0 && savesfo_set_raw(sfo, sfo_len, "PARAMS", 4, params + 4, 36) != 0) got = -1;
     if (got == 0) {
-        savesfo_set_raw(sfo, sfo_len, "PARAMS", 0, params, 1024);
+        /* der eigene Spielstand: ganz übernommen, kein Hinweis */
     } else if (got > 0) {
-        savesfo_set_raw(sfo, sfo_len, "PARAMS", 4, params + 4, 36);
         snprintf(note, note_len, "%s", T("Die Besitzerangaben stammen aus einem anderen Spielstand dieses Benutzers und sind nicht vollständig geprüft: Meldet das Spiel beschädigte Daten, liegt es vermutlich daran."));
     } else {
         snprintf(note, note_len, "%s", T("Von diesem Benutzer war kein Spielstand zu finden, dessen Besitzerangaben sich übernehmen ließen. Der Spielstand ist eingespielt; das Spiel meldet vielleicht beschädigte Daten."));
@@ -1931,10 +1944,11 @@ static void sync_dir_of(const char *file) {
  * die Phase), jedes Mal ganz geschrieben und dauerhaft gemacht. Bricht ein Lauf in dieser Zeit ab (Strom, Absturz, neue Fassung des
  * Formatierers), bringt saves_import_recover beim nächsten Start (und vor dem nächsten Einspielen) zu Ende oder nimmt zurück, was sie
  * nennt: Phase "swap" und "rollback": die Dateien zurück wie vorher; Phase "db" (die Abbilder liegen, die Zeile fehlt noch): die Zeile
- * noch einmal schreiben (dieselben Werte) und die alten Dateien entfernen. */
+ * noch einmal schreiben (dieselben Werte) und die alten Dateien entfernen. Bei "rollback" nennt sie auch, was mit der Datenbank
+ * geschieht: dbb = die Kopie von vorher kommt zurück, db_new = die Datenbank gab es vorher nicht (sie wird wieder entfernt). */
 typedef struct {
-    char fin[SP], ifin[SP], dbp[SP];
-    int ps4, replaced, bin_replaced, icon_existed;
+    char fin[SP], ifin[SP], dbp[SP], dbb[SP];
+    int ps4, replaced, bin_replaced, icon_existed, db_new;
     savedb_row_t row;
 } jr_t;
 
@@ -1971,6 +1985,8 @@ static int journal_write(const char *path, const jr_t *j, const char *phase) {
     cJSON_AddStringToObject(o, "fin", j->fin);
     cJSON_AddStringToObject(o, "ifin", j->ifin);
     cJSON_AddStringToObject(o, "dbp", j->dbp);
+    cJSON_AddStringToObject(o, "dbb", j->dbb);
+    cJSON_AddNumberToObject(o, "db_new", j->db_new);
     cJSON_AddNumberToObject(o, "ps4", j->ps4);
     cJSON_AddNumberToObject(o, "replaced", j->replaced);
     cJSON_AddNumberToObject(o, "bin_replaced", j->bin_replaced);
@@ -2032,6 +2048,8 @@ static int journal_read(const char *path, jr_t *j, char *phase, size_t phase_len
     jr_str_get(o, "fin", j->fin, sizeof(j->fin));
     jr_str_get(o, "ifin", j->ifin, sizeof(j->ifin));
     jr_str_get(o, "dbp", j->dbp, sizeof(j->dbp));
+    jr_str_get(o, "dbb", j->dbb, sizeof(j->dbb));
+    j->db_new = jr_int_get(o, "db_new") != 0;
     j->ps4 = jr_int_get(o, "ps4") != 0;
     j->replaced = jr_int_get(o, "replaced") != 0;
     j->bin_replaced = jr_int_get(o, "bin_replaced") != 0;
@@ -2060,6 +2078,11 @@ static int journal_read(const char *path, jr_t *j, char *phase, size_t phase_len
     if (j->ifin[0] != '/' || strstr(j->ifin, "/..") || il < 11 || strcmp(j->ifin + il - 10, "_icon0.png")) return -1;
     if (j->dbp[0] != '/' || strstr(j->dbp, "/..") || dl < 12 || strcmp(j->dbp + dl - 11, "savedata.db")) return -1;
     if (fl + 14 >= sizeof(j->fin) || il + 14 >= sizeof(j->ifin)) return -1;
+    if (j->dbb[0]) {
+        const size_t bl = strlen(j->dbb);
+        if (j->dbb[0] != '/' || strstr(j->dbb, "/..") || !strstr(j->dbb, "/save_db_backup/savedata-") || bl < 4 || strcmp(j->dbb + bl - 3, ".db"))
+            return -1;
+    }
     return 0;
 }
 
@@ -2078,6 +2101,15 @@ int saves_import_recover(char *report, size_t report_len) {
         snprintf(report, report_len, "%s", T("Die Aufzeichnung eines unterbrochenen Einspielens war nicht lesbar und wurde entfernt."));
         return 1;
     }
+    {   /* ein laufendes Spiel kann den Spielstand gerade benutzen: dann nichts umbenennen - das nächste Einspielen versucht es wieder */
+        char gid[32] = "";
+        if (g_game_check && g_game_check(gid, sizeof(gid))) {
+            snprintf(report, report_len, T("Ein unterbrochenes Einspielen von %.15s (%.60s) wird erst zu Ende gebracht, wenn kein Spiel läuft (gerade: %.15s)."),
+                     j->row.title_id, j->row.dir_name, gid);
+            free(j);
+            return -1;
+        }
+    }
     char neu[SP], alt[SP], ineu[SP], ialt[SP], dir[SP], bfin[SP], bneu[SP], balt[SP];
     path_fmt(neu, sizeof(neu), "%s.usbfmt-neu", j->fin);
     path_fmt(alt, sizeof(alt), "%s.usbfmt-alt", j->fin);
@@ -2088,6 +2120,16 @@ int saves_import_recover(char *report, size_t report_len) {
     if (path_fmt(bfin, sizeof(bfin), "%s/%s.bin", dir, j->row.dir_name)) bfin[0] = 0;
     path_fmt(bneu, sizeof(bneu), "%s.usbfmt-neu", bfin);
     path_fmt(balt, sizeof(balt), "%s.usbfmt-alt", bfin);
+    /* Lag das neue Abbild schon an seinem Platz und hat ein Spiel es seit dem Abbruch benutzt (jünger als die Aufzeichnung),
+     * steckt darin womöglich neuer Fortschritt: dann nicht zurücknehmen, sondern zu Ende führen (der Rest ist die Zeile).
+     * Ein PS4-Abbild braucht dazu seinen neuen Schlüssel: liegt der noch daneben, bleibt es beim Zurücknehmen. */
+    if (!strcmp(phase, "swap") && lstat(neu, &st) != 0 && !(j->ps4 && bfin[0] && lstat(bneu, &st) == 0)) {
+        struct stat fs, js;
+        if (lstat(j->fin, &fs) == 0 && S_ISREG(fs.st_mode) && lstat(path, &js) == 0 && fs.st_mtime > js.st_mtime + 2) {
+            if (lstat(ineu, &st) == 0) (void)rename(ineu, j->ifin);   /* das Bild gehört zum neuen Stand */
+            scpy(phase, sizeof(phase), "db");
+        }
+    }
     if (!strcmp(phase, "db") && lstat(j->fin, &st) == 0 && lstat(neu, &st) != 0) {
         /* die Abbilder liegen: übrig ist die Zeile - dieselben Werte noch einmal, ob der erste Versuch durchkam, spielt keine Rolle */
         char e2[300] = "";
@@ -2110,14 +2152,30 @@ int saves_import_recover(char *report, size_t report_len) {
     } else {
         /* die Dateien zurück wie vorher: das alte Abbild, wo es beiseitegelegt war, nichts, wo vorher nichts war (Schlüssel und Bild ebenso) */
         struct stat s2;
-        if (lstat(alt, &s2) == 0) (void)rename(alt, j->fin);
-        else if (!j->replaced) unlink(j->fin);
-        if (j->ps4 && bfin[0]) {
-            if (lstat(balt, &s2) == 0) (void)rename(balt, bfin);
+        int bad = 0;   /* ein Zurücklegen misslang: dann bleibt die Aufzeichnung, und nichts wird als erledigt gemeldet */
+        if (j->ps4 && bfin[0]) {   /* erst der Schlüssel, dann das Abbild (wie beim Zurücknehmen im Lauf) */
+            if (lstat(balt, &s2) == 0) { if (rename(balt, bfin) != 0) bad = errno ? errno : EIO; }
             else if (!j->bin_replaced) unlink(bfin);
         }
-        if (lstat(ialt, &s2) == 0) (void)rename(ialt, j->ifin);
+        if (lstat(alt, &s2) == 0) { if (rename(alt, j->fin) != 0) bad = errno ? errno : EIO; }
+        else if (!j->replaced) unlink(j->fin);
+        if (lstat(ialt, &s2) == 0) { if (rename(ialt, j->ifin) != 0) bad = errno ? errno : EIO; }
         else if (!j->icon_existed) unlink(j->ifin);
+        if (!bad && !strcmp(phase, "rollback") && (j->dbb[0] || j->db_new)) {
+            /* die Zeile war schon geschrieben: die Datenbank wie vorher (die Kopie zurück bzw. die neu angelegte weg) */
+            if (j->db_new) unlink(j->dbp);
+            else {
+                char dneu[SP];
+                if (path_fmt(dneu, sizeof(dneu), "%s.usbfmt-neu", j->dbp) || copy_file(NULL, j->dbb, dneu, (uint64_t)-1, 0644) != 0 || rename(dneu, j->dbp) != 0)
+                    bad = errno ? errno : EIO;
+            }
+        }
+        if (bad) {
+            snprintf(report, report_len, T("Ein unterbrochenes Einspielen von %.15s (%.60s) ließ sich nicht zurücknehmen (%s). Der nächste Start versucht es noch einmal; bis dahin bitte diesen Spielstand nicht benutzen."),
+                     j->row.title_id, j->row.dir_name, strerror(bad));
+            free(j);
+            return -1;
+        }
         unlink(neu);
         unlink(ineu);
         if (j->ps4 && bfin[0]) unlink(bneu);
@@ -2607,7 +2665,14 @@ static int import_root(szr_t *z, const char *prefix, const char *uid, prog_t *p,
             }
         }
         if (dbr != 0) {   /* alles wieder wie vorher */
-            if (jw) (void)journal_write(jpath, jrec, "rollback");   /* ein Abbruch ab hier nimmt die Dateien zurück, er beendet den Tausch nicht */
+            if (jw) {   /* ein Abbruch ab hier nimmt die Dateien (und die Datenbank) zurück, er beendet den Tausch nicht */
+                if (db_written && db_existed && dbb[0]) scpy(jrec->dbb, sizeof(jrec->dbb), dbb);
+                jrec->db_new = db_written && !db_existed;
+                if (journal_write(jpath, jrec, "rollback") != 0) {
+                    unlink(jpath);   /* lieber keine Aufzeichnung als "db": die schriebe die neue Zeile über das alte Abbild */
+                    jw = 0;
+                }
+            }
             int db_back = 1;
             /* die Kopie kommt nur zurück, wenn SQLite geschrieben hat und erst die Prüfung danach scheiterte. Hat SQLite selbst abgelehnt
              * (etwa gesperrt), hat es schon zurückgerollt - eine Datei über eine Datenbank zu legen, die die Konsole vielleicht offen hat,

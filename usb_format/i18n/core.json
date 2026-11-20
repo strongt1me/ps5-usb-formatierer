@@ -4252,5 +4252,23 @@
   "it": "Non è stato possibile scrivere la registrazione per il caso di interruzione. Il salvataggio non è stato importato.",
   "es": "No se pudo escribir el registro para el caso de una interrupción. La partida guardada no se importó.",
   "fr": "L'enregistrement en cas d'interruption n'a pas pu être écrit. La sauvegarde n'a pas été importée."
+ },
+ "Ein unterbrochenes Einspielen von %.15s (%.60s) wird erst zu Ende gebracht, wenn kein Spiel läuft (gerade: %.15s).": {
+  "en": "An interrupted import of %.15s (%.60s) will only be completed when no game is running (currently: %.15s).",
+  "it": "Un ripristino interrotto di %.15s (%.60s) verrà completato solo quando nessun gioco è in esecuzione (ora: %.15s).",
+  "es": "Una restauración interrumpida de %.15s (%.60s) solo se completará cuando no haya ningún juego en marcha (ahora: %.15s).",
+  "fr": "Une restauration interrompue de %.15s (%.60s) ne sera terminée que lorsqu'aucun jeu ne tourne (actuellement : %.15s)."
+ },
+ "Ein unterbrochenes Einspielen von %.15s (%.60s) ließ sich nicht zurücknehmen (%s). Der nächste Start versucht es noch einmal; bis dahin bitte diesen Spielstand nicht benutzen.": {
+  "en": "An interrupted import of %.15s (%.60s) could not be undone (%s). The next start tries again; until then, please do not use this save.",
+  "it": "Un ripristino interrotto di %.15s (%.60s) non è stato annullato (%s). Il prossimo avvio riprova; fino ad allora non usare questo salvataggio.",
+  "es": "Una restauración interrumpida de %.15s (%.60s) no se pudo deshacer (%s). El próximo inicio lo intentará de nuevo; hasta entonces, no uses esta partida.",
+  "fr": "Une restauration interrompue de %.15s (%.60s) n'a pas pu être annulée (%s). Le prochain démarrage réessaie ; d'ici là, n'utilisez pas cette sauvegarde."
+ },
+ "Content-Type muss application/zip sein": {
+  "en": "Content-Type must be application/zip",
+  "it": "Content-Type deve essere application/zip",
+  "es": "Content-Type debe ser application/zip",
+  "fr": "Content-Type doit être application/zip"
  }
 }
