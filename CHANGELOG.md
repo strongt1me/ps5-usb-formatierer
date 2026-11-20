@@ -6,6 +6,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+## [2.6.72] – 2026-11-20
+
 ### Fixed
 
 - Saves: an import interrupted by a crash or power loss is no longer rolled back while a game is running, and no longer over a save the game has used since then (it is completed instead). If putting a file back fails, the formatter says so and tries again at the next start instead of reporting success; after an aborted database step the previous save database is restored too.
@@ -921,7 +923,8 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 - The app launcher tears down the sandbox cleanly.
 
-[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.71...HEAD
+[Unreleased]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.72...HEAD
+[2.6.72]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.72
 [2.6.71]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.71
 [2.6.70]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.70
 [2.6.69]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.69

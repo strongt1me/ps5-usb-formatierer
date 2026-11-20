@@ -6,6 +6,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+## [2.6.72] – 2026-11-20
+
 ### Behoben
 
 - Spielstände: Ein durch Absturz oder Stromausfall unterbrochenes Einspielen wird nicht mehr zurückgenommen, solange ein Spiel läuft, und nicht mehr über einen Spielstand, den das Spiel seitdem benutzt hat (es wird dann zu Ende geführt). Misslingt das Zurücklegen einer Datei, meldet der Formatierer das und versucht es beim nächsten Start erneut, statt Erfolg zu melden; nach einem abgebrochenen Datenbank-Schritt kommt auch die vorherige Spielstand-Datenbank zurück.
@@ -921,7 +923,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 - App-Starter baut die Sandbox sauber ab.
 
-[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.71...HEAD
+[Unveröffentlicht]: https://github.com/strongt1me/ps5-usb-formatierer/compare/v2.6.72...HEAD
+[2.6.72]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.72
 [2.6.71]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.71
 [2.6.70]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.70
 [2.6.69]: https://github.com/strongt1me/ps5-usb-formatierer/releases/tag/v2.6.69
