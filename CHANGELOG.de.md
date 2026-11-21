@@ -6,6 +6,21 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/). D
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Formatieren: Eine Größe oder Zuordnungseinheit, die nicht zum Dateisystem passt (zu viele Cluster für FAT32, exFAT-Cluster kleiner als ein Sektor, FAT32 auf mehr als 2 TiB …), wird jetzt abgelehnt, bevor etwas geschrieben wird. Bisher war die alte Partitionstabelle schon gelöscht, wenn die Meldung kam – auf der PS5 und im Partitions-Editor der PC-Programme.
+- Image-Sicherung: Das Fortsetzen prüft den gespeicherten Zwischenstand, bevor es ihn verwendet; beschädigte GPT-Werte auf dem Laufwerk führen nicht mehr zu Überläufen.
+- Neu-Anmelden eines Sticks ohne Seriennummer an der PS5: Außer der Größe muss auch die Kennung aus seinem Inhalt (Datenträger-Signatur, Seriennummer des Dateisystems) passen – ein zweiter, gleich großer Stick, der währenddessen eingesteckt wird, wird nicht genommen.
+- Spielstände: Eine nach einem abgebrochenen Einspielen liegen gebliebene Aufzeichnung setzt die Spielstand-Datenbank nicht mehr später noch einmal zurück; eine seitdem geänderte Datenbank bleibt unangetastet (mit Hinweis). Ein unterbrochenes Einspielen wird nur zu Ende geführt, wenn wirklich der neue Spielstand an seinem Platz liegt. Die Fehlermeldung sagt nicht mehr „alles ist wieder so wie vorher“, wenn der alte Spielstand nicht ganz zurückgelegt werden konnte, und ein daneben liegender alter Spielstand wird aufgehoben statt gelöscht.
+- Spiele verschieben: Liegen gebliebene Zwischenordner werden nur genutzt, wenn sie echte Ordner sind, nie Verknüpfungen an einen anderen Ort. „Verwerfen“ einer Teilsicherung kann über eine Verknüpfung keine fertige Sicherung mehr löschen. Löschen oder Verwerfen einer Sicherung kann sich nicht mehr mit einem gleichzeitig startenden Auftrag überschneiden. „Aufräumen“ hält einen Ordner im Zweifel (zu tief, nicht lesbar) für belegt.
+- Weboberfläche: Der Controller-Fokus bleibt in der Spieleliste, während sie neu gezeichnet wird (Größen, Bibliothekssuche), auch nach dem Schließen der Spiel-Details. Eine nach dem Neuladen wiederhergestellte Kopier-Warteschlange behält nur Einträge mit eindeutig erkannten Laufwerken; ein von Hand gestarteter Auftrag schiebt sich nicht mehr zwischen zwei Einträge der Warteschlange; „Ältere Version auswählen“ wählt nur sichtbare Spiele; der Update-Hinweis lässt sich an der PS5 mit dem Controller öffnen; ein Sprachwechsel aktualisiert alle Texte.
+- Anleitung: Abbrechen beim Kopieren lässt die Teilkopie liegen (dieselbe Auswahl noch einmal kopieren setzt fort) – die Anleitung sagte das Gegenteil; Kopieren, Warteschlange, Prüfsummen, „Spiele prüfen“ und „Aufräumen“ sind jetzt beschrieben.
+- PC-Programme: Auf einen Helfer, der nicht mehr reagiert, wird gewartet, und solange er weiterläuft, startet auf diesem Laufwerk kein neuer Auftrag (bisher gab das Programm frei, während er womöglich noch schrieb); Schließen des Fensters bei offener Administrator-Abfrage fragt nach; Fehler beim Aktualisieren sind übersetzt, und ein unerwarteter Fehler lässt das Aktualisieren nicht mehr hängen; eine beschädigte Verlaufsdatei kann einen gelungenen Auftrag nicht mehr als Fehler erscheinen lassen.
+- „Abbrechen“ gilt nur noch dem Auftrag, für den es gedrückt wurde: Weboberfläche und PC-Programme schicken seine Nummer mit, und ein schon beendeter Auftrag wird nicht mehr stellvertretend abgebrochen – nicht der nächste aus der Kopier-Warteschlange oder einem anderen Browser.
+- Kopieren oder Verschieben auf ein USB-Laufwerk wird abgelehnt, wenn seit dem Laden der Liste unter demselben Namen ein anderer Stick steckt.
+- Alte Spielstände, die ein Einspielen neben dem jetzigen aufheben musste, erscheinen jetzt unter „Aufräumen“ beim internen Speicher und lassen sich dort löschen.
+- Ein unbenanntes HFS+-Laufwerk bzw. eine GPT-Partition bekommt den Standardnamen in der gewählten Sprache statt immer auf Deutsch.
+
 ## [2.6.72] – 2026-11-20
 
 ### Behoben

@@ -183,6 +183,12 @@ int plat_external_mkfs(const usbdev_t *d, int fs, const char *label, uint32_t cl
     progress(fs == FS_NTFS ? "NTFS schreiben (mkntfs)" : "ext4 schreiben (mke2fs)", 5);
     if (pipe(pfd) != 0) { snprintf(err, errlen, "pipe: %s", strerror(errno)); return -1; }
     pid_t pid = fork();
+    if (pid < 0) {   /* sonst wartete waitpid(-1) unten auf irgendein Kind */
+        snprintf(err, errlen, "fork: %s", strerror(errno));
+        close(pfd[0]);
+        close(pfd[1]);
+        return -1;
+    }
     if (pid == 0) {
         dup2(pfd[1], 1);
         dup2(pfd[1], 2);
@@ -302,10 +308,15 @@ void plat_library_hints(lib_hint_t **h, int *n) {
     int http = 0;
     *h = NULL;
     *n = 0;
-    if ((buf = slurp_file(getenv("USBFMT_SMP_GAMES"), &len)) || (buf = plat_smp_post("/api/v1/games", "{}", &http, &len))) {
+    if ((buf = slurp_file(getenv("USBFMT_SMP_GAMES"), &len))) {
         lib_parse_smp_games(buf, len, h, n);
         free(buf);
         return;
+    }
+    if ((buf = plat_smp_post("/api/v1/games", "{}", &http, &len))) {   /* wie auf der PS5: nur eine Antwort 200 gilt */
+        if (http == 200) lib_parse_smp_games(buf, len, h, n);
+        free(buf);
+        if (http == 200) return;
     }
     if ((buf = slurp_file(getenv("USBFMT_SMP_LOG"), &len))) { lib_parse_smp_log(buf, len, h, n); free(buf); }
 }

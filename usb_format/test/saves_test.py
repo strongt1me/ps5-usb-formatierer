@@ -613,6 +613,29 @@ try:
     r = res.get("last") if res and res.get("last") else res
     check("Abbrechen: endet sauber, keine Reste", r is not None and not [f for f in os.listdir(os.path.dirname(p1)) if "usbfmt-" in f]
           and not [f for f in os.listdir(os.path.join(DATA, "save_tmp")) if f.startswith("sdimg_") or f == "mnt"], str(r)[:200])
+
+    # "Abbrechen" mit der Nummer eines schon beendeten Auftrags gilt nicht - nie für einen danach gestarteten
+    jn = (jreq("GET", "/api/status")[1] or {}).get("job") or 0
+    st, j = jreq("POST", "/api/cancel", {"job": jn})
+    check("Abbrechen eines beendeten Auftrags (mit Nummer): 409", st == 409, "%s %s" % (st, j))
+    st, j, res = run_job("POST", "/api/saves/restore", {"paths": z1})
+    check("... der nächste Auftrag wird davon nicht abgebrochen", bool(res and res.get("ok")), str(res)[:200])
+
+    # aufgehobener alter Spielstand (ein Einspielen konnte ihn nicht zurücklegen): in "Aufräumen" sichtbar und auf Wunsch löschbar
+    kept = os.path.join(os.path.dirname(p1), "sdimg_SAVEDATA00-20260101-000000.usbfmt-alt")
+    open(kept, "wb").write(b"alt" * 100)
+    jreq("GET", "/api/library")
+    orl = {}
+    for _ in range(150):
+        st, orl = jreq("GET", "/api/orphans")
+        if st == 200:
+            break
+        time.sleep(0.1)
+    old = [x for x in (orl or {}).get("items", []) if x.get("kind") == "save_old"]
+    check("Aufräumen zeigt den aufgehobenen alten Spielstand (intern)", len(old) == 1 and old[0].get("path") == kept and old[0].get("device") == "intern",
+          str(orl)[:400])
+    st, j, res = run_job("POST", "/api/orphans/delete", {"keys": old[0]["key"]}) if old else (0, {}, None)
+    check("... und löscht ihn auf Wunsch", bool(res and res.get("ok")) and not os.path.exists(kept), str(res)[:200])
 finally:
     cleanup()
 

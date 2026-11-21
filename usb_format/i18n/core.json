@@ -4276,5 +4276,71 @@
   "it": "Troppi salvataggi in una serie per riconoscere i doppioni con sicurezza. Ripristina i file rimanenti in un nuovo passaggio.",
   "es": "Demasiadas partidas en una serie para detectar duplicados con seguridad. Restaura los archivos restantes en una nueva pasada.",
   "fr": "Trop de sauvegardes dans une série pour détecter les doublons de façon sûre. Restaurez les fichiers restants lors d'un nouveau passage."
+ },
+ "Ein unterbrochenes Einspielen von %.15s (%.60s) wurde zurückgenommen: Der alte Spielstand liegt wieder an seinem Platz. Die Spielstand-Datenbank hat sich seitdem geändert und wurde deshalb nicht zurückgesetzt; der Eintrag dieses Spielstands kann veraltet sein.": {
+  "en": "An interrupted import of %.15s (%.60s) was undone: the old save is back in place. The save database has changed since then and was therefore not reset; the entry of this save may be out of date.",
+  "it": "Un ripristino interrotto di %.15s (%.60s) è stato annullato: il vecchio salvataggio è di nuovo al suo posto. Il database dei salvataggi è cambiato nel frattempo e quindi non è stato ripristinato; la voce di questo salvataggio potrebbe non essere aggiornata.",
+  "es": "Una restauración interrumpida de %.15s (%.60s) se deshizo: la partida anterior vuelve a estar en su sitio. La base de datos de partidas ha cambiado desde entonces y por eso no se restableció; la entrada de esta partida puede estar desactualizada.",
+  "fr": "Une restauration interrompue de %.15s (%.60s) a été annulée : l'ancienne sauvegarde est de nouveau en place. La base de données des sauvegardes a changé depuis et n'a donc pas été réinitialisée ; l'entrée de cette sauvegarde peut être obsolète."
+ },
+ "%sVon einem früheren Einspielen lag noch ein Spielstand daneben; er ist als %s aufgehoben.": {
+  "en": "%sA save from an earlier import was still lying next to it; it has been kept as %s.",
+  "it": "%sAccanto c'era ancora un salvataggio di un ripristino precedente; è stato conservato come %s.",
+  "es": "%sJunto a ella quedaba una partida de una restauración anterior; se ha conservado como %s.",
+  "fr": "%sUne sauvegarde d'une restauration précédente se trouvait encore à côté ; elle a été conservée sous le nom %s."
+ },
+ "Der Zwischenstand der unterbrochenen Sicherung ist beschädigt – bitte neu sichern.": {
+  "en": "The saved state of the interrupted backup is damaged – please back up again.",
+  "it": "Lo stato salvato del backup interrotto è danneggiato – esegui di nuovo il backup.",
+  "es": "El estado guardado de la copia interrumpida está dañado – vuelve a hacer la copia.",
+  "fr": "L'état enregistré de la sauvegarde interrompue est endommagé – veuillez sauvegarder à nouveau."
+ },
+ "Daten": {
+  "en": "Data",
+  "it": "Dati",
+  "es": "Datos",
+  "fr": "Donnees"
+ },
+ "Ohne Titel": {
+  "en": "Untitled",
+  "it": "Senza titolo",
+  "es": "Sin titulo",
+  "fr": "Sans titre"
+ },
+ "Der bisherige Spielstand ließ sich nicht zurücklegen; er liegt als sdimg_%s.usbfmt-alt daneben.": {
+  "en": "The previous save could not be put back; it is next to it as sdimg_%s.usbfmt-alt.",
+  "it": "Il salvataggio precedente non è stato rimesso al suo posto; si trova accanto come sdimg_%s.usbfmt-alt.",
+  "es": "La partida anterior no se pudo devolver a su sitio; está al lado como sdimg_%s.usbfmt-alt.",
+  "fr": "La sauvegarde précédente n'a pas pu être remise en place ; elle se trouve à côté sous le nom sdimg_%s.usbfmt-alt."
+ },
+ "Bild oder Schlüsseldatei des bisherigen Spielstands ließen sich nicht ganz zurücklegen.": {
+  "en": "The icon or key file of the previous save could not be fully put back.",
+  "it": "L'immagine o il file chiave del salvataggio precedente non sono stati rimessi completamente al loro posto.",
+  "es": "La imagen o el archivo de clave de la partida anterior no se pudieron devolver por completo.",
+  "fr": "L'image ou le fichier de clé de la sauvegarde précédente n'ont pas pu être entièrement remis en place."
+ },
+ " Die Spielstand-Datenbank ließ sich nicht zurücklegen; ihre Kopie liegt in %s.": {
+  "en": " The save database could not be put back; its copy is in %s.",
+  "it": " Il database dei salvataggi non è stato ripristinato; la sua copia si trova in %s.",
+  "es": " La base de datos de partidas no se pudo restablecer; su copia está en %s.",
+  "fr": " La base de données des sauvegardes n'a pas pu être remise en place ; sa copie se trouve dans %s."
+ },
+ "Der Spielstand wurde nicht eingespielt.": {
+  "en": "The save was not imported.",
+  "it": "Il salvataggio non è stato ripristinato.",
+  "es": "La partida no se restauró.",
+  "fr": "La sauvegarde n'a pas été restaurée."
+ },
+ " Der nächste Start des Formatierers versucht es noch einmal; bis dahin diesen Spielstand bitte nicht benutzen.": {
+  "en": " The next start of the formatter tries again; until then, please do not use this save.",
+  "it": " Il prossimo avvio del formattatore riprova; fino ad allora non usare questo salvataggio.",
+  "es": " El próximo inicio del formateador lo intentará de nuevo; hasta entonces, no uses esta partida.",
+  "fr": " Le prochain démarrage du formateur réessaie ; d'ici là, n'utilisez pas cette sauvegarde."
+ },
+ "Dieser Auftrag ist schon beendet.": {
+  "en": "This job has already finished.",
+  "it": "Questa operazione è già terminata.",
+  "es": "Esta tarea ya ha terminado.",
+  "fr": "Cette tâche est déjà terminée."
  }
 }

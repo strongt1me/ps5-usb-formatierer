@@ -145,6 +145,55 @@ try:
     pc_common.start_update_check()
     check("abschaltbar (USBFMT_NO_UPDATE_CHECK)", pc_common._update["state"] is None)
 
+    # ---------------------------------------------------------------- "Jetzt aktualisieren" (zsync)
+    import zsync_update  # noqa: E402
+    i18n.set_lang("en")
+    try:
+        zsync_update.parse(b"kaputt")
+        zmsg = ""
+    except zsync_update.ZsyncError as e:
+        zmsg = str(e)
+    i18n.set_lang(saved_lang)
+    check("zsync-Fehler in der Sprache der Oberfläche", zmsg == "zsync: no header", zmsg)
+
+    class FakeWidget:
+        """statt der Tk-Fenster: merkt sich configure() und die nächste geplante Abfrage (after)"""
+        def __init__(self):
+            self.cfg, self.later = {}, []
+
+        def configure(self, **kw):
+            self.cfg.update(kw)
+
+        def after(self, ms, fn, *a):
+            self.later.append((fn, a))
+
+        def winfo_exists(self):
+            return True
+
+        def destroy(self):
+            pass
+
+    def boom(*a, **k):
+        raise RuntimeError("Testfehler")
+
+    saved_update, zsync_update.update = zsync_update.update, boom
+    zwin, zbtn, zlbl = FakeWidget(), FakeWidget(), FakeWidget()
+    try:
+        pc_common._zsync_run(zwin, zbtn, zlbl, ("z", "f", os.path.join(work, "t.AppImage")), {"version": newer},
+                             ("t.AppImage", "f"))
+        for _ in range(200):   # Abfragen der Warteschlange wie Tk nacheinander ausführen
+            if "Testfehler" in str(zlbl.cfg.get("text", "")) or not zwin.later:
+                break
+            fn, a = zwin.later.pop(0)
+            time.sleep(0.02)
+            fn(*a)
+    finally:
+        zsync_update.update = saved_update
+    ztext = str(zlbl.cfg.get("text", ""))
+    check("zsync: unerwarteter Fehler im Thread wird gemeldet, Knopf wieder frei",
+          "Aktualisieren fehlgeschlagen" in ztext and "Unerwarteter Fehler: Testfehler" in ztext
+          and zbtn.cfg.get("state") == "normal", (ztext, zbtn.cfg))
+
     # ---------------------------------------------------------------- Fenster "Was ist neu" (nur mit Bildschirm)
     try:
         import tkinter as tk
@@ -334,6 +383,65 @@ try:
 
     (ok, msg, info), _s, _j = verify(os.path.join(work, "fehlt.img.zst"))
     check("fehlende Datei: Fehler statt Absturz", not ok and msg, msg)
+
+    # ---------------------------------------------------------------- Helfer meldet nichts mehr (pkexec-Weg, ohne root)
+    import pc_linux  # noqa: E402
+
+    def stalled_job(obey):
+        """LinuxJob ohne pkexec: statt des Helfers ein Python-Prozess, der nie etwas meldet und auf die Abbruch-Datei
+        wartet; obey: endet dann, sonst läuft er weiter (wie ein Helfer, der in einem Gerätezugriff hängt)"""
+        job = object.__new__(pc_linux.LinuxJob)
+        job.tmpdir = tempfile.mkdtemp(prefix="haengt-", dir=work)
+        job.out, job.cancel_file = os.path.join(job.tmpdir, "auftrag.txt"), os.path.join(job.tmpdir, "abbruch")
+        job.cancellable, job.disk, job.STALL_S, job.STOP_WAIT_S = False, "sdz", 0.5, 3
+        code = ("import os, sys, time\n"
+                "while not os.path.exists(sys.argv[1]): time.sleep(0.05)\n"
+                "time.sleep(0 if sys.argv[2] == 'ja' else 120)\n")
+        job.proc = subprocess.Popen([sys.executable, "-c", code, job.cancel_file, "ja" if obey else "nein"])
+        return job
+
+    def refused(args):
+        try:
+            pc_common.check_lingering(args)
+            return False
+        except RuntimeError:
+            return True
+
+    steps = []
+    job = stalled_job(True)
+    ok, msg, info = job.follow(lambda pct, step: steps.append(step))
+    check("hängender Helfer endet nach dem Abbruch: Meldung, Arbeitsordner weg, nichts gesperrt",
+          not ok and "30 Minuten" in msg and "Hintergrund" not in msg and not os.path.exists(job.tmpdir)
+          and any("reagiert nicht" in s for s in steps) and not refused(["format", "sdz", "1"]), (msg, steps))
+    job = stalled_job(False)
+    ok, msg, info = job.follow(lambda pct, step: None)
+    check("hängender Helfer endet nicht: Meldung, Abbruch-Datei bleibt, nur dieser Datenträger gesperrt",
+          not ok and "Hintergrund" in msg and os.path.exists(job.cancel_file) and refused(["format", "sdz", "1"])
+          and not refused(["speed", "sdy", "1"]), (msg, os.path.isdir(job.tmpdir) and os.listdir(job.tmpdir)))
+    saved_pk, saved_fh = pc_linux.pkexec_path, pc_common.find_helper
+    pc_linux.pkexec_path = pc_common.find_helper = lambda: None   # fehlte die Sperre: nie eine echte Rechteabfrage
+    blocked = []
+    try:
+        for start in ([lambda: pc_linux.LinuxJob(["layout", "sdz", "1"], helper="-", digest="-")]
+                      + ([lambda: pc_common._WinJob(["layout", "sdz", "1"])] if pc_common.IS_WIN else [])):
+            try:
+                start()
+                blocked.append("gestartet")
+            except RuntimeError as e:
+                blocked.append("früherer Auftrag" in str(e))
+            except Exception as e:   # z. B. os.geteuid unter Windows: die Sperre hat nicht gegriffen
+                blocked.append(repr(e))
+    finally:
+        pc_linux.pkexec_path, pc_common.find_helper = saved_pk, saved_fh
+    check("neuer Auftrag auf diesem Datenträger wird abgelehnt (pkexec- und UAC-Weg)", all(b is True for b in blocked),
+          blocked)
+    job.proc.kill()
+    for _ in range(100):
+        if not os.path.exists(job.tmpdir):
+            break
+        time.sleep(0.1)
+    check("nach seinem Ende: aufgeräumt und wieder frei", not os.path.exists(job.tmpdir)
+          and not refused(["format", "sdz", "1"]))
 finally:
     shutil.rmtree(work, ignore_errors=True)
 

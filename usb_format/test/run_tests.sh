@@ -64,6 +64,25 @@ for spec in "fat32 1G 512 32768" "fat32 1T 512 2048" "exfat 1G 512 3000" "exfat 
     fi
 done
 
+echo "== Abgelehnt, bevor etwas geschrieben wird (alte Daten bleiben) =="
+# Zuordnungseinheit/Größe passt nicht zum Dateisystem: das muss vor dem Löschen der alten Partitionstabelle auffallen
+for spec in "fat32 1T 512 2048" "fat32 1G 512 131072" "exfat 1G 4096 2048" "fat32 3T 512 0"; do
+    set -- $spec
+    rm -f "$W/k.img"
+    truncate -s "$(size "$2")" "$W/k.img"
+    printf 'ALTE-DATEN-VORNE' | dd of="$W/k.img" bs=1 seek=440 conv=notrunc status=none
+    printf 'ALTE-DATEN-HINTEN' | dd of="$W/k.img" bs=1 seek=$(( $(size "$2") - 4096 )) conv=notrunc status=none
+    if "$W/mkfs_test" disk "$W/k.img" "$1" "$(size "$2")" "$3" "" "$4" --keep >"$W/log" 2>&1; then
+        bad "$1 $2 cluster=$4 hätte abgelehnt werden müssen"
+    elif [ "$(dd if="$W/k.img" bs=1 skip=440 count=16 status=none)" = "ALTE-DATEN-VORNE" ] &&
+         [ "$(dd if="$W/k.img" bs=1 skip=$(( $(size "$2") - 4096 )) count=17 status=none)" = "ALTE-DATEN-HINTEN" ]; then
+        ok "$1 $2 cluster=$4 abgelehnt, Datenträger unverändert: $(cat "$W/log")"
+    else
+        bad "$1 $2 cluster=$4 abgelehnt, aber die alten Daten sind schon überschrieben"
+    fi
+done
+rm -f "$W/k.img"
+
 echo "== Zu klein / ungueltig (muss fehlschlagen) =="
 for spec in "fat32 20M 512" "exfat 4M 512"; do
     set -- $spec

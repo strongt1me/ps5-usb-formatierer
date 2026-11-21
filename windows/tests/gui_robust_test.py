@@ -252,7 +252,64 @@ try:
         bad("Kopierdialog", "%r %r" % (seen, r))
 except Exception as e:
     bad("Kopierdialog wirft", repr(e))
-app.destroy()
+
+# 6. Schließen, während die Rechteabfrage (UAC/pkexec) eines Auftrags am PC offen ist: pc_job und formatting sind dann
+# noch nicht gesetzt - trotzdem muss das Programm nachfragen
+import threading  # noqa: E402
+import time  # noqa: E402
+
+gate = threading.Event()
+
+
+class WaitingJob:
+    """wie PcJob, aber der Start wartet auf gate - wie eine offene Rechteabfrage"""
+    cancellable = False
+
+    def __init__(self, args, hwnd=None):
+        gate.wait(30)
+
+    def follow(self, on_progress):
+        return True, "fertig", {}
+
+    def cancel(self):
+        pass
+
+
+for _i in range(600):   # eine Suche nach der PS5 vom Programmstart darf nicht mehr laufen
+    if not app.busy:
+        break
+    app.update()
+    time.sleep(0.05)
+asked = []
+saved = (uf.PcJob, uf.pc_list, uf.messagebox.askyesno)
+uf.PcJob, uf.pc_list = WaitingJob, lambda progress=None: []
+uf.messagebox.askyesno = lambda *a, **k: asked.append(a[1] if len(a) > 1 else k.get("message", "")) or False
+try:
+    app._pc_run("speed", ["speed", "9", "1"])
+    app.update()
+    app._on_close()   # "Nein": das Fenster bleibt offen
+    still_open = bool(app.winfo_exists())
+    gate.set()
+    for _i in range(300):   # den Auftrag zu Ende laufen lassen
+        app.update()
+        if not app.busy:
+            break
+        time.sleep(0.02)
+    if (asked and uf._("Der Auftrag läuft am PC im Hintergrund weiter.") in asked[0] and still_open
+            and not app.pc_starting and not app.busy):
+        ok("Schließen während der Rechteabfrage eines PC-Auftrags: fragt nach, Fenster bleibt offen")
+    else:
+        bad("Schließen während der Rechteabfrage eines PC-Auftrags", "%r %r %r %r" % (asked, still_open, app.pc_starting,
+                                                                                     app.busy))
+except Exception as e:
+    bad("Schließen während der Rechteabfrage wirft", repr(e))
+finally:
+    gate.set()
+    uf.PcJob, uf.pc_list, uf.messagebox.askyesno = saved
+try:
+    app.destroy()
+except tk.TclError:   # schon zu (ohne Nachfrage geschlossen - oben als Fehler gemeldet)
+    pass
 
 print("Alle Oberflächen-Robustheitstests bestanden." if not fails else "%d Fehler" % fails)
 sys.exit(1 if fails else 0)

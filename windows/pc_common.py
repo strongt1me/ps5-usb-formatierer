@@ -617,11 +617,72 @@ def _helper_lines(data, on_progress):
     return result
 
 
+# Helfer, die nach dem Aufgeben (30 Minuten ohne Meldung) auch auf den Abbruch nicht enden: follow() kehrt mit einer
+# Fehlermeldung zurück, der Prozess läuft aber womöglich noch und schreibt. Solange er läuft, startet auf demselben
+# Datenträger kein neuer Auftrag, und seine Abbruch-Datei bleibt liegen; erst nach seinem Ende räumt ein
+# Hintergrundthread den Arbeitsordner auf.
+_lingering = []
+_lingering_lock = threading.Lock()
+
+
+def job_disk(args):
+    """Datenträger eines Auftrags (args wie an den Helfer: Art, Datenträger, ...; Optionen wie --image davor)"""
+    a = [str(x) for x in args]
+    while len(a) >= 2 and a[0].startswith("--"):
+        a = a[2:]
+    return a[1] if len(a) > 1 else None
+
+
+def check_lingering(args):
+    """Vor dem Start eines Auftrags: läuft auf seinem Datenträger noch ein aufgegebener Helfer? Dann RuntimeError."""
+    disk = job_disk(args)
+    with _lingering_lock:
+        _lingering[:] = [j for j in _lingering if j.running()]
+        busy = any(j.disk is None or disk is None or j.disk == disk for j in _lingering)
+    if busy:
+        raise RuntimeError(_("Auf diesem Datenträger läuft noch ein früherer Auftrag, dessen Helfer nicht mehr "
+                             "reagiert. Bitte warten, bis er sich beendet, oder den Rechner neu starten."))
+
+
+def linger(job, on_exit):
+    """job ist aufgegeben, sein Helfer läuft aber noch: merken (check_lingering) und erst nach seinem Ende on_exit()
+    (aufräumen) - bis dahin bleibt die Abbruch-Datei liegen"""
+    with _lingering_lock:
+        _lingering.append(job)
+
+    def reap():
+        while job.running():
+            time.sleep(2)
+        with _lingering_lock:
+            if job in _lingering:
+                _lingering.remove(job)
+        on_exit()
+
+    threading.Thread(target=reap, daemon=True).start()
+
+
+def wait_stopped(job, on_progress, limit):
+    """Nach dem Abbrechen eines hängenden Helfers bis zu limit Sekunden warten, bis er sich wirklich beendet (Hinweis
+    im Fortschritt). Liefert die Meldung für das Ergebnis."""
+    on_progress(0, _("Der Helfer reagiert nicht – warte, bis er sich beendet"))
+    end = time.time() + limit
+    while job.running() and time.time() < end:
+        time.sleep(0.5)
+    if not job.running():
+        return _("Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen.")
+    return _("Der Helfer meldet seit 30 Minuten nichts mehr und beendet sich auch nach dem Abbruch nicht – er läuft "
+             "im Hintergrund weiter. Bis er sich beendet, startet auf diesem Datenträger kein neuer Auftrag; endet er "
+             "nicht, den Rechner neu starten.")
+
+
 class _WinJob:
     """Startet den Helfer mit Administratorrechten (UAC-Abfrage von Windows) und liest seine Ausgabedatei mit"""
     STALL_S = 30 * 60   # so lange ohne neue Ausgabe: Helfer gilt als hängend
+    STOP_WAIT_S = 10 * 60   # danach so lange warten, bis er sich wirklich beendet (sonst: linger)
 
     def __init__(self, args, hwnd=None):
+        check_lingering(args)   # dort läuft noch ein aufgegebener Helfer: nichts Neues starten
+        self.disk = job_disk(args)
         exe = find_helper()
         if not exe:
             raise RuntimeError(_("Der Helfer {name} fehlt neben dem Programm.", name=HELPER_NAME))
@@ -697,6 +758,7 @@ class _WinJob:
     def follow(self, on_progress):
         """Bis zum Ende mitlesen; liefert (ok, meldung, json)"""
         pos, result, last_change = 0, None, time.time()
+        stalled = False
         try:
             while result is None:
                 alive = self.running()
@@ -720,15 +782,25 @@ class _WinJob:
                     self.cancel_requested = False   # hängt: "fehlgeschlagen", nicht "abgebrochen"
                     # wirklich beenden, sonst schreibt er womöglich weiter, während schon ein neuer Auftrag läuft.
                     # Mitten im Formatieren abgebrochen bleibt ein leerer Stick (Tabelle wird zuletzt geschrieben).
+                    # Hängt er in einem Gerätezugriff, endet er erst danach - so lange warten (wie unter Linux)
                     ctypes.windll.kernel32.TerminateProcess(ctypes.c_void_p(self.proc), 1)
-                    result = (False, _("Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen."), {})
+                    result = (False, wait_stopped(self, on_progress, self.STOP_WAIT_S), {})
+                    stalled = True
                 elif result is None:
                     time.sleep(0.3)
         finally:
-            ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 5000)   # Datei freigeben lassen
-            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self.proc))
-            self._cleanup()
+            # Datei freigeben lassen; nach einem regulären Ende darf der Helfer länger brauchen (Datenträger freigeben),
+            # erst dann gilt er als "läuft noch" (linger) - sonst sperrte check_lingering das Laufwerk mit falscher Meldung
+            ctypes.windll.kernel32.WaitForSingleObject(ctypes.c_void_p(self.proc), 5000 if stalled else 60000)
+            if self.running():   # endet nicht: Handle und Abbruch-Datei behalten, bis er sich beendet
+                linger(self, self._close)
+            else:
+                self._close()
         return result
+
+    def _close(self):
+        ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self.proc))
+        self._cleanup()
 
 
 if IS_WIN:
@@ -870,17 +942,39 @@ def enable_history(app_name):
     _history["path"] = os.path.join(os.path.dirname(settings_file(app_name)), "history.jsonl")
 
 
+# Felder im Verlauf: Zahlen (mit Obergrenze - "t" muss noch ein Datum ergeben) und Texte
+_HISTORY_NUMS = {"t": 1 << 34, "secs": 1 << 53, "size": 1 << 53, "mbps": 1 << 53}
+_HISTORY_TEXTS = ("device", "model", "ident", "label", "fs", "file", "msg")
+
+
+def history_entry(e):
+    """Verlaufseintrag bereinigt: Zahlen- und Textfelder mit falschem Typ oder unsinnigem Wert fallen weg - eine
+    beschädigte Datei darf nie zum Fehler werden (record_job läuft nach einem gelungenen Auftrag). None = unbrauchbar."""
+    if not isinstance(e, dict) or not isinstance(e.get("kind"), str):
+        return None
+    for k, top in _HISTORY_NUMS.items():
+        v = e.get(k)
+        # bool ist auch int; NaN und Unendlich (json.loads liest beide) fallen am Vergleich durch
+        if k in e and (isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v < top):
+            del e[k]
+    for k in _HISTORY_TEXTS:
+        if k in e and not isinstance(e[k], str):
+            del e[k]
+    return e
+
+
 def history_load():
-    """Einträge, neueste zuerst; kaputte Zeilen fallen weg"""
+    """Einträge, neueste zuerst; kaputte Zeilen fallen weg, kaputte Felder auch (history_entry)"""
     out = []
     try:
-        with open(_history["path"] or "", encoding="utf-8") as f:
+        # errors="replace": an kaputten Bytes scheiterte sonst schon das Zeilenlesen (UnicodeDecodeError)
+        with open(_history["path"] or "", encoding="utf-8", errors="replace") as f:
             for line in f:
                 try:
-                    e = json.loads(line)
-                except ValueError:
+                    e = history_entry(json.loads(line))
+                except (ValueError, RecursionError):   # RecursionError: unsinnig tief verschachtelt
                     continue
-                if isinstance(e, dict) and isinstance(e.get("kind"), str):
+                if e is not None:
                     out.append(e)
                 if len(out) >= HISTORY_MAX:
                     break
@@ -1810,12 +1904,13 @@ def _zsync_run(win, btn, lbl, zs, found, target):
                                               lambda step, frac: q.put(("p", step, frac)))
             zsync_update.replace_appimage(tmp, appimage)
             q.put(("ok", need, total))
-        except (OSError, ValueError, zsync_update.ZsyncError) as e:
+        except Exception as e:   # auch Unerwartetes melden - sonst stünde die Anzeige für immer bei "… NN %"
             try:
                 os.remove(tmp)
             except OSError:
                 pass
-            q.put(("err", str(e)))
+            expected = (OSError, ValueError, http.client.HTTPException, zsync_update.ZsyncError)
+            q.put(("err", str(e) if isinstance(e, expected) else _("Unerwarteter Fehler: {e}", e=e)))
 
     def poll():
         try:

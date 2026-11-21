@@ -24,6 +24,7 @@ typedef struct {
     uint64_t    sectors;  /* Sektoren des gesamten Geraets */
     uint64_t    base;     /* Byte-Offset, ab dem mkfs_* schreibt (Partitionsbeginn) */
     progress_fn progress; /* optional */
+    int         plan_only; /* nur prüfen: mkfs_* rechnen und prüfen alles, schreiben nichts (0 = passt, sonst mkfs_error) */
 } blkdev_t;
 
 /* Datei, die gleich beim Formatieren angelegt wird (nur exFAT; genutzt von den Tests) */

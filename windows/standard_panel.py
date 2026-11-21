@@ -952,6 +952,7 @@ class StandardPanel(ttk.Frame):
                 after(ok, text, info)
         elif kind == "error":
             self.job = None
+            self.job_starting = False   # auch nach unerwarteten Fehlern im Thread (guarded)
             self.pbar.stop()
             self.pbar.configure(mode="determinate")
             self._set_busy(False)

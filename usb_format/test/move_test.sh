@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Spiele verschieben (POST /api/move): Kopieren auf ein zweites Laufwerk mit Prüfsummen, Original bleibt, nichts Halbfertiges,
-# Abbrechen räumt auf, Schutz vor Überschreiben / gleichem Laufwerk / laufendem Spiel.
+# Abbrechen lässt die Teilkopie liegen (dieselbe Auswahl setzt fort), Schutz vor Überschreiben / gleichem Laufwerk / laufendem Spiel.
 # Aufruf: test/move_test.sh   (baut selbst, Port 18118)
 set -u
 cd "$(dirname "$0")/.."
@@ -126,7 +126,7 @@ code=$(post "{\"keys\":\"$(key "$A/Gross")\",\"device\":\"$DEV2\"}" move)
 [ "$code" = 409 ] && [ ! -e "$B/homebrew/Gross" ] && ok "laufendes Spiel: abgelehnt" || bad "laufendes Spiel" "$code"
 rm -rf "$W/sandbox"
 
-# ---------------------------------------------------------------- Abbrechen räumt auf
+# ---------------------------------------------------------------- Abbrechen: Teilkopie bleibt (Fortsetzen)
 start USBFMT_SLOW=1
 library
 KG=$(key "$A/Gross")

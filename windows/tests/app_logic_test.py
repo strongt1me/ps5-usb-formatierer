@@ -110,6 +110,39 @@ check(pc_common.slower_note([{"mbps": 8, "ident": "A"}], {"mbps": 4, "ident": "A
 check(pc_common.record_job(["speed", "4", "1"], False, "Abgebrochen.", stick, info={"read": 1}) == ""
       and "mbps" not in pc_common.history_load()[0], "record_job: fehlgeschlagene Messung ohne Tempo und ohne Hinweis")
 
+# Beschädigter Verlauf: falsche Typen, NaN/Unendlich, kaputte Bytes, zu tief verschachtelt - record_job nach einem
+# gelungenen Auftrag darf daran nie scheitern ("Unerwarteter Fehler" statt Erfolgsmeldung)
+check(pc_common.history_entry({"kind": "speed", "mbps": float("nan"), "size": "8", "t": 5, "secs": True, "ident": None})
+      == {"kind": "speed", "t": 5} and pc_common.history_entry({"kind": 3}) is None and pc_common.history_entry([1]) is None
+      and pc_common.history_entry({"kind": "format", "t": 1 << 40, "mbps": -1, "model": "M"}) == {"kind": "format", "model": "M"},
+      "history_entry: Felder mit falschem Typ oder unsinnigem Wert fallen weg")
+with open(pc_common._history["path"], "ab") as fh:
+    fh.write(b'{"kind": "speed", "mbps": "schnell", "size": "gross", "ident": ["S9"], "t": 1e99, "secs": NaN}\n'
+             b'{"kind": "speed", "mbps": Infinity, "size": [1], "model": 5, "ident": "S9"}\n'
+             b'{"kind": "speed", "mbps": true, "size": -3, "ident": "S9"}\n'
+             b'{"kind": 7}\n\xff\xfe kaputte Bytes\n' + b"[" * 100000 + b"\n")
+try:
+    note = pc_common.record_job(["speed", "4", str(stick["size"])], True, "gemessen", stick, info={"read": 97})
+    h = pc_common.history_load()
+    nums_ok = all(isinstance(e.get(k, 0), (int, float)) and not isinstance(e.get(k, 0), bool)
+                  for e in h for k in ("t", "secs", "size", "mbps"))
+    check(isinstance(note, str) and h[0].get("mbps") == 97 and nums_ok and all(isinstance(e.get("ident", ""), str) for e in h)
+          and len(h) == 10, "record_job: beschädigter Verlauf wird bereinigt statt den Erfolg zum Fehler zu machen", h)
+except Exception as e:   # genau das darf nicht passieren
+    check(False, "record_job: beschädigter Verlauf wird bereinigt statt den Erfolg zum Fehler zu machen", repr(e))
+
+# "Abbrechen" nennt den Auftrag, den der Status zuletzt als laufend meldete - und keinen, wenn keiner lief
+calls = []
+fake = uf.Api.__new__(uf.Api)
+fake._call = lambda path, body=None, timeout=4: calls.append((path, body)) or (
+    {"busy": True, "job": 42} if path == "/api/status" and len(calls) == 1 else {"busy": False, "job": 42} if path == "/api/status" else {})
+fake.status()
+fake.cancel()
+fake.status()
+fake.cancel(keep=True)
+check(calls[1] == ("/api/cancel", {"job": 42}) and calls[3] == ("/api/cancel", {"keep": True}),
+      "Abbrechen: mit der Nummer des laufenden Auftrags, ohne Nummer, wenn keiner läuft", calls)
+
 hints = uf.pkg_hints({"fwhigh": True, "minfw": "9.00", "vs": "older", "inst": "01.005.000", "cat": "update"}, "8.20")
 check([k for k, _t in hints] == ["bad", "warn"], "pkg_hints: Firmware zu alt und ältere Version", hints)
 check(uf.pkg_hints({"cat": "dlc", "fwhigh": False}, "8.20") == [], "pkg_hints: Zusatzinhalt ohne Hinweise")

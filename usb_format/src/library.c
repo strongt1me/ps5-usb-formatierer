@@ -105,7 +105,7 @@ static const char *jget(const char *p, const char *e, const char *key) {
         p = jws(p, e);
         if (p >= e || *p != ':') return NULL;
         p = jws(p + 1, e);
-        if (!strcmp(k, key)) return p;
+        if (!strcmp(k, key)) return p < e ? p : NULL;   /* kein Wert mehr im Puffer: die Aufrufer lesen *p ohne eigene Grenze */
         if (!(p = jskip(p, e))) return NULL;
         p = jws(p, e);
         if (p >= e || *p != ',') return NULL;

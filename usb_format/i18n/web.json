@@ -2789,6 +2789,24 @@
   "es": "Unidad de destino no encontrada: no iniciado",
   "fr": "Lecteur cible introuvable – non démarré"
  },
+ "Diese Aufträge aus der vorigen Sitzung wurden nicht übernommen: Ihr Quell- oder Ziel-Laufwerk hat keine Seriennummer und ist nach dem Neuladen nicht sicher wiederzuerkennen. Bitte neu einstellen.": {
+  "en": "These jobs from the previous session were not kept: their source or target drive has no serial number and cannot be reliably recognised after reloading. Please add them again.",
+  "it": "Queste operazioni della sessione precedente non sono state riprese: la loro unità di origine o di destinazione non ha un numero di serie e dopo il ricaricamento non si riconosce con certezza. Aggiungile di nuovo.",
+  "es": "Estas tareas de la sesión anterior no se han conservado: su unidad de origen o de destino no tiene número de serie y tras recargar no se puede reconocer con seguridad. Vuelve a añadirlas.",
+  "fr": "Ces tâches de la session précédente n'ont pas été reprises : leur lecteur source ou cible n'a pas de numéro de série et ne peut pas être reconnu avec certitude après le rechargement. Ajoutez-les à nouveau."
+ },
+ "Quell-Laufwerk bzw. Auswahl nicht gefunden – nicht gestartet": {
+  "en": "Source drive or selection not found – not started",
+  "it": "Unità di origine o selezione non trovata – non avviato",
+  "es": "Unidad de origen o selección no encontrada: no iniciado",
+  "fr": "Lecteur source ou sélection introuvable – non démarré"
+ },
+ "Die Warteschlange läuft – weitere Aufträge erst, wenn sie abgearbeitet ist.": {
+  "en": "The queue is running – other jobs only once it has finished.",
+  "it": "La coda è in corso – altre operazioni solo quando sarà completata.",
+  "es": "La cola está en curso: otras tareas solo cuando haya terminado.",
+  "fr": "La file d'attente est en cours – d'autres tâches seulement une fois qu'elle sera terminée."
+ },
  "Inhalt gleich": {
   "en": "Same content",
   "it": "Contenuto uguale",
@@ -3220,5 +3238,11 @@
   "it": "Non caricati: {names}",
   "es": "No subidos: {names}",
   "fr": "Non envoyés : {names}"
+ },
+ "alter Spielstand, beim Einspielen aufgehoben": {
+  "en": "old save, kept by an import",
+  "it": "vecchio salvataggio, conservato da un ripristino",
+  "es": "partida antigua, conservada por una restauración",
+  "fr": "ancienne sauvegarde, conservée par une restauration"
  }
 }

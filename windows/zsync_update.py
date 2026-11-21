@@ -4,11 +4,14 @@ Die .zsync-Datei neben dem AppImage im Release (appimagetool -u, zsyncmake) list
 schwache, rollende Prüfsumme (rsum) und den Anfang seiner MD4-Prüfsumme. Gesucht wird jeder Block an beliebiger Stelle
 der laufenden, alten Datei; was sich nicht findet, kommt per HTTP-Range aus dem Release. Die fertige Datei muss die
 SHA-1 aus der .zsync und - wenn GitHub sie nennt - die SHA-256 des Releases haben, erst dann ersetzt sie die alte.
-Zwischen zwei Versionen sind so meist nur etwa 10 % zu laden. Nur Python-Standardbibliothek."""
+Zwischen zwei Versionen sind so meist nur etwa 10 % zu laden. Nur Python-Standardbibliothek (dazu i18n für die
+Fehlertexte)."""
 import hashlib
 import os
 import struct
 import urllib.request
+
+from i18n import _   # die Fehlertexte zeigt "Jetzt aktualisieren" (pc_common) an
 
 MAX_ZSYNC = 8 << 20      # .zsync-Datei höchstens (34 MB AppImage, 2-KiB-Blöcke: ~100 KiB)
 MAX_RANGES = 48          # so viele HTTP-Anfragen höchstens - nahe Lücken werden dazu zusammengelegt
@@ -68,23 +71,23 @@ def parse(raw):
     """.zsync-Datei -> {"blocksize", "length", "sha1", "seq", "rlen", "clen", "blocks": [(rsum, md4-anfang)]}"""
     head, sep, body = raw.partition(b"\n\n")
     if not sep:
-        raise ZsyncError("zsync: kein Kopf")
+        raise ZsyncError(_("zsync: kein Kopf"))
     hdr = {}
     for line in head.decode("ascii", "replace").split("\n"):
-        k, _, v = line.partition(":")
+        k, _sep, v = line.partition(":")
         hdr[k.strip()] = v.strip()
     try:
         bs, length = int(hdr["Blocksize"]), int(hdr["Length"])
         seq, rlen, clen = (int(x) for x in hdr["Hash-Lengths"].split(","))
         sha1 = bytes.fromhex(hdr["SHA-1"])
     except (KeyError, ValueError) as e:
-        raise ZsyncError(f"zsync: Kopf unvollständig ({e})") from None
+        raise ZsyncError(_("zsync: Kopf unvollständig ({e})", e=e)) from None
     if not (bs >= 512 and bs & (bs - 1) == 0 and 0 < length < (1 << 34) and 1 <= seq <= 2 and 1 <= rlen <= 4
             and 3 <= clen <= 16 and len(sha1) == 20):
-        raise ZsyncError("zsync: ungültige Angaben")
+        raise ZsyncError(_("zsync: ungültige Angaben"))
     n = (length + bs - 1) // bs
     if len(body) < n * (rlen + clen):
-        raise ZsyncError("zsync: Blockliste unvollständig")
+        raise ZsyncError(_("zsync: Blockliste unvollständig"))
     blocks = []
     for i in range(n):
         o = i * (rlen + clen)
@@ -204,10 +207,10 @@ def _get_range(url, start, end):
     req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end}", "User-Agent": "USB-Formatierer"})
     with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
         if r.getcode() != 206:
-            raise ZsyncError(f"Server liefert keine Teilbereiche (HTTP {r.getcode()})")
+            raise ZsyncError(_("Server liefert keine Teilbereiche (HTTP {code})", code=r.getcode()))
         data = r.read(end - start + 2)
     if len(data) != end - start + 1:
-        raise ZsyncError("Teilbereich unvollständig geladen")
+        raise ZsyncError(_("Teilbereich unvollständig geladen"))
     return data
 
 
@@ -216,7 +219,7 @@ def fetch(url, max_bytes=MAX_ZSYNC):
     with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
         data = r.read(max_bytes + 1)
     if len(data) > max_bytes:
-        raise ZsyncError("zsync-Datei zu groß")
+        raise ZsyncError(_("zsync-Datei zu groß"))
     return data
 
 
@@ -246,9 +249,9 @@ def update(old_path, zsync_url, file_url, out_path, sha256=None, progress=None, 
         out[s:s + len(data)] = data
     del out[length:]
     if hashlib.sha1(out).digest() != z["sha1"]:
-        raise ZsyncError("SHA-1 der neuen Datei stimmt nicht - nichts ersetzt")
+        raise ZsyncError(_("SHA-1 der neuen Datei stimmt nicht – nichts ersetzt"))
     if sha256 and hashlib.sha256(out).hexdigest() != sha256.lower():
-        raise ZsyncError("SHA-256 der neuen Datei stimmt nicht mit dem Release überein - nichts ersetzt")
+        raise ZsyncError(_("SHA-256 der neuen Datei stimmt nicht mit dem Release überein – nichts ersetzt"))
     with open(out_path, "wb") as f:
         f.write(out)
     say("done", 1.0)

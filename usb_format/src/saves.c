@@ -2123,7 +2123,8 @@ int saves_import_recover(char *report, size_t report_len) {
     /* Lag das neue Abbild schon an seinem Platz und hat ein Spiel es seit dem Abbruch benutzt (jünger als die Aufzeichnung),
      * steckt darin womöglich neuer Fortschritt: dann nicht zurücknehmen, sondern zu Ende führen (der Rest ist die Zeile).
      * Ein PS4-Abbild braucht dazu seinen neuen Schlüssel: liegt der noch daneben, bleibt es beim Zurücknehmen. */
-    if (!strcmp(phase, "swap") && lstat(neu, &st) != 0 && !(j->ps4 && bfin[0] && lstat(bneu, &st) == 0)) {
+    if (!strcmp(phase, "swap") && lstat(neu, &st) != 0 && !(j->ps4 && bfin[0] && lstat(bneu, &st) == 0) &&
+        (!j->replaced || lstat(alt, &st) == 0)) {
         struct stat fs, js;
         if (lstat(j->fin, &fs) == 0 && S_ISREG(fs.st_mode) && lstat(path, &js) == 0 && fs.st_mtime > js.st_mtime + 2) {
             if (lstat(ineu, &st) == 0) (void)rename(ineu, j->ifin);   /* das Bild gehört zum neuen Stand */
@@ -2161,9 +2162,12 @@ int saves_import_recover(char *report, size_t report_len) {
         else if (!j->replaced) unlink(j->fin);
         if (lstat(ialt, &s2) == 0) { if (rename(ialt, j->ifin) != 0) bad = errno ? errno : EIO; }
         else if (!j->icon_existed) unlink(j->ifin);
+        int db_kept = 0;   /* die Datenbank hat sich seit der Aufzeichnung geändert: nicht zurückgesetzt */
         if (!bad && !strcmp(phase, "rollback") && (j->dbb[0] || j->db_new)) {
             /* die Zeile war schon geschrieben: die Datenbank wie vorher (die Kopie zurück bzw. die neu angelegte weg) */
-            if (j->db_new) unlink(j->dbp);
+            struct stat ds, js;
+            if (lstat(j->dbp, &ds) == 0 && lstat(path, &js) == 0 && ds.st_mtime > js.st_mtime + 2) db_kept = 1;
+            else if (j->db_new) unlink(j->dbp);
             else {
                 char dneu[SP];
                 if (path_fmt(dneu, sizeof(dneu), "%s.usbfmt-neu", j->dbp) || copy_file(NULL, j->dbb, dneu, (uint64_t)-1, 0644) != 0 || rename(dneu, j->dbp) != 0)
@@ -2179,7 +2183,11 @@ int saves_import_recover(char *report, size_t report_len) {
         unlink(neu);
         unlink(ineu);
         if (j->ps4 && bfin[0]) unlink(bneu);
-        snprintf(report, report_len, T("Ein unterbrochenes Einspielen von %.15s (%.60s) wurde zurückgenommen: Der alte Spielstand liegt wieder an seinem Platz."), j->row.title_id, j->row.dir_name);
+        if (db_kept)
+            snprintf(report, report_len, T("Ein unterbrochenes Einspielen von %.15s (%.60s) wurde zurückgenommen: Der alte Spielstand liegt wieder an seinem Platz. Die Spielstand-Datenbank hat sich seitdem geändert und wurde deshalb nicht zurückgesetzt; der Eintrag dieses Spielstands kann veraltet sein."),
+                     j->row.title_id, j->row.dir_name);
+        else
+            snprintf(report, report_len, T("Ein unterbrochenes Einspielen von %.15s (%.60s) wurde zurückgenommen: Der alte Spielstand liegt wieder an seinem Platz."), j->row.title_id, j->row.dir_name);
     }
     free(j);
     unlink(path);
@@ -2281,6 +2289,53 @@ int saves_cleanup_stale(void) {
     }
     if (ud) closedir(ud);
     return n;
+}
+
+/* Name eines aufgehobenen alten Spielstands (Abbild, Schlüssel oder Bild): "<Name>-JJJJMMTT-hhmmss.usbfmt-alt" */
+static int kept_name(const char *n) {
+    const size_t l = strlen(n);
+    if (l < 1 + 16 + 11 || strcmp(n + l - 11, ".usbfmt-alt")) return 0;
+    const char *s = n + l - 11 - 16;   /* "-JJJJMMTT-hhmmss" */
+    if (s[0] != '-' || s[9] != '-') return 0;
+    for (int i = 1; i < 16; i++) if (i != 9 && (s[i] < '0' || s[i] > '9')) return 0;
+    return 1;
+}
+
+static void kept_in(const char *dir, void (*add)(void *ctx, const char *path), void *ctx) {
+    DIR *d = opendir(dir);
+    struct dirent *e;
+    while (d && (e = readdir(d)) != NULL) {
+        char full[SP];
+        struct stat st;
+        if (!kept_name(e->d_name) || path_fmt(full, sizeof(full), "%s/%s", dir, e->d_name)) continue;
+        if (lstat(full, &st) == 0 && S_ISREG(st.st_mode)) add(ctx, full);
+    }
+    if (d) closedir(d);
+}
+
+void saves_kept_list(void (*add)(void *ctx, const char *path), void *ctx) {
+    const char *home = plat_saves_dir();
+    DIR *ud = home ? opendir(home) : NULL;
+    struct dirent *ue;
+    while (ud && (ue = readdir(ud)) != NULL) {
+        if (!uid_ok(ue->d_name)) continue;
+        for (int ps4 = 0; ps4 < 2; ps4++)
+            for (int meta = 0; meta < 2; meta++) {   /* wie saves_cleanup_stale: Abbilder/Schlüssel und Bilder */
+                char area[SP];
+                if (path_fmt(area, sizeof(area), meta ? "%s/%s/%s/user" : "%s/%s/%s", home, ue->d_name,
+                             meta ? (ps4 ? "savedata_meta" : "savedata_prospero_meta") : (ps4 ? SAVE_SUBDIR_PS4 : SAVE_SUBDIR)))
+                    continue;
+                DIR *td = opendir(area);
+                struct dirent *te;
+                while (td && (te = readdir(td)) != NULL) {
+                    char tdir[SP];
+                    if (!(ps4 ? cusa_ok(te->d_name) : ppsa_ok(te->d_name)) || path_fmt(tdir, sizeof(tdir), "%s/%s", area, te->d_name)) continue;
+                    kept_in(tdir, add, ctx);
+                }
+                if (td) closedir(td);
+            }
+    }
+    if (ud) closedir(ud);
 }
 
 /* einen Spielstand (Ordner prefix der ZIP) für den Benutzer uid einspielen. Abschnitte: Promille a..b von p.
@@ -2599,7 +2654,18 @@ static int import_root(szr_t *z, const char *prefix, const char *uid, prog_t *p,
          * oder nimmt zurück, was sie nennt */
         /* Reste eines früheren Laufs neben den jetzigen Dateien weg: das nächste Umbenennen ersetzte sie ohnehin, und ein Zurücknehmen nach
          * einem Abbruch legte sonst einen alten Rest über den jetzigen Spielstand */
-        if (lstat(fin, &st) == 0) unlink(alt);
+        if (lstat(fin, &st) == 0 && lstat(alt, &st) == 0) {
+            char keep[SP];
+            if (path_fmt(keep, sizeof(keep), "%s-%s.usbfmt-alt", fin, stamp) || rename(alt, keep) != 0) unlink(alt);
+            else {
+                char kb[SP], ki[SP];   /* Schlüssel (PS4) und Bild unter demselben Zeitstempel daneben */
+                if (ps4 && lstat(balt, &st) == 0 && !path_fmt(kb, sizeof(kb), "%s-%s.usbfmt-alt", bfin, stamp)) (void)rename(balt, kb);
+                if (lstat(ialt, &st) == 0 && !path_fmt(ki, sizeof(ki), "%s-%s.usbfmt-alt", ifin, stamp)) (void)rename(ialt, ki);
+                const size_t on = strlen(note);
+                snprintf(note + on, notesz - on, T("%sVon einem früheren Einspielen lag noch ein Spielstand daneben; er ist als %s aufgehoben."), on ? "\n" : "",
+                         strrchr(keep, '/') ? strrchr(keep, '/') + 1 : keep);
+            }
+        }
         if (lstat(ifin, &st) == 0) unlink(ialt);
         if (ps4 && lstat(bfin, &st) == 0) unlink(balt);
         journal_path(jpath, sizeof(jpath));
@@ -2669,7 +2735,10 @@ static int import_root(szr_t *z, const char *prefix, const char *uid, prog_t *p,
                 else if (rename(ineu, ifin) != 0) { if (icon_replaced) (void)rename(ialt, ifin); unlink(ineu); }
                 else icon_in = 1;
             }
-            if (!icon_in) snprintf(note, notesz, "%s", T("Das Bild des Spielstands ließ sich nicht ablegen; der Spielstand selbst ist eingespielt."));
+            if (!icon_in) {
+                const size_t on = strlen(note);
+                snprintf(note + on, notesz - on, "%s%s", on ? "\n" : "", T("Das Bild des Spielstands ließ sich nicht ablegen; der Spielstand selbst ist eingespielt."));
+            }
         }
         sync_dir_of(fin);   /* die Umbenennungen dauerhaft, bevor "db" sie als geschehen aufzeichnet */
         if (icon_in) sync_dir_of(ifin);
@@ -2736,11 +2805,30 @@ static int import_root(szr_t *z, const char *prefix, const char *uid, prog_t *p,
             } else if (db_written && !db_existed) {
                 unlink(dbp);
             }
+            if (jw && db_back && (jrec->dbb[0] || jrec->db_new)) {
+                jrec->dbb[0] = 0;
+                jrec->db_new = 0;
+                (void)journal_write(jpath, jrec, "rollback");
+            }
             if (icon_in) { if (icon_replaced) rb_ok &= rename(ialt, ifin) == 0; else unlink(ifin); }
             if (bin_in) { if (bin_replaced) rb_ok &= rename(balt, bfin) == 0; else unlink(bfin); }
             if (image_in) { if (replaced) rb_ok &= rename(alt, fin) == 0; else unlink(fin); }
-            if (db_back) efail(err, errsz, T("%s Der Spielstand wurde nicht eingespielt; alles ist wieder so wie vorher."), e2);
-            else efail(err, errsz, T("%s Der Spielstand wurde nicht eingespielt. Die Spielstand-Datenbank ließ sich nicht zurücklegen; ihre Kopie liegt in %s."), e2, dbb);
+            /* "alles wie vorher" nur, wenn Dateien und Datenbank zurückliegen; sonst genau sagen, was übrig ist */
+            if (rb_ok && db_back) efail(err, errsz, T("%s Der Spielstand wurde nicht eingespielt; alles ist wieder so wie vorher."), e2);
+            else if (rb_ok) efail(err, errsz, T("%s Der Spielstand wurde nicht eingespielt. Die Spielstand-Datenbank ließ sich nicht zurücklegen; ihre Kopie liegt in %s."), e2, dbb);
+            else {
+                char left[900] = "";
+                if (replaced && lstat(alt, &st) == 0)
+                    snprintf(left, sizeof(left), T("Der bisherige Spielstand ließ sich nicht zurücklegen; er liegt als sdimg_%s.usbfmt-alt daneben."), info.slot);
+                else
+                    snprintf(left, sizeof(left), "%s", T("Bild oder Schlüsseldatei des bisherigen Spielstands ließen sich nicht ganz zurücklegen."));
+                if (!db_back) {
+                    const size_t ll = strlen(left);
+                    snprintf(left + ll, sizeof(left) - ll, T(" Die Spielstand-Datenbank ließ sich nicht zurücklegen; ihre Kopie liegt in %s."), dbb);
+                }
+                efail(err, errsz, "%s %s %s%s", e2, T("Der Spielstand wurde nicht eingespielt."), left,
+                      jw ? T(" Der nächste Start des Formatierers versucht es noch einmal; bis dahin diesen Spielstand bitte nicht benutzen.") : "");
+            }
             goto done;
         }
         if (replaced) unlink(alt);

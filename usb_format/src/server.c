@@ -229,7 +229,7 @@ static const char *size_text(uint64_t b, char *buf, size_t n) {
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static struct {
     int  busy, done, ok;
-    char kind[16];        /* format, speed, check, label */
+    char kind[24];        /* format, speed, check, label ... (längster: "content_uninstall") */
     char device[16];
     char step[128];   /* übersetzte Schrittnamen sind teils länger als 64 Bytes (Französisch) */
     int  percent;
@@ -2521,6 +2521,11 @@ static int ends_with(const char *s, const char *tail) {
 static const imgloc_t *img_path_loc(const char *path, const imgloc_t *loc, int n) {
     const char *slash = strrchr(path, '/');
     if (!slash || !ends_with(path, ".zst") || strstr(path, "/../") || slash[1] == '.') return NULL;
+    {   /* die Datei selbst keine Verknüpfung: sonst prüfte die Endung oben einen anderen Namen als den, der behandelt wird
+         * (eine "x.img.zst.part" könnte auf eine fertige Sicherung zeigen, die "Verwerfen" dann löschte) */
+        struct stat ls;
+        if (lstat(path, &ls) != 0 || !S_ISREG(ls.st_mode)) return NULL;
+    }
     char *rp = realpath(path, NULL);
     const imgloc_t *hit = NULL;
     struct stat sb;
@@ -3240,18 +3245,22 @@ static void api_images_verify(int c, const char *body) {
 static void api_images_delete(int c, const char *body) {
     char path[512], side[600];
     if (request_image(c, body, path, sizeof(path))) return;
+    /* unter der Sperre prüfen und löschen: sonst könnte dazwischen ein Auftrag (Zurückschreiben, Prüfen) genau diese Datei übernehmen */
     pthread_mutex_lock(&lock);
-    int busy = st.busy;
+    const int busy = st.busy;
+    const int ue = busy ? 0 : unlink(path) != 0 ? (errno ? errno : EIO) : 0;
+    if (!busy && !ue) {
+        snprintf(side, sizeof(side), "%s.sha256", path);
+        unlink(side);   /* fehlt sie, ist das kein Fehler */
+    }
     pthread_mutex_unlock(&lock);
     if (busy) { respond_error(c, 409, "Erst den laufenden Auftrag abwarten."); return; }
-    if (unlink(path) != 0) {
+    if (ue) {
         char err[700];
-        snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht löschen: %s"), path, strerror(errno));
+        snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht löschen: %s"), path, strerror(ue));
         respond_error(c, 500, err);
         return;
     }
-    snprintf(side, sizeof(side), "%s.sha256", path);
-    unlink(side);   /* fehlt sie, ist das kein Fehler */
     respond_ok(c, 200);
 }
 
@@ -3259,6 +3268,11 @@ static void api_images_delete(int c, const char *body) {
 static const imgloc_t *part_path_loc(const char *path, const imgloc_t *loc, int n) {
     const char *slash = strrchr(path, '/');
     if (!slash || !ends_with(path, ".img.zst.part") || strstr(path, "/../") || slash[1] == '.') return NULL;
+    {   /* die Datei selbst keine Verknüpfung: sonst prüfte die Endung oben einen anderen Namen als den, der behandelt wird
+         * (eine "x.img.zst.part" könnte auf eine fertige Sicherung zeigen, die "Verwerfen" dann löschte) */
+        struct stat ls;
+        if (lstat(path, &ls) != 0 || !S_ISREG(ls.st_mode)) return NULL;
+    }
     char *rp = realpath(path, NULL);
     const imgloc_t *hit = NULL;
     struct stat sb;
@@ -3331,18 +3345,19 @@ static void api_images_discard(int c, const char *body) {
     const imgloc_t *at = NULL;
     if (request_part(c, kv, n, path, sizeof(path), &locs, &at)) return;
     free(locs);
-    pthread_mutex_lock(&lock);
-    int busy = st.busy;
+    snprintf(statef, sizeof(statef), "%s.state", path);
+    pthread_mutex_lock(&lock);   /* wie beim Löschen: prüfen und entfernen ohne Lücke, in der ein Fortsetzen sie übernähme */
+    const int busy = st.busy;
+    const int ue = busy ? 0 : unlink(path) != 0 ? (errno ? errno : EIO) : 0;
+    if (!busy && !ue) unlink(statef);
     pthread_mutex_unlock(&lock);
     if (busy) { respond_error(c, 409, "Erst den laufenden Auftrag abwarten."); return; }
-    snprintf(statef, sizeof(statef), "%s.state", path);
-    if (unlink(path) != 0) {
+    if (ue) {
         char err[800];
-        snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht löschen: %s"), path, strerror(errno));
+        snprintf(err, sizeof(err), T("Die Datei %s lässt sich nicht löschen: %s"), path, strerror(ue));
         respond_error(c, 500, err);
         return;
     }
-    unlink(statef);
     respond_ok(c, 200);
 }
 
@@ -5110,6 +5125,16 @@ static int mv_copy_tree(mv_t *m, const char *src, const char *dst, const char *r
     if (S_ISREG(sb.st_mode)) return mv_copy_file(m, src, dst, rel, &sb);
     if (!S_ISDIR(sb.st_mode)) { snprintf(m->err, sizeof(m->err), T("Nicht unterstützte Datei (Verknüpfung oder Sonderdatei): %s"), src); return -1; }
     if (mkdir(dst, 0777) != 0 && errno != EEXIST) { snprintf(m->err, sizeof(m->err), T("Der Ordner %s lässt sich nicht anlegen: %s"), dst, strerror(errno)); return -1; }
+    {   /* schon vorhanden (Rest eines früheren Laufs): nur ein echter Ordner - eine Verknüpfung lenkte das Kopieren (und das Ersetzen
+         * abweichender Dateien) an einen anderen Ort. Sie wird entfernt (unlink trifft nur den Eintrag selbst) und neu angelegt */
+        struct stat ds;
+        if (lstat(dst, &ds) != 0 || !S_ISDIR(ds.st_mode)) {
+            if (unlink(dst) != 0 || mkdir(dst, 0777) != 0 || lstat(dst, &ds) != 0 || !S_ISDIR(ds.st_mode)) {
+                snprintf(m->err, sizeof(m->err), T("Der Ordner %s lässt sich nicht anlegen: %s"), dst, strerror(errno ? errno : ENOTDIR));
+                return -1;
+            }
+        }
+    }
     DIR *d = opendir(src);
     if (!d) { snprintf(m->err, sizeof(m->err), T("%s lässt sich nicht lesen: %s"), src, strerror(errno)); return -1; }
     char *s2 = malloc(1024), *d2 = malloc(1024), *r2 = malloc(1024);
@@ -5468,8 +5493,12 @@ static void api_move(int c, const char *body) {
         snprintf(j->dev.name, sizeof(j->dev.name), "%.8s", dev);
         have_target = stat(j->path, &xs) == 0 && S_ISDIR(xs.st_mode) && root_dev(j->path) != root_dev("/mnt");   /* eingehängt, nicht nur ein leerer Ordner */
     }
+    int target_changed = 0;
     for (int i = 0; i < lib_n; i++)   /* Ziel: eingebundenes USB-Laufwerk dieses Namens */
         if (lib_snap[i].usb && !strcmp(lib_snap[i].device, dev) && !have_target) {
+            /* noch dasselbe eingebundene Dateisystem wie bei der Suche? Ein inzwischen getauschter Stick (gleicher Name daN, andere
+             * Seriennummer) oder neu eingebundener hat einen anderen st_dev - dann nicht auf ihn kopieren (und nicht dort aufräumen) */
+            if (root_dev(lib_snap[i].r.root) != lib_snap[i].dev) { target_changed = 1; continue; }
             snprintf(j->path, sizeof(j->path), "%s", lib_snap[i].r.root);
             snprintf(j->dev.name, sizeof(j->dev.name), "%.15s", dev);
             have_target = 1;
@@ -5529,8 +5558,9 @@ static void api_move(int c, const char *body) {
     pthread_mutex_unlock(&lib_lock);
     if (!have_target || ambiguous || badkey || same_dev || !j->nitems) {
         job_free(j);
-        respond_error(c, ambiguous ? 409 : 404,
-                      !have_target ? N_("Ziel-Laufwerk nicht eingebunden – Liste neu laden")
+        respond_error(c, ambiguous || target_changed ? 409 : 404,
+                      !have_target && target_changed ? N_("Das Ziel hat sich seit der Auswahl geändert – nichts kopiert. Liste neu laden.")
+                      : !have_target ? N_("Ziel-Laufwerk nicht eingebunden – Liste neu laden")
                       : same_dev ? N_("Quelle und Ziel sind dasselbe Laufwerk")
                       : ambiguous ? N_("Auswahl nicht eindeutig – nichts kopiert. Liste neu laden.")
                                   : N_("Spiele nicht gefunden – Liste neu laden"));
@@ -5825,9 +5855,9 @@ static void mf_extra_walk(const char *dir, size_t base, const mfe_t *ents, int n
         struct stat sb;
         if (snprintf(p, sizeof(p), "%s/%s", dir, v[i]) >= (int)sizeof(p) || lstat(p, &sb) != 0) continue;
         if (S_ISDIR(sb.st_mode)) mf_extra_walk(p, base, ents, ne, extra, depth + 1);
-        else if (S_ISREG(sb.st_mode)) {
+        else if (S_ISREG(sb.st_mode) && !strchr(v[i], '\n')) {   /* wie mf_build_walk: Namen mit Zeilenumbruch stehen nie in der Liste */
             mfe_t key = {p + base + 1, {0}};
-            if (!bsearch(&key, ents, (size_t)ne, sizeof(mfe_t), mf_ent_cmp)) (*extra)++;
+            if (ne <= 0 || !bsearch(&key, ents, (size_t)ne, sizeof(mfe_t), mf_ent_cmp)) (*extra)++;
         }
     }
     mf_free(v, n);
@@ -5854,7 +5884,7 @@ static int manifest_check(const del_item_t *it, char *buf, uint64_t *done, uint6
         ne++;
     }
     fclose(f);
-    if (!rc) qsort(ents, (size_t)ne, sizeof(mfe_t), mf_ent_cmp);
+    if (!rc && ne > 1) qsort(ents, (size_t)ne, sizeof(mfe_t), mf_ent_cmp);   /* leer: ents darf NULL sein (qsort(NULL) ist undefiniert) */
     for (int i = 0; !rc && i < ne; i++) {
         char p[1400];
         uint8_t h[32];
@@ -6171,7 +6201,7 @@ static void api_game_verify_ex(int c, const char *body, int sumgen) {
 
 /* ------------------------------------------------------------ Verwaistes aufräumen
  * GET /api/orphans: Reste, die zu nichts mehr gehören - Prüfsummen- und Dump-Info-Dateien ohne Abbild/Spiel, Backport-Ordner (backports/<Titel-ID>)
- * ohne installiertes Spiel, leere Spielordner. POST /api/orphans/delete {"keys":"…"}: löscht die gewählten (Schlüssel aus der Liste; es wird nur
+ * ohne installiertes Spiel, leere Spielordner; im internen Speicher dazu alte Spielstände, die ein Einspielen aufgehoben hat ("save_old"). POST /api/orphans/delete {"keys":"…"}: löscht die gewählten (Schlüssel aus der Liste; es wird nur
  * gelöscht, was die Suche jetzt selbst als verwaist findet). */
 typedef struct { char dev[16]; char kind[12]; char path[300]; uint64_t bytes; } orph_t;
 #define ORPH_MAX 300
@@ -6181,18 +6211,20 @@ static int ends_with_str(const char *s, const char *suf) {
     return l > k && strcmp(s + l - k, suf) == 0;
 }
 
+/* liegt irgendwo darunter eine Datei? Im Zweifel (zu tief, nicht lesbar, Pfad zu lang, kein Speicher) "ja": Ergebnis "leer"
+ * gibt den Ordner zum Löschen frei, also nie aus Unwissen */
 static int tree_has_file(const char *path, int depth) {
     struct stat sb;
-    if (depth > 16 || lstat(path, &sb) != 0) return 0;
+    if (depth > 16 || lstat(path, &sb) != 0) return 1;
     if (!S_ISDIR(sb.st_mode)) return 1;
     DIR *d = opendir(path);
     if (!d) return 1;   /* nicht lesbar: lieber als belegt ansehen */
-    int found = 0;
-    struct dirent *e;
     char *sub = malloc(1024);
+    int found = !sub;
+    struct dirent *e;
     while (sub && !found && (e = readdir(d))) {
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
-        if (snprintf(sub, 1024, "%s/%s", path, e->d_name) < 1024) found = tree_has_file(sub, depth + 1);
+        found = snprintf(sub, 1024, "%s/%s", path, e->d_name) >= 1024 || tree_has_file(sub, depth + 1);
     }
     free(sub);
     closedir(d);
@@ -6214,6 +6246,12 @@ static void backport_id(const char *name, char *out, size_t n) {
     size_t i = 0;
     while (name[i] && name[i] != ' ' && i + 1 < n) { out[i] = name[i]; i++; }
     out[i] = 0;
+}
+
+typedef struct { orph_t *out; int *n; } orph_ctx_t;
+static void orph_kept(void *ctx, const char *path) {
+    orph_ctx_t *o = ctx;
+    orph_add(o->out, o->n, "intern", "save_old", path);
 }
 
 static int find_orphans(orph_t *out, int max) {
@@ -6298,6 +6336,9 @@ static int find_orphans(orph_t *out, int max) {
         }
     }
     free(ids);
+    /* alte Spielstände, die ein Einspielen neben dem jetzigen aufgehoben hat (es konnte sie nicht zurücklegen): sonst nirgends zu sehen */
+    orph_ctx_t oc = {out, &n};
+    saves_kept_list(orph_kept, &oc);
     return n;
 }
 
@@ -7034,9 +7075,25 @@ static void handle(int c) {
             while (*kp == ' ' || *kp == '\t' || *kp == ':') kp++;
             keep = !strncmp(kp, "true", 4);
         }
-        __atomic_store_n(&cancel_keep, keep, __ATOMIC_RELAXED);
-        __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
-        respond_ok(c, 200);
+        /* "job": Nummer des Auftrags, den der Aufrufer abbrechen will (aus /api/status). Ist der schon zu Ende, gilt das Abbrechen
+         * nicht für einen inzwischen gestarteten nächsten Auftrag (etwa aus der Warteschlange oder einem anderen Browser).
+         * Ohne "job" wie bisher: der laufende Auftrag */
+        unsigned long want = 0;
+        const char *jp = body ? strstr(body, "\"job\"") : NULL;
+        if (jp) {
+            jp += 5;
+            while (*jp == ' ' || *jp == '\t' || *jp == ':') jp++;
+            want = strtoul(jp, NULL, 10);
+        }
+        pthread_mutex_lock(&lock);
+        const int stale = want && (!st.busy || want != job_seq);
+        if (!stale) {
+            __atomic_store_n(&cancel_keep, keep, __ATOMIC_RELAXED);
+            __atomic_store_n(&cancel_requested, 1, __ATOMIC_RELAXED);
+        }
+        pthread_mutex_unlock(&lock);
+        if (stale) respond_error(c, 409, "Dieser Auftrag ist schon beendet.");
+        else respond_ok(c, 200);
     }
     else if (strcmp(path, "/api/quit") == 0 && is_post) {
         pthread_mutex_lock(&lock);

@@ -355,6 +355,7 @@ int mkfs_fat32(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
     uint32_t next = 3;
     for (int i = 0; i < npn; i++) { pn[i].clus = next++; pn[i].nclus = 1; }
     if (next - 2 > clusters) return fail("Datenträger zu klein für die Ordner");
+    if (d->plan_only) return 0;
     const uint64_t fat_secs = (4ull * next + ss - 1) / ss;
 
     if (!(bs = sec_alloc(d, 1)) || !(fsi = sec_alloc(d, 1)) || !(fat = sec_alloc(d, fat_secs)) ||
@@ -578,6 +579,7 @@ int mkfs_exfat(blkdev_t *d, uint64_t hidden, uint64_t nsect, const char *label, 
         next += pn[i].nclus;
     }
     if (next - 2 >= count) return fail("Datenträger zu klein für exFAT");
+    if (d->plan_only) return 0;
     const uint32_t used = (uint32_t)(next - 2);
 
 #define CLUSTER_SEC(c) (heap + (uint64_t)((c) - 2) * spc)
@@ -742,7 +744,8 @@ typedef struct {
 #define GPT_ENTRY_BYTES (128u * 128u)
 
 /* alte Partitionstabellen am Anfang und Ende (Backup-GPT) löschen */
-static int begin_layout(blkdev_t *d, int fs, const char *label, mkfs_opts_t *o, layout_t *l) {
+/* Lage berechnen und Bezeichnung prüfen - schreibt nichts */
+static int plan_one(const blkdev_t *d, int fs, const char *label, mkfs_opts_t *o, layout_t *l) {
     const uint64_t edge = MIB / d->ss;
     if (fs < FS_EXFAT || fs > FS_HFSPLUS) return fail("Unbekanntes Dateisystem");
     if (!label_valid(label, fs)) return fail("Ungültige Bezeichnung (max. %d Zeichen: A-Z, 0-9, Leerzeichen, - _)",
@@ -762,7 +765,12 @@ static int begin_layout(blkdev_t *d, int fs, const char *label, mkfs_opts_t *o, 
         if (l->count > 0xFFFFFFFFull - edge) l->count = 0xFFFFFFFFull - edge;
     }
     if (o) o->is_gpt = l->gpt;
+    return 0;
+}
 
+static int begin_layout(blkdev_t *d, int fs, const char *label, mkfs_opts_t *o, layout_t *l) {
+    const uint64_t edge = MIB / d->ss;
+    if (plan_one(d, fs, label, o, l)) return -1;
     d->base = 0;
     ph_last = -1;   /* neues Formatieren: Fortschritt von vorn */
     phase(0, 4);
@@ -861,7 +869,7 @@ static int write_gpt(blkdev_t *d, const part_t *p, int n, uint64_t end) {
         random_guid(e + 16);
         put64(e + 32, p[i].start);
         put64(e + 40, p[i].start + p[i].count - 1);
-        const char *name = p[i].name && *p[i].name ? p[i].name : "Daten";
+        const char *name = p[i].name && *p[i].name ? p[i].name : T("Daten");   /* Übersetzung nur ASCII: je Zeichen ein Byte */
         for (int k = 0; k < 36 && name[k]; k++) put16(e + 56 + 2 * k, (uint8_t)name[k]);
     }
 
@@ -926,6 +934,16 @@ int format_disk(blkdev_t *d, int fs, const char *label, uint32_t serial, uint32_
     int rc;
 
     if (fs != FS_EXFAT && fs != FS_FAT32 && fs != FS_HFSPLUS) return fail("Dieses Dateisystem schreibt ein externes Werkzeug");
+    {   /* zuerst nur prüfen: scheitert das Dateisystem an Größe oder Zuordnungseinheit, bleibt der Datenträger unberührt
+         * (sonst wären die alten Partitionstabellen schon gelöscht, bevor die Meldung kommt) */
+        blkdev_t pd = *d;
+        pd.plan_only = 1;
+        if (plan_one(&pd, fs, label, o, &l)) return -1;
+        const int pr = fs == FS_EXFAT ? mkfs_exfat(&pd, l.start, l.count, label, serial, cluster, o)
+                     : fs == FS_FAT32 ? mkfs_fat32(&pd, l.start, l.count, label, serial, cluster, o)
+                                      : mkfs_hfsplus(&pd, l.count, label, serial, cluster);
+        if (pr) return -1;
+    }
     if (begin_layout(d, fs, label, o, &l)) return -1;
 
     d->base = l.start * d->ss;

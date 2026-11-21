@@ -3,7 +3,8 @@
  * part: nur Dateisystem ab Offset 0 (Partitionsbeginn 2048 im Bootsektor)
  * disk: komplettes Layout mit Partitionstabelle wie auf der PS5
  * cluster: Zuordnungseinheit in Bytes, 0/fehlt = Standard
- * Optionen: --gpt | --mbr, --limit=<bytes>, --dir=<pfad> (mehrfach), --file=<pfad>=<lokale datei> (mehrfach) */
+ * Optionen: --gpt | --mbr, --limit=<bytes>, --dir=<pfad> (mehrfach), --file=<pfad>=<lokale datei> (mehrfach),
+ *           --keep (vorhandenen Inhalt des Abbilds nicht vorher löschen - prüft, dass Abgelehntes nichts verändert) */
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,11 +40,12 @@ int main(int argc, char **argv) {
     const char *dirs[OPT_MAX + 1] = {0};
     mkfs_file_t files[OPT_MAX];
     mkfs_opts_t o = {0};
-    int nd = 0, pos = 0;
+    int nd = 0, pos = 0, keep = 0;
 
     for (int i = 6; i < argc; i++) {
         const char *a = argv[i];
         if (strcmp(a, "--gpt") == 0) o.scheme = LAYOUT_GPT;
+        else if (strcmp(a, "--keep") == 0) keep = 1;
         else if (strcmp(a, "--mbr") == 0) o.scheme = LAYOUT_MBR;
         else if (strncmp(a, "--limit=", 8) == 0) o.limit = strtoull(a + 8, NULL, 10);
         else if (strncmp(a, "--dir=", 6) == 0 && nd < OPT_MAX) dirs[nd++] = a + 6;
@@ -63,7 +65,7 @@ int main(int argc, char **argv) {
     blkdev_t d = {0};
     d.ss = (uint32_t)strtoul(argv[5], NULL, 10);
     d.sectors = bytes / d.ss;
-    d.fd = open(img, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    d.fd = open(img, O_RDWR | O_CREAT | (keep ? 0 : O_TRUNC), 0644);
     if (d.fd < 0 || ftruncate(d.fd, (off_t)bytes)) { perror(img); return 1; }
 
     int rc;

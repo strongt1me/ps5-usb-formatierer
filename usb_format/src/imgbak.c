@@ -129,6 +129,9 @@ static void scan_exfat(int fd, uint32_t ss, uint64_t base, uint64_t plen, const 
      * und welche gilt, steht in VolumeFlags - dann lieber alles sichern */
     if (!cc || cc > 0xFFFFFFF5u || bs[110] != 1 || heap + (uint64_t)cc * csize > plen || fat + 4ull * ((uint64_t)cc + 2) > heap)
         return;
+    /* VolumeDirty (VolumeFlags Bit 1) wird bewusst nicht ausgewertet: die PS5 bindet Sticks schreibend ein, und das Neu-Anmelden
+     * vor dem Sichern ist für ihren Treiber ein Abziehen - das Flag stünde praktisch immer, und jede Sicherung würde zur
+     * Vollsicherung des ganzen Laufwerks. Übliche Treiber markieren Cluster in der Bitmap, bevor eine Datei sie nennt. */
     const size_t chunk = csize < IB_BLOCK ? (size_t)csize : IB_BLOCK;
     uint8_t *buf = malloc(chunk);
     if (!buf) return;
@@ -184,7 +187,7 @@ static void scan_fat32(int fd, uint32_t ss, uint64_t base, uint64_t plen, const 
     uint8_t *buf = malloc(IB_BLOCK);
     if (!buf) return;
     runs_t r = {m, base + data * bps, csize, 0, 0};
-    const uint64_t fat = base + (uint64_t)rsvd * bps;
+    const uint64_t fat = base + (uint64_t)rsvd * bps;   /* (Sauber-Bit in FAT[1] wie bei exFAT bewusst nicht ausgewertet) */
     for (uint64_t c = 2; c < cc + 2; ) {
         uint64_t n = (cc + 2 - c) < IB_BLOCK / 4 ? (cc + 2 - c) : IB_BLOCK / 4;
         if (read_bytes(fd, ss, fat + 4 * c, buf, (size_t)(n * 4))) { free(buf); return; }
@@ -248,6 +251,8 @@ static void scan_disk(int fd, uint32_t ss, uint64_t size, map_t *m) {
     uint32_t n = le32(h + 80), esz = le32(h + 84);
     if (esz < 128 || esz > 4096 || n > 256 || !n) return;
     uint64_t alt = le64(h + 32);   /* GPT-Kopie: Kopf im letzten Sektor, Einträge davor */
+    const uint64_t secs = size / ss;   /* jede Sektornummer unter dieser Grenze: das Produkt mit ss läuft nicht über */
+    if (lba >= secs || alt >= secs) return;   /* unsinnige GPT: alles sichern */
     uint8_t *ents = malloc((size_t)n * esz);
     if (!ents) return;
     if (!read_bytes(fd, ss, lba * ss, ents, (size_t)n * esz)) {
@@ -256,7 +261,9 @@ static void scan_disk(int fd, uint32_t ss, uint64_t size, map_t *m) {
             int empty = 1;
             for (int k = 0; k < 16; k++) empty &= e[k] == 0;
             uint64_t first = le64(e + 32), last = le64(e + 40);
-            if (!empty && last >= first) probe_part(fd, ss, first * ss, (last - first + 1) * ss, size, m, &end);
+            if (empty || last < first) continue;
+            if (first >= secs || last >= secs) { free(ents); return; }   /* Partition hinter dem Laufwerk: nichts kürzen */
+            probe_part(fd, ss, first * ss, (last - first + 1) * ss, size, m, &end);
         }
         if (end && alt * ss < size && alt * ss >= end) {
             map_free(m, end, size - end);
@@ -549,6 +556,16 @@ int ib_backup_ex(int fd, uint32_t ss, uint64_t size, ib_info_t *info, ib_out_fn 
             if (!frames) { snprintf(err, errlen, "%s", T("Kein Speicher")); goto out; }
             memcpy(frames, res->frames, (size_t)res->nframes * sizeof(*frames));
             nframes = capframes = res->nframes;
+        }
+        /* die Merkpunkte stammen aus einer Datei: nur glauben, was zur Karte passt (Blockgrenzen, aufsteigend, innerhalb des Laufwerks) -
+         * sonst läse frame_sha hinter der Karte und dem Laufwerk */
+        int sane = res->seg % IB_BLOCK == 0 && res->seg <= size;
+        for (int i = 0; sane && i < nframes; i++)
+            sane = frames[i].len && frames[i].start % IB_BLOCK == 0 && frames[i].start <= size && frames[i].len <= size - frames[i].start &&
+                   frames[i].start + frames[i].len <= res->seg && (!i || frames[i].start >= frames[i - 1].start + frames[i - 1].len);
+        if (!sane) {
+            snprintf(err, errlen, "%s", T("Der Zwischenstand der unterbrochenen Sicherung ist beschädigt – bitte neu sichern."));
+            goto out;
         }
         if (rs->thorough) {
             uint64_t total = 0, done = 0;

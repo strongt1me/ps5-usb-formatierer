@@ -163,7 +163,10 @@ class Api:
         return r
 
     def status(self):
-        return self._call("/api/status")
+        st = self._call("/api/status")
+        # Nummer des laufenden Auftrags: "Abbrechen" gilt nur ihm, nie einem danach gestarteten (Warteschlange, anderer Browser)
+        self.busy_job = (st.get("job") or 0) if isinstance(st, dict) and st.get("busy") else 0
+        return st
 
     def library(self):
         return self._call("/api/library", timeout=8)
@@ -274,7 +277,10 @@ class Api:
 
     def cancel(self, keep=False):
         """Auftrag abbrechen; keep: eine Image-Sicherung auf die PS5 als Teilsicherung behalten (später fortsetzen)"""
-        return self._call("/api/cancel", {"keep": True} if keep else {})
+        body = {"keep": True} if keep else {}
+        if getattr(self, "busy_job", 0):
+            body["job"] = self.busy_job
+        return self._call("/api/cancel", body)
 
     def resume_backup(self, dev, path, thorough):
         """Image-Sicherung ab dem letzten Merkpunkt fortsetzen"""
@@ -692,7 +698,8 @@ def ask_orphans(root, dev, items):
     frm.pack(fill="both", expand=True)
     ttk.Label(frm, text=_("Diese Reste auf {name} ({dev}) gehören zu keinem gefundenen Spiel. Anhaken, was gelöscht werden soll:",
                           name=dev_title(dev), dev=dev["name"]), wraplength=px(560), justify="left").pack(anchor="w")
-    kinds = {"sidecar": _("Prüfsumme/Info ohne Spiel"), "backport": _("Backport-Ordner ohne Spiel"), "empty": _("leerer Spielordner")}
+    kinds = {"sidecar": _("Prüfsumme/Info ohne Spiel"), "backport": _("Backport-Ordner ohne Spiel"), "empty": _("leerer Spielordner"),
+             "save_old": _("alter Spielstand, beim Einspielen aufgehoben")}
     imgs = check_images(win)
     tree = ttk.Treeview(frm, columns=("meta",), show="tree", height=min(12, max(4, len(items))), selectmode="none", style="Games.Treeview")
     tree.column("#0", width=px(380), stretch=True)
@@ -967,6 +974,7 @@ class App(tk.Tk):
         self.consoles = {}         # Anzeigetext -> Fund aus ps5_discovery
         self.ps5_devices = []      # zuletzt gelesene Liste der PS5 (bleibt beim Umschalten erhalten)
         self.pc_job = None         # laufender Auftrag des PC-Helfers
+        self.pc_starting = False   # Auftrag am PC startet (Rechteabfrage offen): Schließen fragt nach
         self.place_devs = []       # feste Orte der PS5 mit Spielen (intern, ext1), aus /api/library
         self.games = {}            # PS5-Gerätename (da1 ...) -> Spiele darauf (aus /api/library)
         self.mounted_keys = set()  # Schlüssel der von ShadowMountPlus eingehängten Spiele (/api/mounted)
@@ -4496,22 +4504,27 @@ class App(tk.Tk):
         dev: der Datenträger, wie ihn die Rückfrage gezeigt hat - schreibende Aufträge prüfen vorher, ob er noch so da ist"""
         hwnd = hwnd_of(self)
         dev = dev or next((d for d in self.devices if len(args) > 1 and str(d.get("disk")) == str(args[1])), None)
+        # bis der Helfer läuft (UAC/pkexec-Abfrage) ist weder pc_job noch formatting gesetzt - Schließen fragt trotzdem
+        self.pc_starting = True
 
         def work():
             if op in PC_WRITE_OPS:
                 why = pc_recheck(dev, lambda pct, text: self.q.put(("scan", pct, text))) if dev else \
                     _("Der Datenträger ist nicht mehr da. Abgebrochen – es wurde nichts geändert.")
                 if why:
+                    self.pc_starting = False
                     self.q.put(("error", why))
                     return
             started = time.time()
             try:
                 job = PcJob(args, hwnd)
             except (OSError, RuntimeError) as e:
+                self.pc_starting = False
                 self.q.put(("error", str(e)))
                 return
             job.cancellable = cancellable
             self.pc_job = job
+            self.pc_starting = False   # erst nach pc_job: keine Lücke, in der Schließen nicht nachfragt
             self.q.put(("formatting", False))
             ok, msg, info = job.follow(lambda pct, step: self.q.put(("progress", pct, step, {})))
             msg = (msg or "") + record_job(args, ok, msg, dev, started, getattr(job, "cancel_requested", False), info)
@@ -4908,7 +4921,7 @@ class App(tk.Tk):
             if after:
                 after(ok, text, info)
         elif kind == "error":
-            self.busy = self.formatting = False
+            self.busy = self.formatting = self.pc_starting = False   # auch nach unerwarteten Fehlern im Thread
             self._img_to_pc = False
             self.pc_job = None
             self.pbar.stop()
@@ -5003,8 +5016,9 @@ class App(tk.Tk):
                                 "unvollständig beschrieben. Fenster trotzdem schließen?"),
                 icon="warning", parent=self):
             return
-        if self.formatting and not transfer and not messagebox.askyesno(
-                self.title(), (_("Der Auftrag läuft am PC im Hintergrund weiter.") if self.pc_job else
+        pc = bool(self.pc_job or self.pc_starting)   # pc_starting: Rechteabfrage offen, der Auftrag startet gleich
+        if (self.formatting or pc) and not transfer and not messagebox.askyesno(
+                self.title(), (_("Der Auftrag läuft am PC im Hintergrund weiter.") if pc else
                                _("Die Formatierung läuft auf der PS5 weiter.")) + " " +
                 _("Fenster trotzdem schließen?"),
                 icon="warning", parent=self):

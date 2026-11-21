@@ -253,10 +253,28 @@ try:
         check("PPSA00002" in t and "Version" in t and "01.000.000" in t and "Größte Einträge" in t, "Klick auf ein Spiel: Einzelheiten mit Titel-ID, Version und Einträgen", t[:200])
         dlg_click("Schließen")
 
-        # ältere Version vorwählen
+        # Controller: beim Neuaufbau der Liste (Größen laden, Spielesuche) bleibt der Fokus auf der Spielzeile - auch, wenn das
+        # während des Einzelheiten-Dialogs geschieht
+        page.locator("#content .game.info", has_text="Beta").first.focus()
+        key = page.evaluate("() => document.activeElement.dataset.key || ''")
+        page.evaluate("renderContent()")
+        check(key and page.evaluate("k => document.activeElement.dataset.key === k && document.getElementById('content').contains(document.activeElement)", key),
+              "Neuaufbau der Liste: Fokus bleibt auf der Spielzeile", key)
+        page.keyboard.press("Enter")
+        dlg_text()
+        page.evaluate("renderContent()")
+        dlg_click("Schließen")
+        check(page.evaluate("k => document.activeElement.dataset.key === k", key), "Dialog zu: Fokus zurück auf der neu aufgebauten Spielzeile",
+              page.evaluate("() => document.activeElement.outerHTML.slice(0, 80)"))
+
+        # ältere Version vorwählen - bei aktiver Suche wird sie zurückgesetzt, damit die Auswahl zu sehen ist
+        page.fill('#content input[type=search]', "Beta")
+        page.wait_for_timeout(300)
         page.locator("#content button:has-text('Ältere Version auswählen')").first.click()
         page.wait_for_timeout(400)
-        check("1 ausgewählt" in page.inner_text("#content"), "Duplikate: ältere Version ist vorgewählt (Löschen-Auswahl)", page.inner_text("#content")[:200])
+        check("1 ausgewählt" in page.inner_text("#content") and page.input_value('#content input[type=search]') == ""
+              and page.locator("#content label.game.pick input:checked").count() == 1,
+              "Duplikate: ältere Version ist vorgewählt und zu sehen (Löschen-Auswahl, Suche zurückgesetzt)", page.inner_text("#content")[:200])
         page.click("#content .pickbar button:has-text('Abbrechen')")
         page.wait_for_timeout(300)
 

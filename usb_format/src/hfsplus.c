@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "i18n.h"
 #include "mkfs.h"
 #include "mkfs_int.h"
 
@@ -122,7 +123,7 @@ static void set_bits(uint8_t *buf, uint64_t b0, uint64_t b1, uint64_t from, uint
 int mkfs_hfsplus(blkdev_t *d, uint64_t nsect, const char *label, uint32_t serial, uint32_t block) {
     const uint32_t ss = d->ss;
     const uint32_t bs = block ? block : 4096;
-    const char *name = label && *label ? label : "Ohne Titel";
+    const char *name = label && *label ? label : T("Ohne Titel");   /* in der Sprache des Auftrags; Übersetzung nur ASCII */
     uint8_t *hdr = NULL, *cat = NULL, *bm = NULL, *vh = NULL;
     int rc = -1;
 
@@ -153,6 +154,7 @@ int mkfs_hfsplus(blkdev_t *d, uint64_t nsect, const char *label, uint32_t serial
     if ((uint64_t)next_free + (total - tail_start) + 8 > total) return mk_fail("Partition zu klein für HFS+");
     const uint32_t cat_nodes = (uint32_t)(cat_bytes / CAT_NODE), ext_nodes = (uint32_t)(ext_bytes / EXT_NODE);
     if (cat_nodes > (CAT_NODE - 256) * 8 || ext_nodes > (EXT_NODE - 256) * 8) return mk_fail("Interner Fehler: B-Baum zu groß");
+    if (d->plan_only) return 0;   /* nur prüfen (format_disk, Partitionsplan) */
     const uint32_t used = next_free + (total - tail_start);
 
     const uint32_t now = (uint32_t)(time(NULL) + HFS_EPOCH_DELTA);

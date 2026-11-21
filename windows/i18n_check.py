@@ -1,5 +1,5 @@
 """Übersetzungen der Windows-Programme prüfen: findet alle Texte _("...") im Code (und die Tabellen in fsinfo,
-partition_editor, usb_formatierer) und vergleicht mit i18n_app.json.
+partition_editor, standard_panel, usb_formatierer: Betriebsarten, Navigation, Reiter) und vergleicht mit i18n_app.json.
     python i18n_check.py            Bericht; Exit 1 bei fehlenden/falschen Übersetzungen
     python i18n_check.py --missing  fehlende Texte als JSON-Gerüst ausgeben (zum Übersetzen)
 Meldet außerdem deutsche Texte, die nicht in _() stehen. Absichtlich deutsch bleibt der Selbsttest und der Fehlerbericht
@@ -13,7 +13,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCES = ["usb_formatierer.py", "usb_standard.py", "standard_panel.py", "partition_editor.py", "pc_common.py",
-           "pc_linux.py", "fsinfo.py", "ui_msgbox.py", "ui_widgets.py", "ui_theme.py"]
+           "pc_linux.py", "fsinfo.py", "ui_msgbox.py", "ui_widgets.py", "ui_theme.py", "zsync_update.py",
+           "ps5_discovery.py"]
 LANGS = ["en", "it", "es", "fr"]
 
 
@@ -32,7 +33,9 @@ def code_texts():
     import usb_formatierer
     for text in [h for _f, _m, h in fsinfo.FILESYSTEMS.values()] + [t for _k, t in fsinfo.SCHEMES] + \
             [t for _k, t in fsinfo.PTYPES] + list(partition_editor.PTYPE_SHORT.values()) + \
-            [t for _k, t in usb_formatierer.MODES] + [t for _k, t in standard_panel.PURPOSES] +             [g for g, _i in usb_formatierer.NAV] + [t for _g, items in usb_formatierer.NAV for _k, t in items] + [fsinfo.NO_FS]:
+            [t for _k, t in usb_formatierer.MODES] + [t for _k, t in standard_panel.PURPOSES] + \
+            [g for g, _i in usb_formatierer.NAV] + [t for _g, items in usb_formatierer.NAV for _k, t in items] + \
+            [t for _k, t in usb_formatierer.TABS] + [fsinfo.NO_FS]:
         found.setdefault(text, "Tabelle")
     return found
 

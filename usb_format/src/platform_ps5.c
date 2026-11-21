@@ -533,12 +533,47 @@ static void snapshot(node_t *snap) {
     }
 }
 
+/* Kennung eines Sticks ohne Seriennummer aus dem, was ein Formatierer je Laufwerk zufällig vergibt: Datenträger-Signatur des MBR,
+ * Seriennummer des Dateisystems der ersten Partition (exFAT, FAT32, NTFS) bzw. die Datenträger-GUID einer GPT. Nichts davon ändert
+ * sich beim Einbinden (anders als etwa das VolumeDirty-Flag). 0 = Kennung in out, -1 = nichts Kennzeichnendes lesbar */
+static int stick_fp(int fd, uint32_t ss, uint8_t out[24]) {
+    static uint8_t buf[2][4096] __attribute__((aligned(4096)));   /* nur aus dem Auftrags-Faden (einer zugleich) */
+    uint8_t *s0 = buf[0], *v = buf[1];
+    memset(out, 0, 24);
+    if (!ss || ss > 4096 || pread(fd, s0, ss, 0) != (ssize_t)ss || s0[510] != 0x55 || s0[511] != 0xAA) return -1;
+    const uint8_t *vbr = NULL;
+    if (!memcmp(s0 + 3, "EXFAT   ", 8) || !memcmp(s0 + 82, "FAT32   ", 8) || !memcmp(s0 + 3, "NTFS    ", 8)) vbr = s0;   /* ohne Tabelle */
+    else if (s0[450] == 0xEE) {   /* GPT: Datenträger-GUID im Kopf (Sektor 1) */
+        if (pread(fd, v, ss, ss) != (ssize_t)ss || memcmp(v, "EFI PART", 8)) return -1;
+        memcpy(out, v + 56, 16);
+    } else if (s0[450]) {
+        memcpy(out, s0 + 440, 4);   /* Datenträger-Signatur */
+        const uint64_t lba = (uint64_t)s0[454] | (uint64_t)s0[455] << 8 | (uint64_t)s0[456] << 16 | (uint64_t)s0[457] << 24;
+        if (lba && pread(fd, v, ss, (off_t)(lba * ss)) == (ssize_t)ss) vbr = v;
+    }
+    if (vbr) {   /* Seriennummer des Dateisystems */
+        if (!memcmp(vbr + 3, "EXFAT   ", 8)) memcpy(out + 4, vbr + 100, 4);
+        else if (!memcmp(vbr + 82, "FAT32   ", 8)) memcpy(out + 4, vbr + 67, 4);
+        else if (!memcmp(vbr + 3, "NTFS    ", 8)) memcpy(out + 4, vbr + 72, 8);
+    }
+    for (int i = 0; i < 24; i++) if (out[i]) return 0;
+    return -1;
+}
+
 int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, volatile int *cancel,
                      char *err, size_t errlen) {
     char cur[sizeof(d->path)], path[32], name[16];
     node_t snap[REPLUG_UNITS], now;
     int soft = 1;   /* zuerst per Software; geht das nicht, zieht der Benutzer ab */
     snprintf(cur, sizeof(cur), "%s", d->path);
+    /* ohne Seriennummer reicht "gleich groß" nicht (ein zweiter Stick derselben Packung, während des Wartens eingesteckt): dann
+     * vorher die Kennung aus dem Inhalt merken und nur einen Stick mit derselben nehmen */
+    uint8_t fp_before[24];
+    int have_fp = 0;
+    if (!d->ident[0]) {
+        const int f = open(d->path, O_RDONLY);
+        if (f >= 0) { have_fp = stick_fp(f, d->ss, fp_before) == 0; close(f); }
+    }
 
     for (int attempt = 0; attempt < REPLUG_ATTEMPTS; attempt++) {
         /* 1. Freigeben: Die PS5 gibt den Stick beim (Software-)Abziehen selbst frei, samt ihrer Spiegel */
@@ -644,6 +679,13 @@ int plat_wait_replug(const usbdev_t *d, usbdev_t *out, progress_fn progress, vol
                 if (d->ident[0] && strcmp(d->ident, out->ident) != 0) {
                     close(fd);
                     continue;
+                }
+                if (have_fp) {   /* ohne Seriennummer: dieselbe Kennung aus dem Inhalt (s. oben) */
+                    uint8_t fp_now[24];
+                    if (stick_fp(fd, sector, fp_now) != 0 || memcmp(fp_before, fp_now, sizeof(fp_now)) != 0) {
+                        close(fd);
+                        continue;
+                    }
                 }
                 return fd;
             }

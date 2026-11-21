@@ -1055,6 +1055,12 @@
   "es": "El asistente usbfmt_win.exe ha sido modificado – no se inició por motivos de seguridad. Vuelve a descargar el programa.",
   "fr": "L'assistant usbfmt_win.exe a été modifié – non lancé pour des raisons de sécurité. Veuillez retélécharger le programme."
  },
+ "Der Helfer {name} wurde verändert – aus Sicherheitsgründen nicht gestartet. Bitte das Programm neu herunterladen.": {
+  "en": "The helper {name} has been modified – not started for security reasons. Please download the program again.",
+  "it": "L'helper {name} è stato modificato – non avviato per motivi di sicurezza. Scarica di nuovo il programma.",
+  "es": "El asistente {name} ha sido modificado – no se inició por motivos de seguridad. Vuelve a descargar el programa.",
+  "fr": "L'assistant {name} a été modifié – non lancé pour des raisons de sécurité. Veuillez retélécharger le programme."
+ },
  "Helfer meldet Fehler {code}: {text}": {
   "en": "Helper reports error {code}: {text}",
   "it": "L'helper segnala l'errore {code}: {text}",
@@ -1132,6 +1138,24 @@
   "it": "L'helper non segnala nulla da 30 minuti – interrotto.",
   "es": "El asistente no informa nada desde hace 30 minutos – cancelado.",
   "fr": "L'assistant ne signale plus rien depuis 30 minutes – annulé."
+ },
+ "Der Helfer reagiert nicht – warte, bis er sich beendet": {
+  "en": "The helper does not respond – waiting for it to end",
+  "it": "L'helper non risponde – attendo che termini",
+  "es": "El asistente no responde – esperando a que termine",
+  "fr": "L'assistant ne répond pas – attente de son arrêt"
+ },
+ "Der Helfer meldet seit 30 Minuten nichts mehr und beendet sich auch nach dem Abbruch nicht – er läuft im Hintergrund weiter. Bis er sich beendet, startet auf diesem Datenträger kein neuer Auftrag; endet er nicht, den Rechner neu starten.": {
+  "en": "The helper has not reported anything for 30 minutes and does not end even after cancelling – it keeps running in the background. Until it ends, no new job starts on this drive; if it does not end, restart the computer.",
+  "it": "L'helper non segnala nulla da 30 minuti e non termina nemmeno dopo l'annullamento – continua in background. Finché non termina, su questa unità non parte nessuna nuova operazione; se non termina, riavvia il computer.",
+  "es": "El asistente no informa nada desde hace 30 minutos y no termina ni siquiera tras la cancelación – sigue ejecutándose en segundo plano. Hasta que termine, no se inicia ninguna tarea nueva en esta unidad; si no termina, reinicia el ordenador.",
+  "fr": "L'assistant ne signale plus rien depuis 30 minutes et ne s'arrête pas même après l'annulation – il continue en arrière-plan. Tant qu'il ne s'est pas arrêté, aucune nouvelle opération ne démarre sur ce support ; s'il ne s'arrête pas, redémarrez l'ordinateur."
+ },
+ "Auf diesem Datenträger läuft noch ein früherer Auftrag, dessen Helfer nicht mehr reagiert. Bitte warten, bis er sich beendet, oder den Rechner neu starten.": {
+  "en": "An earlier job whose helper no longer responds is still running on this drive. Please wait until the helper ends, or restart the computer.",
+  "it": "Su questa unità è ancora in corso un'operazione precedente il cui helper non risponde più. Attendi che l'helper termini oppure riavvia il computer.",
+  "es": "En esta unidad sigue en curso una tarea anterior cuyo asistente ya no responde. Espera a que el asistente termine o reinicia el ordenador.",
+  "fr": "Une opération précédente dont l'assistant ne répond plus est toujours en cours sur ce support. Veuillez attendre que l'assistant s'arrête ou redémarrer l'ordinateur."
  },
  "Bleibt leer (z. B. für ein späteres Betriebssystem). Windows zeigt sie nicht an.": {
   "en": "Stays empty (e.g. for an operating system later). Windows does not show it.",
@@ -4151,6 +4175,60 @@
   "es": "La actualización falló: {error} – el archivo actual no ha cambiado. Descárgalo en su lugar.",
   "fr": "Échec de la mise à jour : {error} – le fichier actuel est inchangé. Téléchargez-le plutôt."
  },
+ "zsync: kein Kopf": {
+  "en": "zsync: no header",
+  "it": "zsync: intestazione mancante",
+  "es": "zsync: falta la cabecera",
+  "fr": "zsync : en-tête manquant"
+ },
+ "zsync: Kopf unvollständig ({e})": {
+  "en": "zsync: incomplete header ({e})",
+  "it": "zsync: intestazione incompleta ({e})",
+  "es": "zsync: cabecera incompleta ({e})",
+  "fr": "zsync : en-tête incomplet ({e})"
+ },
+ "zsync: ungültige Angaben": {
+  "en": "zsync: invalid values",
+  "it": "zsync: dati non validi",
+  "es": "zsync: datos no válidos",
+  "fr": "zsync : données non valides"
+ },
+ "zsync: Blockliste unvollständig": {
+  "en": "zsync: incomplete block list",
+  "it": "zsync: elenco dei blocchi incompleto",
+  "es": "zsync: lista de bloques incompleta",
+  "fr": "zsync : liste de blocs incomplète"
+ },
+ "zsync-Datei zu groß": {
+  "en": "zsync file too large",
+  "it": "File zsync troppo grande",
+  "es": "Archivo zsync demasiado grande",
+  "fr": "Fichier zsync trop volumineux"
+ },
+ "Server liefert keine Teilbereiche (HTTP {code})": {
+  "en": "The server does not deliver partial ranges (HTTP {code})",
+  "it": "Il server non fornisce intervalli parziali (HTTP {code})",
+  "es": "El servidor no entrega rangos parciales (HTTP {code})",
+  "fr": "Le serveur ne fournit pas de plages partielles (HTTP {code})"
+ },
+ "Teilbereich unvollständig geladen": {
+  "en": "Partial range downloaded incompletely",
+  "it": "Intervallo parziale scaricato in modo incompleto",
+  "es": "Rango parcial descargado de forma incompleta",
+  "fr": "Plage partielle téléchargée de façon incomplète"
+ },
+ "SHA-1 der neuen Datei stimmt nicht – nichts ersetzt": {
+  "en": "SHA-1 of the new file does not match – nothing replaced",
+  "it": "Lo SHA-1 del nuovo file non corrisponde – non è stato sostituito nulla",
+  "es": "El SHA-1 del nuevo archivo no coincide – no se ha reemplazado nada",
+  "fr": "Le SHA-1 du nouveau fichier ne correspond pas – rien n'a été remplacé"
+ },
+ "SHA-256 der neuen Datei stimmt nicht mit dem Release überein – nichts ersetzt": {
+  "en": "SHA-256 of the new file does not match the release – nothing replaced",
+  "it": "Lo SHA-256 del nuovo file non corrisponde alla release – non è stato sostituito nulla",
+  "es": "El SHA-256 del nuevo archivo no coincide con el de la versión – no se ha reemplazado nada",
+  "fr": "Le SHA-256 du nouveau fichier ne correspond pas à celui de la version – rien n'a été remplacé"
+ },
  "Der Datenträger hat sich seit der Rückfrage geändert (andere Karte oder anderer Stick eingesteckt?). Abgebrochen – es wurde nichts geändert. Bitte die Auswahl prüfen und neu starten.": {
   "en": "The drive has changed since you confirmed (a different card or stick inserted?). Cancelled – nothing was changed. Please check the selection and start again.",
   "it": "L'unità è cambiata dopo la conferma (inserita un'altra scheda o chiavetta?). Annullato – non è stato modificato nulla. Controlla la selezione e riavvia.",
@@ -4210,5 +4288,11 @@
   "it": "Il formattatore sulla PS5 è stato riavviato nel frattempo – non si sa se il salvataggio sia stato ripristinato.",
   "es": "El formateador de la PS5 se reinició mientras tanto – no se sabe si la partida se restauró.",
   "fr": "Le formateur sur la PS5 a été redémarré entre-temps – on ne sait pas si la sauvegarde a été restaurée."
+ },
+ "alter Spielstand, beim Einspielen aufgehoben": {
+  "en": "old save, kept by an import",
+  "it": "vecchio salvataggio, conservato da un ripristino",
+  "es": "partida antigua, conservada por una restauración",
+  "fr": "ancienne sauvegarde, conservée par une restauration"
  }
 }

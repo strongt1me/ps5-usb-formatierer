@@ -6,6 +6,21 @@ version numbers follow [Semantic Versioning](https://semver.org/). The files for
 
 ## [Unreleased]
 
+### Fixed
+
+- Formatting: a size or allocation unit that does not fit the file system (too many clusters for FAT32, an exFAT cluster smaller than a sector, FAT32 on more than 2 TiB …) is now rejected before anything is written. Until now the old partition table was already deleted when the error appeared – on the PS5 and in the PC programs' partition editor.
+- Image backup: resuming checks the saved state before using it; damaged GPT values on the drive no longer cause overflows.
+- Re-registering a stick without a serial number on the PS5: besides the size, the drive ID from its contents (disk signature, volume serial number) must match, so a second stick of the same size plugged in meanwhile is not taken.
+- Saves: a recovery record left over after an aborted import can no longer reset the save database again later; a database that has changed since is left alone (with a note). The record of an interrupted import is only completed when the new save really is in place. The error message no longer says "everything is as before" when the old save could not be fully put back, and an old save left next to it is kept instead of deleted.
+- Moving games: leftover staging folders are only used if they are real folders, never links pointing elsewhere. "Discard" of a partial backup can no longer delete a finished backup through a link. Deleting or discarding a backup cannot overlap with a job that starts at the same moment. "Clean up" treats a folder as occupied when in doubt (too deep, unreadable).
+- Web interface: the controller focus stays on the game list while it is redrawn (sizes, library scan), also after closing the game details. A copy queue restored after reloading only keeps entries whose drives are clearly identified; a job started by hand no longer slips in between queue items; "Select older version" only selects visible games; the update notice can be opened with the controller on the PS5; switching the language updates all texts.
+- Help: cancelling a copy keeps the partial copy (copying the same selection again resumes it) – the guide said the opposite; copying, the queue, checksums, "Check games" and "Clean up" are now described.
+- PC programs: a helper that no longer responds is waited for and no new job starts on that drive while it keeps running (before, the program unlocked while it might still write); closing the window while the administrator prompt is open asks first; update errors are translated and an unexpected error no longer leaves the update stuck; a damaged history file can no longer turn a successful job into an error.
+- "Cancel" now applies only to the job it was pressed for: the web interface and the PC programs send its number, and a job that has already finished is no longer cancelled in its place – not the next one from the copy queue or another browser.
+- Copying or moving to a USB drive is refused if a different stick has been plugged in under the same name since the list was loaded.
+- Old saves that an import had to keep next to the current one now appear in "Clean up" for the internal storage and can be deleted there.
+- An unnamed HFS+ volume or GPT partition gets its default name in the chosen language instead of always in German.
+
 ## [2.6.72] – 2026-11-20
 
 ### Fixed

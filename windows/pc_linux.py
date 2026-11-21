@@ -49,16 +49,20 @@ def pkexec_path():
 class LinuxJob:
     """Startet den Helfer mit Root-Rechten (pkexec) und liest seine Ausgabedatei mit"""
     STALL_S = 30 * 60   # so lange ohne neue Ausgabe: Helfer gilt als hängend
+    STOP_WAIT_S = 10 * 60   # danach so lange warten, bis er sich wirklich beendet (sonst: linger)
 
     def __init__(self, args, hwnd=None, helper=None, digest=""):
-        from pc_common import TEMP_PREFIX, find_helper, helper_digest   # (Kreisbezug: pc_common lädt dieses Modul)
+        # (Kreisbezug: pc_common lädt dieses Modul)
+        from pc_common import TEMP_PREFIX, check_lingering, find_helper, helper_digest, job_disk
+        check_lingering(args)   # dort läuft noch ein aufgegebener Helfer: nichts Neues starten
+        self.disk = job_disk(args)
         exe = helper or find_helper()
         if not exe:
             raise RuntimeError(_("Der Helfer {name} fehlt neben dem Programm.", name="usbfmt_linux"))
         digest = digest or helper_digest()
         if getattr(sys, "frozen", False) and not digest:   # ausgeliefert, aber ohne Prüfsumme: nicht ungeprüft als root starten
-            raise RuntimeError(_("Der Helfer usbfmt_win.exe wurde verändert – aus Sicherheitsgründen nicht gestartet. "
-                                 "Bitte das Programm neu herunterladen."))
+            raise RuntimeError(_("Der Helfer {name} wurde verändert – aus Sicherheitsgründen nicht gestartet. Bitte das "
+                                 "Programm neu herunterladen.", name="usbfmt_linux"))
         # eigener Ordner (nur für diesen Benutzer): die Ausgabedatei legt der Helfer als root darin an
         self.tmpdir = tempfile.mkdtemp(prefix=TEMP_PREFIX + "-")
         self.out = os.path.join(self.tmpdir, "auftrag.txt")
@@ -115,6 +119,7 @@ class LinuxJob:
     def follow(self, on_progress):
         """Bis zum Ende mitlesen; liefert (ok, meldung, json)"""
         pos, result, last_change = 0, None, time.time()
+        stalled = False
         try:
             while result is None:
                 alive = self.running()
@@ -145,16 +150,23 @@ class LinuxJob:
                 if result is None and not alive:
                     result = (False, self._exit_text(self.proc.returncode), {})
                 elif result is None and time.time() - last_change > self.STALL_S:
-                    # pkexec läuft als root - beenden darf ihn nur er selbst; abbrechen lassen und aufgeben
+                    # pkexec läuft als root - beenden darf ihn nur er selbst: abbrechen lassen und warten, bis er sich
+                    # wirklich beendet; sonst schriebe er womöglich weiter, während schon ein neuer Auftrag läuft
+                    from pc_common import wait_stopped
                     self.cancel()
                     self.cancel_requested = False   # hängt: "fehlgeschlagen", nicht "abgebrochen"
-                    result = (False, _("Der Helfer meldet seit 30 Minuten nichts mehr – abgebrochen."), {})
+                    result = (False, wait_stopped(self, on_progress, self.STOP_WAIT_S), {})
+                    stalled = True
                 elif result is None:
                     time.sleep(0.3)
         finally:
-            try:
-                self.proc.wait(timeout=5)
+            try:   # nach einem regulären Ende länger warten, bevor er als "läuft noch" gilt (wie unter Windows)
+                self.proc.wait(timeout=5 if stalled else 60)
             except subprocess.TimeoutExpired:
                 pass
-            self._cleanup()
+            if self.running():   # endet nicht: Abbruch-Datei liegen lassen, bis er sich beendet (pc_common.linger)
+                from pc_common import linger
+                linger(self, self._cleanup)
+            else:
+                self._cleanup()
         return result

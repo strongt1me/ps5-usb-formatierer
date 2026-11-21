@@ -204,6 +204,25 @@ static int plan_check(const session_t *s, uint64_t size, const fmtreq_t *q, char
                                "Einheiten)."), i + 1);
             return -1;
         }
+        /* exFAT/FAT32/HFS+ (unter Windows bei NTFS/FAT das vorläufige exFAT): dieselbe Rechnung wie beim Schreiben, nur ohne
+         * Schreiben - Obergrenzen (zu viele Cluster), Zuordnungseinheit kleiner als ein Sektor usw. fielen sonst erst auf, wenn
+         * die Partitionstabelle schon neu geschrieben ist */
+        if (!is_ext(w->fs) && w->fs != WFS_NONE && w->fs != FS_NTFS
+#ifndef _WIN32
+            && !by_os(w->fs)
+#endif
+           ) {
+            blkdev_t cd = pd;
+            cd.plan_only = 1;
+            const int r = by_os(w->fs) ? mkfs_exfat(&cd, pp[i].start, pp[i].count, "", 0, 0, NULL)
+                        : w->fs == FS_HFSPLUS ? mkfs_hfsplus(&cd, pp[i].count, w->label, 0, w->cluster)
+                        : w->fs == FS_EXFAT || w->fs == WFS_FAT16 ? mkfs_exfat(&cd, pp[i].start, pp[i].count, w->label, 0, w->cluster, NULL)
+                                                                  : mkfs_fat32(&cd, pp[i].start, pp[i].count, w->label, 0, w->cluster, NULL);
+            if (r) {
+                snprintf(err, n, T("Partition %d: %s"), i + 1, mkfs_error());
+                return -1;
+            }
+        }
         /* NTFS: mkntfs scheitert unter etwa 16 Clustern bzw. 2 MB (bei 1 Cluster läuft es endlos) */
         if (w->fs == FS_NTFS && (bytes < 2 * MIB || (w->cluster && bytes / w->cluster < 16))) {
             snprintf(err, n, T("Partition %d: Für NTFS zu klein bzw. Zuordnungseinheit zu groß (mindestens 16 "
